@@ -1,0 +1,176 @@
+{
+  "summaryLabels": {
+    "total": "happy porkies",
+    "regular": "similarly sized snugglers",
+    "giant": "gentle giant",
+    "tiny": "tiny treasure"
+  },
+  "porkiesSection": {
+    "eyebrow": "Meet the herd",
+    "title": "The 15 porkies of Cochonnet Villa.",
+    "text": "Most of the crew are close in size, which makes Barnaby look even bigger and Pip feel even tinier. Each one still has a little personality all their own."
+  },
+  "footerText": "Home of 15 happy porkies, safely tucked into Cochonnet Villa.",
+  "siteName": "Cochonnet Villa",
+  "navigation": [
+    {
+      "label": "Story",
+      "href": "#story"
+    },
+    {
+      "label": "Porkies",
+      "href": "#porkies"
+    },
+    {
+      "label": "Villa",
+      "href": "#villa"
+    }
+  ],
+  "story": {
+    "eyebrow": "The main takeaway",
+    "title": "A gentle, memorable story people can understand in seconds.",
+    "text": "The site centers on three things that make Cochonnet Villa feel complete: the count of the porkies, the cozy safety of their home, and the distinct charm of the big one and the tiny one.",
+    "cards": [
+      {
+        "title": "Warm by design",
+        "body": "Soft blankets, golden light, straw nests, and sleepy afternoon naps make the whole place feel tucked in and cared for."
+      },
+      {
+        "title": "Safe and peaceful",
+        "body": "Cochonnet Villa is presented as a calm little haven where every porky has space to wander, rest, and stay close to the herd."
+      },
+      {
+        "title": "Easy to remember",
+        "body": "13 regular porkies, 1 extra-big one, and 1 very small one give the website a playful identity people can instantly recall."
+      }
+    ]
+  },
+  "villaSection": {
+    "eyebrow": "Life at the villa",
+    "title": "A warm and safe place, just like you described.",
+    "paragraphs": [
+      "Cochonnet Villa is imagined as a bright little sanctuary with cozy bedding, gentle routines, and room for every porky to feel at ease. It is less about fancy details and more about comfort, calm, and being lovingly cared for.",
+      "That atmosphere is what makes the 15 porkies feel believable and endearing. The home matters just as much as the herd."
+    ],
+    "rhythm": [
+      {
+        "title": "Morning",
+        "body": "Sunbeams on straw, breakfast snuffles, and a gentle little roll call."
+      },
+      {
+        "title": "Afternoon",
+        "body": "Lazy wandering, shared shade, and 13 matching nap shapes in a row."
+      },
+      {
+        "title": "Evening",
+        "body": "Warm blankets, sleepy grunts, one giant sprawl, and one tiny tucked-away snoozer."
+      }
+    ]
+  },
+  "hero": {
+    "eyebrow": "Warm, safe, and full of tiny happy snorts",
+    "title": "15 little porkies live their best lives at Cochonnet Villa.",
+    "text": "Thirteen of them are a matching bundle of pink, cozy charm. One is delightfully extra big, and one is adorably smaller than the rest. Together they make the sweetest little herd on the internet.",
+    "primaryCtaLabel": "Meet the porkies",
+    "primaryCtaHref": "#porkies",
+    "secondaryCtaLabel": "See the villa",
+    "secondaryCtaHref": "#villa",
+    "sceneNote": "13 matching little snugglers, 1 big cuddle captain, and 1 tiny sweetheart."
+  },
+  "seo": {
+    "title": "Cochonnet Villa | Home of 15 Happy Porkies",
+    "description": "Welcome to Cochonnet Villa, a warm and safe home for 15 happy porkies: 13 cozy little piglets, one extra-big cuddle captain, and one tiny treasure."
+  },
+  "porkies": [
+    {
+      "name": "脏脏猪",
+      "size": "regular",
+      "accent": "#f89cb3",
+      "description": "Professional blanket burrower and early-morning snuffler."
+    },
+    {
+      "name": "机灵猪",
+      "size": "regular",
+      "accent": "#f8b17d",
+      "description": "Always first to find the warmest patch of sun in the yard."
+    },
+    {
+      "name": "瓜呆猪",
+      "size": "regular",
+      "accent": "#f4c45c",
+      "description": "Cheerful, rosy, and convinced every snack belongs to her."
+    },
+    {
+      "name": "呆瓜猪",
+      "size": "regular",
+      "accent": "#9cc488",
+      "description": "Has a soft spot for fresh grass and following the breeze."
+    },
+    {
+      "name": "乖乖猪",
+      "size": "regular",
+      "accent": "#eda7a1",
+      "description": "Sweet-natured, patient, and never far from the cuddle pile."
+    },
+    {
+      "name": "大呆猪",
+      "size": "giant",
+      "accent": "#e87771",
+      "description": "The gentle giant of the villa. He takes up more blanket than anyone else and somehow makes the whole room feel calmer."
+    },
+    {
+      "name": "懒蛋猪",
+      "size": "regular",
+      "accent": "#d58ec2",
+      "description": "Round, sleepy, and very serious about post-lunch naps."
+    },
+    {
+      "name": "呆呆猪",
+      "size": "regular",
+      "accent": "#f4b86a",
+      "description": "Always sniffing around like a tiny treasure hunter in training."
+    },
+    {
+      "name": "乖乖猪",
+      "size": "regular",
+      "accent": "#98b9d9",
+      "description": "Bright-eyed and curious, especially when fresh straw appears."
+    },
+    {
+      "name": "小色猪",
+      "size": "regular",
+      "accent": "#f08d83",
+      "description": "Small pink ears, peachy glow, and endless happy energy."
+    },
+    {
+      "name": "贪吃猪",
+      "size": "regular",
+      "accent": "#b3c989",
+      "description": "Softly sturdy and happiest when everyone is close together."
+    },
+    {
+      "name": "小猪",
+      "size": "tiny",
+      "accent": "#f2a1bd",
+      "description": "The littlest one in the herd. Tiny feet, tiny naps, and a talent for disappearing into the fluffiest corner of every cushion."
+    },
+    {
+      "name": "臭臭猪",
+      "size": "regular",
+      "accent": "#facb70",
+      "description": "Sunny, bouncy, and usually dusted with straw by noon."
+    },
+    {
+      "name": "香香猪",
+      "size": "regular",
+      "accent": "#f2a68d",
+      "description": "Quietly affectionate and never too far from a warm shoulder."
+    },
+    {
+      "name": "勤劳猪",
+      "size": "regular",
+      "accent": "#d88ab0",
+      "description": "Playful, pink, and always ready to begin another soft stampede."
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+# Local editing works with `npm run dev`.
+# For deployed editing on Vercel, update the GitHub repo details below
+# and add the authentication settings described in the Decap CMS docs.
+
+backend:
+  name: github
+  repo: REPLACE_WITH_GITHUB_OWNER/REPLACE_WITH_REPO
+  branch: main
+  # base_url: https://your-auth-domain.example
+  # auth_endpoint: /api/auth
+
+local_backend: true
+publish_mode: simple
+media_folder: public/uploads
+public_folder: /uploads
+
+collections:
+  - name: site
+    label: Site Content
+    delete: false
+    editor:
+      preview: false
+    files:
+      - name: homepage
+        label: Homepage
+        file: content/site.json
+        format: json
+        fields:
+          - { label: Site Name, name: siteName, widget: string }
+          - label: SEO
+            name: seo
+            widget: object
+            fields:
+              - { label: Title, name: title, widget: string }
+              - { label: Description, name: description, widget: text }
+          - label: Navigation
+            name: navigation
+            widget: list
+            summary: "{{fields.label}}"
+            fields:
+              - { label: Label, name: label, widget: string }
+              - { label: Link, name: href, widget: string }
+          - label: Hero
+            name: hero
+            widget: object
+            fields:
+              - { label: Eyebrow, name: eyebrow, widget: string }
+              - { label: Title, name: title, widget: string }
+              - { label: Intro Text, name: text, widget: text }
+              - { label: Primary Button Label, name: primaryCtaLabel, widget: string }
+              - { label: Primary Button Link, name: primaryCtaHref, widget: string }
+              - { label: Secondary Button Label, name: secondaryCtaLabel, widget: string }
+              - { label: Secondary Button Link, name: secondaryCtaHref, widget: string }
+              - { label: Scene Note, name: sceneNote, widget: text }
+          - label: Summary Labels
+            name: summaryLabels
+            widget: object
+            fields:
+              - { label: Total Label, name: total, widget: string }
+              - { label: Regular Label, name: regular, widget: string }
+              - { label: Giant Label, name: giant, widget: string }
+              - { label: Tiny Label, name: tiny, widget: string }
+          - label: Story Section
+            name: story
+            widget: object
+            fields:
+              - { label: Eyebrow, name: eyebrow, widget: string }
+              - { label: Title, name: title, widget: string }
+              - { label: Intro Text, name: text, widget: text }
+              - label: Highlight Cards
+                name: cards
+                widget: list
+                summary: "{{fields.title}}"
+                fields:
+                  - { label: Title, name: title, widget: string }
+                  - { label: Body, name: body, widget: text }
+          - label: Porkies Section
+            name: porkiesSection
+            widget: object
+            fields:
+              - { label: Eyebrow, name: eyebrow, widget: string }
+              - { label: Title, name: title, widget: string }
+              - { label: Intro Text, name: text, widget: text }
+          - label: Porkies
+            name: porkies
+            widget: list
+            summary: "{{fields.name}} ({{fields.size}})"
+            hint: Keep the main concept as 13 regular porkies, 1 giant, and 1 tiny.
+            fields:
+              - { label: Name, name: name, widget: string }
+              - label: Size
+                name: size
+                widget: select
+                options:
+                  - { label: Regular, value: regular }
+                  - { label: Giant, value: giant }
+                  - { label: Tiny, value: tiny }
+              - { label: Accent Color, name: accent, widget: string, hint: "Use a hex color like #f89cb3." }
+              - { label: Description, name: description, widget: text }
+          - label: Villa Section
+            name: villaSection
+            widget: object
+            fields:
+              - { label: Eyebrow, name: eyebrow, widget: string }
+              - { label: Title, name: title, widget: string }
+              - label: Paragraphs
+                name: paragraphs
+                widget: list
+                field: { label: Paragraph, name: paragraph, widget: text }
+              - label: Daily Rhythm Cards
+                name: rhythm
+                widget: list
+                summary: "{{fields.title}}"
+                fields:
+                  - { label: Title, name: title, widget: string }
+                  - { label: Body, name: body, widget: text }
+          - { label: Footer Text, name: footerText, widget: string }
