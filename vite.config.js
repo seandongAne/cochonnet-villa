@@ -9,6 +9,7 @@ const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const resolvedContentFile = resolve(rootDir, "content/site.json");
 const mainIndexFile = resolve(rootDir, "index.html");
 const adminPageFile = resolve(rootDir, "admin/index.html");
+const siteUrl = "https://cochonnetvilla.ca";
 
 function loadSiteContent() {
   return JSON.parse(readFileSync(resolvedContentFile, "utf8"));
@@ -35,6 +36,7 @@ export default defineConfig({
         return html
           .replace(/%SEO_TITLE%/g, title)
           .replace(/%SEO_DESCRIPTION%/g, description)
+          .replace(/%SITE_URL%/g, siteUrl)
           .replace("%APP_HTML%", renderSite(site));
       },
       handleHotUpdate(context) {

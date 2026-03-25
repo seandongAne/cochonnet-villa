@@ -3,9 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n SITE,CMS \"vite\" \"decap-server\"",
+    "dev": "vite",
     "dev:site": "vite",
-    "dev:cms": "decap-server",
     "build": "vite build",
     "preview": "vite preview"
   },

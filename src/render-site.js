@@ -7,6 +7,9 @@ const SIZE_LABELS = {
   tiny: "tiny porky"
 };
 
+const LIVE_EDITOR_URL = "./admin/";
+const REPOSITORY_URL = "https://github.com/seandongAne/cochonnet-villa";
+
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => {
     switch (character) {
@@ -131,6 +134,19 @@ function renderStoryCards(cards) {
     .join("");
 }
 
+function renderNameParade(porkies) {
+  return porkies
+    .map((porky) => {
+      const size = normalizeSize(porky?.size);
+      return `
+        <li class="name-chip ${size}" style="--accent: ${escapeHtml(sanitizeColor(porky?.accent))};">
+          <span>${escapeHtml(porky?.name || "")}</span>
+        </li>
+      `;
+    })
+    .join("");
+}
+
 function renderPorkyCards(porkies) {
   return porkies
     .map((porky) => {
@@ -249,6 +265,20 @@ export function renderSite(site) {
           </aside>
         </section>
 
+        <section class="name-parade" aria-label="Porky roll call">
+          <div class="section-heading compact">
+            <p class="eyebrow">Roll call</p>
+            <h2>The porkies now have names of their own.</h2>
+            <p>
+              The herd feels more personal with every little nickname, especially
+              with one big character and one tiny standout among the group.
+            </p>
+          </div>
+          <ul class="name-chip-list">
+            ${renderNameParade(porkies)}
+          </ul>
+        </section>
+
         <section class="promise" id="story">
           <div class="section-heading">
             <p class="eyebrow">${escapeHtml(story.eyebrow || "")}</p>
@@ -287,6 +317,10 @@ export function renderSite(site) {
 
       <footer class="site-footer">
         <p>${escapeHtml(site?.footerText || "")}</p>
+        <div class="footer-links">
+          <a href="${LIVE_EDITOR_URL}">Manage content</a>
+          <a href="${REPOSITORY_URL}" target="_blank" rel="noreferrer">GitHub</a>
+        </div>
       </footer>
     </div>
   `;

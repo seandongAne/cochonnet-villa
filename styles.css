@@ -421,6 +421,56 @@ section {
   margin-bottom: 2rem;
 }
 
+.section-heading.compact {
+  max-width: 50rem;
+  margin-bottom: 1.4rem;
+}
+
+.name-parade {
+  padding-top: 0.5rem;
+}
+
+.name-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.name-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  padding: 0.85rem 1.15rem;
+  border: 1px solid rgba(120, 76, 78, 0.11);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 250, 245, 0.76)),
+    var(--accent);
+  box-shadow: 0 14px 36px rgba(113, 84, 73, 0.08);
+  color: var(--ink);
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.name-chip.regular {
+  font-size: 1.05rem;
+}
+
+.name-chip.giant {
+  padding-inline: 1.5rem;
+  font-size: 1.18rem;
+}
+
+.name-chip.tiny {
+  min-height: 2.8rem;
+  padding-inline: 0.95rem;
+  font-size: 0.94rem;
+}
+
 .promise-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -564,6 +614,21 @@ section {
   border-top: 1px solid rgba(120, 76, 78, 0.12);
 }
 
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.footer-links a {
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 76, 78, 0.11);
+  background: rgba(255, 255, 255, 0.72);
+}
+
 @keyframes drift {
   0%,
   100% {
@@ -617,6 +682,10 @@ section {
   .hero-stats,
   .porky-grid {
     grid-template-columns: 1fr;
+  }
+
+  .name-chip-list {
+    gap: 0.65rem;
   }
 
   .porky-card.giant {
