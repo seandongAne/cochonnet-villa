@@ -93,12 +93,14 @@
       "name": "机灵猪",
       "size": "regular",
       "accent": "#f8b17d",
+      "image": "/porkies/jilingzhu.png",
       "description": "Always first to find the warmest patch of sun in the yard."
     },
     {
       "name": "瓜呆猪",
       "size": "regular",
       "accent": "#f4c45c",
+      "image": "/porkies/guadaizhu.png",
       "description": "Cheerful, rosy, and convinced every snack belongs to her."
     },
     {
@@ -112,66 +114,77 @@
       "name": "乖乖猪",
       "size": "regular",
       "accent": "#eda7a1",
+      "image": "/porkies/guaiguaizhu.png",
       "description": "Sweet-natured, patient, and never far from the cuddle pile."
     },
     {
       "name": "大呆猪",
       "size": "giant",
       "accent": "#e87771",
+      "image": "/porkies/dadaizhu.png",
       "description": "The gentle giant of the villa. He takes up more blanket than anyone else and somehow makes the whole room feel calmer."
     },
     {
       "name": "懒蛋猪",
       "size": "regular",
       "accent": "#d58ec2",
+      "image": "/porkies/landanzhu.png",
       "description": "Round, sleepy, and very serious about post-lunch naps."
     },
     {
       "name": "呆呆猪",
       "size": "regular",
       "accent": "#f4b86a",
+      "image": "/porkies/daidaizhu.png",
       "description": "Always sniffing around like a tiny treasure hunter in training."
     },
     {
       "name": "乖乖猪",
       "size": "regular",
       "accent": "#98b9d9",
+      "image": "/porkies/guaiguaizhu.png",
       "description": "Bright-eyed and curious, especially when fresh straw appears."
     },
     {
       "name": "小色猪",
       "size": "regular",
       "accent": "#f08d83",
+      "image": "/porkies/xiaosezhu.png",
       "description": "Small pink ears, peachy glow, and endless happy energy."
     },
     {
       "name": "贪吃猪",
       "size": "regular",
       "accent": "#b3c989",
+      "image": "/porkies/tanchizhu.png",
       "description": "Softly sturdy and happiest when everyone is close together."
     },
     {
       "name": "小猪",
       "size": "tiny",
       "accent": "#f2a1bd",
+      "image": "/porkies/xiaozhu.png",
       "description": "The littlest one in the herd. Tiny feet, tiny naps, and a talent for disappearing into the fluffiest corner of every cushion."
     },
     {
       "name": "臭臭猪",
       "size": "regular",
       "accent": "#facb70",
+      "image": "/porkies/chouchouzhu.png",
       "description": "Sunny, bouncy, and usually dusted with straw by noon."
     },
     {
       "name": "香香猪",
       "size": "regular",
       "accent": "#f2a68d",
+      "image": "/porkies/xiangxiangzhu.png",
       "description": "Quietly affectionate and never too far from a warm shoulder."
     },
     {
       "name": "勤劳猪",
       "size": "regular",
       "accent": "#d88ab0",
+      "image": "/porkies/qinlaozhu.png",
       "description": "Playful, pink, and always ready to begin another soft stampede."
     }
   ]
