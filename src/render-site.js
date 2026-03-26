@@ -49,6 +49,22 @@ function sanitizeColor(value) {
   return /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(color) ? color : DEFAULT_COLOR;
 }
 
+function sanitizeImageSrc(value) {
+  const src = String(value ?? "").trim();
+
+  if (
+    src.startsWith("/") ||
+    src.startsWith("./") ||
+    src.startsWith("../") ||
+    src.startsWith("http://") ||
+    src.startsWith("https://")
+  ) {
+    return src;
+  }
+
+  return "";
+}
+
 function normalizeList(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -154,14 +170,31 @@ function renderPorkyCards(porkies) {
       const accent = escapeHtml(sanitizeColor(porky?.accent));
       const sizeClass = size === "regular" ? "" : ` ${size}`;
       const sizeLabel = escapeHtml(SIZE_LABELS[size]);
+      const name = escapeHtml(porky?.name || "");
+      const imageSrc = sanitizeImageSrc(porky?.image || porky?.photo);
+      const media = imageSrc
+        ? `
+          <div class="porky-photo-frame">
+            <img
+              class="porky-photo"
+              src="${escapeHtml(imageSrc)}"
+              alt="${name}"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        `
+        : `
+          <div class="porky-icon">
+            <svg viewBox="0 0 120 120"><use href="#icon-piglet"></use></svg>
+          </div>
+        `;
 
       return `
         <article class="porky-card${sizeClass}" style="--accent: ${accent};">
           <span class="size-tag">${sizeLabel}</span>
-          <div class="porky-icon">
-            <svg viewBox="0 0 120 120"><use href="#icon-piglet"></use></svg>
-          </div>
-          <h3>${escapeHtml(porky?.name || "")}</h3>
+          ${media}
+          <h3>${name}</h3>
           <p>${escapeHtml(porky?.description || "")}</p>
         </article>
       `;

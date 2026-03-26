@@ -17,6 +17,29 @@ The hosted editor is intentionally simple so it works on GitHub Pages without re
 2. Open `http://localhost:5173` for the site
 3. Open `http://localhost:5173/admin/` for the content studio
 
+## Piglet photos
+
+Each porky object in `content/site.json` can now include an optional image field:
+
+```json
+{
+  "name": "脏脏猪",
+  "size": "regular",
+  "accent": "#f89cb3",
+  "image": "https://example.com/piglet-photo.jpg",
+  "description": "Professional blanket burrower and early-morning snuffler."
+}
+```
+
+Accepted image paths:
+
+- `https://...`
+- `http://...`
+- `/images/piglet.jpg`
+- `./images/piglet.jpg`
+
+If `image` is missing, the site falls back to the current illustrated piglet icon.
+
 Official docs:
 
 - Vite guide: https://vite.dev/guide/
