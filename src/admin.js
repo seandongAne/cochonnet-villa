@@ -2,7 +2,7 @@ const OWNER = "seandongAne";
 const REPO = "cochonnet-villa";
 const BRANCH = "main";
 const CONTENT_PATH = "content/site.json";
-const LIVE_SITE_URL = "https://cochonnetvilla.ca";
+const LIVE_SITE_URL = "https://www.cochonnetvilla.ca";
 const STORAGE_KEY = "cochonnetvilla_github_token";
 
 const apiBase = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CONTENT_PATH}`;

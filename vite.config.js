@@ -9,7 +9,7 @@ const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const resolvedContentFile = resolve(rootDir, "content/site.json");
 const mainIndexFile = resolve(rootDir, "index.html");
 const adminPageFile = resolve(rootDir, "admin/index.html");
-const siteUrl = "https://cochonnetvilla.ca";
+const siteUrl = "https://www.cochonnetvilla.ca";
 
 function loadSiteContent() {
   return JSON.parse(readFileSync(resolvedContentFile, "utf8"));

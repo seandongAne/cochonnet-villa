@@ -2,7 +2,7 @@
 
 ## Live editing on GitHub Pages
 
-The production editor lives at `/admin/` and writes directly to `content/site.json` in GitHub.
+The production editor lives at `https://www.cochonnetvilla.ca/admin/` and writes directly to `content/site.json` in GitHub.
 
 What it needs:
 
