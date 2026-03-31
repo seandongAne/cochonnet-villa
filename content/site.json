@@ -139,10 +139,11 @@
       "description": "Always sniffing around like a tiny treasure hunter in training."
     },
     {
-      "name": "不呆不呆猪",
+      "name": "呱呱猪",
       "size": "regular",
       "accent": "#98b9d9",
-      "description": "Bright-eyed and curious, especially when fresh straw appears."
+      "description": "Bright-eyed and curious, especially when fresh straw appears.",
+      "image": "/porkies/guaguazhu.png"
     },
     {
       "name": "小色猪",
