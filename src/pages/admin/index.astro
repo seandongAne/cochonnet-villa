@@ -1,0 +1,10 @@
+---
+import adminHtmlSource from "../../../admin/index.html?raw";
+
+const adminHtml = adminHtmlSource.replace(
+  'src="/src/admin.js"',
+  'src="/admin/admin.js"'
+);
+---
+
+<Fragment set:html={adminHtml} />

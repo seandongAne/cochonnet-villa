@@ -3,3 +3,6 @@ dist
 .DS_Store
 .vite-dev.log
 .vite-dev.err
+.astro
+.astro-dev.log
+.astro-dev.err

@@ -1,0 +1,35 @@
+---
+import site from "../../content/site.json";
+import "../styles.css";
+import { renderSite } from "../render-site.js";
+
+const siteUrl = "https://www.cochonnetvilla.ca";
+const title = site?.seo?.title || "Cochonnet Villa";
+const description = site?.seo?.description || "";
+const appHtml = renderSite(site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f8c2ba" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={siteUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <link rel="canonical" href={siteUrl} />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <Fragment set:html={appHtml} />
+  </body>
+</html>
