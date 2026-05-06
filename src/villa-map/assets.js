@@ -16,11 +16,13 @@ export function createMaterials() {
     wood: new THREE.MeshStandardMaterial({ color: "#8a5738", roughness: 0.72 }),
     stone: new THREE.MeshStandardMaterial({ color: "#8f8a7d", roughness: 0.92 }),
     water: new THREE.MeshStandardMaterial({
-      color: "#159bd0",
-      roughness: 0.22,
+      color: "#22b9e6",
+      roughness: 0.12,
       metalness: 0.02,
       transparent: true,
-      opacity: 0.78
+      opacity: 0.9,
+      depthWrite: false,
+      side: THREE.DoubleSide
     }),
     glass: new THREE.MeshStandardMaterial({
       color: "#84d8e5",
@@ -135,6 +137,53 @@ export function createHotSpringPool(materials, width = 5, depth = 6) {
 
   addSteam(group, materials, -0.8, 0);
   addSteam(group, materials, 0.7, -0.55);
+  return group;
+}
+
+export function createTieredHotSprings(materials) {
+  const group = new THREE.Group();
+  addTerraceSlab(group, materials, "hot-spring-stone-terrace-entry", 3.8, 4.8, 11.6, 0.24, 11.1);
+  addTerraceSlab(group, materials, "hot-spring-stone-terrace-lower", 2.8, 7.4, 12.05, 0.18, 7.25);
+  addTerraceSlab(group, materials, "hot-spring-stone-terrace-middle", 2.6, 6.2, 18.15, 0.42, 1.65);
+  addTerraceSlab(group, materials, "hot-spring-stone-terrace-upper", 3.1, 6.8, 12.05, 0.66, -5.6);
+
+  addBox(group, 3.4, 0.18, 1.1, materials.stone, 11.2, 0.18, 13.1).name = "hot-spring-step-entry-1";
+  addBox(group, 3.4, 0.18, 1.1, materials.stone, 11.7, 0.3, 12.05).name = "hot-spring-step-entry-2";
+  addBox(group, 3.4, 0.18, 1.1, materials.stone, 12.2, 0.42, 11).name = "hot-spring-step-entry-3";
+  addBox(group, 2.8, 0.18, 1, materials.stone, 18.4, 0.48, 3.6).name = "hot-spring-step-middle-1";
+  addBox(group, 2.3, 0.18, 1, materials.stone, 18.9, 0.62, 2.6).name = "hot-spring-step-middle-2";
+
+  addWaterChannel(group, materials, 18.45, 0.08, 3.25, 1.15, 6.2, -0.45, "lower-middle");
+  addWaterChannel(group, materials, 18.3, 0.26, -4.2, 1.05, 5.6, 0.62, "middle-upper");
+
+  addTieredPool(group, materials, {
+    id: "upper-spring",
+    x: 15.4,
+    z: -6.6,
+    width: 5.8,
+    depth: 6.4,
+    waterY: 0.42,
+    wallY: 0.9
+  });
+  addTieredPool(group, materials, {
+    id: "middle-spring",
+    x: 20.1,
+    z: -1.7,
+    width: 3.1,
+    depth: 4.8,
+    waterY: 0.18,
+    wallY: 0.7
+  });
+  addTieredPool(group, materials, {
+    id: "lower-spring",
+    x: 16.1,
+    z: 8.5,
+    width: 7.4,
+    depth: 6.8,
+    waterY: -0.08,
+    wallY: 0.5
+  });
+
   return group;
 }
 
@@ -337,6 +386,92 @@ function addBox(group, width, height, depth, material, x, y, z, rotation = {}) {
   mesh.receiveShadow = true;
   group.add(mesh);
   return mesh;
+}
+
+function addTieredPool(group, materials, pool) {
+  const basin = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.24, 56), materials.stone);
+  basin.name = `hot-spring-basin-${pool.id}`;
+  basin.position.set(pool.x, pool.waterY - 0.16, pool.z);
+  basin.scale.set(pool.width / 2, 1, pool.depth / 2);
+  basin.castShadow = true;
+  basin.receiveShadow = true;
+  group.add(basin);
+
+  const waterMaterial = materials.water.clone();
+  waterMaterial.opacity = 0.92;
+  waterMaterial.depthWrite = false;
+  const water = new THREE.Mesh(new THREE.CircleGeometry(1, 72), waterMaterial);
+  water.name = `hot-spring-water-${pool.id}`;
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(pool.x, pool.waterY + 0.08, pool.z);
+  water.scale.set(pool.width / 2 - 0.45, pool.depth / 2 - 0.45, 1);
+  water.renderOrder = 4;
+  water.receiveShadow = true;
+  group.add(water);
+
+  const ripple = new THREE.Mesh(new THREE.TorusGeometry(1, 0.018, 8, 64), waterMaterial);
+  ripple.name = `hot-spring-ripple-${pool.id}`;
+  ripple.rotation.x = -Math.PI / 2;
+  ripple.position.set(pool.x, pool.waterY + 0.095, pool.z);
+  ripple.scale.set(pool.width / 2 - 0.9, pool.depth / 2 - 0.9, 1);
+  ripple.renderOrder = 5;
+  group.add(ripple);
+
+  const wall = new THREE.Mesh(new THREE.TorusGeometry(1, 0.16, 12, 72), materials.stone);
+  wall.name = `hot-spring-rock-wall-${pool.id}`;
+  wall.rotation.x = -Math.PI / 2;
+  wall.position.set(pool.x, pool.wallY, pool.z);
+  wall.scale.set(pool.width / 2, pool.depth / 2, 1);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  group.add(wall);
+
+  for (let index = 0; index < 14; index += 1) {
+    const angle = (index / 14) * Math.PI * 2;
+    const rock = new THREE.Mesh(new THREE.SphereGeometry(0.18 + (index % 4) * 0.05, 12, 8), materials.stone);
+    rock.name = `hot-spring-edge-rock-${pool.id}`;
+    rock.position.set(
+      pool.x + Math.cos(angle) * pool.width * 0.54,
+      pool.wallY + 0.05 * (index % 2),
+      pool.z + Math.sin(angle) * pool.depth * 0.54
+    );
+    rock.scale.y = 0.55;
+    rock.castShadow = true;
+    group.add(rock);
+  }
+
+  addSteam(group, materials, pool.x - pool.width * 0.15, pool.z);
+  addSteam(group, materials, pool.x + pool.width * 0.12, pool.z - pool.depth * 0.16);
+}
+
+function addWaterChannel(group, materials, x, y, z, width, depth, rotationY, id) {
+  const channel = new THREE.Mesh(new THREE.BoxGeometry(width, 0.06, depth), materials.water);
+  channel.name = `hot-spring-channel-water-${id}`;
+  channel.position.set(x, y, z);
+  channel.rotation.y = rotationY;
+  channel.receiveShadow = true;
+  group.add(channel);
+
+  const leftBank = addBox(group, 0.28, 0.34, depth, materials.stone, x - width / 2, y + 0.16, z, { y: rotationY });
+  const rightBank = addBox(group, 0.28, 0.34, depth, materials.stone, x + width / 2, y + 0.16, z, { y: rotationY });
+  leftBank.name = `hot-spring-channel-bank-${id}`;
+  rightBank.name = `hot-spring-channel-bank-${id}`;
+}
+
+function addTerraceSlab(group, materials, name, width, depth, x, y, z) {
+  const slab = addBox(group, width, 0.2, depth, materials.stone, x, y, z);
+  slab.name = name;
+  for (let index = 0; index < 6; index += 1) {
+    const side = index % 2 === 0 ? -1 : 1;
+    const t = (index + 0.5) / 6;
+    const rock = new THREE.Mesh(new THREE.SphereGeometry(0.16 + (index % 3) * 0.035, 10, 8), materials.stone);
+    rock.name = `${name}-edge-rock`;
+    rock.position.set(x + side * width * 0.55, y + 0.14, z - depth / 2 + depth * t);
+    rock.scale.y = 0.45;
+    rock.castShadow = true;
+    group.add(rock);
+  }
+  return slab;
 }
 
 function addSteam(group, materials, x, z) {

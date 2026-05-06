@@ -5,11 +5,11 @@ import {
   createFence,
   createGround,
   createHayBale,
-  createHotSpringPool,
   createMaterials,
   createModernVilla,
   createMushroomHouse,
   createPorky,
+  createTieredHotSprings,
   createTextBoard,
   createTree,
   createWall
@@ -121,10 +121,6 @@ function buildWorld(scene, world) {
   entryPath.position.set(-3.8, 0.02, 15.7);
   scene.add(entryPath);
 
-  const springTerrace = createGround(11.2, 26, materials.stone);
-  springTerrace.position.set(16, 0, 1.7);
-  scene.add(springTerrace);
-
   const hallFloor = createGround(18, 18, materials.floor);
   hallFloor.position.set(0, 0.01, -11);
   scene.add(hallFloor);
@@ -198,20 +194,7 @@ function addMainVilla(scene, materials) {
 }
 
 function addHotSprings(scene, materials) {
-  const upper = createHotSpringPool(materials, 5.8, 6.7);
-  upper.position.set(15.4, 0.08, -6.6);
-  upper.rotation.y = 0.15;
-  scene.add(upper);
-
-  const small = createHotSpringPool(materials, 2.6, 4.5);
-  small.position.set(20.4, 0.08, -1.7);
-  small.rotation.y = -0.05;
-  scene.add(small);
-
-  const lower = createHotSpringPool(materials, 7.4, 6.9);
-  lower.position.set(16.1, 0.08, 8.5);
-  lower.rotation.y = -0.12;
-  scene.add(lower);
+  scene.add(createTieredHotSprings(materials));
 }
 
 function addScenicExterior(scene, materials) {

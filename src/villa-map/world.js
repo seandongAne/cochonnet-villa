@@ -70,12 +70,75 @@ export function createVillaWorld() {
       boxCollider("hall-front-right-wall", 6.9, -1.8, 5.2, 1),
       boxCollider("villa-left-wing", -11.8, -5.7, 4.2, 8.5),
       boxCollider("villa-right-wing", 11.8, -6.2, 4.2, 7.5),
-      boxCollider("upper-hot-spring", 15.4, -6.6, 5.6, 6.4),
-      boxCollider("small-hot-spring", 20.4, -1.7, 2.5, 4.4),
-      boxCollider("lower-hot-spring", 16.1, 8.5, 7.2, 6.8),
+      boxCollider("upper-spring-back-rock", 15.4, -10.25, 6.8, 0.7),
+      boxCollider("upper-spring-right-rock", 18.95, -6.6, 0.7, 6.8),
+      boxCollider("middle-spring-right-rock", 22.15, -1.7, 0.7, 5.6),
+      boxCollider("lower-spring-back-rock", 16.1, 4.8, 7.8, 0.7),
+      boxCollider("lower-spring-right-rock", 20.35, 8.5, 0.7, 7.2),
+      boxCollider("lower-spring-front-rock", 16.1, 12.15, 7.8, 0.7),
       boxCollider("mushroom-house", -8.5, 16, 5.6, 4.8),
       boxCollider("blanket-pile", -4.6, -12.7, 2.6, 2.2),
       boxCollider("hay-stack", 4.7, 11.5, 2.5, 2.5)
+    ],
+    hotSprings: {
+      pools: [
+        {
+          id: "upper-spring",
+          center: { x: 15.4, z: -6.6 },
+          radius: { x: 2.85, z: 3.1 },
+          elevation: 0.72,
+          waterY: 0.42
+        },
+        {
+          id: "middle-spring",
+          center: { x: 20.1, z: -1.7 },
+          radius: { x: 1.45, z: 2.25 },
+          elevation: 0.38,
+          waterY: 0.18
+        },
+        {
+          id: "lower-spring",
+          center: { x: 16.1, z: 8.5 },
+          radius: { x: 3.55, z: 3.15 },
+          elevation: 0.06,
+          waterY: -0.08
+        }
+      ],
+      steps: [
+        {
+          id: "spring-entry-steps",
+          center: { x: 11.3, z: 10.4 },
+          size: { x: 3.3, z: 5.2 }
+        },
+        {
+          id: "spring-middle-steps",
+          center: { x: 18.7, z: 3.4 },
+          size: { x: 2.4, z: 4.2 }
+        }
+      ]
+    },
+    waterZones: [
+      {
+        id: "upper-spring",
+        center: { x: 15.4, z: -6.6 },
+        radius: { x: 2.45, z: 2.7 },
+        speedMultiplier: 0.58,
+        cameraY: 1.34
+      },
+      {
+        id: "middle-spring",
+        center: { x: 20.1, z: -1.7 },
+        radius: { x: 1.1, z: 1.85 },
+        speedMultiplier: 0.62,
+        cameraY: 1.36
+      },
+      {
+        id: "lower-spring",
+        center: { x: 16.1, z: 8.5 },
+        radius: { x: 3.1, z: 2.7 },
+        speedMultiplier: 0.55,
+        cameraY: 1.3
+      }
     ],
     interactions: [
       {
@@ -143,6 +206,14 @@ export function createVillaWorld() {
       }
     ]
   };
+}
+
+export function findWaterZone(position, world) {
+  return world.waterZones?.find((zone) => {
+    const dx = (position.x - zone.center.x) / zone.radius.x;
+    const dz = (position.z - zone.center.z) / zone.radius.z;
+    return dx * dx + dz * dz <= 1;
+  }) ?? null;
 }
 
 export function boxCollider(id, x, z, width, depth) {
