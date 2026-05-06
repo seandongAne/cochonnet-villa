@@ -7,6 +7,7 @@ import site from "../content/site.json" with { type: "json" };
 import { renderSite } from "../src/render-site.js";
 import { createMaterials, createMushroomHouse, createPorky, createTieredHotSprings } from "../src/villa-map/assets.js";
 import { createExplorerControls } from "../src/villa-map/controls.js";
+import { PORKY_MODEL_VARIANTS } from "../src/villa-map/porky-models.js";
 import { collidesWithWorld, createVillaWorld, findWaterZone } from "../src/villa-map/world.js";
 
 test("homepage exposes a dedicated villa map CTA", () => {
@@ -362,9 +363,23 @@ test("tiered hot springs geometry has raised platform, steps, and lowered water"
   });
 });
 
-test("villa scene places at least six porkies in the map", () => {
+test("villa map exposes the four commercial GLB porky model variants", () => {
+  assert.deepEqual(
+    Object.keys(PORKY_MODEL_VARIANTS).sort(),
+    ["big-ear-piglet", "daigua", "guadai", "wild-piglet"]
+  );
+
+  Object.values(PORKY_MODEL_VARIANTS).forEach((variant) => {
+    assert.match(variant.url, /^\/models\/porkies\/.+\.glb$/);
+    assert.equal(typeof variant.height, "number");
+    assert.ok(variant.height > 0.6);
+    assert.ok(variant.height < 2.2);
+  });
+});
+
+test("villa scene places at least six GLB-backed porkies in the map", () => {
   const sceneSource = readFileSync(new URL("../src/villa-map/scene.js", import.meta.url), "utf8");
-  const porkyPlacements = sceneSource.match(/createPorky\(materials/g) ?? [];
+  const porkyPlacements = sceneSource.match(/createPorkyModel\(materials/g) ?? [];
 
   assert.ok(porkyPlacements.length >= 6);
 });

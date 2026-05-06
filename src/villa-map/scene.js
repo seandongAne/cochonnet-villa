@@ -8,7 +8,6 @@ import {
   createMaterials,
   createModernVilla,
   createMushroomHouse,
-  createPorky,
   createTieredHotSprings,
   createTextBoard,
   createTree,
@@ -16,6 +15,7 @@ import {
 } from "./assets.js";
 import { createExplorerControls } from "./controls.js";
 import { createInteractionHud } from "./interaction.js";
+import { createPorkyModel } from "./porky-models.js";
 import { createVillaWorld } from "./world.js";
 
 export function startVillaMap(root) {
@@ -221,34 +221,59 @@ function addDecor(scene, materials, world) {
   scene.add(tinyBlanket);
 
   // Guagua-zhu the singing piglet — positioned in the entry plaza in front of the door.
-  const guagua = createPorky(materials, { mic: true, scale: 1.0 });
+  const guagua = createPorkyModel(materials, {
+    variant: "daigua",
+    mic: true,
+    modelScale: 1.02,
+    fallbackScale: 1.0
+  });
   guagua.position.set(-3.6, 0, 4);
   guagua.rotation.y = Math.PI - 0.35;
   scene.add(guagua);
 
   // Big resident porky inside the hall.
-  const giant = createPorky(materials, { scale: 1.4 });
+  const giant = createPorkyModel(materials, {
+    variant: "big-ear-piglet",
+    modelScale: 1.2,
+    fallbackScale: 1.4
+  });
   giant.position.set(-5, 0, -13);
   giant.rotation.y = -0.35;
   scene.add(giant);
 
   // Tiny piglet curled on the small blanket nest.
-  const tiny = createPorky(materials, { scale: 0.55 });
+  const tiny = createPorkyModel(materials, {
+    variant: "wild-piglet",
+    modelScale: 0.62,
+    fallbackScale: 0.55
+  });
   tiny.position.set(7, 0.05, -16.6);
   tiny.rotation.y = -1.2;
   scene.add(tiny);
 
-  const porchPiglet = createPorky(materials, { scale: 0.68 });
+  const porchPiglet = createPorkyModel(materials, {
+    variant: "guadai",
+    modelScale: 0.76,
+    fallbackScale: 0.68
+  });
   porchPiglet.position.set(2.6, 0.02, 3.2);
   porchPiglet.rotation.y = Math.PI + 0.25;
   scene.add(porchPiglet);
 
-  const mushroomPiglet = createPorky(materials, { scale: 0.62 });
+  const mushroomPiglet = createPorkyModel(materials, {
+    variant: "wild-piglet",
+    modelScale: 0.72,
+    fallbackScale: 0.62
+  });
   mushroomPiglet.position.set(-10, 0.03, 15.2);
   mushroomPiglet.rotation.y = 0.95;
   scene.add(mushroomPiglet);
 
-  const springPiglet = createPorky(materials, { scale: 0.58 });
+  const springPiglet = createPorkyModel(materials, {
+    variant: "daigua",
+    modelScale: 0.68,
+    fallbackScale: 0.58
+  });
   springPiglet.position.set(14.4, 0.04, 12.2);
   springPiglet.rotation.y = -1.65;
   scene.add(springPiglet);
