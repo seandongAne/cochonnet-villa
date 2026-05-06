@@ -608,6 +608,11 @@ export function createBlanketPile(material) {
 export function createPorky(materials, options = {}) {
   const group = new THREE.Group();
   const scale = options.scale ?? 1;
+  const eyeWhite = new THREE.MeshBasicMaterial({ color: "#fff7f4", side: THREE.DoubleSide });
+  const eyeIris = new THREE.MeshBasicMaterial({ color: "#7a3f2d", side: THREE.DoubleSide });
+  const eyePupil = new THREE.MeshBasicMaterial({ color: "#1d1516", side: THREE.DoubleSide });
+  const eyeShine = new THREE.MeshBasicMaterial({ color: "#ffffff", side: THREE.DoubleSide });
+  const smileMaterial = new THREE.MeshBasicMaterial({ color: "#8f2b36", side: THREE.DoubleSide });
 
   // ---- Body: chubbier, rounder, sits a touch lower ------------------------
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.78, 32, 22), materials.pig);
@@ -631,22 +636,26 @@ export function createPorky(materials, options = {}) {
   group.add(head);
 
   // ---- Snout (rounder, cuter) --------------------------------------------
-  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.26, 22, 16), materials.snout);
-  snout.position.set(0, 1.22, -1.08);
-  snout.scale.set(1.4, 0.85, 0.7);
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.31, 26, 18), materials.snout);
+  snout.name = "porky-snout-pad";
+  snout.position.set(0, 1.22, -1.2);
+  snout.scale.set(1.55, 0.92, 0.72);
   snout.castShadow = true;
   group.add(snout);
   // A flat snout disc tip so the nostrils sit on a clear "pad".
-  const snoutTip = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 22), materials.snout);
+  const snoutTip = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.07, 28), materials.snout);
+  snoutTip.name = "porky-snout-tip";
   snoutTip.rotation.x = Math.PI / 2;
-  snoutTip.position.set(0, 1.22, -1.18);
+  snoutTip.position.set(0, 1.22, -1.26);
+  snoutTip.scale.x = 1.3;
   group.add(snoutTip);
 
   // Nostril dimples — small dark ovals on the snout tip.
-  [-0.085, 0.085].forEach((x) => {
-    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), materials.pigDark);
-    nostril.scale.set(0.9, 1.3, 0.6);
-    nostril.position.set(x, 1.22, -1.21);
+  [-0.11, 0.11].forEach((x, index) => {
+    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.055, 14, 10), materials.pigDark);
+    nostril.name = `porky-nostril-${index + 1}`;
+    nostril.scale.set(0.85, 1.3, 0.5);
+    nostril.position.set(x, 1.24, -1.31);
     group.add(nostril);
   });
 
@@ -668,6 +677,32 @@ export function createPorky(materials, options = {}) {
     group.add(shine);
   });
 
+  [-0.31, 0.31].forEach((x, index) => {
+    const side = x < 0 ? "left" : "right";
+    const sclera = new THREE.Mesh(new THREE.CircleGeometry(0.2, 32), eyeWhite);
+    sclera.name = `porky-eye-sclera-${side}`;
+    sclera.position.set(x, 1.48, -1.16);
+    sclera.scale.set(0.85, 1.12, 1);
+    group.add(sclera);
+
+    const iris = new THREE.Mesh(new THREE.CircleGeometry(0.13, 28), eyeIris);
+    iris.name = `porky-eye-iris-${side}`;
+    iris.position.set(x, 1.46, -1.19);
+    iris.scale.set(0.82, 1.05, 1);
+    group.add(iris);
+
+    const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.075, 22), eyePupil);
+    pupil.name = `porky-eye-pupil-${side}`;
+    pupil.position.set(x + (index === 0 ? 0.02 : -0.02), 1.46, -1.205);
+    pupil.scale.set(0.85, 1.08, 1);
+    group.add(pupil);
+
+    const shine = new THREE.Mesh(new THREE.CircleGeometry(0.032, 16), eyeShine);
+    shine.name = `porky-eye-shine-${side}`;
+    shine.position.set(x + 0.045, 1.52, -1.22);
+    group.add(shine);
+  });
+
   // ---- Cheek blush: small soft pink discs below the eyes ------------------
   const blushMat = materials.snout;
   [-0.32, 0.32].forEach((x) => {
@@ -678,10 +713,12 @@ export function createPorky(materials, options = {}) {
   });
 
   // ---- Mouth: small dark smile arc (a thin flattened torus) ---------------
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.018, 8, 16, Math.PI), materials.pigDark);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 24, Math.PI), smileMaterial);
+  mouth.name = "porky-smile";
   mouth.rotation.x = Math.PI / 2;
   mouth.rotation.z = Math.PI;
-  mouth.position.set(0, 1.13, -1.18);
+  mouth.position.set(0, 1.1, -1.27);
+  mouth.scale.x = 1.6;
   group.add(mouth);
 
   // ---- Ears: floppy, curve forward (rotated and scaled cones) -------------
@@ -854,6 +891,22 @@ function addTieredPool(group, materials, pool) {
   ripple.scale.set((innerX - 0.05) * 0.55, (innerZ - 0.05) * 0.55, 1);
   ripple.renderOrder = 5;
   group.add(ripple);
+
+  const visibleWaterMaterial = new THREE.MeshBasicMaterial({
+    color: "#39d2ff",
+    transparent: true,
+    opacity: 0.98,
+    depthWrite: false,
+    depthTest: true,
+    side: THREE.DoubleSide
+  });
+  const visibleWater = new THREE.Mesh(new THREE.CircleGeometry(1, 80), visibleWaterMaterial);
+  visibleWater.name = `hot-spring-visible-water-${pool.id}`;
+  visibleWater.rotation.x = -Math.PI / 2;
+  visibleWater.position.set(pool.x, pool.waterY + 0.18, pool.z);
+  visibleWater.scale.set(innerX - 0.18, innerZ - 0.18, 1);
+  visibleWater.renderOrder = 12;
+  group.add(visibleWater);
 
   // Scattered cap rocks dotted along the rim — bigger and more irregular than before.
   const capRockCount = pool.shape === "circle" ? 18 : 12;

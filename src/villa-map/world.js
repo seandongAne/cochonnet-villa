@@ -178,7 +178,7 @@ export function createVillaWorld() {
       {
         id: "dog-house-view",
         title: "围栏外狗屋",
-        body: "狗屋在围栏外守着入口。它不属于可探索区域，但一直像门卫一样看着山庄。",
+        body: "不呆不呆猪定居点，禁止猪养猪！",
         position: { x: -16, y: 1.2, z: 24 },
         radius: 3.4
       },

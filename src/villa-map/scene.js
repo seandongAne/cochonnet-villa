@@ -223,7 +223,7 @@ function addDecor(scene, materials, world) {
   // Guagua-zhu the singing piglet — positioned in the entry plaza in front of the door.
   const guagua = createPorky(materials, { mic: true, scale: 1.0 });
   guagua.position.set(-3.6, 0, 4);
-  guagua.rotation.y = 0.5;
+  guagua.rotation.y = Math.PI - 0.35;
   scene.add(guagua);
 
   // Big resident porky inside the hall.
@@ -237,6 +237,21 @@ function addDecor(scene, materials, world) {
   tiny.position.set(7, 0.05, -16.6);
   tiny.rotation.y = -1.2;
   scene.add(tiny);
+
+  const porchPiglet = createPorky(materials, { scale: 0.68 });
+  porchPiglet.position.set(2.6, 0.02, 3.2);
+  porchPiglet.rotation.y = Math.PI + 0.25;
+  scene.add(porchPiglet);
+
+  const mushroomPiglet = createPorky(materials, { scale: 0.62 });
+  mushroomPiglet.position.set(-10, 0.03, 15.2);
+  mushroomPiglet.rotation.y = 0.95;
+  scene.add(mushroomPiglet);
+
+  const springPiglet = createPorky(materials, { scale: 0.58 });
+  springPiglet.position.set(14.4, 0.04, 12.2);
+  springPiglet.rotation.y = -1.65;
+  scene.add(springPiglet);
 
   // Welcome sign by the gate (just inside).
   const sign = createTextBoard("猪猪山庄", "主楼、温泉和蘑菇屋都在围栏里。靠近白色提示点，会出现小故事。");

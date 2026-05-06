@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import * as THREE from "three";
 
 import site from "../content/site.json" with { type: "json" };
 import { renderSite } from "../src/render-site.js";
-import { createMaterials, createMushroomHouse, createTieredHotSprings } from "../src/villa-map/assets.js";
+import { createMaterials, createMushroomHouse, createPorky, createTieredHotSprings } from "../src/villa-map/assets.js";
 import { createExplorerControls } from "../src/villa-map/controls.js";
 import { collidesWithWorld, createVillaWorld, findWaterZone } from "../src/villa-map/world.js";
 
@@ -43,6 +44,14 @@ test("villa map world defines the expanded villa grounds", () => {
   assert.equal(world.player.start.z, 18);
   assert.equal(collidesWithWorld({ x: -30, z: 9 }, world), true);
   assert.equal(collidesWithWorld(world.player.start, world), false);
+});
+
+test("dog house interaction uses the requested settlement warning", () => {
+  const world = createVillaWorld();
+  const dogHouse = world.interactions.find((item) => item.id === "dog-house-view");
+
+  assert.ok(dogHouse);
+  assert.equal(dogHouse.body, "不呆不呆猪定居点，禁止猪养猪！");
 });
 
 test("villa map world defines tiered hot spring shallow water and step zones", () => {
@@ -274,9 +283,33 @@ test("mushroom house windows are thin and flush with the front wall", () => {
   });
 });
 
+test("porky face has prominent eyes, snout, nostrils, and smile", () => {
+  const porky = createPorky(createMaterials());
+  const eyes = porky.children.filter((child) => child.name.startsWith("porky-eye-sclera-"));
+  const irises = porky.children.filter((child) => child.name.startsWith("porky-eye-iris-"));
+  const nostrils = porky.children.filter((child) => child.name.startsWith("porky-nostril-"));
+  const snout = porky.getObjectByName("porky-snout-pad");
+  const smile = porky.getObjectByName("porky-smile");
+
+  assert.equal(eyes.length, 2);
+  assert.equal(irises.length, 2);
+  assert.equal(nostrils.length, 2);
+  assert.ok(snout);
+  assert.ok(smile);
+  eyes.forEach((eye) => {
+    assert.ok(eye.geometry.parameters.radius >= 0.17);
+    assert.ok(eye.position.z < -1.12);
+  });
+  irises.forEach((iris) => {
+    assert.ok(iris.position.z < -1.18);
+  });
+  assert.ok(snout.position.z < -1.18);
+});
+
 test("tiered hot springs geometry has raised platform, steps, and lowered water", () => {
   const springs = createTieredHotSprings(createMaterials());
   const waterMeshes = [];
+  const visibleWaterMeshes = [];
   const stepMeshes = [];
   const wallMeshes = [];
   const platformMeshes = [];
@@ -284,6 +317,7 @@ test("tiered hot springs geometry has raised platform, steps, and lowered water"
 
   springs.traverse((child) => {
     if (child.name.startsWith("hot-spring-water-")) waterMeshes.push(child);
+    if (child.name.startsWith("hot-spring-visible-water-")) visibleWaterMeshes.push(child);
     if (child.name.startsWith("hot-spring-step-")) stepMeshes.push(child);
     if (child.name.startsWith("hot-spring-rock-wall-")) wallMeshes.push(child);
     if (child.name.startsWith("hot-spring-stone-terrace-") && child.geometry?.type === "BoxGeometry") {
@@ -295,6 +329,7 @@ test("tiered hot springs geometry has raised platform, steps, and lowered water"
   });
 
   assert.equal(waterMeshes.length, 3);
+  assert.equal(visibleWaterMeshes.length, 3);
   assert.ok(platformMeshes.length >= 3);
   assert.ok(stepMeshes.length >= 4);
   assert.ok(wallMeshes.length >= 3);
@@ -309,6 +344,15 @@ test("tiered hot springs geometry has raised platform, steps, and lowered water"
     assert.equal(water.material.depthWrite, false);
     assert.ok(water.position.y < Math.max(...platformMeshes.map((platform) => platform.position.y)));
   });
+  visibleWaterMeshes.forEach((visibleWater) => {
+    const poolId = visibleWater.name.replace("hot-spring-visible-water-", "");
+    const baseWater = waterMeshes.find((water) => water.name === `hot-spring-water-${poolId}`);
+    assert.ok(baseWater);
+    assert.equal(visibleWater.geometry.type, "CircleGeometry");
+    assert.ok(visibleWater.position.y >= baseWater.position.y + 0.16);
+    assert.ok(visibleWater.material.opacity >= 0.96);
+    assert.equal(visibleWater.material.depthTest, true);
+  });
   assert.ok(stepMeshes.some((step) => step.position.y > waterMeshes[2].position.y));
   wallMeshes.forEach((wall) => {
     const poolId = wall.name.replace("hot-spring-rock-wall-", "");
@@ -316,4 +360,18 @@ test("tiered hot springs geometry has raised platform, steps, and lowered water"
     assert.ok(water);
     assert.ok(wall.position.y > water.position.y);
   });
+});
+
+test("villa scene places at least six porkies in the map", () => {
+  const sceneSource = readFileSync(new URL("../src/villa-map/scene.js", import.meta.url), "utf8");
+  const porkyPlacements = sceneSource.match(/createPorky\(materials/g) ?? [];
+
+  assert.ok(porkyPlacements.length >= 6);
+});
+
+test("foreground porkies face the entry path so facial features are visible", () => {
+  const sceneSource = readFileSync(new URL("../src/villa-map/scene.js", import.meta.url), "utf8");
+
+  assert.match(sceneSource, /guagua\.rotation\.y = Math\.PI/);
+  assert.match(sceneSource, /porchPiglet\.rotation\.y = Math\.PI/);
 });
