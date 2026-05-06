@@ -10,22 +10,37 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
   let yaw = 0;
   let pitch = 0;
   let isLocked = false;
+  let isFallbackLooking = false;
 
   camera.position.set(world.player.start.x, world.player.start.y, world.player.start.z);
   camera.rotation.order = "YXZ";
   camera.rotation.set(pitch, yaw, 0);
 
+  function startFallbackLook() {
+    isFallbackLooking = true;
+    onLockChange?.(true);
+  }
+
   function lock() {
-    canvas.requestPointerLock?.();
+    startFallbackLook();
+
+    try {
+      canvas.requestPointerLock?.();
+    } catch {
+      // Some embedded browser surfaces reject Pointer Lock; keep mouse-look fallback active.
+    }
   }
 
   function handlePointerLockChange() {
     isLocked = document.pointerLockElement === canvas;
-    onLockChange?.(isLocked);
+    if (isLocked) {
+      isFallbackLooking = false;
+    }
+    onLockChange?.(isLocked || isFallbackLooking);
   }
 
   function handleMouseMove(event) {
-    if (!isLocked) {
+    if (!isLocked && !isFallbackLooking) {
       return;
     }
 
@@ -36,6 +51,12 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
   }
 
   function handleKeyDown(event) {
+    if (event.code === "Escape" && isFallbackLooking && !isLocked) {
+      isFallbackLooking = false;
+      onLockChange?.(false);
+      return;
+    }
+
     if (isMovementKey(event.code)) {
       keys.add(event.code);
       event.preventDefault();
@@ -44,6 +65,14 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
 
   function handleKeyUp(event) {
     keys.delete(event.code);
+  }
+
+  function handleCanvasMouseDown(event) {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    startFallbackLook();
   }
 
   function update(delta) {
@@ -79,19 +108,21 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("keydown", handleKeyDown);
     document.removeEventListener("keyup", handleKeyUp);
+    canvas.removeEventListener?.("mousedown", handleCanvasMouseDown);
   }
 
   document.addEventListener("pointerlockchange", handlePointerLockChange);
   document.addEventListener("mousemove", handleMouseMove);
   document.addEventListener("keydown", handleKeyDown);
   document.addEventListener("keyup", handleKeyUp);
+  canvas.addEventListener?.("mousedown", handleCanvasMouseDown);
 
   return {
     lock,
     update,
     dispose,
     get isLocked() {
-      return isLocked;
+      return isLocked || isFallbackLooking;
     }
   };
 }

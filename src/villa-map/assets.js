@@ -4,18 +4,49 @@ const textureCache = new Map();
 
 export function createMaterials() {
   return {
-    grass: new THREE.MeshStandardMaterial({ color: "#9fca83", roughness: 0.96 }),
-    path: new THREE.MeshStandardMaterial({ color: "#f1c983", roughness: 0.92 }),
-    floor: new THREE.MeshStandardMaterial({ color: "#e2ad74", roughness: 0.86 }),
-    wall: new THREE.MeshStandardMaterial({ color: "#ffe5cc", roughness: 0.9 }),
-    trim: new THREE.MeshStandardMaterial({ color: "#cf6c66", roughness: 0.84 }),
-    wood: new THREE.MeshStandardMaterial({ color: "#9b5e3a", roughness: 0.72 }),
+    grass: new THREE.MeshStandardMaterial({ color: "#89b06a", roughness: 0.96 }),
+    outsideGrass: new THREE.MeshStandardMaterial({ color: "#78995d", roughness: 0.98 }),
+    path: new THREE.MeshStandardMaterial({ color: "#d7b16f", roughness: 0.92 }),
+    floor: new THREE.MeshStandardMaterial({ color: "#d9a06a", roughness: 0.86 }),
+    wall: new THREE.MeshStandardMaterial({ color: "#f1c6a3", roughness: 0.82 }),
+    villaWall: new THREE.MeshStandardMaterial({ color: "#e7a06f", roughness: 0.78 }),
+    villaDark: new THREE.MeshStandardMaterial({ color: "#6f2f35", roughness: 0.72 }),
+    trim: new THREE.MeshStandardMaterial({ color: "#b85b53", roughness: 0.84 }),
+    roof: new THREE.MeshStandardMaterial({ color: "#ad3f38", roughness: 0.8 }),
+    wood: new THREE.MeshStandardMaterial({ color: "#8a5738", roughness: 0.72 }),
+    stone: new THREE.MeshStandardMaterial({ color: "#8f8a7d", roughness: 0.92 }),
+    water: new THREE.MeshStandardMaterial({
+      color: "#159bd0",
+      roughness: 0.22,
+      metalness: 0.02,
+      transparent: true,
+      opacity: 0.78
+    }),
+    glass: new THREE.MeshStandardMaterial({
+      color: "#84d8e5",
+      roughness: 0.08,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.52
+    }),
+    steam: new THREE.MeshBasicMaterial({
+      color: "#ffffff",
+      transparent: true,
+      opacity: 0.34,
+      depthWrite: false
+    }),
     hay: new THREE.MeshStandardMaterial({ color: "#e8bd5d", roughness: 0.98 }),
     blanket: new THREE.MeshStandardMaterial({ color: "#f7a8be", roughness: 0.78 }),
     pig: new THREE.MeshStandardMaterial({ color: "#ffa8bd", roughness: 0.82 }),
     pigDark: new THREE.MeshStandardMaterial({ color: "#4f2f33", roughness: 0.7 }),
     snout: new THREE.MeshStandardMaterial({ color: "#ff7f98", roughness: 0.78 }),
-    blue: new THREE.MeshStandardMaterial({ color: "#81a7e8", roughness: 0.76 })
+    blue: new THREE.MeshStandardMaterial({ color: "#81a7e8", roughness: 0.76 }),
+    mushroomStem: new THREE.MeshStandardMaterial({ color: "#f2d4aa", roughness: 0.86 }),
+    mushroomCap: new THREE.MeshStandardMaterial({ color: "#c93335", roughness: 0.72 }),
+    mushroomSpot: new THREE.MeshStandardMaterial({ color: "#fff5df", roughness: 0.8 }),
+    leaf: new THREE.MeshStandardMaterial({ color: "#2f9a51", roughness: 0.95 }),
+    trunk: new THREE.MeshStandardMaterial({ color: "#79513b", roughness: 0.9 }),
+    dogHouse: new THREE.MeshStandardMaterial({ color: "#f7d84f", roughness: 0.82 })
   };
 }
 
@@ -47,6 +78,139 @@ export function createFence(width, depth, material) {
     post.position.z = depth >= width ? -depth / 2 + depth * t : 0;
     group.add(post);
   }
+
+  return group;
+}
+
+export function createModernVilla(materials) {
+  const group = new THREE.Group();
+
+  addBox(group, 12, 4.8, 5.2, materials.villaWall, 0, 2.4, 0);
+  addBox(group, 8.8, 3.8, 4.4, materials.villaWall, -0.2, 6.4, 0.35);
+  addBox(group, 5.2, 3.8, 4.2, materials.glass, -8.2, 2.1, 0.7);
+  addBox(group, 5.6, 3.7, 4.4, materials.villaDark, 8.4, 2.1, -0.1);
+  addBox(group, 13.2, 0.45, 6.2, materials.roof, 0, 4.95, -0.1, { z: -0.06 });
+  addBox(group, 9.8, 0.42, 5.4, materials.roof, -0.2, 8.45, 0.25, { z: -0.08 });
+  addBox(group, 6.2, 0.38, 5.2, materials.roof, -8.1, 4.1, 0.55, { z: 0.35 });
+  addBox(group, 6.2, 0.38, 5.2, materials.roof, 8.5, 4.05, -0.15, { z: -0.14 });
+
+  addBox(group, 3.4, 3.4, 0.18, materials.glass, 2.7, 4.05, 2.72);
+  addBox(group, 4.6, 1.1, 0.18, materials.glass, -3.8, 3.1, 2.72);
+  addBox(group, 4.8, 2.7, 0.18, materials.glass, -8.2, 2.35, 2.86);
+  addBox(group, 3.4, 3.2, 0.22, materials.villaDark, 0, 1.75, 2.8);
+  addBox(group, 2.8, 3.1, 0.25, materials.wood, 8.4, 1.75, 2.34);
+  addBox(group, 0.18, 4.1, 0.18, materials.wood, -1.8, 2.05, 3.2);
+  addBox(group, 0.18, 4.1, 0.18, materials.wood, 1.8, 2.05, 3.2);
+
+  const sunPanel = addBox(group, 5.6, 0.12, 0.12, materials.trim, 0, 5.2, 3);
+  sunPanel.rotation.y = 0.04;
+
+  return group;
+}
+
+export function createHotSpringPool(materials, width = 5, depth = 6) {
+  const group = new THREE.Group();
+  const stoneRing = new THREE.Mesh(new THREE.TorusGeometry(1, 0.09, 10, 64), materials.stone);
+  stoneRing.rotation.x = -Math.PI / 2;
+  stoneRing.scale.set(width / 2, depth / 2, 1);
+  stoneRing.position.y = 0.16;
+  stoneRing.castShadow = true;
+  stoneRing.receiveShadow = true;
+  group.add(stoneRing);
+
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.08, 64), materials.water);
+  water.scale.set(width / 2 - 0.35, 1, depth / 2 - 0.35);
+  water.position.y = 0.13;
+  water.receiveShadow = true;
+  group.add(water);
+
+  for (let index = 0; index < 10; index += 1) {
+    const angle = (index / 10) * Math.PI * 2;
+    const rock = new THREE.Mesh(new THREE.SphereGeometry(0.22 + (index % 3) * 0.05, 12, 8), materials.stone);
+    rock.position.set(Math.cos(angle) * width * 0.54, 0.22, Math.sin(angle) * depth * 0.54);
+    rock.scale.y = 0.45;
+    rock.castShadow = true;
+    group.add(rock);
+  }
+
+  addSteam(group, materials, -0.8, 0);
+  addSteam(group, materials, 0.7, -0.55);
+  return group;
+}
+
+export function createMushroomHouse(materials) {
+  const group = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.1, 3.1, 32), materials.mushroomStem);
+  stem.position.y = 1.55;
+  stem.castShadow = true;
+  stem.receiveShadow = true;
+  group.add(stem);
+
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(2.75, 32, 16), materials.mushroomCap);
+  cap.scale.set(1.12, 0.42, 1.02);
+  cap.position.y = 3.35;
+  cap.castShadow = true;
+  group.add(cap);
+
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.45, 0.34, 32), materials.mushroomCap);
+  brim.position.y = 2.55;
+  brim.castShadow = true;
+  group.add(brim);
+
+  const door = addBox(group, 0.9, 1.55, 0.16, materials.wood, 0, 0.88, -2.05);
+  door.rotation.y = 0.02;
+  addBox(group, 0.9, 0.12, 0.18, materials.trim, 0, 1.65, -2.13);
+  const leftWindow = addBox(group, 0.5, 0.62, 0.045, materials.glass, -1.25, 1.45, -1.47, { y: -0.32 });
+  const rightWindow = addBox(group, 0.5, 0.62, 0.045, materials.glass, 1.25, 1.45, -1.47, { y: 0.32 });
+  leftWindow.name = "mushroom-window-left";
+  rightWindow.name = "mushroom-window-right";
+  leftWindow.castShadow = false;
+  rightWindow.castShadow = false;
+
+  [
+    [-1.4, 3.65, -1.6],
+    [0, 4.05, -1.7],
+    [1.25, 3.55, -1.45],
+    [-0.55, 3.2, -2.25],
+    [1.8, 3.2, -0.1]
+  ].forEach(([x, y, z]) => {
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 10), materials.mushroomSpot);
+    spot.scale.y = 0.28;
+    spot.position.set(x, y, z);
+    group.add(spot);
+  });
+
+  return group;
+}
+
+export function createDogHouse(materials) {
+  const group = new THREE.Group();
+  addBox(group, 2.4, 1.5, 2.2, materials.dogHouse, 0, 0.75, 0);
+  addBox(group, 2.9, 0.35, 2.55, materials.roof, -0.55, 1.78, 0, { z: 0.55 });
+  addBox(group, 2.9, 0.35, 2.55, materials.roof, 0.55, 1.78, 0, { z: -0.55 });
+  addBox(group, 0.95, 1.05, 0.12, materials.pigDark, 0, 0.55, -1.15);
+  addBox(group, 2.6, 0.18, 0.14, materials.wood, 0, 1.55, -1.18);
+  return group;
+}
+
+export function createTree(materials, height = 4.8) {
+  const group = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, height * 0.48, 14), materials.trunk);
+  trunk.position.y = height * 0.24;
+  trunk.castShadow = true;
+  group.add(trunk);
+
+  [
+    [0, 0, 0, 1.35],
+    [-0.75, 0.1, 0.15, 1.05],
+    [0.78, 0.18, 0.05, 1.05],
+    [0.08, 0.72, -0.35, 1.1]
+  ].forEach(([x, y, z, scale]) => {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(scale, 20, 14), materials.leaf);
+    leaf.position.set(x, height * 0.52 + y, z);
+    leaf.castShadow = true;
+    group.add(leaf);
+  });
 
   return group;
 }
@@ -147,14 +311,14 @@ export function createTextBoard(title, body, width = 512, height = 256) {
     const context = canvas.getContext("2d");
     context.fillStyle = "#fff8ef";
     context.fillRect(0, 0, width, height);
-    context.fillStyle = "#f8a6ba";
+    context.fillStyle = "#d86b8d";
     context.beginPath();
     context.arc(52, 52, 24, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = "#4e2f33";
-    context.font = "700 48px Georgia, serif";
+    context.font = "700 46px Georgia, 'Microsoft YaHei', sans-serif";
     context.fillText(title, 92, 68);
-    context.font = "500 28px sans-serif";
+    context.font = "500 27px 'Microsoft YaHei', sans-serif";
     wrapText(context, body, 52, 126, width - 104, 38);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -162,9 +326,26 @@ export function createTextBoard(title, body, width = 512, height = 256) {
     textureCache.set(key, texture);
   }
 
-  const material = new THREE.MeshBasicMaterial({ map: textureCache.get(key) });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.8), material);
+  return new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.8), new THREE.MeshBasicMaterial({ map: textureCache.get(key) }));
+}
+
+function addBox(group, width, height, depth, material, x, y, z, rotation = {}) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+  mesh.position.set(x, y, z);
+  mesh.rotation.set(rotation.x ?? 0, rotation.y ?? 0, rotation.z ?? 0);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
   return mesh;
+}
+
+function addSteam(group, materials, x, z) {
+  for (let index = 0; index < 3; index += 1) {
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(0.24 + index * 0.08, 12, 8), materials.steam);
+    puff.position.set(x + index * 0.18, 0.75 + index * 0.42, z - index * 0.12);
+    puff.scale.y = 1.55;
+    group.add(puff);
+  }
 }
 
 function wrapText(context, text, x, y, maxWidth, lineHeight) {
