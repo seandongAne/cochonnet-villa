@@ -323,6 +323,8 @@ function renderLanguageScript() {
     <script>
       (() => {
         const translations = ${safeScriptJson(LANGUAGE_TEXT)};
+        translations.zh = translations.zh || {};
+        translations.zh["hero.mapCtaLabel"] = "\\u8fdb\\u5165\\u732a\\u732a\\u5c71\\u5e84\\u5730\\u56fe";
         const storageKey = "cochonnet-villa-language";
         const options = ["en", "zh"];
         const initialTitle = document.title;
@@ -439,6 +441,9 @@ export function renderSite(site) {
               <a class="button button-secondary" href="${escapeHtml(sanitizeHref(hero.secondaryCtaHref))}">
                 <span${i18nAttribute("hero.secondaryCtaLabel")}>${escapeHtml(hero.secondaryCtaLabel || "See the villa")}</span>
               </a>
+              <a class="button button-map" href="/villa-map/">
+                <span${i18nAttribute("hero.mapCtaLabel")}>Explore the Villa Map</span>
+              </a>
             </div>
             <ul class="hero-stats" aria-label="Porky summary">
               ${renderStats(porkies, site?.summaryLabels)}
@@ -450,7 +455,7 @@ export function renderSite(site) {
             <div class="scene-portraits" aria-label="Featured porkies">
               ${renderFeaturedPortraits(porkies)}
             </div>
-            <div class="scene-house" aria-hidden="true">
+            <a class="scene-house scene-house-link" href="/villa-map/" aria-label="Explore the Villa Map">
               <div class="roof"></div>
               <div class="house-body">
                 <div class="window"></div>
@@ -458,7 +463,8 @@ export function renderSite(site) {
                 <div class="window"></div>
               </div>
               <div class="house-shadow"></div>
-            </div>
+              <span class="scene-house-cta"${i18nAttribute("hero.mapCtaLabel")}>Explore the Villa Map</span>
+            </a>
             <div class="scene-herd">
               ${renderHerd(porkies)}
             </div>

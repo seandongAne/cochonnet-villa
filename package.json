@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "dev:site": "astro dev",
+    "test": "node tests/villa-map.test.mjs",
     "build": "astro build",
     "preview": "astro preview"
   },
@@ -13,5 +14,8 @@
     "concurrently": "^9.2.1",
     "decap-cms-app": "^3.11.0",
     "decap-server": "^3.6.0"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
   }
 }
