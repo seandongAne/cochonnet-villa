@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { collidesWithWorld } from "./world.js";
+import { collidesWithWorld, findWaterZone } from "./world.js";
 
 const HALF_PI = Math.PI / 2;
 
@@ -76,6 +76,8 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
   }
 
   function update(delta) {
+    const movementProfile = getMovementProfile(camera.position, world);
+    applyCameraHeight(delta, movementProfile.cameraY);
     velocity.set(0, 0, 0);
 
     if (keys.has("KeyW") || keys.has("ArrowUp")) velocity.z -= 1;
@@ -87,7 +89,7 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
       return;
     }
 
-    velocity.normalize().multiplyScalar(world.player.speed * delta);
+    velocity.normalize().multiplyScalar(world.player.speed * movementProfile.speedMultiplier * delta);
     velocity.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
     candidate.copy(camera.position);
@@ -101,6 +103,13 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
     if (!collidesWithWorld(candidate, world)) {
       camera.position.z = candidate.z;
     }
+
+    applyCameraHeight(delta, getMovementProfile(camera.position, world).cameraY);
+  }
+
+  function applyCameraHeight(delta, targetY) {
+    const blend = Math.min(1, delta * 8);
+    camera.position.y += (targetY - camera.position.y) * blend;
   }
 
   function dispose() {
@@ -124,6 +133,21 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
     get isLocked() {
       return isLocked || isFallbackLooking;
     }
+  };
+}
+
+function getMovementProfile(position, world) {
+  const waterZone = findWaterZone(position, world);
+  if (waterZone) {
+    return {
+      speedMultiplier: waterZone.speedMultiplier,
+      cameraY: waterZone.cameraY
+    };
+  }
+
+  return {
+    speedMultiplier: 1,
+    cameraY: world.player.start.y
   };
 }
 
