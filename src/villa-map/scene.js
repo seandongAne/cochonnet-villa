@@ -27,11 +27,11 @@ export function startVillaMap(root) {
   const world = createVillaWorld();
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 140);
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 200);
   let lastFrameTime = performance.now();
 
   scene.background = new THREE.Color("#dcefcf");
-  scene.fog = new THREE.Fog("#dcefcf", 34, 88);
+  scene.fog = new THREE.Fog("#dcefcf", 50, 130);
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
   renderer.shadowMap.enabled = true;
@@ -92,37 +92,43 @@ function buildWorld(scene, world) {
   scene.add(hemiLight);
 
   const sun = new THREE.DirectionalLight("#fff1cb", 3.4);
-  sun.position.set(-12, 20, 16);
+  sun.position.set(-16, 26, 22);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -32;
-  sun.shadow.camera.right = 32;
-  sun.shadow.camera.top = 32;
-  sun.shadow.camera.bottom = -32;
+  sun.shadow.camera.left = -42;
+  sun.shadow.camera.right = 42;
+  sun.shadow.camera.top = 42;
+  sun.shadow.camera.bottom = -42;
   scene.add(sun);
 
-  const warmLamp = new THREE.PointLight("#ffb16c", 36, 20);
-  warmLamp.position.set(0, 4, -10);
+  const warmLamp = new THREE.PointLight("#ffb16c", 42, 26);
+  warmLamp.position.set(0, 4.5, -13);
   scene.add(warmLamp);
 
-  const outsideMeadow = createGround(58, 56, materials.outsideGrass);
-  outsideMeadow.position.set(-3, -0.16, 2);
+  // Outside meadow extends past the fence in every direction so the world
+  // doesn't end abruptly at the wood line.
+  const outsideMeadow = createGround(80, 76, materials.outsideGrass);
+  outsideMeadow.position.set(2, -0.16, 1);
   scene.add(outsideMeadow);
 
-  const courtyard = createGround(40, 43, materials.grass);
-  courtyard.position.set(2, -0.08, 1.5);
+  // Courtyard grass — covers the full inside-fence area.
+  const courtyard = createGround(54, 53, materials.grass);
+  courtyard.position.set(2, -0.08, 1);
   scene.add(courtyard);
 
-  const mainPath = createGround(4.8, 23, materials.path);
-  mainPath.position.set(0, 0.01, 11.7);
+  // Stone path from the front gate north to the villa entry steps.
+  const mainPath = createGround(5.4, 30, materials.path);
+  mainPath.position.set(2, 0.01, 12.5);
   scene.add(mainPath);
 
-  const entryPath = createGround(12, 3.8, materials.path);
-  entryPath.position.set(-3.8, 0.02, 15.7);
+  // Wider entry plaza right in front of the villa door.
+  const entryPath = createGround(14, 4.4, materials.path);
+  entryPath.position.set(0, 0.02, 0.6);
   scene.add(entryPath);
 
-  const hallFloor = createGround(18, 18, materials.floor);
-  hallFloor.position.set(0, 0.01, -11);
+  // Hall floor matches the new villa interior footprint.
+  const hallFloor = createGround(24, 20, materials.floor);
+  hallFloor.position.set(0, 0.01, -13);
   scene.add(hallFloor);
 
   addFences(scene, materials);
@@ -134,63 +140,40 @@ function buildWorld(scene, world) {
 }
 
 function addFences(scene, materials) {
-  const left = createFence(1, 42, materials.wood);
-  left.position.set(-18.5, 0, 1.5);
+  // Fence positions match the colliders in world.js — outer fence wraps the lot,
+  // gate gap on the south at x ∈ [3, 5].
+  const left = createFence(1, 55, materials.wood);
+  left.position.set(-25, 0, 0.5);
   scene.add(left);
 
-  const right = createFence(1, 42, materials.wood);
-  right.position.set(22.5, 0, 1.5);
+  const right = createFence(1, 55, materials.wood);
+  right.position.set(29, 0, 0.5);
   scene.add(right);
 
-  const back = createFence(42, 1, materials.wood);
-  back.position.set(2, 0, -20.5);
+  const back = createFence(56, 1, materials.wood);
+  back.position.set(2, 0, -26);
   scene.add(back);
 
-  const frontLeft = createFence(18, 1, materials.wood);
-  frontLeft.position.set(-9.5, 0, 23.5);
+  const frontLeft = createFence(28, 1, materials.wood);
+  frontLeft.position.set(-11, 0, 27.5);
   scene.add(frontLeft);
 
-  const frontRight = createFence(18, 1, materials.wood);
-  frontRight.position.set(13.5, 0, 23.5);
+  const frontRight = createFence(24, 1, materials.wood);
+  frontRight.position.set(17, 0, 27.5);
   scene.add(frontRight);
 
   const gateMarker = createGround(5, 0.18, materials.path);
-  gateMarker.position.set(2, 0.05, 23.25);
+  gateMarker.position.set(4, 0.05, 27.25);
   scene.add(gateMarker);
 }
 
 function addMainVilla(scene, materials) {
+  // The villa is a magnificent two-storey building. Footprint 26x22, centered
+  // at world (0, -13). South face at z = -2. The cartoon facade lives on the
+  // south face; back/sides are the hall perimeter walls.
   const villa = createModernVilla(materials);
-  villa.position.set(0, 0, -5);
+  villa.position.set(0, 0, -13);
   scene.add(villa);
-
-  const back = createWall(19, 4.4, 1, materials.wall);
-  back.position.set(0, 2.2, -19.5);
-  scene.add(back);
-
-  const left = createWall(1, 4.4, 18, materials.wall);
-  left.position.set(-9.5, 2.2, -11);
-  scene.add(left);
-
-  const right = createWall(1, 4.4, 18, materials.wall);
-  right.position.set(9.5, 2.2, -11);
-  scene.add(right);
-
-  const frontLeft = createWall(5.2, 4.4, 1, materials.wall);
-  frontLeft.position.set(-6.9, 2.2, -1.8);
-  scene.add(frontLeft);
-
-  const frontRight = createWall(5.2, 4.4, 1, materials.wall);
-  frontRight.position.set(6.9, 2.2, -1.8);
-  scene.add(frontRight);
-
-  const ceiling = createWall(18.8, 0.45, 18.5, materials.trim);
-  ceiling.position.set(0, 4.85, -11);
-  scene.add(ceiling);
-
-  const arch = createWall(4.8, 0.6, 0.7, materials.trim);
-  arch.position.set(0, 3.95, -1.9);
-  scene.add(arch);
 }
 
 function addHotSprings(scene, materials) {
@@ -198,57 +181,66 @@ function addHotSprings(scene, materials) {
 }
 
 function addScenicExterior(scene, materials) {
-  const treeA = createTree(materials, 5.2);
-  treeA.position.set(-25, 0, -4.8);
+  // Per reference: two trees stacked vertically outside the left fence,
+  // dog house at the bottom-left outside the fence near the gate.
+  const treeA = createTree(materials, 5.6);
+  treeA.position.set(-21, 0, -2);
   scene.add(treeA);
 
-  const treeB = createTree(materials, 4.9);
-  treeB.position.set(-24.7, 0, 5.8);
-  treeB.scale.setScalar(0.92);
+  const treeB = createTree(materials, 5.2);
+  treeB.position.set(-21, 0, 9);
+  treeB.scale.setScalar(0.94);
   scene.add(treeB);
 
   const dogHouse = createDogHouse(materials);
-  dogHouse.position.set(-24.4, 0, 16.4);
-  dogHouse.rotation.y = -Math.PI / 2;
+  dogHouse.position.set(-19, 0, 24);
+  dogHouse.rotation.y = Math.PI / 2; // door faces east, toward the fence/villa
   scene.add(dogHouse);
 }
 
 function addDecor(scene, materials, world) {
+  // Mushroom house: bottom-center inside fence (per reference). Door faces south
+  // so it greets players coming from the gate.
   const mushroomHouse = createMushroomHouse(materials);
-  mushroomHouse.position.set(-8.5, 0, 16);
+  mushroomHouse.position.set(-6, 0, 18);
   mushroomHouse.rotation.y = Math.PI;
   scene.add(mushroomHouse);
 
+  // Hay bale and blanket nests inside the great hall.
   const hay = createHayBale(materials.hay);
-  hay.position.set(4.7, 0, 11.5);
+  hay.position.set(6, 0, 14);
   scene.add(hay);
 
   const blanket = createBlanketPile(materials.blanket);
-  blanket.position.set(-4.6, 0.03, -12.7);
+  blanket.position.set(-5, 0.03, -15);
   scene.add(blanket);
 
   const tinyBlanket = createBlanketPile(materials.blue);
   tinyBlanket.scale.setScalar(0.56);
-  tinyBlanket.position.set(6.2, 0.04, -14.8);
+  tinyBlanket.position.set(7, 0.04, -17);
   scene.add(tinyBlanket);
 
-  const guagua = createPorky(materials, { mic: true, scale: 0.92 });
-  guagua.position.set(-3.2, 0, 2.6);
+  // Guagua-zhu the singing piglet — positioned in the entry plaza in front of the door.
+  const guagua = createPorky(materials, { mic: true, scale: 1.0 });
+  guagua.position.set(-3.6, 0, 4);
   guagua.rotation.y = 0.5;
   scene.add(guagua);
 
-  const giant = createPorky(materials, { scale: 1.35 });
-  giant.position.set(-5, 0, -10.8);
+  // Big resident porky inside the hall.
+  const giant = createPorky(materials, { scale: 1.4 });
+  giant.position.set(-5, 0, -13);
   giant.rotation.y = -0.35;
   scene.add(giant);
 
-  const tiny = createPorky(materials, { scale: 0.52 });
-  tiny.position.set(6.1, 0.05, -14.4);
+  // Tiny piglet curled on the small blanket nest.
+  const tiny = createPorky(materials, { scale: 0.55 });
+  tiny.position.set(7, 0.05, -16.6);
   tiny.rotation.y = -1.2;
   scene.add(tiny);
 
+  // Welcome sign by the gate (just inside).
   const sign = createTextBoard("猪猪山庄", "主楼、温泉和蘑菇屋都在围栏里。靠近白色提示点，会出现小故事。");
-  sign.position.set(0, 2.05, 8.2);
+  sign.position.set(4, 2.05, 22);
   sign.rotation.y = Math.PI;
   scene.add(sign);
 

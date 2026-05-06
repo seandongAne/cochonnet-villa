@@ -41,7 +41,7 @@ test("villa map world defines the expanded villa grounds", () => {
   assert.ok(world.interactions.some((item) => item.id === "trees-view"));
   assert.equal(world.player.start.x, 0);
   assert.equal(world.player.start.z, 18);
-  assert.equal(collidesWithWorld({ x: -23, z: 9 }, world), true);
+  assert.equal(collidesWithWorld({ x: -30, z: 9 }, world), true);
   assert.equal(collidesWithWorld(world.player.start, world), false);
 });
 
