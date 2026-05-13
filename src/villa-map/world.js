@@ -82,8 +82,13 @@ export function createVillaWorld() {
       boxCollider("lower-spring-east-rock", 24.7, 9, 0.6, 6.6),
       boxCollider("lower-spring-back-rock", 21, 5.5, 6.4, 0.6),
       boxCollider("lower-spring-front-rock", 21, 12.5, 6.4, 0.6),
-      // Mushroom house at bottom-center inside fence (per reference).
-      boxCollider("mushroom-house", -6, 18, 6.2, 5.0),
+      // Mushroom house at bottom-center inside fence (per reference). The
+      // visual is scaled 2x in assets.js — the collider is sized to the
+      // doubled *stem* footprint, not the cap overhang, so players can still
+      // walk under the cap's shade but can't clip into the trunk. Width is
+      // tuned so the player spawn at (0, 18) stays clear of the inflated
+      // collision rectangle (player radius 0.62 → inflated maxX ≈ -0.38).
+      boxCollider("mushroom-house", -6, 18, 10.0, 10.0),
       // Decor inside the great hall.
       boxCollider("blanket-pile", -5, -15, 3.0, 2.4),
       boxCollider("hay-stack", 6, 14, 2.6, 2.6)
@@ -172,8 +177,10 @@ export function createVillaWorld() {
         id: "mushroom-house",
         title: "小猪蘑菇屋",
         body: "红顶蘑菇屋是小猪们的午睡点，圆门很矮，进去前大家都会先把脚上的草屑蹭干净。",
-        position: { x: -6, y: 1.1, z: 14 },
-        radius: 4.0
+        // House is now twice as tall — hotspot sits just south of the new
+        // doorstep so players trigger it as they walk up to the door.
+        position: { x: -6, y: 1.1, z: 24 },
+        radius: 4.2
       },
       {
         id: "dog-house-view",

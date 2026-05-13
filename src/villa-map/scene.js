@@ -265,7 +265,8 @@ function addDecor(scene, materials, world) {
     modelScale: 0.72,
     fallbackScale: 0.62
   });
-  mushroomPiglet.position.set(-10, 0.03, 15.2);
+  // Tucked just outside the doubled mushroom stem, sitting under the cap's shade.
+  mushroomPiglet.position.set(-12.5, 0.03, 14.2);
   mushroomPiglet.rotation.y = 0.95;
   scene.add(mushroomPiglet);
 
