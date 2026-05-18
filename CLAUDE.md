@@ -1,32 +1,33 @@
+# Cochonnet Villa
 
-## Architecture
+Static Astro site about 15 pet pigs. Two features:
 
-**Cochonnet Villa** is a static Astro site about 15 pet pigs. It has two main features:
+1. **Landing site** — `src/pages/index.astro` rendered from `content/site.json` via `src/render-site.js`. Admin at `/admin/` edits the JSON through GitHub OAuth (Decap CMS, no backend).
+2. **3D Villa Map** (`/villa-map/`) — Three.js WebGL scene.
 
-1. **Landing site** — Marketing/showcase pages rendered from a JSON content source via `src/render-site.js`
-2. **3D Villa Map** — Interactive WebGL scene (`/villa-map/`) built with Three.js
+## Commands
 
-### Content system
+- `npm run dev` — local preview
+- `npm run build` — production build
+- `npm test` — Node.js built-in `node:test` runner
 
-All site text and pig data lives in `content/site.json`. `src/render-site.js` acts as a template engine, reading that JSON and producing HTML for `src/pages/index.astro`. The admin UI at `/admin/` edits `site.json` directly via the GitHub API (no backend server — Decap CMS with GitHub OAuth).
-
-### 3D scene (`src/villa-map/`)
+## 3D scene (`src/villa-map/`)
 
 | File | Role |
 |------|------|
-| `scene.js` | Three.js scene setup, render loop |
-| `world.js` | World geometry, collision system, interaction zones |
-| `controls.js` | WASD + mouse-look / pointer-lock controls |
-| `assets.js` | Procedural mesh factories for buildings and terrain |
-| `porky-models.js` | GLB pig model loading (4 variants) with procedural fallback |
-| `interaction.js` | HUD panels triggered by hotspot proximity |
+| `scene.js` | Three.js scene setup + render loop |
+| `world.js` | Geometry, collision (2D AABB + optional Y range), interaction zones, stair/water zones |
+| `controls.js` | WASD + pointer-lock, camera-Y interp through stair/water zones |
+| `assets.js` | Procedural mesh factories for buildings & terrain |
+| `porky-models.js` | GLB pig loading (4 variants) with procedural fallback |
+| `interaction.js` | Proximity HUD; Y-floor filter for multi-floor hotspots |
 
-World bounds: x `[-26, 30]`, z `[-27, 28]`. GLB models live in `public/models/porkies/`.
+World bounds: x `[-26, 30]`, z `[-27, 28]`. Main villa is two floors (ground eye-Y ≈ 1.6, upper ≈ 8.05). GLB models in `public/models/porkies/`.
 
-### Key patterns
+## Key patterns
 
-- **ES modules throughout** — `"type": "module"` in `package.json`; use `import`/`export` everywhere
-- **Procedural generation** — buildings and terrain are constructed in `assets.js` at runtime, not pre-made 3D assets (except the pig GLBs)
-- **No client-side framework** — Astro outputs static HTML; all interactivity is vanilla JS + Three.js
-- **Bilingual support** — content keys default to Chinese (`zh`); `data-i18n` attributes used for i18n hooks
-- **Tests** use Node.js built-in `node:test` — no external test framework; tests cover HTML rendering, world geometry, collisions, and interaction zones
+- ES modules everywhere (`"type": "module"`)
+- Procedural geometry at runtime — only pig GLBs are pre-made assets
+- No client framework — Astro static HTML + vanilla JS + Three.js
+- Bilingual; content defaults to Chinese (`zh`), `data-i18n` for hooks
+- Tests cover HTML render, world geometry, collisions, interactions
