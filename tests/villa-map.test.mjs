@@ -8,7 +8,8 @@ import { renderSite } from "../src/render-site.js";
 import { createMaterials, createMushroomHouse, createPorky, createTieredHotSprings } from "../src/villa-map/assets.js";
 import { createExplorerControls } from "../src/villa-map/controls.js";
 import { PORKY_MODEL_VARIANTS } from "../src/villa-map/porky-models.js";
-import { collidesWithWorld, createVillaWorld, findWaterZone } from "../src/villa-map/world.js";
+import { collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
+import { findNearestInteraction } from "../src/villa-map/interaction.js";
 
 test("homepage exposes a dedicated villa map CTA", () => {
   const html = renderSite(site);
@@ -20,7 +21,7 @@ test("homepage exposes a dedicated villa map CTA", () => {
   assert.match(html, /aria-label="Explore the Villa Map"/);
 });
 
-test("villa map world defines the expanded villa grounds", () => {
+test("villa map world defines the expanded villa grounds with multi-floor rooms", () => {
   const world = createVillaWorld();
 
   assert.deepEqual(
@@ -28,7 +29,13 @@ test("villa map world defines the expanded villa grounds", () => {
     [
       "courtyard",
       "main-villa",
-      "great-hall",
+      "entry-foyer",
+      "great-hall-west",
+      "great-hall-east",
+      "stair-vestibule",
+      "master-bedroom",
+      "study-loft",
+      "lounge-balcony",
       "hot-springs",
       "mushroom-house",
       "dog-house-view",
@@ -41,10 +48,71 @@ test("villa map world defines the expanded villa grounds", () => {
   assert.ok(world.interactions.some((item) => item.id === "mushroom-house"));
   assert.ok(world.interactions.some((item) => item.id === "dog-house-view"));
   assert.ok(world.interactions.some((item) => item.id === "trees-view"));
+  // Upstairs interactions exist with elevated Y so the interaction Y-filter
+  // can distinguish ground vs. upper floor.
+  ["master-bedroom", "study-loft", "lounge-balcony"].forEach((id) => {
+    const item = world.interactions.find((entry) => entry.id === id);
+    assert.ok(item, `missing upstairs interaction ${id}`);
+    assert.ok(item.position.y > 6, `${id} should be at upper-floor height`);
+  });
   assert.equal(world.player.start.x, 0);
   assert.equal(world.player.start.z, 18);
   assert.equal(collidesWithWorld({ x: -30, z: 9 }, world), true);
   assert.equal(collidesWithWorld(world.player.start, world), false);
+});
+
+test("villa interior partitions block ground-floor only — upper floor stays open above them", () => {
+  const world = createVillaWorld();
+  // World (-3, -5) is the foyer-west-wall-b partition (minY=0, maxY=5.6). At
+  // ground level (y=1.6) it collides; at upper-floor height (y=8) it does NOT
+  // because z=-5 is south of the only upper-floor wall at x=-3 (the bedroom
+  // corner covers z ∈ [-7, -6]).
+  assert.equal(collidesWithWorld({ x: -3, y: 1.6, z: -5 }, world), true);
+  assert.equal(collidesWithWorld({ x: -3, y: 8, z: -5 }, world), false);
+});
+
+test("villa stair zone interpolates camera target Y from ground to upper floor", () => {
+  const world = createVillaWorld();
+  const stair = world.stairs[0];
+  // At south end (entry) the player is at ground level.
+  assert.ok(findStairZone({ x: 0, y: 1.6, z: stair.maxZ }, world));
+  // At north end (exit) we are inside the upper floor.
+  assert.ok(findStairZone({ x: 0, y: 1.6, z: stair.minZ }, world));
+  // Outside the zone (way south of the stair) we are not in the zone.
+  assert.equal(findStairZone({ x: 0, y: 1.6, z: stair.maxZ + 2 }, world), null);
+});
+
+test("upper-floor footprint is reachable and isOnUpperFloor recognizes it", () => {
+  const world = createVillaWorld();
+  // A point standing on the upper-floor master bedroom (y > 5.6) is on upper.
+  assert.equal(isOnUpperFloor({ x: -5.5, y: 8.05, z: -11 }, world), true);
+  // The same XZ at ground level (y = 1.6) is NOT considered upstairs.
+  assert.equal(isOnUpperFloor({ x: -5.5, y: 1.6, z: -11 }, world), false);
+  // Outside the upper-floor slab footprint returns false.
+  assert.equal(isOnUpperFloor({ x: 0, y: 8.05, z: -22 }, world), false);
+  // The master-bedroom south corner is collidable at upper-floor height —
+  // upper-bedroom-corner covers world z range [-7, -6] at x = -3.
+  assert.equal(collidesWithWorld({ x: -3, y: 8.05, z: -6.5 }, world), true);
+  // But a point well inside the master bedroom is free.
+  assert.equal(collidesWithWorld({ x: -5.5, y: 8.05, z: -11 }, world), false);
+  // And the area around the stair hole is open on the upper floor — no
+  // walls blocking the descent from any direction.
+  assert.equal(collidesWithWorld({ x: -2.5, y: 8.05, z: -13 }, world), false);
+  assert.equal(collidesWithWorld({ x: 2.5, y: 8.05, z: -13 }, world), false);
+});
+
+test("interaction Y-filter keeps upstairs hotspots from triggering on ground floor", () => {
+  const world = createVillaWorld();
+  // Stand inside the great-hall-west room at ground level (y = 1.6).
+  const groundPos = { x: -7, y: 1.6, z: -10 };
+  const groundNearest = findNearestInteraction(world.interactions, groundPos);
+  assert.equal(groundNearest?.id, "great-hall-west");
+
+  // Stand at the same XZ but at upper-floor height — the ground-floor hall
+  // hotspot must NOT fire (filtered by the 2.0 Y tolerance).
+  const upperPos = { x: -7, y: 8.05, z: -10 };
+  const upperNearest = findNearestInteraction(world.interactions, upperPos);
+  assert.notEqual(upperNearest?.id, "great-hall-west");
 });
 
 test("dog house interaction uses the requested settlement warning", () => {

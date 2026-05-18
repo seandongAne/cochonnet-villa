@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { collidesWithWorld, findWaterZone } from "./world.js";
+import { collidesWithWorld, findStairZone, findWaterZone, isOnUpperFloor } from "./world.js";
 
 const HALF_PI = Math.PI / 2;
 
@@ -137,6 +137,28 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
 }
 
 function getMovementProfile(position, world) {
+  // Stair zone takes priority — the player is physically on the stairs and
+  // their target Y is an interpolation between ground and upper floor.
+  const stair = findStairZone(position, world);
+  if (stair) {
+    // t = 0 at maxZ (south, ground level) → t = 1 at minZ (north, upper).
+    const span = stair.maxZ - stair.minZ;
+    const t = Math.max(0, Math.min(1, (stair.maxZ - position.z) / span));
+    return {
+      speedMultiplier: stair.speedMultiplier,
+      cameraY: stair.floorY + (stair.upperY - stair.floorY) * t
+    };
+  }
+
+  // Once north of the stair top and inside the upper-floor footprint, snap
+  // the target to upper-floor eye level.
+  if (isOnUpperFloor(position, world)) {
+    return {
+      speedMultiplier: 1,
+      cameraY: world.upperFloorY ?? world.player.start.y
+    };
+  }
+
   const waterZone = findWaterZone(position, world);
   if (waterZone) {
     return {

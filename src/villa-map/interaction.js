@@ -27,8 +27,15 @@ export function createInteractionHud({ world, camera, panel }) {
 export function findNearestInteraction(interactions, position) {
   let nearest = null;
   let nearestDistance = Infinity;
+  const playerY = position.y ?? 1.6;
 
   interactions.forEach((interaction) => {
+    // Y-floor filter — keeps upstairs hotspots from triggering while standing
+    // on the ground floor (and vice versa). 2.0 tolerance preserves all the
+    // existing outdoor markers (player y ≈ 1.6, markers y ≈ 1.x).
+    const markerY = interaction.position.y ?? 1.4;
+    if (Math.abs(markerY - playerY) > 2.0) return;
+
     const dx = interaction.position.x - position.x;
     const dz = interaction.position.z - position.z;
     const distance = Math.hypot(dx, dz);

@@ -48,7 +48,16 @@ export function createMaterials() {
     mushroomSpot: new THREE.MeshStandardMaterial({ color: "#fff5df", roughness: 0.8 }),
     leaf: new THREE.MeshStandardMaterial({ color: "#2f9a51", roughness: 0.95 }),
     trunk: new THREE.MeshStandardMaterial({ color: "#79513b", roughness: 0.9 }),
-    dogHouse: new THREE.MeshStandardMaterial({ color: "#f7d84f", roughness: 0.82 })
+    dogHouse: new THREE.MeshStandardMaterial({ color: "#f7d84f", roughness: 0.82 }),
+    // ---- Villa interior palette (modern minimalist) ----------------------
+    wallInterior: new THREE.MeshStandardMaterial({ color: "#f4dcc6", roughness: 0.88 }),
+    wallAccent: new THREE.MeshStandardMaterial({ color: "#b66c5b", roughness: 0.84 }),
+    ceiling: new THREE.MeshStandardMaterial({ color: "#fbf3e8", roughness: 0.93 }),
+    floorPlank: new THREE.MeshStandardMaterial({ color: "#a87148", roughness: 0.72 }),
+    fabricCream: new THREE.MeshStandardMaterial({ color: "#efe2cf", roughness: 0.86 }),
+    fabricNavy: new THREE.MeshStandardMaterial({ color: "#3a4c66", roughness: 0.82 }),
+    metalBrass: new THREE.MeshStandardMaterial({ color: "#caa15a", roughness: 0.42, metalness: 0.5 }),
+    rugCharcoal: new THREE.MeshStandardMaterial({ color: "#3e3a36", roughness: 0.95 })
   };
 }
 
@@ -205,9 +214,29 @@ export function createModernVilla(materials) {
   const upperFrontZ = halfDepth - 4.0; // pushed back so the lower roof reads as a balcony platform
   const upperZ = upperFrontZ - upperDepth / 2;
 
-  // Floor slab between the two storeys (sits on top of the lower roof).
-  addBox(group, upperWidth + 0.6, 0.2, upperDepth + 0.6, materials.trim,
-    0, upperBaseY - 0.1, upperZ);
+  // Floor slab between the two storeys, with a 3 × 4 cutout above the stair
+  // hole at local x ∈ [-1.5, +1.5], z ∈ [+1, +5]. Built as 4 boxes around the
+  // hole so players walking up the stairs see daylight through the opening
+  // and so upper-floor visitors don't walk on air over the hole.
+  // Upper-floor footprint: local x ∈ [-8.3, +8.3], z ∈ [-3.3, +7.3].
+  // West slab portion: local x ∈ [-8.3, -1.5], z ∈ [-3.3, +7]
+  addBox(group, 6.8, 0.2, 10.3, materials.floorPlank,
+    -4.9, upperBaseY - 0.1, 1.85);
+  // East slab portion: local x ∈ [+1.5, +8.3], z ∈ [-3.3, +7]
+  addBox(group, 6.8, 0.2, 10.3, materials.floorPlank,
+    4.9, upperBaseY - 0.1, 1.85);
+  // North-center slab strip north of the stair hole: local z ∈ [-3.3, +1]
+  addBox(group, 3, 0.2, 4.3, materials.floorPlank,
+    0, upperBaseY - 0.1, -1.15);
+  // South-center slab strip south of the stair hole: local z ∈ [+5, +7]
+  addBox(group, 3, 0.2, 2, materials.floorPlank,
+    0, upperBaseY - 0.1, 6);
+  // Peach trim ringing the stair-hole edge so the cutout reads as intentional
+  // (visible from both the ground hall looking up and the upper landing).
+  addBox(group, 3.2, 0.06, 0.18, materials.trim, 0, upperBaseY - 0.02, 1);   // north edge of hole
+  addBox(group, 3.2, 0.06, 0.18, materials.trim, 0, upperBaseY - 0.02, 5);   // south edge of hole
+  addBox(group, 0.18, 0.06, 4.2, materials.trim, -1.5, upperBaseY - 0.02, 3); // west edge of hole
+  addBox(group, 0.18, 0.06, 4.2, materials.trim, 1.5, upperBaseY - 0.02, 3);  // east edge of hole
 
   // Upper level back wall.
   addBox(group, upperWidth, upperHeight, 0.32, materials.villaWall,
@@ -284,6 +313,95 @@ export function createModernVilla(materials) {
     const stepWidth = 11.0 - i * 0.6;
     addBox(group, stepWidth, 0.16, 0.6, materials.trim, 0, 0.12 - i * 0.06, frontZ + 2.4 + i * 0.6);
   }
+
+  // ============================================================
+  // INTERIOR — partitions, staircase, upper-floor walls, furniture
+  // ============================================================
+  // All coords below are LOCAL to the villa group (world = local + (0, 0, -13)).
+  // World→Local Z mapping: local z = world z + 13.
+
+  // ---- Ground-floor interior partitions (x = ±3) -----------------------
+  // West partition mirrors the world.js colliders with door gaps at world
+  // z ∈ [-5, -3] (foyer arch) and z ∈ [-10, -9] (vestibule arch).
+  //   foyer gap world z ∈ [-5, -3] → local z ∈ [8, 10]
+  //   vestibule gap world z ∈ [-10, -9] → local z ∈ [3, 4]
+  buildInteriorPartition(group, materials, -3, lowerHeight);
+  buildInteriorPartition(group, materials, +3, lowerHeight);
+
+  // ---- Stair banister / glass guard at x = ±1.5 ------------------------
+  // Visual is a low handrail + glass infill; collision is full-height in
+  // world.js so players can't step off the stairs sideways.
+  for (const sx of [-1.5, +1.5]) {
+    // Glass infill panel.
+    addBox(group, 0.06, 0.92, 4.2, materials.glass, sx, 0.62, 3);
+    // Wood handrail along the top.
+    addBox(group, 0.12, 0.14, 4.2, materials.wood, sx, 1.18, 3);
+    // Three vertical posts at the ends and middle.
+    for (const pz of [0.95, 3, 5.05]) {
+      addBox(group, 0.12, 1.18, 0.12, materials.wood, sx, 0.59, pz);
+    }
+  }
+
+  // ---- Staircase ------------------------------------------------------
+  const stair = createStaircase(materials, {
+    width: 2.6,
+    treads: 12,
+    runPerTread: 0.4,
+    risePerTread: 0.554,
+    bottomLocalZ: 5,
+    startY: 0.1
+  });
+  group.add(stair);
+
+  // ---- Upper-floor interior partitions (Y ∈ [6.65, 11.25]) -------------
+  // Minimal partitions only — area around the stair hole is fully open so
+  // the descent is visible from every upstairs room.
+  const upperWallY = upperBaseY + upperHeight / 2;
+  const upperWallHeight = upperHeight - 0.2;
+  // Small master-bedroom south corner (defines the bedroom's south-east edge
+  // without enclosing the room).
+  addBox(group, 0.3, upperWallHeight, 1, materials.wallInterior,
+    -3, upperWallY, 6.5);
+  // Study/lounge divider at local z = +2 (world z = -11). Door gap at local
+  // x ∈ [+4.5, +5.5].
+  addBox(group, 1.5, upperWallHeight, 0.3, materials.wallInterior,
+    3.75, upperWallY, 2);
+  addBox(group, 2.5, upperWallHeight, 0.3, materials.wallInterior,
+    6.75, upperWallY, 2);
+
+  // ---- Stair-hole guard rails (visible from above) ---------------------
+  // Low glass + brass handrail tracing 3 edges of the stair hole on the
+  // upper floor. The north edge stays open — that's the entry/exit from
+  // the upper floor to the stairs. Collision for the south edge is set in
+  // world.js (upper-stair-rail-south); east/west are covered by the
+  // full-height stair-rail-west/east already in place.
+  const railY = upperBaseY + 0.06;   // sits just above the slab top
+  const railTopY = upperBaseY + 0.62; // waist-high handrail
+  const glassH = 0.6;
+  // South edge rail at local z = +5 (world z = -8).
+  addBox(group, 3, glassH, 0.04, materials.glass, 0, railY + glassH / 2, 5);
+  addBox(group, 3.1, 0.08, 0.1, materials.metalBrass, 0, railTopY, 5);
+  // West and east side rails along z ∈ [+1, +5] local.
+  for (const sx of [-1.5, 1.5]) {
+    addBox(group, 0.04, glassH, 4, materials.glass, sx, railY + glassH / 2, 3);
+    addBox(group, 0.1, 0.08, 4.1, materials.metalBrass, sx, railTopY, 3);
+    // Two small posts per side.
+    for (const pz of [1.05, 4.95]) {
+      addBox(group, 0.08, 0.62, 0.08, materials.metalBrass, sx, railY + 0.31, pz);
+    }
+  }
+  // Two posts along the south rail.
+  for (const px of [-1.45, 1.45]) {
+    addBox(group, 0.08, 0.62, 0.08, materials.metalBrass, px, railY + 0.31, 5);
+  }
+
+  // ---- Per-room furniture ----------------------------------------------
+  group.add(createFurnitureSet("entry-foyer", materials));
+  group.add(createFurnitureSet("great-hall-west", materials));
+  group.add(createFurnitureSet("great-hall-east", materials));
+  group.add(createFurnitureSet("master-bedroom", materials));
+  group.add(createFurnitureSet("study-loft", materials));
+  group.add(createFurnitureSet("lounge-balcony", materials));
 
   return group;
 }
@@ -1050,6 +1168,255 @@ function addBox(group, width, height, depth, material, x, y, z, rotation = {}) {
   mesh.receiveShadow = true;
   group.add(mesh);
   return mesh;
+}
+
+// ============================================================
+// Villa interior helpers
+// ============================================================
+
+// Builds the foyer-pocket walls only along x = px. Local z bands (gap = door):
+//   [+10, +11] solid · [+8, +10] gap (foyer arch) · [+6, +8] solid
+// Everything north of local z = +6 is open — the stair vestibule, west/east
+// halls, and the back of the villa form one continuous great hall.
+function buildInteriorPartition(group, materials, px, height) {
+  const segments = [
+    { fromZ: 10, toZ: 11 },
+    { fromZ: 6, toZ: 8 }
+  ];
+  const y = height / 2;
+  segments.forEach((seg) => {
+    const depth = seg.toZ - seg.fromZ;
+    const cz = (seg.fromZ + seg.toZ) / 2;
+    addBox(group, 0.3, height, depth, materials.wallInterior, px, y, cz);
+    // Baseboard.
+    addBox(group, 0.36, 0.12, depth, materials.wood, px, 0.06, cz);
+    // Cornice trim along the top.
+    addBox(group, 0.36, 0.08, depth, materials.trim, px, height - 0.04, cz);
+  });
+  // Terracotta accent panel on the west hall's back wall (visible across the
+  // now-open great hall as the room's focal point). Only emit once when this
+  // helper runs for the west partition (px === -3).
+  if (px === -3) {
+    addBox(group, 0.05, 2.4, 4.0, materials.wallAccent, -12.6, 1.5, -6);
+  }
+}
+
+// Build a staircase as a stack of treads + open risers + side stringers +
+// arrival landing patch. Treads run from south (bottomLocalZ, lowest) north
+// (lowest z, highest). Aligned with the world.js stair zone at world z ∈
+// [-12, -8] (local z ∈ [+1, +5]).
+function createStaircase(materials, opts) {
+  const { width, treads, runPerTread, risePerTread, bottomLocalZ, startY } = opts;
+  const group = new THREE.Group();
+  // Treads.
+  for (let i = 0; i < treads; i += 1) {
+    const z = bottomLocalZ - i * runPerTread;
+    const y = startY + i * risePerTread;
+    // Tread plank.
+    addBox(group, width, 0.16, runPerTread + 0.04, materials.wood, 0, y, z);
+    // Riser (vertical face).
+    addBox(group, width, risePerTread, 0.05, materials.wallInterior, 0, y - risePerTread / 2 + 0.08, z + runPerTread / 2);
+  }
+  // Side stringers (tilted boxes flanking the treads).
+  const totalRun = treads * runPerTread;
+  const totalRise = treads * risePerTread;
+  const stringerLen = Math.hypot(totalRun, totalRise);
+  const stringerAngle = Math.atan2(totalRise, totalRun);
+  const stringerCenterZ = bottomLocalZ - totalRun / 2;
+  const stringerCenterY = startY + totalRise / 2;
+  for (const sx of [-width / 2 - 0.06, width / 2 + 0.06]) {
+    const stringer = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.36, stringerLen),
+      materials.wood
+    );
+    stringer.position.set(sx, stringerCenterY - 0.2, stringerCenterZ);
+    stringer.rotation.x = stringerAngle;
+    stringer.castShadow = true;
+    stringer.receiveShadow = true;
+    group.add(stringer);
+  }
+  // Arrival landing patch on the upper floor — small wood platform just past
+  // the top tread so the stair top meets the slab cleanly.
+  const topY = startY + totalRise;
+  addBox(group, width + 0.4, 0.18, 0.8, materials.floorPlank,
+    0, topY + 0.04, bottomLocalZ - totalRun - 0.4);
+  return group;
+}
+
+// Per-room furniture sets. Each set is a small Group of boxes arranged
+// modern-minimalist style.
+function createFurnitureSet(roomId, materials) {
+  const group = new THREE.Group();
+  if (roomId === "entry-foyer") {
+    // World room center (0, -4.5) → local (0, 8.5). Foyer is x∈[-3,+3], z∈[8,11].
+    // Charcoal floor mat just inside the door.
+    addBox(group, 2.2, 0.04, 1.4, materials.rugCharcoal, 0, 0.04, 10);
+    // Shoe bench against the east wall.
+    addBox(group, 0.4, 0.45, 1.6, materials.wood, 2.4, 0.22, 8.9);
+    addBox(group, 0.5, 0.08, 1.7, materials.fabricCream, 2.4, 0.48, 8.9);
+    // Console table against the west wall with a brass vase.
+    addBox(group, 0.32, 0.9, 1.4, materials.wood, -2.6, 0.45, 9);
+    addBox(group, 0.4, 0.08, 1.5, materials.wood, -2.6, 0.94, 9);
+    const vase = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.32, 16), materials.metalBrass);
+    vase.position.set(-2.6, 1.14, 9);
+    group.add(vase);
+    return group;
+  }
+  if (roomId === "great-hall-west") {
+    // World room center (-8, -13) → local (-8, 0).
+    // Charcoal rug under the sofa.
+    addBox(group, 4.8, 0.04, 3, materials.rugCharcoal, -8, 0.04, -1);
+    // Sofa frame.
+    addBox(group, 4.2, 0.4, 1.4, materials.wood, -8, 0.22, -2);
+    // Sofa back.
+    addBox(group, 4.2, 0.9, 0.3, materials.fabricCream, -8, 0.66, -2.5);
+    // Sofa seat cushions (2).
+    addBox(group, 2.0, 0.2, 1.0, materials.fabricCream, -9.1, 0.52, -1.85);
+    addBox(group, 2.0, 0.2, 1.0, materials.fabricCream, -6.9, 0.52, -1.85);
+    // Sofa back pillows (3 navy).
+    for (let i = 0; i < 3; i += 1) {
+      addBox(group, 0.7, 0.7, 0.2, materials.fabricNavy, -9 + i * 1.0, 0.72, -2.32);
+    }
+    // Coffee table.
+    addBox(group, 1.8, 0.06, 1, materials.wood, -8, 0.5, 0.4);
+    for (const cx of [-8.8, -7.2]) {
+      for (const cz of [-0.05, 0.85]) {
+        addBox(group, 0.06, 0.5, 0.06, materials.metalBrass, cx, 0.25, cz);
+      }
+    }
+    // Floor lamp in the corner.
+    const lampPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.0, 12), materials.metalBrass);
+    lampPole.position.set(-11.5, 1.0, -2.5);
+    group.add(lampPole);
+    const lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.4, 18), materials.fabricCream);
+    lampShade.position.set(-11.5, 2.05, -2.5);
+    group.add(lampShade);
+    return group;
+  }
+  if (roomId === "great-hall-east") {
+    // World room center (8, -13) → local (8, 0).
+    // Long dining table.
+    addBox(group, 4.6, 0.08, 1.4, materials.wood, 8, 0.78, 0);
+    // Table legs.
+    for (const lx of [6.1, 9.9]) {
+      for (const lz of [-0.55, 0.55]) {
+        addBox(group, 0.1, 0.78, 0.1, materials.wood, lx, 0.39, lz);
+      }
+    }
+    // Six stools around the table.
+    for (let i = 0; i < 3; i += 1) {
+      const sx = 6.6 + i * 1.4;
+      // North side stools.
+      addBox(group, 0.5, 0.45, 0.5, materials.wood, sx, 0.22, -1.05);
+      addBox(group, 0.6, 0.08, 0.6, materials.fabricCream, sx, 0.5, -1.05);
+      // South side stools.
+      addBox(group, 0.5, 0.45, 0.5, materials.wood, sx, 0.22, 1.05);
+      addBox(group, 0.6, 0.08, 0.6, materials.fabricCream, sx, 0.5, 1.05);
+    }
+    // Sideboard along the east wall.
+    addBox(group, 0.6, 0.85, 2.4, materials.wood, 11.8, 0.42, -2);
+    // A few small plates on the sideboard.
+    for (let i = 0; i < 3; i += 1) {
+      const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 18), materials.fabricCream);
+      plate.position.set(11.8, 0.87, -2.6 + i * 0.5);
+      group.add(plate);
+    }
+    // Pendant light above the table (just the shade — actual light is in scene.js).
+    const pendant = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.18, 0.4, 18), materials.metalBrass);
+    pendant.position.set(8, 4.7, 0);
+    group.add(pendant);
+    addBox(group, 0.03, 0.9, 0.03, materials.wood, 8, 5.2, 0);
+    return group;
+  }
+  if (roomId === "master-bedroom") {
+    // World room center (-5.5, -11) → local (-5.5, 2).
+    // Y on upper floor: slab at 6.65, furniture rests on top.
+    const baseY = 6.65 + 0.05;
+    // Platform bed.
+    addBox(group, 3.4, 0.4, 4.2, materials.wood, -5.5, baseY + 0.2, 0);
+    // Mattress.
+    addBox(group, 3.2, 0.32, 4, materials.fabricCream, -5.5, baseY + 0.56, 0);
+    // Headboard.
+    addBox(group, 3.4, 1.2, 0.16, materials.fabricCream, -5.5, baseY + 0.8, -2.1);
+    // Pillows.
+    addBox(group, 1.4, 0.18, 0.7, materials.fabricCream, -6.3, baseY + 0.82, -1.7);
+    addBox(group, 1.4, 0.18, 0.7, materials.fabricCream, -4.7, baseY + 0.82, -1.7);
+    // Navy bedspread folded at the foot.
+    addBox(group, 3.2, 0.1, 1.0, materials.fabricNavy, -5.5, baseY + 0.78, 1.5);
+    // Two nightstands.
+    for (const nx of [-7.4, -3.6]) {
+      addBox(group, 0.7, 0.6, 0.7, materials.wood, nx, baseY + 0.3, -1.8);
+      addBox(group, 0.8, 0.06, 0.8, materials.wood, nx, baseY + 0.63, -1.8);
+      // Brass reading lamp.
+      const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.34, 12), materials.metalBrass);
+      lampBase.position.set(nx, baseY + 0.83, -1.8);
+      group.add(lampBase);
+      const lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.18, 16), materials.fabricCream);
+      lampShade.position.set(nx, baseY + 1.1, -1.8);
+      group.add(lampShade);
+    }
+    // Small wardrobe against the back wall.
+    addBox(group, 1.8, 2.0, 0.6, materials.wood, -7.2, baseY + 1.0, 2.0);
+    return group;
+  }
+  if (roomId === "study-loft") {
+    // World room center (5.5, -13.5) → local (5.5, -0.5).
+    const baseY = 6.65 + 0.05;
+    // Desk against the back wall.
+    addBox(group, 1.8, 0.06, 0.8, materials.wood, 5.5, baseY + 0.74, -1.5);
+    // Desk legs.
+    for (const lx of [4.7, 6.3]) {
+      addBox(group, 0.08, 0.74, 0.08, materials.wood, lx, baseY + 0.37, -1.5);
+    }
+    // Chair.
+    addBox(group, 0.5, 0.45, 0.5, materials.wood, 5.5, baseY + 0.22, -0.6);
+    addBox(group, 0.5, 0.6, 0.06, materials.wood, 5.5, baseY + 0.62, -0.83);
+    // Bookshelf — 5 shelves with books.
+    addBox(group, 1.6, 2.2, 0.4, materials.wood, 7.4, baseY + 1.1, -1.3);
+    for (let s = 0; s < 5; s += 1) {
+      const shelfY = baseY + 0.35 + s * 0.4;
+      // Several books per shelf.
+      for (let b = 0; b < 6; b += 1) {
+        const bookMat = b % 3 === 0 ? materials.fabricNavy : (b % 3 === 1 ? materials.wallAccent : materials.fabricCream);
+        addBox(group, 0.16, 0.3, 0.18, bookMat, 6.7 + b * 0.2, shelfY + 0.15, -1.3);
+      }
+    }
+    // Reading armchair in the corner.
+    addBox(group, 0.9, 0.42, 0.9, materials.wood, 4.0, baseY + 0.21, 0.6);
+    addBox(group, 0.9, 0.7, 0.16, materials.fabricCream, 4.0, baseY + 0.5, 0.16);
+    addBox(group, 0.9, 0.3, 0.7, materials.fabricCream, 4.0, baseY + 0.55, 0.6);
+    return group;
+  }
+  if (roomId === "lounge-balcony") {
+    // World room center (5.5, -8.5) → local (5.5, 4.5).
+    const baseY = 6.65 + 0.05;
+    // Two-seat sofa facing south (toward balcony glass).
+    addBox(group, 2.2, 0.4, 1.0, materials.wood, 5.5, baseY + 0.2, 4.2);
+    addBox(group, 2.2, 0.7, 0.22, materials.fabricCream, 5.5, baseY + 0.55, 3.78);
+    addBox(group, 2.0, 0.18, 0.8, materials.fabricCream, 5.5, baseY + 0.49, 4.3);
+    // Two navy throw pillows.
+    addBox(group, 0.5, 0.5, 0.18, materials.fabricNavy, 4.8, baseY + 0.62, 3.98);
+    addBox(group, 0.5, 0.5, 0.18, materials.fabricNavy, 6.2, baseY + 0.62, 3.98);
+    // Round side table.
+    const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.06, 18), materials.wood);
+    tableTop.position.set(4.0, baseY + 0.5, 4.2);
+    group.add(tableTop);
+    const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 12), materials.metalBrass);
+    tableLeg.position.set(4.0, baseY + 0.25, 4.2);
+    group.add(tableLeg);
+    // Potted plant in the corner.
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.36, 14), materials.trim);
+    pot.position.set(7.4, baseY + 0.18, 5);
+    group.add(pot);
+    const plant = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), materials.leaf);
+    plant.position.set(7.4, baseY + 0.7, 5);
+    plant.scale.set(1.0, 1.3, 1.0);
+    group.add(plant);
+    // Charcoal area rug.
+    addBox(group, 2.6, 0.04, 1.6, materials.rugCharcoal, 5.5, baseY + 0.04, 4.5);
+    return group;
+  }
+  return group;
 }
 
 function addTieredPool(group, materials, pool) {

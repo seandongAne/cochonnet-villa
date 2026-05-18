@@ -101,9 +101,28 @@ function buildWorld(scene, world) {
   sun.shadow.camera.bottom = -42;
   scene.add(sun);
 
-  const warmLamp = new THREE.PointLight("#ffb16c", 42, 26);
-  warmLamp.position.set(0, 4.5, -13);
-  scene.add(warmLamp);
+  // Per-room interior lighting for the main villa. Soft warm lights inside
+  // each ground-floor and upper-floor room. None cast shadows (kept cheap;
+  // only the sun is a shadow caster).
+  const roomLights = [
+    // Ground floor (y ≈ 5.2, below the upper-floor slab at 6.65)
+    { x: 0,    y: 5.2, z: -4.5,  color: "#ffd2a3", intensity: 7,  distance: 7 },  // entry foyer
+    { x: -7,   y: 5.2, z: -13,   color: "#ffc48a", intensity: 10, distance: 11 }, // west hall
+    { x: 7,    y: 5.2, z: -13,   color: "#ffc48a", intensity: 10, distance: 11 }, // east hall
+    { x: 0,    y: 5.0, z: -10,   color: "#ffd9b3", intensity: 6,  distance: 7 },  // stair vestibule
+    { x: -7,   y: 5.2, z: -20,   color: "#ffb98c", intensity: 7,  distance: 9 },  // west hall back
+    { x: 7,    y: 5.2, z: -20,   color: "#ffb98c", intensity: 7,  distance: 9 },  // east hall back
+    // Upper floor (y ≈ 10.8, near the upper ceiling)
+    { x: -5.5, y: 10.6, z: -11,  color: "#ffd2a3", intensity: 8,  distance: 8 },  // master bedroom
+    { x: 5.5,  y: 10.6, z: -13.5, color: "#fff0d6", intensity: 7, distance: 7 },  // study loft
+    { x: 5.5,  y: 10.6, z: -8.5, color: "#ffd2a3", intensity: 7,  distance: 7 }   // lounge balcony
+  ];
+  roomLights.forEach((cfg) => {
+    const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.distance);
+    light.position.set(cfg.x, cfg.y, cfg.z);
+    light.castShadow = false;
+    scene.add(light);
+  });
 
   // Outside meadow extends past the fence in every direction so the world
   // doesn't end abruptly at the wood line.
@@ -206,18 +225,20 @@ function addDecor(scene, materials, world) {
   mushroomHouse.rotation.y = Math.PI;
   scene.add(mushroomHouse);
 
-  // Hay bale and blanket nests inside the great hall.
+  // Hay bale tucked in the NE corner of the east great hall.
   const hay = createHayBale(materials.hay);
-  hay.position.set(6, 0, 14);
+  hay.position.set(6, 0, -19);
   scene.add(hay);
 
+  // Blanket nest in the west hall (under the sofa, next to the giant porky).
   const blanket = createBlanketPile(materials.blanket);
   blanket.position.set(-5, 0.03, -15);
   scene.add(blanket);
 
+  // Tiny blue blanket nest at the back of the east hall (tiny-corner hotspot).
   const tinyBlanket = createBlanketPile(materials.blue);
   tinyBlanket.scale.setScalar(0.56);
-  tinyBlanket.position.set(7, 0.04, -17);
+  tinyBlanket.position.set(7, 0.04, -19);
   scene.add(tinyBlanket);
 
   // Guagua-zhu the singing piglet — positioned in the entry plaza in front of the door.
@@ -241,15 +262,44 @@ function addDecor(scene, materials, world) {
   giant.rotation.y = -0.35;
   scene.add(giant);
 
-  // Tiny piglet curled on the small blanket nest.
+  // Tiny piglet curled on the small blanket nest at the back of east hall.
   const tiny = createPorkyModel(materials, {
     variant: "wild-piglet",
     modelScale: 0.62,
     fallbackScale: 0.55
   });
-  tiny.position.set(7, 0.05, -16.6);
+  tiny.position.set(7, 0.05, -18.6);
   tiny.rotation.y = -1.2;
   scene.add(tiny);
+
+  // ===== Upper-floor residents — one piglet per upstairs room =====
+  // Floor slab Y = 6.65. Piglets stand on top.
+  const bedroomPiglet = createPorkyModel(materials, {
+    variant: "guadai",
+    modelScale: 0.78,
+    fallbackScale: 0.7
+  });
+  bedroomPiglet.position.set(-4.0, 6.7, -9.5);
+  bedroomPiglet.rotation.y = 1.2;
+  scene.add(bedroomPiglet);
+
+  const studyPiglet = createPorkyModel(materials, {
+    variant: "wild-piglet",
+    modelScale: 0.66,
+    fallbackScale: 0.6
+  });
+  studyPiglet.position.set(4.0, 6.72, -12.8);
+  studyPiglet.rotation.y = 0.4;
+  scene.add(studyPiglet);
+
+  const loungePiglet = createPorkyModel(materials, {
+    variant: "daigua",
+    modelScale: 0.7,
+    fallbackScale: 0.62
+  });
+  loungePiglet.position.set(6.4, 6.72, -8);
+  loungePiglet.rotation.y = -0.7;
+  scene.add(loungePiglet);
 
   const porchPiglet = createPorkyModel(materials, {
     variant: "guadai",
