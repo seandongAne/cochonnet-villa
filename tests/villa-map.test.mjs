@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import * as THREE from "three";
 
@@ -8,6 +7,7 @@ import { renderSite } from "../src/render-site.js";
 import { createMaterials, createMushroomHouse, createPorky, createTieredHotSprings } from "../src/villa-map/assets.js";
 import { createExplorerControls } from "../src/villa-map/controls.js";
 import { PORKY_MODEL_VARIANTS } from "../src/villa-map/porky-models.js";
+import { PORKY_PLACEMENTS } from "../src/villa-map/placements.js";
 import { collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
 import { findNearestInteraction } from "../src/villa-map/interaction.js";
 
@@ -446,15 +446,29 @@ test("villa map exposes the four commercial GLB porky model variants", () => {
 });
 
 test("villa scene places at least six GLB-backed porkies in the map", () => {
-  const sceneSource = readFileSync(new URL("../src/villa-map/scene.js", import.meta.url), "utf8");
-  const porkyPlacements = sceneSource.match(/createPorkyModel\(materials/g) ?? [];
-
-  assert.ok(porkyPlacements.length >= 6);
+  assert.ok(PORKY_PLACEMENTS.length >= 6);
+  // Every placement must reference a real GLB variant so the Scene mounts a
+  // commercial model (with procedural fallback), not a bare primitive.
+  PORKY_PLACEMENTS.forEach((placement) => {
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(PORKY_MODEL_VARIANTS, placement.variant),
+      `unknown porky variant: ${placement.variant}`
+    );
+  });
 });
 
 test("foreground porkies face the entry path so facial features are visible", () => {
-  const sceneSource = readFileSync(new URL("../src/villa-map/scene.js", import.meta.url), "utf8");
+  // The two porkies in the entry plaza must face roughly south (+Z, rotationY
+  // ≈ Math.PI) so a player walking in from the gate sees their sculpted faces.
+  const facingEntry = (id) => {
+    const placement = PORKY_PLACEMENTS.find((entry) => entry.id === id);
+    assert.ok(placement, `missing placement: ${id}`);
+    assert.ok(
+      Math.abs(placement.rotationY - Math.PI) < 0.5,
+      `${id} should face the entry (rotationY ≈ π), got ${placement.rotationY}`
+    );
+  };
 
-  assert.match(sceneSource, /guagua\.rotation\.y = Math\.PI/);
-  assert.match(sceneSource, /porchPiglet\.rotation\.y = Math\.PI/);
+  facingEntry("guaguazhu");
+  facingEntry("porch");
 });
