@@ -66,7 +66,7 @@ function StudioEnvironment() {
   return null;
 }
 
-export function Scene({ world }) {
+export function Scene({ world, editMode = false, onSelectPiece }) {
   // Build every procedural mesh exactly once. The assets.js / porky-models.js
   // factories are reused verbatim from the vanilla-Three implementation; R3F
   // mounts the resulting Object3D instances through <primitive>.
@@ -217,12 +217,27 @@ export function Scene({ world }) {
       <primitive object={built.shadows} />
 
       {/* ---- Furniture (Kenney CC0 GLB props, Phase 2) ---- */}
+      {/* In `?edit=1` mode each piece is click-selectable so the gizmo can grab
+          it; the handlers are omitted entirely for ordinary visitors. */}
       {built.furniture.map(({ placement, object }) => (
         <primitive
           key={placement.id}
           object={object}
           position={placement.position}
           rotation-y={placement.rotationY}
+          {...(editMode && {
+            onClick: (e) => {
+              e.stopPropagation();
+              onSelectPiece?.(placement, object);
+            },
+            onPointerOver: (e) => {
+              e.stopPropagation();
+              document.body.style.cursor = "pointer";
+            },
+            onPointerOut: () => {
+              document.body.style.cursor = "auto";
+            }
+          })}
         />
       ))}
 
