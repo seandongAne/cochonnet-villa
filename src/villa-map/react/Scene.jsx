@@ -18,6 +18,8 @@ import {
 } from "../assets.js";
 import { createPorkyModel } from "../porky-models.js";
 import { PORKY_PLACEMENTS } from "../placements.js";
+import { createFurniturePiece } from "../furniture-models.js";
+import { FURNITURE_PLACEMENTS } from "../furniture-placements.js";
 
 // Soft warm interior point lights, one cluster per villa room. Mirrors the
 // roomLights array from the old scene.js. None cast shadows (kept cheap; the
@@ -101,6 +103,14 @@ export function Scene({ world }) {
       porkies: PORKY_PLACEMENTS.map((placement) => ({
         placement,
         object: createPorkyModel(materials, placement)
+      })),
+      // Phase 2: pre-made CC0 GLB furniture (Kenney kit). Built once, mounted
+      // through <primitive> like the porkies; each piece streams its GLB in
+      // over a placeholder. Rooms still using boxy furniture are built inside
+      // createModernVilla instead.
+      furniture: FURNITURE_PLACEMENTS.map((placement) => ({
+        placement,
+        object: createFurniturePiece(placement)
       }))
     };
   }, []);
@@ -169,6 +179,16 @@ export function Scene({ world }) {
 
       {/* ---- Porkies (GLB with procedural fallback) ---- */}
       {built.porkies.map(({ placement, object }) => (
+        <primitive
+          key={placement.id}
+          object={object}
+          position={placement.position}
+          rotation-y={placement.rotationY}
+        />
+      ))}
+
+      {/* ---- Furniture (Kenney CC0 GLB props, Phase 2) ---- */}
+      {built.furniture.map(({ placement, object }) => (
         <primitive
           key={placement.id}
           object={object}

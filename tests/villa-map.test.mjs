@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 
 import site from "../content/site.json" with { type: "json" };
@@ -8,6 +10,8 @@ import { createMaterials, createMushroomHouse, createPorky, createTieredHotSprin
 import { createExplorerControls } from "../src/villa-map/controls.js";
 import { PORKY_MODEL_VARIANTS } from "../src/villa-map/porky-models.js";
 import { PORKY_PLACEMENTS } from "../src/villa-map/placements.js";
+import { FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.js";
+import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
 import { collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
 import { findNearestInteraction } from "../src/villa-map/interaction.js";
 
@@ -471,4 +475,41 @@ test("foreground porkies face the entry path so facial features are visible", ()
 
   facingEntry("guaguazhu");
   facingEntry("porch");
+});
+
+test("furniture placements reference vendored CC0 GLBs within the world bounds", () => {
+  const world = createVillaWorld();
+  const roomIds = new Set(world.rooms.map((room) => room.id));
+
+  assert.ok(FURNITURE_PLACEMENTS.length >= 1);
+  assert.ok(FURNITURE_BASE_SCALE > 1);
+
+  // Every id is unique so React keys / scene mounting stay stable.
+  const ids = FURNITURE_PLACEMENTS.map((piece) => piece.id);
+  assert.equal(new Set(ids).size, ids.length, "duplicate furniture id");
+
+  FURNITURE_PLACEMENTS.forEach((piece) => {
+    assert.ok(roomIds.has(piece.room), `unknown furniture room: ${piece.room}`);
+    assert.match(piece.url, /^\/models\/furniture\/.+\.glb$/);
+
+    // The GLB the scene will fetch must actually be vendored in public/.
+    const filePath = fileURLToPath(new URL(`../public${piece.url}`, import.meta.url));
+    assert.ok(existsSync(filePath), `missing GLB file: ${piece.url}`);
+
+    // Positions live inside the playable world AABB.
+    const [x, y, z] = piece.position;
+    assert.ok(x > world.bounds.minX && x < world.bounds.maxX, `${piece.id} x out of bounds`);
+    assert.ok(z > world.bounds.minZ && z < world.bounds.maxZ, `${piece.id} z out of bounds`);
+    assert.ok(y >= 0, `${piece.id} should sit at/above the floor`);
+
+    assert.equal(typeof piece.rotationY, "number");
+  });
+});
+
+test("the west great hall is furnished with multiple GLB props (Phase 2 room)", () => {
+  const westPieces = FURNITURE_PLACEMENTS.filter((piece) => piece.room === "great-hall-west");
+  assert.ok(westPieces.length >= 4, "west hall should have a furnished living-room set");
+  // The seating group needs at least a sofa and a rug to read as a living room.
+  assert.ok(westPieces.some((piece) => /loungeSofa/.test(piece.url)), "missing sofa");
+  assert.ok(westPieces.some((piece) => /rug/.test(piece.url)), "missing rug");
 });
