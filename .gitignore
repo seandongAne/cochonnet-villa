@@ -6,3 +6,5 @@ dist
 .astro
 .astro-dev.log
 .astro-dev.err
+
+.claude

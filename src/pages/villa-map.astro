@@ -1,5 +1,6 @@
 ---
 import "../villa-map/styles.css";
+import VillaMap from "../villa-map/react/VillaMap.jsx";
 
 const title = "猪猪山庄实景地图 | Cochonnet Villa";
 const description = "Explore the expanded 3D villa grounds, hot springs, mushroom house, and main hall of Cochonnet Villa.";
@@ -25,37 +26,9 @@ const description = "Explore the expanded 3D villa grounds, hot springs, mushroo
         <a class="villa-map-back" href="/">返回主页</a>
       </header>
 
-      <main class="villa-map-root" data-villa-map-root>
-        <canvas class="villa-map-canvas" data-villa-canvas aria-label="猪猪山庄 3D 自由探索地图"></canvas>
-
-        <section class="villa-map-overlay" aria-label="地图控制说明">
-          <h1>进入猪猪山庄</h1>
-          <p>新版开放主楼、庭院、温泉区和小猪蘑菇屋。点击开始后，使用键盘移动，鼠标环视，靠近白色提示点会出现故事卡片。</p>
-          <div class="villa-map-controls" aria-label="键盘控制">
-            <kbd>W</kbd>
-            <kbd>A</kbd>
-            <kbd>S</kbd>
-            <kbd>D</kbd>
-            <kbd>Mouse</kbd>
-            <kbd>Esc</kbd>
-          </div>
-          <button class="villa-map-start" type="button" data-start-exploring>开始探索</button>
-          <p class="villa-map-status" data-lock-status>点击开始后使用 WASD + 鼠标探索</p>
-        </section>
-
-        <div class="villa-map-loading" data-loading>正在搭建猪猪山庄...</div>
-
-        <aside class="interaction-panel" data-interaction-panel hidden>
-          <h2 data-interaction-title></h2>
-          <p data-interaction-body></p>
-        </aside>
-
-        <p class="villa-map-mobile-note">当前版本桌面体验最佳。请在电脑上使用 WASD 和鼠标自由探索。</p>
-      </main>
+      <!-- 3D villa map runs as a client-only React Three Fiber island.
+           Three.js needs `window`, so there is no SSR pass. -->
+      <VillaMap client:only="react" />
     </div>
-
-    <script>
-      import "../villa-map/index.js";
-    </script>
   </body>
 </html>

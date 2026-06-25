@@ -56,6 +56,15 @@
   text-decoration: none;
 }
 
+/* The villa map mounts as an Astro `client:only` React island, which wraps the
+   component in an <astro-island> element. `display: contents` removes that
+   wrapper's box so .villa-map-root becomes the direct grid child of
+   .villa-map-shell and inherits the 1fr row height — without it the R3F canvas
+   container's height:100% has no definite parent height to resolve against. */
+.villa-map-shell > astro-island {
+  display: contents;
+}
+
 .villa-map-root {
   position: relative;
   overflow: hidden;
