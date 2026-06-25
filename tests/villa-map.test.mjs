@@ -65,14 +65,17 @@ test("villa map world defines the expanded villa grounds with multi-floor rooms"
   assert.equal(collidesWithWorld(world.player.start, world), false);
 });
 
-test("villa interior partitions block ground-floor only — upper floor stays open above them", () => {
+test("ground floor is open plan — the x=±3 foyer partitions are gone, upper-floor walls stay Y-scoped", () => {
   const world = createVillaWorld();
-  // World (-3, -5) is the foyer-west-wall-b partition (minY=0, maxY=5.6). At
-  // ground level (y=1.6) it collides; at upper-floor height (y=8) it does NOT
-  // because z=-5 is south of the only upper-floor wall at x=-3 (the bedroom
-  // corner covers z ∈ [-7, -6]).
-  assert.equal(collidesWithWorld({ x: -3, y: 1.6, z: -5 }, world), true);
-  assert.equal(collidesWithWorld({ x: -3, y: 8, z: -5 }, world), false);
+  // The foyer-pocket partition walls at x=±3 were removed for an open entry.
+  // The east side (no furniture there) is now walkable where the wall stood.
+  assert.equal(collidesWithWorld({ x: 3, y: 1.6, z: -5 }, world), false);
+  assert.equal(collidesWithWorld({ x: 3, y: 1.6, z: -6 }, world), false);
+  // The interior partitions that remain are upper-floor only and stay Y-scoped:
+  // upper-bedroom-corner (x=-3, world z ∈ [-7,-6]) blocks at upper-floor height
+  // but the same XZ is clear at ground level.
+  assert.equal(collidesWithWorld({ x: -3, y: 8.05, z: -6.5 }, world), true);
+  assert.equal(collidesWithWorld({ x: -3, y: 1.6, z: -6.5 }, world), false);
 });
 
 test("villa stair zone interpolates camera target Y from ground to upper floor", () => {

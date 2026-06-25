@@ -7,20 +7,19 @@
 // present) without a DOM.
 //
 // GOAL: dress the villa's front entrance so the hand-built procedural shell reads
-// as a designed entryway — a real front door in the wall gap, matched topiary
-// planters flanking it, side railings lining the porch/steps, and stone planter
-// boxes at the foot of the steps.
+// as a designed entryway — topiary planters flanking the OPEN entry, side
+// railings lining the porch/steps, and stone planter boxes at the foot of the
+// steps. (The villa front is deliberately an open-plan portal — no door piece.)
 //
-// Coordinates are WORLD-space. The villa front face is at z ≈ -2.2 with a door
-// gap x∈[-5,5] (front faces +Z, toward the courtyard / the player who starts at
-// z=18 looking -Z). A procedural stone porch deck sits in front (≈ x∈[-6,6],
-// z∈[-1,2.4]) and three step risers continue out to ≈ z+5.4. Ground top is y≈0
-// and the loader grounds every piece's min-Y to its origin, so all accents are
-// placed at y: 0.
+// Coordinates are WORLD-space. The villa front face is at z ≈ -2.2 with an open
+// entry gap x∈[-5,5] (front faces +Z, toward the courtyard / the player who
+// starts at z=18 looking -Z). A procedural stone porch deck sits in front
+// (≈ x∈[-6,6], z∈[-1,2.4]) and three step risers continue out to ≈ z+5.4. Ground
+// top is y≈0 and the loader grounds every piece's min-Y to its origin, so all
+// accents are placed at y: 0.
 //
 // Pieces are sourced from two CC0 Kenney kits (see architecture/LICENSE.txt):
-//   Furniture Kit       — doorwayFront (front door, vendored as `doorArch`),
-//                         pottedPlant (flanking topiary). Self-contained
+//   Furniture Kit       — pottedPlant (flanking topiary). Self-contained
 //                         (UniGLTF, KHR_materials_unlit + baseColorFactor — no
 //                         external atlas), and the SAME kit the interior rooms
 //                         use, so they read maximally cohesive with the villa.
@@ -37,10 +36,10 @@
 // orientation (native XZ × 2.2 × scale) — the shadow + collider layers apply
 // `rotationY` themselves, so it must NOT be pre-rotated.
 //
-// DOORWAY STAYS PASSABLE: the door arch sits in the wall gap (z≈-2.1) and the
-// flanking topiaries are non-solid, so nothing blocks the player walking through
-// x∈[-5,5]. The side railings + planters are solid but sit at x≈±5.9 (on the
-// porch edge), so their colliders never reach the x∈[-5,5] door path.
+// DOORWAY STAYS PASSABLE: the flanking topiaries are non-solid, so nothing
+// blocks the player walking through the open entry x∈[-5,5]. The side railings +
+// planters are solid but sit at x≈±5.9/±6.6 (on the porch edge), so their
+// colliders never reach the x∈[-5,5] entry path.
 
 const ARCH = (name) => `/models/architecture/${name}.glb`;
 
@@ -50,23 +49,15 @@ const G = 0;
 // Per-record WORLD-space footprints (metres) = native XZ × 2.2 × scale, measured
 // from each vendored GLB (POSITION accessor min/max, accounting for node TRS) and
 // baked here so consumers never re-apply a scale or know the base factor.
-//   native XZ:  doorArch    0.486 × 0.113   (Furniture Kit doorwayFront)
-//               pottedPlant 0.212 × 0.241   (Furniture Kit)
+//   native XZ:  pottedPlant 0.212 × 0.241   (Furniture Kit)
 //               railing     0.475 × 0.075   (City Suburban fence)
 //               planter     0.400 × 0.300   (City Suburban planter)
 export const ARCHITECTURE_PLACEMENTS = [
-  // ===== Front door — closed glass-panelled door set in the wall gap =====
-  // doorwayFront ships a frame + an actual door mesh; placed flush at the wall
-  // plane (z≈-2.1), rotated PI so the door face looks out toward the courtyard
-  // (+Z). NON-solid: the door represents the building entrance the player walks
-  // through, so its collider must not seal the x∈[-5,5] passage.
-  {
-    id: "arch-front-door", room: "entrance", url: ARCH("doorArch"),
-    position: [0, G, -2.1], rotationY: Math.PI, scale: 1.35, model: "doorArch",
-    floor: 0, footprint: { x: 1.443, z: 0.336 }, solid: false, noShadow: false
-  },
+  // NB: there is intentionally NO door piece — the villa front is an open-plan
+  // portal (the lone door read as out of place against the open facade). The
+  // entrance is dressed with greenery, railings and planters only.
 
-  // ===== Flanking topiary planters either side of the door (on the porch) =====
+  // ===== Flanking topiary planters either side of the open entry (on the porch) =====
   // Small/tall accents tucked just inside the porch, clear of the procedural
   // entry planters at (±4.4, -1.2). Non-solid so the player can brush past.
   {

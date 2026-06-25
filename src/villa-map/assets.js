@@ -140,10 +140,10 @@ export function createModernVilla(materials) {
     addBox(group, 0.06, 2.0, 0.5, materials.glass, halfWidth - 0.18, 2.8, z);
   }
 
-  // Interior baseboard skirt where the perimeter walls meet the floor — matches
-  // the partition baseboards (buildInteriorPartition) so the great hall reads as
-  // one trimmed-out room. A thin terracotta band hugs the inner wall faces; it's
-  // purely decorative and sits inside the existing collider lines.
+  // Interior baseboard skirt where the perimeter walls meet the floor, so the
+  // open great hall reads as one trimmed-out room. A thin terracotta band hugs
+  // the inner wall faces; it's purely decorative and sits inside the existing
+  // collider lines.
   const skirtY = 0.12;       // half-height above floor
   const skirtT = 0.1;        // protrudes this far off the wall face
   // Back wall (inner face at local z = -halfDepth + 0.4).
@@ -171,51 +171,13 @@ export function createModernVilla(materials) {
   const frontZ = halfDepth - 0.2;
   const doorHalfWidth = 5; // door gap radius
 
-  // Front-LEFT wing: peach base + floor-to-ceiling glass curtain. Reference
-  // shows the brightest, glassiest section on this side. Spans x ∈ [-13, -5].
-  const leftWingWidth = halfWidth - doorHalfWidth;
-  const leftWingCenter = -(doorHalfWidth + leftWingWidth / 2);
-  addBeveledBox(group, leftWingWidth, lowerHeight, 0.4, materials.villaWall, leftWingCenter, lowerY, frontZ);
-  // Glass curtain pane in front of the peach wall.
-  addBox(group, leftWingWidth - 0.6, lowerHeight - 0.7, 0.12, materials.glass,
-    leftWingCenter, lowerY, frontZ + 0.22);
-  // Wood mullions slicing the glass curtain.
-  const leftMullionCount = 5;
-  for (let i = 0; i < leftMullionCount; i += 1) {
-    const t = i / (leftMullionCount - 1);
-    const x = leftWingCenter - leftWingWidth / 2 + 0.4 + (leftWingWidth - 0.8) * t;
-    addBox(group, 0.16, lowerHeight - 0.5, 0.18, materials.wood, x, lowerY, frontZ + 0.28);
-  }
-  // Horizontal wood band splitting the lower glass from a transom strip up top.
-  addBox(group, leftWingWidth - 0.3, 0.16, 0.18, materials.wood,
-    leftWingCenter, lowerHeight - 1.0, frontZ + 0.28);
-  // Slim outer frame ringing the glass curtain so the pane reads as a real
-  // window unit, not a floating slab. Four thin border bars around the glass.
-  const lcGlassW = leftWingWidth - 0.6;
-  const lcGlassH = lowerHeight - 0.7;
-  const lcFrameZ = frontZ + 0.24;
-  addBox(group, lcGlassW + 0.18, 0.14, 0.2, materials.wood, leftWingCenter, lowerY + lcGlassH / 2, lcFrameZ); // top
-  addBox(group, lcGlassW + 0.18, 0.14, 0.2, materials.wood, leftWingCenter, lowerY - lcGlassH / 2, lcFrameZ); // bottom
-  addBox(group, 0.14, lcGlassH + 0.18, 0.2, materials.wood, leftWingCenter - lcGlassW / 2, lowerY, lcFrameZ);  // left
-  addBox(group, 0.14, lcGlassH + 0.18, 0.2, materials.wood, leftWingCenter + lcGlassW / 2, lowerY, lcFrameZ);  // right
-
-  // Front-RIGHT wing: dark red panel + thin window strip + wood beams.
-  // Spans x ∈ [+5, +13].
-  const rightWingWidth = halfWidth - doorHalfWidth;
-  const rightWingCenter = doorHalfWidth + rightWingWidth / 2;
-  addBeveledBox(group, rightWingWidth, lowerHeight, 0.4, materials.villaDark, rightWingCenter, lowerY, frontZ);
-  // Two thin horizontal window strips on the dark panel — upper and middle.
-  addBox(group, rightWingWidth - 0.8, 0.5, 0.06, materials.glass,
-    rightWingCenter, lowerHeight - 0.7, frontZ + 0.22);
-  addBox(group, rightWingWidth - 0.8, 0.4, 0.06, materials.glass,
-    rightWingCenter, lowerHeight - 2.4, frontZ + 0.22);
-  // Vertical wood beams down the dark wing.
-  const rightBeamCount = 6;
-  for (let i = 0; i < rightBeamCount; i += 1) {
-    const t = i / (rightBeamCount - 1);
-    const x = rightWingCenter - rightWingWidth / 2 + 0.5 + (rightWingWidth - 1.0) * t;
-    addBox(group, 0.18, lowerHeight - 0.6, 0.12, materials.wood, x, lowerY - 0.2, frontZ + 0.24);
-  }
+  // Front wings: TWO matching floor-to-ceiling glass curtain walls flanking the
+  // open entry, so the whole facade reads as one unified glass front (instead of
+  // the old glassy-left / dark-red-right mismatch). Spans x ∈ [-13,-5] & [+5,+13].
+  const wingWidth = halfWidth - doorHalfWidth;
+  const wingOffset = doorHalfWidth + wingWidth / 2;
+  buildGlassCurtainWing(group, materials, -wingOffset, wingWidth, lowerHeight, frontZ);
+  buildGlassCurtainWing(group, materials, wingOffset, wingWidth, lowerHeight, frontZ);
 
   // ---- Central entry zone (door gap, x ∈ [-5, +5]) ------------------------
   // Door gap stays open at ground level. A grand peach lintel above carries
@@ -229,40 +191,8 @@ export function createModernVilla(materials) {
   addBox(group, doorHalfWidth * 2 + 0.4, 0.16, 0.16, materials.trim,
     0, lowerHeight - 0.2, frontZ + 0.55);
 
-  // ---- Door slab pair, hung AJAR so the gap stays visually + physically open.
-  // Each leaf hinges off a frame post and swings inward ~70°, so the centre of
-  // the x∈[-5,+5] gap (where the collider leaves a path) is never blocked. A
-  // thin reveal panel above the leaves reads as a transom over the doorway.
-  const doorH = lowerHeight - 0.7;        // leaf height (sits under the lintel)
-  const doorLeafW = 2.0;                  // narrow leaves so the swing clears the path
-  const doorThick = 0.12;
-  const doorOpen = 0.92;                  // ~53° inward swing
-  const doorZ = frontZ - 0.05;            // recessed just behind the front face
-  // Left leaf: hinge at the gap's left edge, swings inward to the +x side.
-  const leftHinge = -doorHalfWidth + 0.4;
-  const leftDoor = addBox(group, doorLeafW, doorH, doorThick, materials.doorWood,
-    leftHinge + Math.cos(doorOpen) * doorLeafW / 2,
-    doorH / 2 + 0.1,
-    doorZ - Math.sin(doorOpen) * doorLeafW / 2,
-    { y: doorOpen });
-  leftDoor.name = "villa-door-left";
-  // Right leaf: hinge at the gap's right edge, mirror swing to the -x side.
-  const rightHinge = doorHalfWidth - 0.4;
-  const rightDoor = addBox(group, doorLeafW, doorH, doorThick, materials.doorWood,
-    rightHinge - Math.cos(doorOpen) * doorLeafW / 2,
-    doorH / 2 + 0.1,
-    doorZ - Math.sin(doorOpen) * doorLeafW / 2,
-    { y: -doorOpen });
-  rightDoor.name = "villa-door-right";
-  // Slim brass pull on each leaf (cartoon hardware accent).
-  addBox(group, 0.06, 0.5, 0.06, materials.metalBrass,
-    leftHinge + Math.cos(doorOpen) * (doorLeafW - 0.25),
-    doorH / 2 + 0.1,
-    doorZ - Math.sin(doorOpen) * (doorLeafW - 0.25), { y: doorOpen });
-  addBox(group, 0.06, 0.5, 0.06, materials.metalBrass,
-    rightHinge - Math.cos(doorOpen) * (doorLeafW - 0.25),
-    doorH / 2 + 0.1,
-    doorZ - Math.sin(doorOpen) * (doorLeafW - 0.25), { y: -doorOpen });
+  // No door leaf — the entry stays a fully open portal (open-plan design); the
+  // lintel + frame posts + visor beam above just frame the opening.
 
   // A pair of low planters flanking the entry, one warm peach.
   addBeveledBox(group, 0.6, 0.6, 0.6, materials.trim, -doorHalfWidth + 0.6, 0.3, frontZ + 1.0, {}, 0.05);
@@ -421,13 +351,13 @@ export function createModernVilla(materials) {
   // All coords below are LOCAL to the villa group (world = local + (0, 0, -13)).
   // World→Local Z mapping: local z = world z + 13.
 
-  // ---- Ground-floor interior partitions (x = ±3) -----------------------
-  // West partition mirrors the world.js colliders with door gaps at world
-  // z ∈ [-5, -3] (foyer arch) and z ∈ [-10, -9] (vestibule arch).
-  //   foyer gap world z ∈ [-5, -3] → local z ∈ [8, 10]
-  //   vestibule gap world z ∈ [-10, -9] → local z ∈ [3, 4]
-  buildInteriorPartition(group, materials, -3, lowerHeight);
-  buildInteriorPartition(group, materials, +3, lowerHeight);
+  // ---- Open ground floor ------------------------------------------------
+  // The old x = ±3 foyer-pocket partition walls were removed (they read as
+  // unnatural half-walls beside the stairs) — the entry, stair vestibule and
+  // both great halls are now one continuous open space. Only the west hall's
+  // terracotta accent panel they used to carry survives, as the room's focal
+  // backdrop behind the sofa (referenced by the great-hall-west hotspot text).
+  addBox(group, 0.05, 2.4, 4.0, materials.wallAccent, -12.6, 1.5, -6);
 
   // ---- Stair banister / glass guard at x = ±1.5 ------------------------
   // Visual is a low handrail + glass infill; collision is full-height in
@@ -1294,31 +1224,33 @@ function addBeveledBox(group, width, height, depth, material, x, y, z, rotation 
 // Villa interior helpers
 // ============================================================
 
-// Builds the foyer-pocket walls only along x = px. Local z bands (gap = door):
-//   [+10, +11] solid · [+8, +10] gap (foyer arch) · [+6, +8] solid
-// Everything north of local z = +6 is open — the stair vestibule, west/east
-// halls, and the back of the villa form one continuous great hall.
-function buildInteriorPartition(group, materials, px, height) {
-  const segments = [
-    { fromZ: 10, toZ: 11 },
-    { fromZ: 6, toZ: 8 }
-  ];
+// Builds one floor-to-ceiling glass curtain wall wing of the villa front:
+// a peach base wall, a glass pane in front of it, vertical wood mullions, a
+// horizontal transom band and a slim outer frame so the pane reads as a real
+// window unit. Called once per side so both wings match (unified glass facade).
+function buildGlassCurtainWing(group, materials, center, width, height, frontZ) {
   const y = height / 2;
-  segments.forEach((seg) => {
-    const depth = seg.toZ - seg.fromZ;
-    const cz = (seg.fromZ + seg.toZ) / 2;
-    addBox(group, 0.3, height, depth, materials.wallInterior, px, y, cz);
-    // Baseboard.
-    addBox(group, 0.36, 0.12, depth, materials.wood, px, 0.06, cz);
-    // Cornice trim along the top.
-    addBox(group, 0.36, 0.08, depth, materials.trim, px, height - 0.04, cz);
-  });
-  // Terracotta accent panel on the west hall's back wall (visible across the
-  // now-open great hall as the room's focal point). Only emit once when this
-  // helper runs for the west partition (px === -3).
-  if (px === -3) {
-    addBox(group, 0.05, 2.4, 4.0, materials.wallAccent, -12.6, 1.5, -6);
+  // Peach base wall behind the glass (beveled, matches the shell edges).
+  addBeveledBox(group, width, height, 0.4, materials.villaWall, center, y, frontZ);
+  // Glass curtain pane in front of the wall.
+  const glassW = width - 0.6;
+  const glassH = height - 0.7;
+  addBox(group, glassW, glassH, 0.12, materials.glass, center, y, frontZ + 0.22);
+  // Vertical wood mullions slicing the glass.
+  const mullionCount = 5;
+  for (let i = 0; i < mullionCount; i += 1) {
+    const t = i / (mullionCount - 1);
+    const x = center - width / 2 + 0.4 + (width - 0.8) * t;
+    addBox(group, 0.16, height - 0.5, 0.18, materials.wood, x, y, frontZ + 0.28);
   }
+  // Horizontal transom band splitting the lower glass from a strip up top.
+  addBox(group, width - 0.3, 0.16, 0.18, materials.wood, center, height - 1.0, frontZ + 0.28);
+  // Slim outer frame ringing the pane (4 thin border bars).
+  const fz = frontZ + 0.24;
+  addBox(group, glassW + 0.18, 0.14, 0.2, materials.wood, center, y + glassH / 2, fz); // top
+  addBox(group, glassW + 0.18, 0.14, 0.2, materials.wood, center, y - glassH / 2, fz); // bottom
+  addBox(group, 0.14, glassH + 0.18, 0.2, materials.wood, center - glassW / 2, y, fz);  // left
+  addBox(group, 0.14, glassH + 0.18, 0.2, materials.wood, center + glassW / 2, y, fz);  // right
 }
 
 // Build a staircase as a stack of treads + open risers + side stringers +

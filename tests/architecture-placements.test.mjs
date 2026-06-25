@@ -52,18 +52,17 @@ test("architecture placements reference vendored CC0 GLBs within the world bound
   });
 });
 
-test("the entrance has a front door and flanking accents, and keeps the doorway passable", () => {
+test("the entrance is dressed with accents and keeps the open entry passable", () => {
   const ent = ARCHITECTURE_PLACEMENTS.filter((p) => p.room === "entrance");
   assert.ok(ent.length >= 5, "entrance should be dressed");
 
-  // A real front door piece set in the wall gap.
-  const door = ent.find((p) => /doorArch/.test(p.url));
-  assert.ok(door, "missing the front door accent");
+  // The villa front is an OPEN portal — there must be no door piece sealing it.
+  assert.ok(
+    !ent.some((p) => /door/i.test(p.url) || /door/i.test(p.id)),
+    "the entrance must stay an open portal (no door piece)"
+  );
 
-  // The door must NOT be a solid collider — the player walks through x∈[-5,5].
-  assert.equal(door.solid, false, "front door must stay passable (non-solid)");
-
-  // Any SOLID accent must keep its collider clear of the x∈[-5,5] door path.
+  // Any SOLID accent must keep its collider clear of the x∈[-5,5] entry path.
   // A piece at world x with LOCAL footprint f and rotationY r spans, in X,
   // half-extent = (|cos r|·fx + |sin r|·fz)/2 (rotated-AABB). The collider layer
   // applies a 0.85 shrink and the player radius (0.62) is added at test time —
