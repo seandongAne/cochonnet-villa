@@ -103,9 +103,9 @@ const RAW_PLACEMENTS = [
   // Seating group centred on world (-8, -14). Sofa backs north, faces the
   // door (+Z); coffee table and armchair complete the conversation pit.
   { id: "west-rug", room: "great-hall-west", url: KIT("rugRectangle"), position: [-8, FLOOR_Y, -14], rotationY: 0, scale: 2.7 },
-  { id: "west-sofa", room: "great-hall-west", url: KIT("loungeSofaLong"), position: [-8, FLOOR_Y, -16.1], rotationY: 0, scale: 2.3 },
-  { id: "west-coffee-table", room: "great-hall-west", url: KIT("tableCoffee"), position: [-8, FLOOR_Y, -13.6], rotationY: 0, scale: 2.2 },
-  { id: "west-books", room: "great-hall-west", url: KIT("books"), position: [-8.4, FLOOR_Y + 0.5, -13.6], rotationY: 0.5, scale: 2.0 },
+  { id: "west-sofa", room: "great-hall-west", url: KIT("loungeSofaLong"), position: [-8, FLOOR_Y, -16.1], rotationY: 0, scale: 2.05 },
+  { id: "west-coffee-table", room: "great-hall-west", url: KIT("tableCoffee"), position: [-8, FLOOR_Y, -13.2], rotationY: 0, scale: 2.2 },
+  { id: "west-books", room: "great-hall-west", url: KIT("books"), position: [-8.4, FLOOR_Y + 0.5, -13.2], rotationY: 0.5, scale: 2.0 },
   { id: "west-armchair", room: "great-hall-west", url: KIT("loungeChair"), position: [-10.8, FLOOR_Y, -13.4], rotationY: Math.PI / 2 + 0.35, scale: 2.2 },
   { id: "west-floor-lamp", room: "great-hall-west", url: KIT("lampRoundFloor"), position: [-11.9, FLOOR_Y, -16], rotationY: 0, scale: 2.2 },
   { id: "west-plant", room: "great-hall-west", url: KIT("pottedPlant"), position: [-12, FLOOR_Y, -11.4], rotationY: 0, scale: 2.4 },
@@ -136,11 +136,11 @@ const RAW_PLACEMENTS = [
   // Bed centred world (-5.5, -12.5) with headboard north; nightstands + lamps
   // flank it, wardrobe by the west wall, rug underneath.
   { id: "bed-rug", room: "master-bedroom", url: KIT("rugRounded"), position: [-5.5, UPPER_Y, -12], rotationY: 0, scale: 2.0 },
-  { id: "bed-double", room: "master-bedroom", url: KIT("bedDouble"), position: [-5.5, UPPER_Y, -12.4], rotationY: 0, scale: 2.2 },
-  { id: "bed-nightstand-l", room: "master-bedroom", url: KIT("sideTable"), position: [-7.7, UPPER_Y, -13.7], rotationY: 0, scale: 1.9 },
-  { id: "bed-nightstand-r", room: "master-bedroom", url: KIT("sideTable"), position: [-3.5, UPPER_Y, -13.7], rotationY: 0, scale: 1.9 },
-  { id: "bed-lamp-l", room: "master-bedroom", url: KIT("lampRoundTable"), position: [-7.7, UPPER_Y + 0.72, -13.7], rotationY: 0, scale: 2.0 },
-  { id: "bed-lamp-r", room: "master-bedroom", url: KIT("lampRoundTable"), position: [-3.5, UPPER_Y + 0.72, -13.7], rotationY: 0, scale: 2.0 },
+  { id: "bed-double", room: "master-bedroom", url: KIT("bedDouble"), position: [-5.5, UPPER_Y, -12.4], rotationY: 0, scale: 1.9 },
+  { id: "bed-nightstand-l", room: "master-bedroom", url: KIT("sideTable"), position: [-6.88, UPPER_Y, -15.05], rotationY: 0, scale: 1.9 },
+  { id: "bed-nightstand-r", room: "master-bedroom", url: KIT("sideTable"), position: [-4.12, UPPER_Y, -15.05], rotationY: 0, scale: 1.9 },
+  { id: "bed-lamp-l", room: "master-bedroom", url: KIT("lampRoundTable"), position: [-6.88, UPPER_Y + 0.72, -15.05], rotationY: 0, scale: 2.0 },
+  { id: "bed-lamp-r", room: "master-bedroom", url: KIT("lampRoundTable"), position: [-4.12, UPPER_Y + 0.72, -15.05], rotationY: 0, scale: 2.0 },
   { id: "bed-wardrobe", room: "master-bedroom", url: KIT("bookcaseClosedDoors"), position: [-7.6, UPPER_Y, -8], rotationY: Math.PI / 2, scale: 2.1 },
 
   // ===== 二楼书房 / study-loft (upper, y≈6.66) =====

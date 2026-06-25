@@ -21,6 +21,7 @@ import { PORKY_PLACEMENTS } from "../placements.js";
 import { createFurniturePiece } from "../furniture-models.js";
 import { FURNITURE_PLACEMENTS } from "../furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "../exterior-placements.js";
+import { ARCHITECTURE_PLACEMENTS } from "../architecture-placements.js";
 import { createShadowBlobs } from "../shadows.js";
 
 // Soft warm interior point lights, one cluster per villa room. Mirrors the
@@ -120,10 +121,23 @@ export function Scene({ world }) {
         placement,
         object: createFurniturePiece(placement)
       })),
-      // Phase 3: soft "blob" contact shadows under interior + exterior props.
+      // Phase 4: CC0 GLB architectural accents at the villa entrance (Kenney
+      // Furniture door-arch + topiaries, City-Suburban railings + planters).
+      // Same generic loader; the door arch is non-solid so the doorway stays
+      // walkable.
+      architecture: ARCHITECTURE_PLACEMENTS.map((placement) => ({
+        placement,
+        object: createFurniturePiece(placement)
+      })),
+      // Phase 3: soft "blob" contact shadows under interior + exterior props
+      // (Phase 4 extends the list to the entrance accents).
       // One group of flat radial-gradient decals; reads each piece's footprint
       // and skips the ones flagged noShadow (rugs, tabletop items).
-      shadows: createShadowBlobs([...FURNITURE_PLACEMENTS, ...EXTERIOR_PLACEMENTS])
+      shadows: createShadowBlobs([
+        ...FURNITURE_PLACEMENTS,
+        ...EXTERIOR_PLACEMENTS,
+        ...ARCHITECTURE_PLACEMENTS
+      ])
     };
   }, []);
 
@@ -214,6 +228,16 @@ export function Scene({ world }) {
 
       {/* ---- Exterior / courtyard props (Kenney CC0 GLB, Phase 3) ---- */}
       {built.exterior.map(({ placement, object }) => (
+        <primitive
+          key={placement.id}
+          object={object}
+          position={placement.position}
+          rotation-y={placement.rotationY}
+        />
+      ))}
+
+      {/* ---- Architectural entrance accents (Kenney CC0 GLB, Phase 4) ---- */}
+      {built.architecture.map(({ placement, object }) => (
         <primitive
           key={placement.id}
           object={object}
