@@ -1,0 +1,35 @@
+
+	Architectural entrance accents (Phase 4)
+
+	Vendored from two Kenney kits (both CC0):
+
+	  Furniture Kit       — doorArch (doorwayFront), pottedPlant
+	                        (self-contained: UniGLTF, KHR_materials_unlit +
+	                        baseColorFactor — no external texture atlas)
+	  City Kit (Suburban) — railing (fence), planter
+	                        (UnityGLTF export — these reference a shared
+	                        Textures/colormap.png by relative URI, vendored
+	                        alongside at architecture/Textures/colormap.png)
+
+	Created/distributed by Kenney (www.kenney.nl)
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+	Sources:
+	  https://kenney.nl/assets/furniture-kit
+	  https://kenney.nl/assets/city-kit-suburban
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL

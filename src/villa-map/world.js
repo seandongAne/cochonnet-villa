@@ -1,6 +1,7 @@
 import { deriveFurnitureColliders } from "./furniture-colliders.js";
 import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
+import { ARCHITECTURE_PLACEMENTS } from "./architecture-placements.js";
 
 // Y level constants for the main villa.
 // Ground floor walls run from y=0 to y=5.6 (lowerHeight in createModernVilla).
@@ -204,7 +205,11 @@ export function createVillaWorld() {
       // exterior). Rotated-AABB derived from each placement's footprint,
       // floor-scoped by Y so a ground player never bumps upstairs furniture.
       // Rugs, lamps, books, small plants and dining/desk chairs stay walk-through.
-      ...deriveFurnitureColliders([...FURNITURE_PLACEMENTS, ...EXTERIOR_PLACEMENTS])
+      ...deriveFurnitureColliders([
+        ...FURNITURE_PLACEMENTS,
+        ...EXTERIOR_PLACEMENTS,
+        ...ARCHITECTURE_PLACEMENTS
+      ])
     ],
     stairs: [STAIR_ZONE],
     hotSprings: {
@@ -305,21 +310,24 @@ export function createVillaWorld() {
         id: "master-bedroom",
         title: "二楼主卧",
         body: "蓬松的奶白被子上摆着藏青色靠枕，床头铜灯把光打得很暖。",
-        position: { x: -5.5, y: 7.8, z: -11 },
+        // Phase 4: moved off the (now smaller) bed to the open floor at its foot.
+        position: { x: -5.5, y: 7.8, z: -8.5 },
         radius: 3.4
       },
       {
         id: "study-loft",
         title: "二楼书房",
         body: "靠窗的小书桌可以看到温泉的水汽升起，书架上塞满小猪们的故事书。",
-        position: { x: 5.5, y: 7.8, z: -13.5 },
+        // Phase 4: nudged to the open SE corner, clear of the desk + reading chair.
+        position: { x: 6.0, y: 7.8, z: -11.6 },
         radius: 3.0
       },
       {
         id: "lounge-balcony",
         title: "二楼阳台休息区",
         body: "两座小沙发面向阳台玻璃，黄昏的橘光会顺着扶手洒到地毯上。",
-        position: { x: 5.5, y: 7.8, z: -8.5 },
+        // Phase 4: moved to the balcony-facing open spot just south of the chairs.
+        position: { x: 5.5, y: 7.8, z: -7.0 },
         radius: 3.0
       },
       {

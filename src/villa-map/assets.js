@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
 const textureCache = new Map();
 
@@ -9,11 +10,22 @@ export function createMaterials() {
     path: new THREE.MeshStandardMaterial({ color: "#d7b16f", roughness: 0.92 }),
     floor: new THREE.MeshStandardMaterial({ color: "#d9a06a", roughness: 0.86 }),
     wall: new THREE.MeshStandardMaterial({ color: "#f1c6a3", roughness: 0.82 }),
-    villaWall: new THREE.MeshStandardMaterial({ color: "#e7a06f", roughness: 0.78 }),
-    villaDark: new THREE.MeshStandardMaterial({ color: "#6f2f35", roughness: 0.72 }),
-    trim: new THREE.MeshStandardMaterial({ color: "#b85b53", roughness: 0.84 }),
-    roof: new THREE.MeshStandardMaterial({ color: "#ad3f38", roughness: 0.8 }),
+    // Villa shell palette — warmer, richer stucco/plaster with a touch of
+    // colour variation so the big peach panels don't read as one flat slab.
+    villaWall: new THREE.MeshStandardMaterial({ color: "#e8a472", roughness: 0.86 }),
+    villaDark: new THREE.MeshStandardMaterial({ color: "#6f2f35", roughness: 0.7 }),
+    trim: new THREE.MeshStandardMaterial({ color: "#bd5f55", roughness: 0.82 }),
+    roof: new THREE.MeshStandardMaterial({ color: "#ad3f38", roughness: 0.78 }),
     wood: new THREE.MeshStandardMaterial({ color: "#8a5738", roughness: 0.72 }),
+    // ---- Villa shell finish accents (additive, used by createModernVilla) ----
+    // A deeper walnut for fascia/eave boards + door slabs (richer than `wood`).
+    fascia: new THREE.MeshStandardMaterial({ color: "#5e3a26", roughness: 0.66 }),
+    // Warm stained door leaves, a shade lighter than the fascia.
+    doorWood: new THREE.MeshStandardMaterial({ color: "#6e4327", roughness: 0.6 }),
+    // Pale cast-stone for the porch base / plinth, cooler than the peach stucco.
+    stoneBase: new THREE.MeshStandardMaterial({ color: "#cdbfa6", roughness: 0.9 }),
+    // Soft terracotta baseboard skirt where the perimeter walls meet the floor.
+    baseboard: new THREE.MeshStandardMaterial({ color: "#a85a4d", roughness: 0.8 }),
     stone: new THREE.MeshStandardMaterial({ color: "#8f8a7d", roughness: 0.92 }),
     water: new THREE.MeshStandardMaterial({
       color: "#22b9e6",
@@ -117,15 +129,40 @@ export function createModernVilla(materials) {
   // These are the structural exterior walls — they line up with hall colliders.
   // We build the BACK wall as a single peach panel, plus side panels with subtle
   // window slits to break up the long blank surface from outside.
-  addBox(group, buildingWidth, lowerHeight, 0.4, materials.villaWall, 0, lowerY, -halfDepth + 0.2);
-  addBox(group, 0.4, lowerHeight, buildingDepth, materials.villaWall, -halfWidth + 0.2, lowerY, 0);
-  addBox(group, 0.4, lowerHeight, buildingDepth, materials.villaWall, halfWidth - 0.2, lowerY, 0);
+  addBeveledBox(group, buildingWidth, lowerHeight, 0.4, materials.villaWall, 0, lowerY, -halfDepth + 0.2);
+  addBeveledBox(group, 0.4, lowerHeight, buildingDepth, materials.villaWall, -halfWidth + 0.2, lowerY, 0);
+  addBeveledBox(group, 0.4, lowerHeight, buildingDepth, materials.villaWall, halfWidth - 0.2, lowerY, 0);
 
   // Subtle vertical window slits on side walls — more of them, since side walls
   // are now longer.
   for (const z of [-8, -5, -2, 1, 4, 7]) {
     addBox(group, 0.06, 2.0, 0.5, materials.glass, -halfWidth + 0.18, 2.8, z);
     addBox(group, 0.06, 2.0, 0.5, materials.glass, halfWidth - 0.18, 2.8, z);
+  }
+
+  // Interior baseboard skirt where the perimeter walls meet the floor — matches
+  // the partition baseboards (buildInteriorPartition) so the great hall reads as
+  // one trimmed-out room. A thin terracotta band hugs the inner wall faces; it's
+  // purely decorative and sits inside the existing collider lines.
+  const skirtY = 0.12;       // half-height above floor
+  const skirtT = 0.1;        // protrudes this far off the wall face
+  // Back wall (inner face at local z = -halfDepth + 0.4).
+  addBox(group, buildingWidth - 0.4, 0.24, skirtT, materials.baseboard,
+    0, skirtY, -halfDepth + 0.4 + skirtT / 2);
+  // Side walls (inner faces at x = ∓(halfWidth - 0.4)).
+  addBox(group, skirtT, 0.24, buildingDepth - 0.8, materials.baseboard,
+    -halfWidth + 0.4 - skirtT / 2, skirtY, 0);
+  addBox(group, skirtT, 0.24, buildingDepth - 0.8, materials.baseboard,
+    halfWidth - 0.4 + skirtT / 2, skirtY, 0);
+
+  // Slim wood corner posts at the four lower-shell vertical corners — they
+  // crisp up the silhouette where the beveled wall panels meet, reading as
+  // exposed structural columns. Beveled so they match the softened panels.
+  for (const cx of [-halfWidth + 0.18, halfWidth - 0.18]) {
+    for (const cz of [-halfDepth + 0.18, halfDepth - 0.18]) {
+      addBeveledBox(group, 0.34, lowerHeight + 0.2, 0.34, materials.fascia,
+        cx, (lowerHeight + 0.2) / 2, cz, {}, 0.06);
+    }
   }
 
   // ---- Front (south) facade: cartoon-style modern front -------------------
@@ -138,7 +175,7 @@ export function createModernVilla(materials) {
   // shows the brightest, glassiest section on this side. Spans x ∈ [-13, -5].
   const leftWingWidth = halfWidth - doorHalfWidth;
   const leftWingCenter = -(doorHalfWidth + leftWingWidth / 2);
-  addBox(group, leftWingWidth, lowerHeight, 0.4, materials.villaWall, leftWingCenter, lowerY, frontZ);
+  addBeveledBox(group, leftWingWidth, lowerHeight, 0.4, materials.villaWall, leftWingCenter, lowerY, frontZ);
   // Glass curtain pane in front of the peach wall.
   addBox(group, leftWingWidth - 0.6, lowerHeight - 0.7, 0.12, materials.glass,
     leftWingCenter, lowerY, frontZ + 0.22);
@@ -152,12 +189,21 @@ export function createModernVilla(materials) {
   // Horizontal wood band splitting the lower glass from a transom strip up top.
   addBox(group, leftWingWidth - 0.3, 0.16, 0.18, materials.wood,
     leftWingCenter, lowerHeight - 1.0, frontZ + 0.28);
+  // Slim outer frame ringing the glass curtain so the pane reads as a real
+  // window unit, not a floating slab. Four thin border bars around the glass.
+  const lcGlassW = leftWingWidth - 0.6;
+  const lcGlassH = lowerHeight - 0.7;
+  const lcFrameZ = frontZ + 0.24;
+  addBox(group, lcGlassW + 0.18, 0.14, 0.2, materials.wood, leftWingCenter, lowerY + lcGlassH / 2, lcFrameZ); // top
+  addBox(group, lcGlassW + 0.18, 0.14, 0.2, materials.wood, leftWingCenter, lowerY - lcGlassH / 2, lcFrameZ); // bottom
+  addBox(group, 0.14, lcGlassH + 0.18, 0.2, materials.wood, leftWingCenter - lcGlassW / 2, lowerY, lcFrameZ);  // left
+  addBox(group, 0.14, lcGlassH + 0.18, 0.2, materials.wood, leftWingCenter + lcGlassW / 2, lowerY, lcFrameZ);  // right
 
   // Front-RIGHT wing: dark red panel + thin window strip + wood beams.
   // Spans x ∈ [+5, +13].
   const rightWingWidth = halfWidth - doorHalfWidth;
   const rightWingCenter = doorHalfWidth + rightWingWidth / 2;
-  addBox(group, rightWingWidth, lowerHeight, 0.4, materials.villaDark, rightWingCenter, lowerY, frontZ);
+  addBeveledBox(group, rightWingWidth, lowerHeight, 0.4, materials.villaDark, rightWingCenter, lowerY, frontZ);
   // Two thin horizontal window strips on the dark panel — upper and middle.
   addBox(group, rightWingWidth - 0.8, 0.5, 0.06, materials.glass,
     rightWingCenter, lowerHeight - 0.7, frontZ + 0.22);
@@ -174,7 +220,7 @@ export function createModernVilla(materials) {
   // ---- Central entry zone (door gap, x ∈ [-5, +5]) ------------------------
   // Door gap stays open at ground level. A grand peach lintel above carries
   // the second floor.
-  addBox(group, doorHalfWidth * 2 + 0.6, 0.8, 0.6, materials.villaWall,
+  addBeveledBox(group, doorHalfWidth * 2 + 0.6, 0.8, 0.6, materials.villaWall,
     0, lowerHeight - 0.4, frontZ);
   // Slim vertical wood door-frame posts at the gap edges.
   addBox(group, 0.22, lowerHeight - 0.4, 0.22, materials.wood, -doorHalfWidth + 0.2, lowerY - 0.1, frontZ + 0.3);
@@ -182,28 +228,70 @@ export function createModernVilla(materials) {
   // Horizontal accent beam above the door (the "sun visor" detail from the ref).
   addBox(group, doorHalfWidth * 2 + 0.4, 0.16, 0.16, materials.trim,
     0, lowerHeight - 0.2, frontZ + 0.55);
+
+  // ---- Door slab pair, hung AJAR so the gap stays visually + physically open.
+  // Each leaf hinges off a frame post and swings inward ~70°, so the centre of
+  // the x∈[-5,+5] gap (where the collider leaves a path) is never blocked. A
+  // thin reveal panel above the leaves reads as a transom over the doorway.
+  const doorH = lowerHeight - 0.7;        // leaf height (sits under the lintel)
+  const doorLeafW = 2.0;                  // narrow leaves so the swing clears the path
+  const doorThick = 0.12;
+  const doorOpen = 0.92;                  // ~53° inward swing
+  const doorZ = frontZ - 0.05;            // recessed just behind the front face
+  // Left leaf: hinge at the gap's left edge, swings inward to the +x side.
+  const leftHinge = -doorHalfWidth + 0.4;
+  const leftDoor = addBox(group, doorLeafW, doorH, doorThick, materials.doorWood,
+    leftHinge + Math.cos(doorOpen) * doorLeafW / 2,
+    doorH / 2 + 0.1,
+    doorZ - Math.sin(doorOpen) * doorLeafW / 2,
+    { y: doorOpen });
+  leftDoor.name = "villa-door-left";
+  // Right leaf: hinge at the gap's right edge, mirror swing to the -x side.
+  const rightHinge = doorHalfWidth - 0.4;
+  const rightDoor = addBox(group, doorLeafW, doorH, doorThick, materials.doorWood,
+    rightHinge - Math.cos(doorOpen) * doorLeafW / 2,
+    doorH / 2 + 0.1,
+    doorZ - Math.sin(doorOpen) * doorLeafW / 2,
+    { y: -doorOpen });
+  rightDoor.name = "villa-door-right";
+  // Slim brass pull on each leaf (cartoon hardware accent).
+  addBox(group, 0.06, 0.5, 0.06, materials.metalBrass,
+    leftHinge + Math.cos(doorOpen) * (doorLeafW - 0.25),
+    doorH / 2 + 0.1,
+    doorZ - Math.sin(doorOpen) * (doorLeafW - 0.25), { y: doorOpen });
+  addBox(group, 0.06, 0.5, 0.06, materials.metalBrass,
+    rightHinge - Math.cos(doorOpen) * (doorLeafW - 0.25),
+    doorH / 2 + 0.1,
+    doorZ - Math.sin(doorOpen) * (doorLeafW - 0.25), { y: -doorOpen });
+
   // A pair of low planters flanking the entry, one warm peach.
-  addBox(group, 0.6, 0.6, 0.6, materials.trim, -doorHalfWidth + 0.6, 0.3, frontZ + 1.0);
-  addBox(group, 0.6, 0.6, 0.6, materials.trim, doorHalfWidth - 0.6, 0.3, frontZ + 1.0);
+  addBeveledBox(group, 0.6, 0.6, 0.6, materials.trim, -doorHalfWidth + 0.6, 0.3, frontZ + 1.0, {}, 0.05);
+  addBeveledBox(group, 0.6, 0.6, 0.6, materials.trim, doorHalfWidth - 0.6, 0.3, frontZ + 1.0, {}, 0.05);
 
   // ---- Lower roof: large sloped overhang (shed-style) ---------------------
   // Slopes upward toward the back so the front edge hangs lower over the porch
   // and the back rises higher into the upper-level base.
   const lowerRoofThickness = 0.36;
   const lowerRoofY = lowerHeight + 0.6;
-  const lowerRoof = addBox(
+  const lowerRoofSlope = -0.05;
+  const lowerRoof = addBeveledBox(
     group, buildingWidth + 1.6, lowerRoofThickness, buildingDepth + 1.4,
-    materials.roof, 0, lowerRoofY, 0
+    materials.roof, 0, lowerRoofY, 0, { x: lowerRoofSlope }, 0.05
   );
-  lowerRoof.rotation.x = -0.05;
   lowerRoof.name = "villa-lower-roof";
 
   // Painted underside trim, just under the roof.
   const roofUnderside = addBox(
     group, buildingWidth + 1.4, 0.06, buildingDepth + 1.2,
-    materials.trim, 0, lowerRoofY - 0.22, 0
+    materials.trim, 0, lowerRoofY - 0.22, 0, { x: lowerRoofSlope }
   );
-  roofUnderside.rotation.x = -0.05;
+
+  // Fascia / eave board hanging off the lower-roof front lip — a thin walnut
+  // band that follows the front edge, the detail that turns a bare slab into a
+  // built roof. Front edge of the roof is at local z = +(buildingDepth/2 + 0.7).
+  const lowerRoofFrontZ = halfDepth + 0.7;
+  addBox(group, buildingWidth + 1.6, 0.34, 0.12, materials.fascia,
+    0, lowerRoofY - 0.16, lowerRoofFrontZ, { x: lowerRoofSlope });
 
   // ---- Upper level (smaller, set back from front edge) --------------------
   const upperHeight = 4.6;
@@ -239,12 +327,12 @@ export function createModernVilla(materials) {
   addBox(group, 0.18, 0.06, 4.2, materials.trim, 1.5, upperBaseY - 0.02, 3);  // east edge of hole
 
   // Upper level back wall.
-  addBox(group, upperWidth, upperHeight, 0.32, materials.villaWall,
+  addBeveledBox(group, upperWidth, upperHeight, 0.32, materials.villaWall,
     0, upperY, upperZ - upperDepth / 2 + 0.16);
   // Upper side walls.
-  addBox(group, 0.32, upperHeight, upperDepth, materials.villaWall,
+  addBeveledBox(group, 0.32, upperHeight, upperDepth, materials.villaWall,
     -upperWidth / 2 + 0.16, upperY, upperZ);
-  addBox(group, 0.32, upperHeight, upperDepth, materials.villaWall,
+  addBeveledBox(group, 0.32, upperHeight, upperDepth, materials.villaWall,
     upperWidth / 2 - 0.16, upperY, upperZ);
 
   // Upper FRONT face: dramatic floor-to-ceiling window wall, split into two
@@ -255,6 +343,14 @@ export function createModernVilla(materials) {
     0, upperY + 0.05, upperFrontZ + 0.1);
   addBox(group, upperWidth, 0.45, 0.32, materials.villaWall,
     0, upperBaseY + upperHeight - 0.22, upperFrontZ);
+  // Slim wood frame down the two outer edges of the upper window wall so the
+  // big glazed band reads as a framed curtain, not a hole. (Top/bottom already
+  // have the peach lips above; these are the left/right jambs.)
+  const upGlassH = upperHeight - 0.85;
+  for (const fx of [-(upperWidth - 0.4) / 2, (upperWidth - 0.4) / 2]) {
+    addBox(group, 0.16, upGlassH, 0.22, materials.wood,
+      fx, upperY + 0.05, upperFrontZ + 0.18);
+  }
   // Horizontal wood band splitting upper window into two tiers.
   addBox(group, upperWidth - 0.2, 0.16, 0.22, materials.wood,
     0, upperY - 0.6, upperFrontZ + 0.18);
@@ -285,33 +381,38 @@ export function createModernVilla(materials) {
 
   // ---- Upper roof: gentle slope, big front overhang -----------------------
   const upperRoofY = upperBaseY + upperHeight + 0.28;
-  const upperRoof = addBox(
+  const upperRoofSlope = -0.06;
+  const upperRoof = addBeveledBox(
     group, upperWidth + 1.6, 0.32, upperDepth + 1.6,
-    materials.roof, 0, upperRoofY, upperZ + 0.2
+    materials.roof, 0, upperRoofY, upperZ + 0.2, { x: upperRoofSlope }, 0.05
   );
-  upperRoof.rotation.x = -0.06;
   upperRoof.name = "villa-upper-roof";
 
   // Crown trim along the front edge of the upper roof.
   const crown = addBox(
     group, upperWidth + 1.6, 0.14, 0.26,
-    materials.trim, 0, upperRoofY - 0.06, upperFrontZ + 0.92
+    materials.trim, 0, upperRoofY - 0.06, upperFrontZ + 0.92, { x: upperRoofSlope }
   );
-  crown.rotation.x = -0.06;
+
+  // Fascia / eave board under the upper-roof front lip — same walnut band as
+  // the lower roof, tying the two eaves together.
+  addBox(group, upperWidth + 1.6, 0.3, 0.12, materials.fascia,
+    0, upperRoofY - 0.18, upperFrontZ + 0.92, { x: upperRoofSlope });
 
   // ---- Decorative chimney/stack on the upper roof -------------------------
-  addBox(group, 1.1, 1.4, 1.1, materials.villaDark,
-    -upperWidth / 2 + 2.5, upperRoofY + 0.85, upperZ + 1.0);
-  addBox(group, 1.3, 0.18, 1.3, materials.trim,
-    -upperWidth / 2 + 2.5, upperRoofY + 1.65, upperZ + 1.0);
+  addBeveledBox(group, 1.1, 1.4, 1.1, materials.villaDark,
+    -upperWidth / 2 + 2.5, upperRoofY + 0.85, upperZ + 1.0, {}, 0.05);
+  addBeveledBox(group, 1.3, 0.18, 1.3, materials.trim,
+    -upperWidth / 2 + 2.5, upperRoofY + 1.65, upperZ + 1.0, {}, 0.05);
 
   // ---- Front porch deck + grand entry steps -------------------------------
-  // Wide stone porch in front of the door gap.
-  addBox(group, 12.0, 0.22, 2.4, materials.trim, 0, 0.22, frontZ + 1.2);
+  // Wide cast-stone porch slab in front of the door gap (cooler stone tone +
+  // softened edge sets it apart from the warm peach shell above).
+  addBeveledBox(group, 12.0, 0.22, 2.4, materials.stoneBase, 0, 0.22, frontZ + 1.2, {}, 0.05);
   // Three step risers stretching across the porch front.
   for (let i = 0; i < 3; i += 1) {
     const stepWidth = 11.0 - i * 0.6;
-    addBox(group, stepWidth, 0.16, 0.6, materials.trim, 0, 0.12 - i * 0.06, frontZ + 2.4 + i * 0.6);
+    addBeveledBox(group, stepWidth, 0.16, 0.6, materials.stoneBase, 0, 0.12 - i * 0.06, frontZ + 2.4 + i * 0.6, {}, 0.04);
   }
 
   // ============================================================
@@ -1160,6 +1261,27 @@ export function createTextBoard(title, body, width = 512, height = 256) {
 
 function addBox(group, width, height, depth, material, x, y, z, rotation = {}) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+  mesh.position.set(x, y, z);
+  mesh.rotation.set(rotation.x ?? 0, rotation.y ?? 0, rotation.z ?? 0);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
+  return mesh;
+}
+
+// Same contract as addBox but builds a RoundedBoxGeometry so the chunky shell
+// boxes read as softened, "designed" edges instead of hard CAD corners. The
+// radius is clamped to a fraction of the smallest dimension so a thin panel can
+// never self-intersect; below a floor the box just falls back to a plain box.
+// `radius` defaults to a subtle 0.06 m bevel (the villa works in metres).
+function addBeveledBox(group, width, height, depth, material, x, y, z, rotation = {}, radius = 0.06) {
+  const minDim = Math.min(width, height, depth);
+  // Cap the bevel at 40% of the thinnest side; skip rounding entirely on slivers.
+  const r = Math.min(radius, minDim * 0.4);
+  const geometry = r > 0.012
+    ? new RoundedBoxGeometry(width, height, depth, 2, r)
+    : new THREE.BoxGeometry(width, height, depth);
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   mesh.rotation.set(rotation.x ?? 0, rotation.y ?? 0, rotation.z ?? 0);
   mesh.castShadow = true;
