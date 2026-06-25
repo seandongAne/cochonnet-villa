@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "dev:site": "astro dev",
-    "test": "node tests/villa-map.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "build": "astro build",
     "preview": "astro preview"
   },

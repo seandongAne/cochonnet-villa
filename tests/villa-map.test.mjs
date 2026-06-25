@@ -97,12 +97,18 @@ test("upper-floor footprint is reachable and isOnUpperFloor recognizes it", () =
   // The master-bedroom south corner is collidable at upper-floor height —
   // upper-bedroom-corner covers world z range [-7, -6] at x = -3.
   assert.equal(collidesWithWorld({ x: -3, y: 8.05, z: -6.5 }, world), true);
-  // But a point well inside the master bedroom is free.
-  assert.equal(collidesWithWorld({ x: -5.5, y: 8.05, z: -11 }, world), false);
-  // And the area around the stair hole is open on the upper floor — no
-  // walls blocking the descent from any direction.
-  assert.equal(collidesWithWorld({ x: -2.5, y: 8.05, z: -13 }, world), false);
-  assert.equal(collidesWithWorld({ x: 2.5, y: 8.05, z: -13 }, world), false);
+  // The grand bed now fills the north of the bedroom (Phase-3 furniture
+  // colliders make solid pieces block), but the foot-of-bed strip stays
+  // walkable and the bedroom hotspot is reachable from there.
+  assert.equal(collidesWithWorld({ x: -5.5, y: 8.05, z: -8.5 }, world), false);
+  // The bed itself is solid — you walk up to it, not through it.
+  assert.equal(collidesWithWorld({ x: -5.5, y: 8.05, z: -12 }, world), true);
+  // The stair descent corridor (the centre line between the rails) stays open
+  // top-to-bottom. Phase-3 furniture flanks the upper-floor plaza — a nightstand
+  // to the west, the study reading-chair to the east — but never intrudes on the
+  // descent itself.
+  assert.equal(collidesWithWorld({ x: 0, y: 8.05, z: -13 }, world), false);
+  assert.equal(collidesWithWorld({ x: 0, y: 8.05, z: -10 }, world), false);
 });
 
 test("interaction Y-filter keeps upstairs hotspots from triggering on ground floor", () => {

@@ -1,3 +1,7 @@
+import { deriveFurnitureColliders } from "./furniture-colliders.js";
+import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
+import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
+
 // Y level constants for the main villa.
 // Ground floor walls run from y=0 to y=5.6 (lowerHeight in createModernVilla).
 // Upper floor slab sits at y=6.65 (lowerHeight + 1.05). Upper walls cap at y=11.25.
@@ -194,7 +198,13 @@ export function createVillaWorld() {
       boxCollider("mushroom-house", -6, 18, 10.0, 10.0),
       // Decor inside the great hall (ground-floor only).
       boxCollider("blanket-pile", -5, -15, 3.0, 2.4, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
-      boxCollider("hay-stack", 6, -19, 2.6, 2.6, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y })
+      boxCollider("hay-stack", 6, -19, 2.6, 2.6, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
+
+      // Phase 3: per-piece colliders for solid GLB furniture (interior +
+      // exterior). Rotated-AABB derived from each placement's footprint,
+      // floor-scoped by Y so a ground player never bumps upstairs furniture.
+      // Rugs, lamps, books, small plants and dining/desk chairs stay walk-through.
+      ...deriveFurnitureColliders([...FURNITURE_PLACEMENTS, ...EXTERIOR_PLACEMENTS])
     ],
     stairs: [STAIR_ZONE],
     hotSprings: {
