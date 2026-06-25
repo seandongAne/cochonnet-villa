@@ -59,6 +59,8 @@ The boxy look was an *asset* gap, not a framework one. All six interior rooms no
 2. Append placement records (world coords) to `furniture-placements.js`; it stamps `footprint`/`floor`/`solid`/`noShadow` on each (footprint from the `FURNITURE_FOOTPRINTS` native-size map × `FURNITURE_BASE_SCALE` × `placement.scale`). Set `solid`/`noShadow` per the model-policy table, or override per record.
 3. `npm test` + `npm run build`; eyeball in preview.
 
+**Visual furniture editor (dev-only):** open `/villa-map/?edit=1` to tune positions without blind-coding coords. It swaps the walk controls for orbit + a drag gizmo (drei `OrbitControls` + `TransformControls`), adds a height-adjustable global clipping plane ("dollhouse" cut, `[`/`]` keys) since the roof/ceilings occlude interiors, and lets you click any furniture piece to select it — a panel prints the **paste-ready `furniture-placements.js` record** (Copy button) reflecting the live transform. `G`/`R` toggle translate/rotate, `Esc` deselects. The data file stays the source of truth (tests/overlap guard still gate); you paste the numbers back. Gated on `?edit=1` (`VillaMap.jsx`) so ordinary visitors are unaffected; the editor lives in `react/EditControls.jsx` + the `editMode`/`onSelectPiece` hooks in `Scene.jsx`.
+
 The old per-room `createFurnitureSet` boxes were removed from `assets.js` once every room was migrated.
 
 ## Phase 3: grounding, solidity, outdoors
