@@ -11,8 +11,16 @@
 // loader recentres each piece over its own footprint, so rotation pivots in
 // place and `position` is the footprint centre.
 //
+// Phase 3 enriches every record at module load with a world-space `footprint`
+// (metres), a `floor` index, and `solid` / `noShadow` flags — see the stamping
+// step at the bottom. The shadow-blob and collider layers read ONLY those
+// derived fields, so they stay framework-agnostic and never load a GLB or
+// parse a URL.
+//
 // Adding a room = copy its Kenney GLBs into public/models/furniture/, append
 // records here, and drop that room's procedural set from createModernVilla.
+
+import { FURNITURE_BASE_SCALE } from "./furniture-models.js";
 
 const KIT = (name) => `/models/furniture/${name}.glb`;
 
@@ -22,7 +30,75 @@ const KIT = (name) => `/models/furniture/${name}.glb`;
 const FLOOR_Y = 0.11;
 const UPPER_Y = 6.66;
 
-export const FURNITURE_PLACEMENTS = [
+// Native (unscaled) XZ footprints measured from each vendored GLB
+// (`node _measure.mjs`, a throwaway Phase-3 helper). width = local X,
+// depth = local Z. Lets the shadow + collider layers size themselves without
+// loading a GLB outside the browser (world.js / shadows.js stay node-pure).
+export const FURNITURE_FOOTPRINTS = {
+  bedDouble: { x: 0.956, z: 1.125 },
+  bookcaseClosedDoors: { x: 0.4, z: 0.25 },
+  bookcaseClosedWide: { x: 0.8, z: 0.25 },
+  bookcaseOpen: { x: 0.4, z: 0.25 },
+  books: { x: 0.15, z: 0.095 },
+  chair: { x: 0.2, z: 0.2 },
+  chairDesk: { x: 0.335, z: 0.314 },
+  coatRackStanding: { x: 0.273, z: 0.273 },
+  computerScreen: { x: 0.393, z: 0.104 },
+  desk: { x: 0.734, z: 0.392 },
+  lampRoundFloor: { x: 0.152, z: 0.176 },
+  lampRoundTable: { x: 0.152, z: 0.176 },
+  loungeChair: { x: 0.49, z: 0.41 },
+  loungeChairRelax: { x: 0.49, z: 0.675 },
+  loungeSofaLong: { x: 0.98, z: 0.82 },
+  plantSmall2: { x: 0.095, z: 0.095 },
+  pottedPlant: { x: 0.212, z: 0.241 },
+  rugDoormat: { x: 0.429, z: 0.237 },
+  rugRectangle: { x: 1.57, z: 0.92 },
+  rugRound: { x: 0.92, z: 0.92 },
+  rugRounded: { x: 1.57, z: 0.92 },
+  sideTable: { x: 0.534, z: 0.22 },
+  sideTableDrawers: { x: 0.534, z: 0.222 },
+  table: { x: 0.841, z: 0.447 },
+  tableCoffee: { x: 0.661, z: 0.4 }
+};
+
+// Per-model behaviour policy (agreed Phase-3 defaults):
+//   solid    → the piece gets a collider (big grounded furniture).
+//   noShadow → skip the blob shadow (rugs are flat; tabletop items float above
+//              the floor so a floor blob under them would read wrong).
+// Walk-through on purpose: rugs, books, table/floor lamps, small plants, the
+// coat rack, and dining / desk chairs (kept frictionless to navigate). Lounge
+// chairs ARE solid (substantial armchairs). Any record may override per-piece.
+const FURNITURE_POLICY = {
+  bedDouble: { solid: true },
+  bookcaseClosedDoors: { solid: true },
+  bookcaseClosedWide: { solid: true },
+  bookcaseOpen: { solid: true },
+  books: { noShadow: true },
+  chair: {},
+  chairDesk: {},
+  coatRackStanding: {},
+  computerScreen: { noShadow: true },
+  desk: { solid: true },
+  lampRoundFloor: {},
+  lampRoundTable: { noShadow: true },
+  loungeChair: { solid: true },
+  loungeChairRelax: { solid: true },
+  loungeSofaLong: { solid: true },
+  plantSmall2: { noShadow: true },
+  pottedPlant: {},
+  rugDoormat: { noShadow: true },
+  rugRectangle: { noShadow: true },
+  rugRound: { noShadow: true },
+  rugRounded: { noShadow: true },
+  sideTable: { solid: true },
+  sideTableDrawers: { solid: true },
+  table: { solid: true },
+  tableCoffee: { solid: true }
+};
+
+// Raw per-room placements. `position` is the world-space footprint centre.
+const RAW_PLACEMENTS = [
   // ===== 西大厅 / great-hall-west — living room (ground) =====
   // Seating group centred on world (-8, -14). Sofa backs north, faces the
   // door (+Z); coffee table and armchair complete the conversation pit.
@@ -86,3 +162,30 @@ export const FURNITURE_PLACEMENTS = [
   { id: "lounge-side-table", room: "lounge-balcony", url: KIT("sideTable"), position: [5.5, UPPER_Y, -9.4], rotationY: 0, scale: 1.7 },
   { id: "lounge-plant", room: "lounge-balcony", url: KIT("pottedPlant"), position: [7.4, UPPER_Y, -6.9], rotationY: 0, scale: 2.2 }
 ];
+
+// basename of a `/models/furniture/<name>.glb` url.
+function modelName(url) {
+  return url.slice(url.lastIndexOf("/") + 1, -".glb".length);
+}
+
+// Stamp every record once at module load with the derived fields the Phase-3
+// shadow + collider layers read. `footprint` is the world-space (metres) XZ
+// extent: native size × base scale × the per-piece scale, so consumers never
+// re-apply a scale or know the kit's base factor. `floor` is 0 for ground
+// pieces, 1 for the upper storey (split on Y; only solid pieces — which sit
+// exactly on a floor surface — drive colliders). Per-piece `solid` / `noShadow`
+// on a raw record override the model policy.
+export const FURNITURE_PLACEMENTS = RAW_PLACEMENTS.map((raw) => {
+  const name = modelName(raw.url);
+  const native = FURNITURE_FOOTPRINTS[name] ?? { x: 0.5, z: 0.5 };
+  const s = FURNITURE_BASE_SCALE * (raw.scale ?? 1);
+  const policy = FURNITURE_POLICY[name] ?? {};
+  return {
+    ...raw,
+    model: name,
+    floor: raw.position[1] > 3.5 ? 1 : 0,
+    footprint: { x: native.x * s, z: native.z * s },
+    solid: raw.solid ?? policy.solid ?? false,
+    noShadow: raw.noShadow ?? policy.noShadow ?? false
+  };
+});

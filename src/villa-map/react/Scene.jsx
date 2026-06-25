@@ -20,6 +20,8 @@ import { createPorkyModel } from "../porky-models.js";
 import { PORKY_PLACEMENTS } from "../placements.js";
 import { createFurniturePiece } from "../furniture-models.js";
 import { FURNITURE_PLACEMENTS } from "../furniture-placements.js";
+import { EXTERIOR_PLACEMENTS } from "../exterior-placements.js";
+import { createShadowBlobs } from "../shadows.js";
 
 // Soft warm interior point lights, one cluster per villa room. Mirrors the
 // roomLights array from the old scene.js. None cast shadows (kept cheap; the
@@ -111,7 +113,17 @@ export function Scene({ world }) {
       furniture: FURNITURE_PLACEMENTS.map((placement) => ({
         placement,
         object: createFurniturePiece(placement)
-      }))
+      })),
+      // Phase 3: CC0 GLB props for the courtyard/exterior (Kenney Nature +
+      // Holiday kits). Same generic loader as the interior furniture.
+      exterior: EXTERIOR_PLACEMENTS.map((placement) => ({
+        placement,
+        object: createFurniturePiece(placement)
+      })),
+      // Phase 3: soft "blob" contact shadows under interior + exterior props.
+      // One group of flat radial-gradient decals; reads each piece's footprint
+      // and skips the ones flagged noShadow (rugs, tabletop items).
+      shadows: createShadowBlobs([...FURNITURE_PLACEMENTS, ...EXTERIOR_PLACEMENTS])
     };
   }, []);
 
@@ -187,8 +199,21 @@ export function Scene({ world }) {
         />
       ))}
 
+      {/* ---- Contact-shadow blobs (Phase 3; under interior + exterior props) ---- */}
+      <primitive object={built.shadows} />
+
       {/* ---- Furniture (Kenney CC0 GLB props, Phase 2) ---- */}
       {built.furniture.map(({ placement, object }) => (
+        <primitive
+          key={placement.id}
+          object={object}
+          position={placement.position}
+          rotation-y={placement.rotationY}
+        />
+      ))}
+
+      {/* ---- Exterior / courtyard props (Kenney CC0 GLB, Phase 3) ---- */}
+      {built.exterior.map(({ placement, object }) => (
         <primitive
           key={placement.id}
           object={object}

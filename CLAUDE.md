@@ -24,8 +24,11 @@ Framework-agnostic core — pure logic + Three.js factories, reused verbatim by 
 | `porky-models.js` | GLB pig loading (4 variants) with procedural fallback |
 | `interaction.js` | `findNearestInteraction` proximity logic; Y-floor filter for multi-floor hotspots |
 | `placements.js` | GLB porky placement data (position / rotation / variant) |
-| `furniture-models.js` | Generic GLB prop loader — uniform scale, X/Z re-center, floor-sit, placeholder + fallback (Phase 2; mirrors `porky-models.js`) |
-| `furniture-placements.js` | GLB furniture placement data, per room (world coords / rotation / scale) |
+| `furniture-models.js` | Generic GLB prop loader — uniform scale, X/Z re-center, floor-sit, placeholder + fallback (Phase 2; mirrors `porky-models.js`). Reused for exterior props too |
+| `furniture-placements.js` | GLB furniture placement data, per room. Stamps each record at load with derived `footprint` (world m), `floor`, `solid`, `noShadow` (+ a `FURNITURE_FOOTPRINTS` native-size map) that the shadow + collider layers read |
+| `exterior-placements.js` | GLB courtyard/exterior placement data (Phase 3); same stamped shape as furniture, loaded by the same `createFurniturePiece` |
+| `shadows.js` | `createShadowBlobs(placements)` → soft radial-gradient "blob" contact shadows (Phase 3); pure ShaderMaterial, node-safe, skips `noShadow` pieces |
+| `furniture-colliders.js` | `deriveFurnitureColliders(placements)` → per-piece rotated-AABB colliders for `solid` props (Phase 3); pure Math, floor-scoped Y range |
 
 React layer (`src/villa-map/react/`, client-only):
 
@@ -35,7 +38,7 @@ React layer (`src/villa-map/react/`, client-only):
 | `Scene.jsx` | Lights, fog, IBL (three `RoomEnvironment`); mounts factory meshes via `<primitive>` |
 | `PlayerControls.jsx` | Bridges `controls.js` + `interaction.js` into R3F's `useFrame` |
 
-World bounds: x `[-26, 30]`, z `[-27, 28]`. Main villa is two floors (ground eye-Y ≈ 1.6, upper ≈ 8.05). GLB models in `public/models/porkies/` (pigs) and `public/models/furniture/` (Kenney CC0 Furniture Kit, see its `LICENSE.txt`).
+World bounds: x `[-26, 30]`, z `[-27, 28]`. Main villa is two floors (ground eye-Y ≈ 1.6, upper ≈ 8.05). GLB models in `public/models/porkies/` (pigs), `public/models/furniture/` (Kenney CC0 Furniture Kit) and `public/models/exterior/` (Kenney CC0 Nature + Holiday kits) — each dir has its `LICENSE.txt`. **Gotcha:** the Holiday-kit `bench`/`lantern` GLBs reference an external `Textures/colormap.png` by relative URI, so that atlas is vendored at `public/models/exterior/Textures/colormap.png` (without it those props render flat white). The Furniture-kit and Nature-kit GLBs are self-contained (embedded or `baseColorFactor`).
 
 ## Key patterns
 
@@ -44,7 +47,7 @@ World bounds: x `[-26, 30]`, z `[-27, 28]`. Main villa is two floors (ground eye
 - React island only on `/villa-map/` (`client:only="react"` — Three.js needs `window`); the rest of the site stays vanilla Astro static HTML.
 - **Version pins (don't bump blindly):** project is on **Astro 6 / Vite 7**. Keep `@astrojs/react@^5` (the v6 line targets Astro 7 / Vite 8) and `overrides: { vite: "^7" }` in package.json. drei `<SoftShadows>` is incompatible with three r184 (broken PCSS depth shader) — avoid; shadows use `PCFShadowMap`.
 - Bilingual; content defaults to Chinese (`zh`), `data-i18n` for hooks
-- Tests cover HTML render, world geometry, collisions, interactions, porky **and furniture** placements (incl. that referenced GLB files exist in `public/`)
+- Tests cover HTML render, world geometry, collisions, interactions, porky / furniture / **exterior** placements (incl. that referenced GLB + the colormap atlas exist in `public/`), **blob shadows** and **furniture colliders**. `npm test` globs `tests/*.test.mjs` (one file per concern), run via the `node --test` runner.
 
 ## Phase 2: richer assets
 
@@ -52,11 +55,19 @@ The boxy look was an *asset* gap, not a framework one. All six interior rooms no
 
 **To add/restyle furniture** (rooms or the courtyard/exterior):
 1. Copy GLBs from the kit into `public/models/furniture/` (kit is authored ~0.45× metric; `FURNITURE_BASE_SCALE` ≈ 2.2 lifts it into the villa's metre world — a uniform factor preserves inter-piece proportions, per-piece nudge via `placement.scale`). Upstairs rooms sit at y ≈ 6.66, ground at y ≈ 0.11.
-2. Append placement records (world coords) to `furniture-placements.js`. Furniture has no colliders — players walk through it, same as the old boxy sets.
+2. Append placement records (world coords) to `furniture-placements.js`; it stamps `footprint`/`floor`/`solid`/`noShadow` on each (footprint from the `FURNITURE_FOOTPRINTS` native-size map × `FURNITURE_BASE_SCALE` × `placement.scale`). Set `solid`/`noShadow` per the model-policy table, or override per record.
 3. `npm test` + `npm run build`; eyeball in preview.
 
 The old per-room `createFurnitureSet` boxes were removed from `assets.js` once every room was migrated.
 
-**Still deferred:** contact shadows (a single ground plane is awkward across the open multi-floor interior — evaluate later); exterior/courtyard props; AI text-to-3D for a few signature pieces.
+## Phase 3: grounding, solidity, outdoors
 
-**Verifying the 3D scene in preview:** the headless preview window is 0×0, which collapses the viewport-unit layout and leaves R3F uninitialized. Work around it by forcing pixel dimensions on `.villa-map-shell` / `.villa-map-root` via `preview_eval` + dispatching a `resize` event. The camera renders from `world.player.start` looking −Z with no input, so temporarily pointing `start` at a room gives a deterministic furniture screenshot without fighting the walk-navigation harness (revert the one-line `start` change after — a world test asserts `start` = `{0,1.6,18}`).
+Three streams, conflict-free (each owns new files; only `Scene.jsx` + `world.js` are edited to wire them):
+
+- **Contact shadows** (`shadows.js`) — per-piece soft **blob decals** (flat radial-gradient `PlaneGeometry` + a tiny node-safe `ShaderMaterial`, no texture/canvas), sized to the piece's `footprint`, laid at `position.y + 0.02`, rotated by `rotationY` via a wrapper group. Chosen over drei `<ContactShadows>` (one ground plane can't span two floors + async-loaded GLBs). Tunables in `shadows.js`: `SHADOW_OPACITY` 0.45, `SHADOW_PADDING` 1.35, fragment core `smoothstep(0.5, 0.22, d)` — bumped from softer defaults so the shadow reads beyond an object's base. `noShadow` pieces (rugs, tabletop items) get none.
+- **Per-piece colliders** (`furniture-colliders.js`) — solid furniture/props now block the player. Rotated-AABB from `footprint`+`rotationY`, **0.85 shrink** (player radius 0.62 is added at test time, so a full box feels sticky), floor-scoped Y range. Spread into `world.colliders`. Solid set: sofas/beds/tables/bookcases/wardrobe/sideboard/lounge chairs; walk-through: rugs/lamps/books/small plants/dining+desk chairs/coat rack. NB grand-scale furniture means a big piece can fill a small room (the master bed fills the bedroom's north — you walk to its foot, not around it).
+- **Exterior props** (`exterior-placements.js` + `public/models/exterior/`) — ~19 courtyard props (fountain/statue ring, lampposts lining the path, benches, planters, flowers, bushes, campfire+logs, rock, sign) from Kenney Nature + Holiday kits, placed in the grassy courtyard (z>0), reusing `createFurniturePiece`. Same stamped shape, so shadows + colliders apply uniformly. Exterior footprint is baked = native × 2.2 × scale (the loader's effective scale).
+
+**Still deferred:** AI text-to-3D for a few signature pieces; richer exterior set; (contact shadows + colliders + courtyard props are now done).
+
+**Verifying the 3D scene in preview:** the headless preview window is 0×0, which collapses the viewport-unit layout and leaves R3F uninitialized. Work around it by forcing pixel dimensions on `.villa-map-shell` / `.villa-map-root` via `preview_eval` + dispatching a `resize` event. The no-input camera renders from `world.player.start` looking −Z (horizontal), so floor decals like the blob shadows are edge-on — to inspect them, temporarily expose the camera (`window.__villa = { camera }` in `Scene.jsx`'s `StudioEnvironment` effect) and drive a `requestAnimationFrame` loop that re-sets `camera.position`/`rotation` each frame (the controls' `update()` re-forces a horizontal look otherwise). Remove the hook + rebuild before shipping. For a quick furniture framing, temporarily pointing `start` at a room also works (revert it — a world test asserts `start` = `{0,1.6,18}`).
