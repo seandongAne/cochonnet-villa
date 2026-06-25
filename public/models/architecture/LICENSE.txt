@@ -3,7 +3,7 @@
 
 	Vendored from two Kenney kits (both CC0):
 
-	  Furniture Kit       — doorArch (doorwayFront), pottedPlant
+	  Furniture Kit       — pottedPlant
 	                        (self-contained: UniGLTF, KHR_materials_unlit +
 	                        baseColorFactor — no external texture atlas)
 	  City Kit (Suburban) — railing (fence), planter

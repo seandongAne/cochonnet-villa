@@ -156,15 +156,11 @@ export function createVillaWorld() {
       boxCollider("hall-front-left-wall", -9, -2.2, 8, 0.6),
       boxCollider("hall-front-right-wall", 9, -2.2, 8, 0.6),
 
-      // ====== Ground-floor interior partitions ======
-      // Foyer-pocket walls only — define a small entry vestibule just inside
-      // the front door. Everything north of z = -7 (the great hall, stair
-      // vestibule, and back of the villa) is one open space, so the stair
-      // sits at the heart of the hall with clear sightlines from every side.
-      boxCollider("foyer-west-wall-a", -3, -2.5, 0.3, 1, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
-      boxCollider("foyer-west-wall-b", -3, -6,   0.3, 2, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
-      boxCollider("foyer-east-wall-a",  3, -2.5, 0.3, 1, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
-      boxCollider("foyer-east-wall-b",  3, -6,   0.3, 2, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
+      // ====== Ground floor is open plan ======
+      // The old x = ±3 foyer-pocket partition walls were removed (they read as
+      // unnatural half-walls beside the stairs). The entry, stair vestibule and
+      // both great halls are now one continuous open space, so the only interior
+      // colliders left below the upper floor are the stair banisters.
 
       // ====== Stair banister / hole guard ======
       // Side rails along the long axis of the stairs (x = ±1.5, z ∈ [-12, -8]).
