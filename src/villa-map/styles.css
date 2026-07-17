@@ -190,6 +190,27 @@
   line-height: 1.6;
 }
 
+/* Door/teleport hotspots show a key hint under the story card. */
+.interaction-panel .interaction-action-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  color: #8c4d64;
+  font-weight: 800;
+}
+
+.interaction-panel .interaction-action-hint kbd {
+  min-width: 1.7rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 8px;
+  color: #4e2f33;
+  background: #fff;
+  box-shadow: inset 0 -2px 0 rgba(120, 76, 78, 0.18);
+  text-align: center;
+  font-weight: 900;
+}
+
 .villa-map-root.is-exploring .villa-map-overlay {
   opacity: 0.35;
   transform: translateY(-0.4rem);

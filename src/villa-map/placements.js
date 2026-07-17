@@ -81,5 +81,15 @@ export const PORKY_PLACEMENTS = [
     fallbackScale: 0.58,
     position: [14.4, 0.04, 12.2],
     rotationY: -1.65
+  },
+  {
+    // Napping on the rug edge inside the mushroom-house pocket interior
+    // (L1 slab top is world y = -40; see MUSHROOM_INTERIOR in world.js).
+    id: "mushroom-sleeper",
+    variant: "guadai",
+    modelScale: 0.68,
+    fallbackScale: 0.6,
+    position: [-7.2, -39.95, 19.6],
+    rotationY: 0.9
   }
 ];

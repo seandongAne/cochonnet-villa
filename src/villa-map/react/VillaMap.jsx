@@ -7,7 +7,7 @@ import { Scene } from "./Scene.jsx";
 import { PlayerControls } from "./PlayerControls.jsx";
 import { EditControls } from "./EditControls.jsx";
 
-const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "Esc"];
+const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Esc"];
 
 // Clip-plane height bounds for the dollhouse cut (see EditControls). 6.0 shows
 // the ground floor from above; raise toward ~12 to edit the upper storey.
@@ -197,7 +197,7 @@ export default function VillaMap() {
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>
-            新版开放主楼、庭院、温泉区和小猪蘑菇屋。点击开始后，使用键盘移动，鼠标环视，靠近白色提示点会出现故事卡片。
+            围栏拆掉了——主楼、庭院、温泉、四周草地都能随意逛，蘑菇屋现在还能推门进去（一共三层！）。点击开始后用键盘移动、鼠标环视；若浏览器不支持鼠标锁定，按住左键拖拽也能环视。靠近白色提示点会出现故事卡片，出现按键提示时按 E 互动。
           </p>
           <div className="villa-map-controls" aria-label="键盘控制">
             {CONTROL_KEYS.map((key) => (
@@ -235,6 +235,11 @@ export default function VillaMap() {
         <aside className="interaction-panel" aria-label="互动信息">
           <h2>{interaction.title}</h2>
           <p>{interaction.body}</p>
+          {interaction.action?.label && (
+            <p className="interaction-action-hint">
+              <kbd>E</kbd> {interaction.action.label.replace(/^按 E ?/, "")}
+            </p>
+          )}
         </aside>
       )}
 

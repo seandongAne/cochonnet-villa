@@ -13,8 +13,15 @@
 
 // Floor Y ranges — must match the constants in world.js exactly.
 // Ground floor walls span y∈[0, 5.6]; the upper slab/walls span y∈[6.65, 11.25].
-const GROUND_FLOOR_Y = { minY: 0, maxY: 5.6 };
-const UPPER_FLOOR_Y = { minY: 6.65, maxY: 11.25 };
+// Floors 2–4 are the buried mushroom-house interior levels (slab tops -40/-36/
+// -32, player eye slab+1.6); their bands mirror the world.js MUSH_L*_Y bands.
+const FLOOR_Y_RANGES = {
+  0: { minY: 0, maxY: 5.6 },
+  1: { minY: 6.65, maxY: 11.25 },
+  2: { minY: -41.5, maxY: -36.6 },
+  3: { minY: -36.6, maxY: -32.6 },
+  4: { minY: -32.6, maxY: -27 }
+};
 
 // collidesWithWorld already ADDS the player radius (0.62) as margin at test
 // time, so an un-shrunk box reads as larger than the visible piece and feels
@@ -46,7 +53,7 @@ export function deriveFurnitureColliders(placements) {
 
     const x = placement.position[0];
     const z = placement.position[2];
-    const yRange = placement.floor === 1 ? UPPER_FLOOR_Y : GROUND_FLOOR_Y;
+    const yRange = FLOOR_Y_RANGES[placement.floor] ?? FLOOR_Y_RANGES[0];
 
     colliders.push({
       id: `furniture-${placement.id}`,

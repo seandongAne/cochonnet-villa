@@ -13,13 +13,29 @@ export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onIn
   const gl = useThree((state) => state.gl);
   const controlsRef = useRef(null);
   const activeId = useRef("");
+  // The interaction currently in range — read by the E-key action handler.
+  const nearestRef = useRef(null);
 
   useEffect(() => {
     const controls = createExplorerControls({
       camera,
       canvas: gl.domElement,
       world,
-      onLockChange
+      onLockChange,
+      // E key: doors. If the hotspot in range carries a teleport action
+      // (mushroom-house entry / exit), jump the player there facing the
+      // direction the destination intends.
+      onAction: () => {
+        const target = nearestRef.current;
+        const destination = target?.action?.teleport;
+        if (!destination || !controlsRef.current) {
+          return;
+        }
+        controlsRef.current.teleport(destination, destination.yaw ?? 0);
+        nearestRef.current = null;
+        activeId.current = "";
+        onInteraction(null);
+      }
     });
     controlsRef.current = controls;
     if (lockRef) {
@@ -38,7 +54,7 @@ export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onIn
       }
       controlsRef.current = null;
     };
-  }, [camera, gl, world, lockRef, wantLockRef, onLockChange]);
+  }, [camera, gl, world, lockRef, wantLockRef, onLockChange, onInteraction]);
 
   useFrame((_, delta) => {
     const controls = controlsRef.current;
@@ -49,6 +65,7 @@ export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onIn
     controls.update(Math.min(delta, 0.05));
 
     const nearest = findNearestInteraction(world.interactions, camera.position);
+    nearestRef.current = nearest ?? null;
     const id = nearest?.id ?? "";
     if (id !== activeId.current) {
       activeId.current = id;

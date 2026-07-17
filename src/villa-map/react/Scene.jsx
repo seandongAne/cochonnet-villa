@@ -6,7 +6,6 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import {
   createBlanketPile,
   createDogHouse,
-  createFence,
   createGround,
   createHayBale,
   createMaterials,
@@ -16,6 +15,8 @@ import {
   createTieredHotSprings,
   createTree
 } from "../assets.js";
+import { createMushroomInterior } from "../mushroom-interior.js";
+import { MUSHROOM_INTERIOR } from "../world.js";
 import { createPorkyModel } from "../porky-models.js";
 import { PORKY_PLACEMENTS } from "../placements.js";
 import { createFurniturePiece } from "../furniture-models.js";
@@ -36,7 +37,12 @@ const ROOM_LIGHTS = [
   { x: 7, y: 5.2, z: -20, color: "#ffb98c", intensity: 7, distance: 9 },
   { x: -5.5, y: 10.6, z: -11, color: "#ffd2a3", intensity: 8, distance: 8 },
   { x: 5.5, y: 10.6, z: -13.5, color: "#fff0d6", intensity: 7, distance: 7 },
-  { x: 5.5, y: 10.6, z: -8.5, color: "#ffd2a3", intensity: 7, distance: 7 }
+  { x: 5.5, y: 10.6, z: -8.5, color: "#ffd2a3", intensity: 7, distance: 7 },
+  // Mushroom-house pocket interior (buried; sunlight barely reaches it) —
+  // one warm cluster per storey. Slab tops sit at y = -40 / -36 / -32.
+  { x: -6, y: -36.8, z: 18, color: "#ffd9a8", intensity: 11, distance: 11 },
+  { x: -6, y: -32.8, z: 18, color: "#ffce96", intensity: 10, distance: 10 },
+  { x: -6, y: -28.6, z: 18, color: "#ffe6bd", intensity: 10, distance: 11 }
 ];
 
 // Self-hosted image-based lighting. Bakes three's built-in RoomEnvironment into
@@ -74,34 +80,32 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
     const materials = createMaterials();
 
     return {
-      // Ground, paths, floors. [object, position] tuples.
+      // Ground, paths, floors. [object, position] tuples. The meadow plane is
+      // oversized well past the (fence-free) world bounds so walking to an edge
+      // never shows the horizon gap — the fog eats the far rim instead.
       grounds: [
-        [createGround(80, 76, materials.outsideGrass), [2, -0.16, 1]],
+        [createGround(120, 116, materials.outsideGrass), [2, -0.16, 1]],
         [createGround(54, 53, materials.grass), [2, -0.08, 1]],
-        [createGround(5.4, 30, materials.path), [2, 0.01, 12.5]],
+        [createGround(5.4, 40, materials.path), [2, 0.01, 17]],
         [createGround(14, 4.4, materials.path), [0, 0.02, 0.6]],
         [createGround(24, 20, materials.floor), [0, 0.01, -13]]
       ],
-      fences: [
-        [createFence(1, 55, materials.wood), [-25, 0, 0.5]],
-        [createFence(1, 55, materials.wood), [29, 0, 0.5]],
-        [createFence(56, 1, materials.wood), [2, 0, -26]],
-        [createFence(28, 1, materials.wood), [-11, 0, 27.5]],
-        [createFence(24, 1, materials.wood), [17, 0, 27.5]]
-      ],
-      gateMarker: createGround(5, 0.18, materials.path),
       villa: createModernVilla(materials),
       hotSprings: createTieredHotSprings(materials),
       treeA: createTree(materials, 5.6),
       treeB: createTree(materials, 5.2),
       dogHouse: createDogHouse(materials),
       mushroomHouse: createMushroomHouse(materials),
+      // The walkable three-storey pocket space buried beneath the mushroom
+      // house — reached via the door interaction's teleport, invisible from
+      // the courtyard (nothing renders below the ground plane).
+      mushroomInterior: createMushroomInterior(materials),
       hay: createHayBale(materials.hay),
       blanket: createBlanketPile(materials.blanket),
       tinyBlanket: createBlanketPile(materials.blue),
       sign: createTextBoard(
         "猪猪山庄",
-        "主楼、温泉和蘑菇屋都在围栏里。靠近白色提示点，会出现小故事。"
+        "主楼、温泉、蘑菇屋和四周的草地都可以自由探索。靠近白色提示点，会出现小故事。"
       ),
       porkies: PORKY_PLACEMENTS.map((placement) => ({
         placement,
@@ -179,12 +183,6 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
         <primitive key={`ground-${index}`} object={object} position={position} />
       ))}
 
-      {/* ---- Fences + gate ---- */}
-      {built.fences.map(([object, position], index) => (
-        <primitive key={`fence-${index}`} object={object} position={position} />
-      ))}
-      <primitive object={built.gateMarker} position={[4, 0.05, 27.25]} />
-
       {/* ---- Main villa ---- */}
       <primitive object={built.villa} position={[0, 0, -13]} />
 
@@ -198,6 +196,14 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
 
       {/* ---- Decor ---- */}
       <primitive object={built.mushroomHouse} position={[-6, 0, 18]} rotation-y={Math.PI} />
+      <primitive
+        object={built.mushroomInterior}
+        position={[
+          MUSHROOM_INTERIOR.center.x,
+          MUSHROOM_INTERIOR.baseY,
+          MUSHROOM_INTERIOR.center.z
+        ]}
+      />
       <primitive object={built.hay} position={[6, 0, -19]} />
       <primitive object={built.blanket} position={[-5, 0.03, -15]} />
       <primitive object={built.tinyBlanket} position={[7, 0.04, -19]} scale={0.56} />
@@ -261,14 +267,15 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
         />
       ))}
 
-      {/* ---- Room markers (rings on the floor) ---- */}
+      {/* ---- Room markers (rings on the floor; floorY lifts the mushroom-
+            interior rings onto their own slabs) ---- */}
       {world.rooms
         .filter((room) => !room.scenicOnly)
         .map((room) => (
           <mesh
             key={room.id}
             rotation-x={-Math.PI / 2}
-            position={[room.center.x, 0.04, room.center.z]}
+            position={[room.center.x, (room.floorY ?? 0) + 0.04, room.center.z]}
           >
             <ringGeometry args={[1.2, 1.32, 48]} />
             <meshBasicMaterial

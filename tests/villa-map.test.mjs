@@ -42,6 +42,9 @@ test("villa map world defines the expanded villa grounds with multi-floor rooms"
       "lounge-balcony",
       "hot-springs",
       "mushroom-house",
+      "mushroom-hearth",
+      "mushroom-den",
+      "mushroom-loft",
       "dog-house-view",
       "trees-view"
     ]
@@ -61,7 +64,11 @@ test("villa map world defines the expanded villa grounds with multi-floor rooms"
   });
   assert.equal(world.player.start.x, 0);
   assert.equal(world.player.start.z, 18);
-  assert.equal(collidesWithWorld({ x: -30, z: 9 }, world), true);
+  // The perimeter fence is gone — the meadow beyond the old fence line is
+  // walkable now; only the (much larger) world bounds stop the player.
+  assert.equal(collidesWithWorld({ x: -30, z: 9 }, world), false);
+  assert.equal(collidesWithWorld({ x: -45, z: 9 }, world), true);
+  assert.equal(collidesWithWorld({ x: 0, z: 41.9 }, world), true);
   assert.equal(collidesWithWorld(world.player.start, world), false);
 });
 
@@ -155,102 +162,9 @@ test("villa map world defines tiered hot spring shallow water and step zones", (
   });
 });
 
-test("explorer controls rotate with mouse after start when pointer lock is unavailable", () => {
-  const listeners = new Map();
-  const previousDocument = globalThis.document;
-  globalThis.document = {
-    pointerLockElement: null,
-    addEventListener(type, handler) {
-      listeners.set(type, handler);
-    },
-    removeEventListener(type) {
-      listeners.delete(type);
-    }
-  };
-
-  const camera = {
-    position: {
-      set() {},
-      copy() {
-        return this;
-      }
-    },
-    rotation: {
-      order: "",
-      x: 0,
-      y: 0,
-      z: 0,
-      set(x, y, z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-      }
-    }
-  };
-  const canvas = { requestPointerLock() {} };
-  const controls = createExplorerControls({
-    camera,
-    canvas,
-    world: createVillaWorld()
-  });
-
-  controls.lock();
-  listeners.get("mousemove")({ movementX: 100, movementY: -40 });
-  controls.dispose();
-  globalThis.document = previousDocument;
-
-  assert.notEqual(camera.rotation.y, 0);
-  assert.notEqual(camera.rotation.x, 0);
-});
-
-test("explorer controls keep mouse fallback when pointer lock throws", () => {
-  const listeners = new Map();
-  const previousDocument = globalThis.document;
-  globalThis.document = {
-    pointerLockElement: null,
-    addEventListener(type, handler) {
-      listeners.set(type, handler);
-    },
-    removeEventListener(type) {
-      listeners.delete(type);
-    }
-  };
-
-  const camera = {
-    position: {
-      set() {},
-      copy() {
-        return this;
-      }
-    },
-    rotation: {
-      order: "",
-      y: 0,
-      set(_x, y) {
-        this.y = y;
-      }
-    }
-  };
-  const canvas = {
-    requestPointerLock() {
-      throw new DOMException("blocked", "SecurityError");
-    }
-  };
-  const controls = createExplorerControls({
-    camera,
-    canvas,
-    world: createVillaWorld()
-  });
-
-  assert.doesNotThrow(() => controls.lock());
-  listeners.get("mousemove")({ movementX: 80, movementY: 0 });
-  controls.dispose();
-  globalThis.document = previousDocument;
-
-  assert.notEqual(camera.rotation.y, 0);
-});
-
-test("explorer controls can start mouse fallback from canvas press", () => {
+// Shared scaffolding for the fallback (no pointer lock) control tests: a mock
+// document/canvas listener registry plus a camera that records rotations.
+function createControlsHarness({ requestPointerLock = () => {} } = {}) {
   const documentListeners = new Map();
   const canvasListeners = new Map();
   const previousDocument = globalThis.document;
@@ -273,14 +187,18 @@ test("explorer controls can start mouse fallback from canvas press", () => {
     },
     rotation: {
       order: "",
+      x: 0,
       y: 0,
-      set(_x, y) {
+      z: 0,
+      set(x, y, z) {
+        this.x = x;
         this.y = y;
+        this.z = z;
       }
     }
   };
   const canvas = {
-    requestPointerLock() {},
+    requestPointerLock,
     addEventListener(type, handler) {
       canvasListeners.set(type, handler);
     },
@@ -294,12 +212,79 @@ test("explorer controls can start mouse fallback from canvas press", () => {
     world: createVillaWorld()
   });
 
-  canvasListeners.get("mousedown")({ button: 0 });
-  documentListeners.get("mousemove")({ movementX: 60, movementY: 0 });
-  controls.dispose();
-  globalThis.document = previousDocument;
+  return {
+    camera,
+    controls,
+    documentListeners,
+    canvasListeners,
+    restore() {
+      controls.dispose();
+      globalThis.document = previousDocument;
+    }
+  };
+}
 
-  assert.notEqual(camera.rotation.y, 0);
+test("without pointer lock, free mouse movement does NOT rotate the camera", () => {
+  // The old fallback rotated on any mousemove, which let the visible OS cursor
+  // drift outside the map while the view spun — mis-clicking other UI. Now
+  // rotation without pointer lock requires an explicit drag.
+  const h = createControlsHarness();
+
+  h.controls.lock();
+  h.documentListeners.get("mousemove")({ movementX: 100, movementY: -40 });
+  const { x, y } = h.camera.rotation;
+  h.restore();
+
+  assert.equal(y, 0);
+  assert.equal(x, 0);
+});
+
+test("without pointer lock, dragging on the canvas rotates and releasing stops", () => {
+  const h = createControlsHarness();
+
+  h.controls.lock();
+  h.canvasListeners.get("mousedown")({ button: 0 });
+  h.documentListeners.get("mousemove")({ movementX: 100, movementY: -40 });
+  const draggedY = h.camera.rotation.y;
+  const draggedX = h.camera.rotation.x;
+
+  h.documentListeners.get("mouseup")({});
+  h.documentListeners.get("mousemove")({ movementX: 100, movementY: -40 });
+  const afterReleaseY = h.camera.rotation.y;
+  h.restore();
+
+  assert.notEqual(draggedY, 0);
+  assert.notEqual(draggedX, 0);
+  assert.equal(afterReleaseY, draggedY);
+});
+
+test("drag-look keeps working when pointer lock throws", () => {
+  const h = createControlsHarness({
+    requestPointerLock() {
+      throw new DOMException("blocked", "SecurityError");
+    }
+  });
+
+  assert.doesNotThrow(() => h.controls.lock());
+  h.canvasListeners.get("mousedown")({ button: 0 });
+  h.documentListeners.get("mousemove")({ movementX: 80, movementY: 0 });
+  const y = h.camera.rotation.y;
+  h.restore();
+
+  assert.notEqual(y, 0);
+});
+
+test("a canvas press alone starts the exploring session and drag-look", () => {
+  const h = createControlsHarness();
+
+  h.canvasListeners.get("mousedown")({ button: 0 });
+  h.documentListeners.get("mousemove")({ movementX: 60, movementY: 0 });
+  const y = h.camera.rotation.y;
+  const exploring = h.controls.isLocked;
+  h.restore();
+
+  assert.notEqual(y, 0);
+  assert.equal(exploring, true);
 });
 
 test("explorer controls lower camera and slow movement in shallow hot spring water", () => {
@@ -505,11 +490,12 @@ test("furniture placements reference vendored CC0 GLBs within the world bounds",
     const filePath = fileURLToPath(new URL(`../public${piece.url}`, import.meta.url));
     assert.ok(existsSync(filePath), `missing GLB file: ${piece.url}`);
 
-    // Positions live inside the playable world AABB.
+    // Positions live inside the playable world AABB. (The mushroom-house
+    // interior levels are a buried pocket, so Y may go as low as its L1 slab.)
     const [x, y, z] = piece.position;
     assert.ok(x > world.bounds.minX && x < world.bounds.maxX, `${piece.id} x out of bounds`);
     assert.ok(z > world.bounds.minZ && z < world.bounds.maxZ, `${piece.id} z out of bounds`);
-    assert.ok(y >= 0, `${piece.id} should sit at/above the floor`);
+    assert.ok(y >= -41, `${piece.id} should sit at/above its floor`);
 
     assert.equal(typeof piece.rotationY, "number");
   });

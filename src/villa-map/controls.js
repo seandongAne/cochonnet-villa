@@ -1,46 +1,52 @@
 import * as THREE from "three";
-import { collidesWithWorld, findStairZone, findWaterZone, isOnUpperFloor } from "./world.js";
+import { collidesWithWorld, findFloorZone, findStairZone, findWaterZone, isOnUpperFloor } from "./world.js";
 
 const HALF_PI = Math.PI / 2;
 
-export function createExplorerControls({ camera, canvas, world, onLockChange }) {
+export function createExplorerControls({ camera, canvas, world, onLockChange, onAction }) {
   const keys = new Set();
   const velocity = new THREE.Vector3();
   const candidate = new THREE.Vector3();
   let yaw = 0;
   let pitch = 0;
   let isLocked = false;
-  let isFallbackLooking = false;
+  // Fallback session for surfaces that reject Pointer Lock (embedded browsers,
+  // some previews). While started-but-unlocked, the camera only rotates during
+  // an explicit left-button DRAG on the canvas — never on free mouse movement —
+  // so the visible OS cursor can't wander out of the map and mis-click other UI.
+  let hasStarted = false;
+  let isDragging = false;
 
   camera.position.set(world.player.start.x, world.player.start.y, world.player.start.z);
   camera.rotation.order = "YXZ";
   camera.rotation.set(pitch, yaw, 0);
 
-  function startFallbackLook() {
-    isFallbackLooking = true;
-    onLockChange?.(true);
-  }
-
   function lock() {
-    startFallbackLook();
+    hasStarted = true;
+    onLockChange?.(true);
 
     try {
       canvas.requestPointerLock?.();
     } catch {
-      // Some embedded browser surfaces reject Pointer Lock; keep mouse-look fallback active.
+      // Pointer Lock rejected; the drag-look fallback stays active.
     }
   }
 
   function handlePointerLockChange() {
     isLocked = document.pointerLockElement === canvas;
     if (isLocked) {
-      isFallbackLooking = false;
+      isDragging = false;
+      hasStarted = true;
+    } else {
+      // Native pointer-lock exit (Esc) ends the whole exploring session.
+      hasStarted = false;
+      isDragging = false;
     }
-    onLockChange?.(isLocked || isFallbackLooking);
+    onLockChange?.(isLocked || hasStarted);
   }
 
   function handleMouseMove(event) {
-    if (!isLocked && !isFallbackLooking) {
+    if (!isLocked && !(hasStarted && isDragging)) {
       return;
     }
 
@@ -51,9 +57,15 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
   }
 
   function handleKeyDown(event) {
-    if (event.code === "Escape" && isFallbackLooking && !isLocked) {
-      isFallbackLooking = false;
+    if (event.code === "Escape" && hasStarted && !isLocked) {
+      hasStarted = false;
+      isDragging = false;
       onLockChange?.(false);
+      return;
+    }
+
+    if (event.code === "KeyE" && !event.repeat && (isLocked || hasStarted)) {
+      onAction?.();
       return;
     }
 
@@ -71,8 +83,36 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
     if (event.button !== undefined && event.button !== 0) {
       return;
     }
+    if (isLocked) {
+      return;
+    }
 
-    startFallbackLook();
+    // Pressing the canvas both (re)starts the session and begins a look-drag.
+    if (!hasStarted) {
+      hasStarted = true;
+      onLockChange?.(true);
+    }
+    isDragging = true;
+
+    // A click is a user gesture — retry the real pointer lock while we drag.
+    try {
+      canvas.requestPointerLock?.();
+    } catch {
+      // Keep drag-look.
+    }
+  }
+
+  function handleMouseUp() {
+    isDragging = false;
+  }
+
+  // Instantly relocate the player (door/teleport transitions). Yaw is reset so
+  // the arrival view faces where the destination intends.
+  function teleport(position, yawAngle = 0) {
+    camera.position.set(position.x, position.y, position.z);
+    yaw = yawAngle;
+    pitch = 0;
+    camera.rotation.set(pitch, yaw, 0);
   }
 
   function update(delta) {
@@ -115,6 +155,7 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
   function dispose() {
     document.removeEventListener("pointerlockchange", handlePointerLockChange);
     document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
     document.removeEventListener("keydown", handleKeyDown);
     document.removeEventListener("keyup", handleKeyUp);
     canvas.removeEventListener?.("mousedown", handleCanvasMouseDown);
@@ -122,16 +163,18 @@ export function createExplorerControls({ camera, canvas, world, onLockChange }) 
 
   document.addEventListener("pointerlockchange", handlePointerLockChange);
   document.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("mouseup", handleMouseUp);
   document.addEventListener("keydown", handleKeyDown);
   document.addEventListener("keyup", handleKeyUp);
   canvas.addEventListener?.("mousedown", handleCanvasMouseDown);
 
   return {
     lock,
+    teleport,
     update,
     dispose,
     get isLocked() {
-      return isLocked || isFallbackLooking;
+      return isLocked || hasStarted;
     }
   };
 }
@@ -147,6 +190,17 @@ function getMovementProfile(position, world) {
     return {
       speedMultiplier: stair.speedMultiplier,
       cameraY: stair.floorY + (stair.upperY - stair.floorY) * t
+    };
+  }
+
+  // Generic elevated/sunken floor zones (mushroom-house interior levels).
+  // Each zone is XZ + a Y activation band, so a courtyard player standing over
+  // the buried interior never gets captured by it.
+  const floorZone = findFloorZone(position, world);
+  if (floorZone) {
+    return {
+      speedMultiplier: 1,
+      cameraY: floorZone.eyeY
     };
   }
 

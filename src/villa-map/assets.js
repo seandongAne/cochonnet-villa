@@ -87,24 +87,6 @@ export function createWall(width, height, depth, material) {
   return mesh;
 }
 
-export function createFence(width, depth, material) {
-  const group = new THREE.Group();
-  const rail = createWall(width, 0.5, depth, material);
-  rail.position.y = 0.7;
-  group.add(rail);
-
-  const posts = Math.max(2, Math.floor((width > depth ? width : depth) / 4));
-  for (let index = 0; index < posts; index += 1) {
-    const post = createWall(0.35, 1.6, 0.35, material);
-    const t = posts === 1 ? 0.5 : index / (posts - 1);
-    post.position.x = width > depth ? -width / 2 + width * t : 0;
-    post.position.z = depth >= width ? -depth / 2 + depth * t : 0;
-    group.add(post);
-  }
-
-  return group;
-}
-
 export function createModernVilla(materials) {
   const group = new THREE.Group();
 

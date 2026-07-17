@@ -5,8 +5,15 @@ import { deriveFurnitureColliders } from "../src/villa-map/furniture-colliders.j
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
 import { collidesWithWorld, createVillaWorld } from "../src/villa-map/world.js";
 
-const GROUND_Y = { minY: 0, maxY: 5.6 };
-const UPPER_Y = { minY: 6.65, maxY: 11.25 };
+// Expected Y band per floor index — must mirror furniture-colliders.js.
+// 0/1 = villa storeys; 2/3/4 = the buried mushroom-interior levels.
+const FLOOR_Y_RANGES = {
+  0: { minY: 0, maxY: 5.6 },
+  1: { minY: 6.65, maxY: 11.25 },
+  2: { minY: -41.5, maxY: -36.6 },
+  3: { minY: -36.6, maxY: -32.6 },
+  4: { minY: -32.6, maxY: -27 }
+};
 
 test("derives one well-formed collider per solid furniture piece", () => {
   const solid = FURNITURE_PLACEMENTS.filter((piece) => piece.solid === true);
@@ -27,7 +34,7 @@ test("derives one well-formed collider per solid furniture piece", () => {
     assert.ok(collider.minX < collider.maxX, `${collider.id} minX<maxX`);
     assert.ok(collider.minZ < collider.maxZ, `${collider.id} minZ<maxZ`);
 
-    const expected = piece.floor === 1 ? UPPER_Y : GROUND_Y;
+    const expected = FLOOR_Y_RANGES[piece.floor] ?? FLOOR_Y_RANGES[0];
     assert.equal(collider.minY, expected.minY, `${collider.id} minY by floor`);
     assert.equal(collider.maxY, expected.maxY, `${collider.id} maxY by floor`);
   });
