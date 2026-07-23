@@ -27,6 +27,95 @@ export const PORKY_MODEL_VARIANTS = {
     height: 1.35,
     fallbackScale: 0.82,
     rotationY: Math.PI
+  },
+  // Meshy AI residents. Their exported fronts point toward local +Z, unlike
+  // the four original variants above, so they intentionally need no internal
+  // half-turn. Per-placement rotationY can then describe the visible heading
+  // directly. Heights include each model's authored prop/base (bath, car,
+  // sleeping bag, etc.), keeping the wider vignette models room-sized.
+  "cozy-checker-piglet": {
+    url: "/models/porkies/cozy-checker-piglet.glb",
+    height: 1.15,
+    fallbackScale: 0.64,
+    rotationY: 0
+  },
+  "muddy-piglet": {
+    url: "/models/porkies/muddy-piglet.glb",
+    height: 0.95,
+    fallbackScale: 0.56,
+    rotationY: 0
+  },
+  "muscle-pig": {
+    url: "/models/porkies/muscle-pig.glb",
+    height: 1.35,
+    fallbackScale: 0.72,
+    rotationY: 0
+  },
+  "pampered-piglet": {
+    url: "/models/porkies/pampered-piglet.glb",
+    height: 0.95,
+    fallbackScale: 0.56,
+    rotationY: 0
+  },
+  "bbq-feast-pig": {
+    url: "/models/porkies/bbq-feast-pig.glb",
+    height: 0.95,
+    fallbackScale: 0.56,
+    rotationY: 0
+  },
+  "cleaning-day-piglet": {
+    url: "/models/porkies/cleaning-day-piglet.glb",
+    height: 1.25,
+    fallbackScale: 0.68,
+    rotationY: 0
+  },
+  "pop-star-pig": {
+    url: "/models/porkies/pop-star-pig.glb",
+    height: 1.25,
+    fallbackScale: 0.68,
+    rotationY: 0
+  },
+  "sleepy-piglet": {
+    url: "/models/porkies/sleepy-piglet.glb",
+    height: 0.9,
+    fallbackScale: 0.54,
+    rotationY: 0
+  },
+  "smoky-city-swine": {
+    url: "/models/porkies/smoky-city-swine.glb",
+    height: 1.25,
+    fallbackScale: 0.68,
+    rotationY: 0
+  },
+  "enchanted-librarian-pig": {
+    url: "/models/porkies/enchanted-librarian-pig.glb",
+    height: 1.15,
+    fallbackScale: 0.64,
+    rotationY: 0
+  },
+  "watermelon-hat-pig": {
+    url: "/models/porkies/watermelon-hat-pig.glb",
+    height: 1.1,
+    fallbackScale: 0.62,
+    rotationY: 0
+  },
+  "four-legged-piglet": {
+    url: "/models/porkies/four-legged-piglet.glb",
+    height: 1.05,
+    fallbackScale: 0.6,
+    rotationY: 0
+  },
+  "gaming-piglet": {
+    url: "/models/porkies/cute-piglet-05840.glb",
+    height: 1.15,
+    fallbackScale: 0.64,
+    rotationY: 0
+  },
+  "car-piglet": {
+    url: "/models/porkies/cute-piglet-060436.glb",
+    height: 0.9,
+    fallbackScale: 0.54,
+    rotationY: 0
   }
 };
 

@@ -210,12 +210,6 @@
   font-weight: 900;
 }
 
-.villa-map-root.is-exploring .villa-map-overlay {
-  opacity: 1;
-  transform: none;
-  background: #fffcf6;
-}
-
 /* Pointer Lock hides the OS cursor natively. Embedded previews can reject
    Pointer Lock and use drag-look instead, so mirror the same cursor-free view
    for that fallback while the exploration session is active. */

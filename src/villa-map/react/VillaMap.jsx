@@ -193,7 +193,7 @@ export default function VillaMap() {
         )}
       </Canvas>
 
-      {!editMode && (
+      {!editMode && !exploring && (
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>
@@ -211,11 +211,7 @@ export default function VillaMap() {
           >
             开始探索
           </button>
-          <p className="villa-map-status">
-            {exploring
-              ? "正在探索，按 Esc 退出鼠标控制"
-              : "点击开始后使用 WASD + 鼠标探索"}
-          </p>
+          <p className="villa-map-status">点击开始后使用 WASD + 鼠标探索</p>
         </section>
       )}
 

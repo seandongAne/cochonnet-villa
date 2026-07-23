@@ -602,6 +602,8 @@ export function createMushroomHouse(materials) {
   // Root flare — chunky moss-covered roots radiating out from the base.
   for (let i = 0; i < 6; i += 1) {
     const angle = (i / 6) * Math.PI * 2 + 0.4;
+    // Keep the front-centre doorway sector clear of root geometry.
+    if (Math.sin(angle) < -0.8) continue;
     const root = new THREE.Mesh(
       new THREE.SphereGeometry(0.5, 14, 10),
       materials.mushroomStem
@@ -625,11 +627,14 @@ export function createMushroomHouse(materials) {
   // ---- Front facade plate -------------------------------------------------
   // Curved peach panel mounted to the front of the stem so the door and windows
   // can sit flush in a *flat* surface instead of floating in front of a curve.
-  // Geometry: a low BoxGeometry pushed slightly into the stem; it gives the
-  // door and windows a true wall to live in. Test requires window depth <= 0.05
-  // and z ∈ (-1.5, -1.43), which both fit naturally now.
-  const facade = addBox(group, 3.6, 2.6, 0.4, materials.mushroomStem,
-    0, 1.4, -1.65);
+  // Geometry: a low BoxGeometry pushed slightly into the stem; its outer face
+  // stays ahead of the curved body so the door and windows remain visible.
+  const facadeDepth = 0.4;
+  const facadeZ = -2.0;
+  const facadeFrontZ = facadeZ - facadeDepth / 2;
+  const facade = addBox(group, 3.6, 2.6, facadeDepth, materials.mushroomStem,
+    0, 1.4, facadeZ);
+  facade.name = "mushroom-house-facade";
   facade.castShadow = true;
   facade.receiveShadow = true;
 
@@ -643,7 +648,7 @@ export function createMushroomHouse(materials) {
   // back posts hide the facade *side* faces from oblique angles; the front
   // posts frame the south view.
   for (const px of [-1.8, 1.8]) {
-    for (const pz of [-1.87, -1.43]) {
+    for (const pz of [facadeFrontZ - 0.02, facadeZ + facadeDepth / 2 + 0.02]) {
       const post = addBox(group, 0.18, 2.65, 0.18, materials.wood, px, 1.35, pz);
       post.castShadow = true;
     }
@@ -651,15 +656,15 @@ export function createMushroomHouse(materials) {
 
   // Header beam wrapping the top of the facade (front-to-back depth caps
   // the gap between the front and back cornerposts).
-  addBox(group, 3.96, 0.22, 0.6, materials.wood, 0, 2.6, -1.65);
+  addBox(group, 3.96, 0.22, 0.6, materials.wood, 0, 2.6, facadeZ);
 
   // Sill beam at the base of the facade.
-  addBox(group, 3.96, 0.16, 0.6, materials.wood, 0, 0.13, -1.65);
+  addBox(group, 3.96, 0.16, 0.6, materials.wood, 0, 0.13, facadeZ);
 
   // Small red roof eave overhanging the header — echoes the cap colour.
-  addBox(group, 4.4, 0.12, 0.78, materials.roof, 0, 2.78, -1.6);
+  addBox(group, 4.4, 0.12, 0.78, materials.roof, 0, 2.78, facadeZ + 0.05);
   // Wooden soffit board under the eave's leading edge.
-  addBox(group, 4.4, 0.08, 0.18, materials.wood, 0, 2.72, -2.05);
+  addBox(group, 4.4, 0.08, 0.18, materials.wood, 0, 2.72, facadeFrontZ - 0.24);
 
   // Angled knee-brace brackets at the top corners (post-to-header junction).
   for (const px of [-1.8, 1.8]) {
@@ -667,7 +672,7 @@ export function createMushroomHouse(materials) {
       new THREE.BoxGeometry(0.42, 0.08, 0.16),
       materials.wood
     );
-    bracket.position.set(px, 2.42, -1.87);
+    bracket.position.set(px, 2.42, facadeFrontZ - 0.02);
     bracket.rotation.z = px > 0 ? -0.55 : 0.55;
     bracket.castShadow = true;
     group.add(bracket);
@@ -676,19 +681,22 @@ export function createMushroomHouse(materials) {
   // Slim vertical batten between each window and the door — visually breaks
   // up the facade and frames the door bay.
   for (const bx of [-0.65, 0.65]) {
-    addBox(group, 0.08, 1.5, 0.04, materials.wood, bx, 1.35, -1.86);
+    addBox(group, 0.08, 1.5, 0.04, materials.wood, bx, 1.35, facadeFrontZ - 0.04);
   }
 
   // ---- Door (planked, with arched trim, hinges and a doorknob) -----------
-  const door = addBox(group, 1.0, 1.6, 0.16, materials.wood, 0, 0.95, -1.46);
+  const doorDepth = 0.16;
+  const doorZ = facadeFrontZ - doorDepth / 2 - 0.02;
+  const door = addBox(group, 1.0, 1.6, doorDepth, materials.doorWood, 0, 1.0, doorZ);
+  door.name = "mushroom-house-door";
   door.rotation.y = 0.0;
   // Vertical plank seams on the door.
   for (const px of [-0.3, 0, 0.3]) {
-    addBox(group, 0.03, 1.5, 0.02, materials.villaDark, px, 0.95, -1.38);
+    addBox(group, 0.03, 1.5, 0.02, materials.villaDark, px, 1.0, doorZ - doorDepth / 2 - 0.01);
   }
   // Iron strap hinges.
   for (const hy of [0.4, 1.4]) {
-    addBox(group, 0.22, 0.08, 0.04, materials.stone, -0.39, hy, -1.36);
+    addBox(group, 0.22, 0.08, 0.04, materials.stone, -0.39, hy, doorZ - doorDepth / 2 - 0.02);
   }
   // Rounded arch above the door.
   const archTop = new THREE.Mesh(
@@ -696,63 +704,67 @@ export function createMushroomHouse(materials) {
     materials.wood
   );
   archTop.rotation.x = Math.PI / 2;
-  archTop.position.set(0, 1.74, -1.46);
+  archTop.position.set(0, 1.8, doorZ);
   group.add(archTop);
-  // Door frame trim around the arch.
-  addBox(group, 1.2, 0.12, 0.18, materials.trim, 0, 1.78, -1.46);
+  // Door frame trim around the arch and both jambs.
+  addBox(group, 1.2, 0.12, 0.18, materials.trim, 0, 1.84, doorZ - 0.01);
+  for (const x of [-0.58, 0.58]) {
+    addBox(group, 0.12, 1.76, 0.16, materials.trim, x, 1.02, doorZ - 0.02);
+  }
   // Door knob.
   const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), materials.trim);
-  knob.position.set(0.34, 0.95, -1.36);
+  knob.position.set(0.34, 1.0, doorZ - doorDepth / 2 - 0.04);
   group.add(knob);
 
   // Wall-mounted lantern beside the door — warm bulb (off-white sphere)
   // inside a translucent glass box on a small wooden bracket.
-  addBox(group, 0.05, 0.5, 0.05, materials.wood, 0.85, 1.35, -1.52);
+  addBox(group, 0.05, 0.5, 0.05, materials.wood, 0.85, 1.35, facadeFrontZ - 0.08);
   const lanternBody = new THREE.Mesh(
     new THREE.BoxGeometry(0.18, 0.26, 0.18),
     materials.glass
   );
-  lanternBody.position.set(0.85, 1.1, -1.55);
+  lanternBody.position.set(0.85, 1.1, facadeFrontZ - 0.16);
   group.add(lanternBody);
-  addBox(group, 0.24, 0.05, 0.24, materials.trim, 0.85, 1.26, -1.55);
-  addBox(group, 0.22, 0.05, 0.22, materials.trim, 0.85, 0.95, -1.55);
+  addBox(group, 0.24, 0.05, 0.24, materials.trim, 0.85, 1.26, facadeFrontZ - 0.16);
+  addBox(group, 0.22, 0.05, 0.22, materials.trim, 0.85, 0.95, facadeFrontZ - 0.16);
   const lanternFlame = new THREE.Mesh(
     new THREE.SphereGeometry(0.07, 10, 8),
     materials.mushroomSpot
   );
-  lanternFlame.position.set(0.85, 1.1, -1.55);
+  lanternFlame.position.set(0.85, 1.1, facadeFrontZ - 0.16);
   group.add(lanternFlame);
 
   // ---- Windows (flush with the facade, pale arched glass) ----------------
-  // Tests assert: depth <= 0.05 and -1.5 < z < -1.43. We meet both.
-  const leftWindow = addBox(group, 0.46, 0.6, 0.04, materials.glass, -1.2, 1.45, -1.47);
-  const rightWindow = addBox(group, 0.46, 0.6, 0.04, materials.glass, 1.2, 1.45, -1.47);
+  const windowDepth = 0.04;
+  const windowZ = facadeFrontZ - windowDepth / 2 - 0.01;
+  const leftWindow = addBox(group, 0.46, 0.6, windowDepth, materials.glass, -1.2, 1.45, windowZ);
+  const rightWindow = addBox(group, 0.46, 0.6, windowDepth, materials.glass, 1.2, 1.45, windowZ);
   leftWindow.name = "mushroom-window-left";
   rightWindow.name = "mushroom-window-right";
   leftWindow.castShadow = false;
   rightWindow.castShadow = false;
   // Window frames, cross mullions, arched crown, and a planter box per side.
   for (const x of [-1.2, 1.2]) {
-    addBox(group, 0.56, 0.7, 0.06, materials.wood, x, 1.45, -1.43);
-    addBox(group, 0.46, 0.06, 0.04, materials.wood, x, 1.45, -1.46);
-    addBox(group, 0.06, 0.6, 0.04, materials.wood, x, 1.45, -1.46);
+    addBox(group, 0.56, 0.7, 0.06, materials.wood, x, 1.45, windowZ - 0.04);
+    addBox(group, 0.46, 0.06, 0.04, materials.wood, x, 1.45, windowZ - 0.03);
+    addBox(group, 0.06, 0.6, 0.04, materials.wood, x, 1.45, windowZ - 0.03);
     // Arched window crown.
     const winArch = new THREE.Mesh(
       new THREE.CylinderGeometry(0.28, 0.28, 0.06, 18, 1, false, 0, Math.PI),
       materials.wood
     );
     winArch.rotation.x = Math.PI / 2;
-    winArch.position.set(x, 1.82, -1.46);
+    winArch.position.set(x, 1.82, windowZ - 0.04);
     group.add(winArch);
     // Window-box planter with three little red flowers.
-    addBox(group, 0.62, 0.12, 0.16, materials.wood, x, 1.04, -1.52);
+    addBox(group, 0.62, 0.12, 0.16, materials.wood, x, 1.04, facadeFrontZ - 0.14);
     for (const flowerX of [-0.18, 0, 0.18]) {
-      addBox(group, 0.02, 0.18, 0.02, materials.leaf, x + flowerX, 1.21, -1.52);
+      addBox(group, 0.02, 0.18, 0.02, materials.leaf, x + flowerX, 1.21, facadeFrontZ - 0.14);
       const petal = new THREE.Mesh(
         new THREE.SphereGeometry(0.07, 10, 8),
         materials.mushroomCap
       );
-      petal.position.set(x + flowerX, 1.33, -1.52);
+      petal.position.set(x + flowerX, 1.33, facadeFrontZ - 0.14);
       group.add(petal);
     }
   }
@@ -856,13 +868,16 @@ export function createMushroomHouse(materials) {
   }
 
   // ---- Base details: doorstep, stepping stones, grass, baby mushrooms ----
-  // Stone doorstep just south of the door.
-  addBox(group, 1.4, 0.16, 0.5, materials.stone, 0, 0.08, -2.05);
+  // Stone doorstep just south of the door. Its top finishes below the leaf
+  // instead of intersecting the door geometry.
+  const doorstepZ = doorZ - 0.32;
+  const doorstep = addBox(group, 1.4, 0.16, 0.5, materials.stone, 0, 0.08, doorstepZ);
+  doorstep.name = "mushroom-house-doorstep";
   // Stepping-stone path leading away from the door.
   for (let i = 0; i < 3; i += 1) {
     const slab = addBox(group, 0.55, 0.08, 0.42, materials.stone,
       (i % 2 === 0 ? -0.2 : 0.2),
-      0.04, -2.55 - i * 0.6);
+      0.04, doorstepZ - 0.6 - i * 0.6);
     slab.rotation.y = i % 2 === 0 ? 0.1 : -0.1;
   }
 
@@ -871,21 +886,24 @@ export function createMushroomHouse(materials) {
     const angle = (i / 14) * Math.PI * 2 + 0.15;
     const radius = 2.55 + (i % 3) * 0.22;
     const scale = 0.85 + (i % 4) * 0.12;
+    const tuftX = Math.cos(angle) * radius;
+    const tuftZ = Math.sin(angle) * radius;
+    if (tuftZ < -2.2 && Math.abs(tuftX) < 1.0) continue;
     const tuft = new THREE.Mesh(
       new THREE.SphereGeometry(0.3 * scale, 12, 10),
       materials.leaf
     );
     tuft.scale.set(1.0, 0.5, 1.0);
-    tuft.position.set(Math.cos(angle) * radius, 0.16, Math.sin(angle) * radius);
+    tuft.position.set(tuftX, 0.16, tuftZ);
     tuft.castShadow = true;
     group.add(tuft);
   }
 
   // Three baby mushrooms of varied size beside the door.
   [
-    { x: -1.8, z: -2.3, scale: 1.0 },
-    { x: 1.85, z: -2.3, scale: 0.85 },
-    { x: 2.3, z: -1.45, scale: 0.6 }
+    { x: -1.8, z: facadeFrontZ - 0.5, scale: 1.0 },
+    { x: 1.85, z: facadeFrontZ - 0.5, scale: 0.85 },
+    { x: 2.3, z: facadeZ + 0.1, scale: 0.6 }
   ].forEach(({ x, z, scale }) => {
     const babyStem = new THREE.Mesh(
       new THREE.CylinderGeometry(0.13 * scale, 0.18 * scale, 0.4 * scale, 18),

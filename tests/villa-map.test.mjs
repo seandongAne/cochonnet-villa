@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 
@@ -12,6 +12,8 @@ import { PORKY_MODEL_VARIANTS } from "../src/villa-map/porky-models.js";
 import { PORKY_PLACEMENTS } from "../src/villa-map/placements.js";
 import { FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
+import { EXTERIOR_PLACEMENTS } from "../src/villa-map/exterior-placements.js";
+import { ARCHITECTURE_PLACEMENTS } from "../src/villa-map/architecture-placements.js";
 import { MUSHROOM_INTERIOR, collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
 import { findNearestInteraction } from "../src/villa-map/interaction.js";
 
@@ -23,6 +25,20 @@ test("homepage exposes a dedicated villa map CTA", () => {
   assert.match(html, /data-i18n="hero.mapCtaLabel"/);
   assert.match(html, /class="scene-house scene-house-link"/);
   assert.match(html, /aria-label="Explore the Villa Map"/);
+});
+
+test("villa control card unmounts as soon as mouse exploration starts", () => {
+  const component = readFileSync(
+    fileURLToPath(new URL("../src/villa-map/react/VillaMap.jsx", import.meta.url)),
+    "utf8"
+  );
+  const styles = readFileSync(
+    fileURLToPath(new URL("../src/villa-map/styles.css", import.meta.url)),
+    "utf8"
+  );
+
+  assert.match(component, /\{!editMode && !exploring && \(/);
+  assert.doesNotMatch(styles, /is-exploring\s+\.villa-map-overlay/);
 });
 
 test("villa map world defines the expanded villa grounds with multi-floor rooms", () => {
@@ -340,14 +356,40 @@ test("explorer controls lower camera and slow movement in shallow hot spring wat
 
 test("mushroom house windows are thin and flush with the front wall", () => {
   const house = createMushroomHouse(createMaterials());
+  const facade = house.getObjectByName("mushroom-house-facade");
   const windows = house.children.filter((child) => child.name.startsWith("mushroom-window-"));
+  const facadeFrontZ = facade.position.z - facade.geometry.parameters.depth / 2;
 
+  assert.ok(facade);
   assert.equal(windows.length, 2);
   windows.forEach((window) => {
-    assert.ok(window.geometry.parameters.depth <= 0.05);
-    assert.ok(window.position.z > -1.5);
-    assert.ok(window.position.z < -1.43);
+    const depth = window.geometry.parameters.depth;
+    const backZ = window.position.z + depth / 2;
+    assert.ok(depth <= 0.05);
+    assert.ok(backZ < facadeFrontZ);
+    assert.ok(facadeFrontZ - backZ < 0.08);
   });
+});
+
+test("mushroom house has a visible exterior door clear of wall and doorstep", () => {
+  const materials = createMaterials();
+  const house = createMushroomHouse(materials);
+  const facade = house.getObjectByName("mushroom-house-facade");
+  const door = house.getObjectByName("mushroom-house-door");
+  const doorstep = house.getObjectByName("mushroom-house-doorstep");
+
+  assert.ok(facade);
+  assert.ok(door);
+  assert.ok(doorstep);
+  assert.equal(door.material, materials.doorWood);
+
+  const facadeFrontZ = facade.position.z - facade.geometry.parameters.depth / 2;
+  const doorBackZ = door.position.z + door.geometry.parameters.depth / 2;
+  const doorBottomY = door.position.y - door.geometry.parameters.height / 2;
+  const doorstepTopY = doorstep.position.y + doorstep.geometry.parameters.height / 2;
+
+  assert.ok(doorBackZ < facadeFrontZ, "door must sit fully in front of the facade");
+  assert.ok(doorBottomY > doorstepTopY, "door must clear the doorstep instead of clipping through it");
 });
 
 test("porky face has prominent eyes, snout, nostrils, and smile", () => {
@@ -429,22 +471,42 @@ test("tiered hot springs geometry has raised platform, steps, and lowered water"
   });
 });
 
-test("villa map exposes the four commercial GLB porky model variants", () => {
-  assert.deepEqual(
-    Object.keys(PORKY_MODEL_VARIANTS).sort(),
-    ["big-ear-piglet", "daigua", "guadai", "wild-piglet"]
-  );
+test("villa map exposes the original and fourteen Meshy GLB porky variants", () => {
+  const originalVariants = ["big-ear-piglet", "daigua", "guadai", "wild-piglet"];
+  const meshyVariants = [
+    "bbq-feast-pig",
+    "car-piglet",
+    "cleaning-day-piglet",
+    "cozy-checker-piglet",
+    "enchanted-librarian-pig",
+    "four-legged-piglet",
+    "gaming-piglet",
+    "muddy-piglet",
+    "muscle-pig",
+    "pampered-piglet",
+    "pop-star-pig",
+    "sleepy-piglet",
+    "smoky-city-swine",
+    "watermelon-hat-pig"
+  ];
+  assert.deepEqual(Object.keys(PORKY_MODEL_VARIANTS).sort(), [...originalVariants, ...meshyVariants].sort());
 
   Object.values(PORKY_MODEL_VARIANTS).forEach((variant) => {
     assert.match(variant.url, /^\/models\/porkies\/.+\.glb$/);
+    const filePath = fileURLToPath(new URL(`../public${variant.url}`, import.meta.url));
+    assert.ok(existsSync(filePath), `missing porky GLB file: ${variant.url}`);
     assert.equal(typeof variant.height, "number");
     assert.ok(variant.height > 0.6);
     assert.ok(variant.height < 2.2);
   });
+
+  meshyVariants.forEach((name) => {
+    assert.equal(PORKY_MODEL_VARIANTS[name].rotationY, 0, `${name} should keep its +Z authored front`);
+  });
 });
 
-test("villa scene places at least six GLB-backed porkies in the map", () => {
-  assert.ok(PORKY_PLACEMENTS.length >= 6);
+test("villa scene places every Meshy pig across main villa, mushroom house, and outdoors", () => {
+  assert.ok(PORKY_PLACEMENTS.length >= 24);
   // Every placement must reference a real GLB variant so the Scene mounts a
   // commercial model (with procedural fallback), not a bare primitive.
   PORKY_PLACEMENTS.forEach((placement) => {
@@ -453,6 +515,81 @@ test("villa scene places at least six GLB-backed porkies in the map", () => {
       `unknown porky variant: ${placement.variant}`
     );
   });
+
+  const meshy = PORKY_PLACEMENTS.filter((placement) => placement.source === "meshy");
+  assert.equal(meshy.length, 14);
+  assert.equal(new Set(meshy.map((placement) => placement.id)).size, 14, "duplicate Meshy placement id");
+  assert.equal(new Set(meshy.map((placement) => placement.variant)).size, 14, "each Meshy model should appear once");
+  assert.deepEqual(
+    Object.fromEntries(["main-villa", "mushroom-house", "outdoor"].map((area) => [
+      area,
+      meshy.filter((placement) => placement.area === area).length
+    ])),
+    { "main-villa": 5, "mushroom-house": 5, outdoor: 4 }
+  );
+
+  // The tower is round, not merely its rectangular floor-zone AABB. Keep the
+  // full authored base of each pig inside the curved inner wall.
+  meshy.filter((placement) => placement.area === "mushroom-house").forEach((placement) => {
+    const radialDistance = Math.hypot(
+      placement.position[0] - MUSHROOM_INTERIOR.center.x,
+      placement.position[2] - MUSHROOM_INTERIOR.center.z
+    );
+    assert.ok(
+      radialDistance + placement.clearanceRadius <= 16,
+      `${placement.id} sits outside the round mushroom room`
+    );
+  });
+
+  // Same-level pigs retain a visible aisle between their authored bases.
+  for (let a = 0; a < meshy.length; a += 1) {
+    for (let b = a + 1; b < meshy.length; b += 1) {
+      if (meshy[a].floor !== meshy[b].floor) continue;
+      const dx = meshy[a].position[0] - meshy[b].position[0];
+      const dz = meshy[a].position[2] - meshy[b].position[2];
+      const distance = Math.hypot(dx, dz);
+      const required = meshy[a].clearanceRadius + meshy[b].clearanceRadius + 0.45;
+      assert.ok(distance >= required, `${meshy[a].id} crowds ${meshy[b].id}`);
+    }
+  }
+});
+
+test("new porkies clear furniture footprints and the rescued hot-spring pig clears the terrace", () => {
+  const meshy = PORKY_PLACEMENTS.filter((placement) => placement.source === "meshy");
+  const props = [
+    ...FURNITURE_PLACEMENTS,
+    ...EXTERIOR_PLACEMENTS,
+    ...ARCHITECTURE_PLACEMENTS
+  ];
+
+  for (const pig of meshy) {
+    for (const prop of props) {
+      if (pig.floor !== prop.floor) continue;
+      // Flat rugs are valid under-foot surfaces; tabletop accents share XZ
+      // with their supporting furniture, which is checked separately.
+      if (prop.noShadow) continue;
+      const angle = prop.rotationY ?? 0;
+      const cos = Math.abs(Math.cos(angle));
+      const sin = Math.abs(Math.sin(angle));
+      const halfX = (prop.footprint.x * cos + prop.footprint.z * sin) / 2;
+      const halfZ = (prop.footprint.x * sin + prop.footprint.z * cos) / 2;
+      const dx = Math.max(Math.abs(pig.position[0] - prop.position[0]) - halfX, 0);
+      const dz = Math.max(Math.abs(pig.position[2] - prop.position[2]) - halfZ, 0);
+      assert.ok(
+        Math.hypot(dx, dz) >= pig.clearanceRadius,
+        `${pig.id} clips ${prop.id}`
+      );
+    }
+  }
+
+  const rescued = PORKY_PLACEMENTS.find((placement) => placement.id === "hot-spring");
+  assert.ok(rescued);
+  // The raised entry terrace begins at x=15; leave a full model radius before
+  // that edge so the pig no longer intersects it from any viewing angle.
+  assert.ok(
+    rescued.position[0] + rescued.clearanceRadius < 15,
+    "hot-spring pig should stand fully west of the raised terrace"
+  );
 });
 
 test("foreground porkies face the entry path so facial features are visible", () => {
