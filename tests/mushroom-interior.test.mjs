@@ -19,28 +19,22 @@ import {
   MUSHROOM_STAIR_WIDTH,
   scaleMushroomInteriorPoint
 } from "../src/villa-map/mushroom-interior-config.js";
-import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
+import {
+  FURNITURE_PLACEMENTS,
+  MUSHROOM_LOFT_BED_POSITION,
+  MUSHROOM_LOFT_BED_TOP_Y
+} from "../src/villa-map/furniture-placements.js";
+import { PORKY_PLACEMENTS } from "../src/villa-map/placements.js";
 
-const MUSHROOM_FURNITURE_BASELINE = {
-  "m1-rug": [-7.4, 0, 17.2, 1.8],
-  "m1-table": [-7.4, 0, 17.2, 1.7],
-  "m1-chair-n": [-7.4, 0, 16.0, 1.8],
-  "m1-chair-s": [-7.4, 0, 18.4, 1.8],
-  "m1-counter": [-5.7, 0, 14.3, 1.7],
-  "m1-counter-plant": [-5.7, 0, 14.3, 2.1, 0.65],
-  "m1-cupboard": [-9.75, 0, 16.4, 1.7],
-  "m2-rug": [-6.2, 1, 17.7, 1.35],
-  "m2-sofa": [-6.0, 1, 15.0, 1.35],
-  "m2-coffee-table": [-6.0, 1, 17.4, 1.45],
-  "m2-table-books": [-5.75, 1, 17.4, 1.4, 0.36],
-  "m2-bookcase": [-6.0, 1, 21.75, 1.8],
-  "m2-floor-lamp": [-7.2, 1, 21.55, 1.7],
-  "m3-rug": [-4.8, 2, 16.2, 1.5],
-  "m3-bed": [-4.8, 2, 15.4, 1.35],
-  "m3-nightstand": [-2.7, 2, 15.2, 1.2],
-  "m3-night-lamp": [-2.7, 2, 15.2, 1.5, 0.46],
-  "m3-chair": [-4.6, 2, 20.7, 1.35],
-  "m3-wardrobe": [-2.3, 2, 19.0, 1.6]
+// A few signature anchors pin the normalized-to-world migration without
+// mirroring the full intentionally-dense placement inventory in the test.
+const MUSHROOM_SIGNATURE_BASELINE = {
+  "m1-table": [-7.4, 0, 17.2, 1.9],
+  "m1-entry-mat": [-6.0, 0, 22.1, 2.0],
+  "m2-sofa": [-6.0, 1, 14.75, 1.55],
+  "m2-study-desk": [-1.9, 1, 18.0, 1.65],
+  "m3-bed": [-4.8, 2, 15.4, 1.55],
+  "m3-vanity": [-2.45, 2, 20.1, 1.55]
 };
 
 const nearlyEqual = (actual, expected, epsilon = 1e-9) =>
@@ -266,9 +260,9 @@ test("all three interior levels are furnished from the vendored Kenney kit", () 
   const hearth = byRoom("mushroom-hearth");
   const den = byRoom("mushroom-den");
   const loft = byRoom("mushroom-loft");
-  assert.ok(hearth.length >= 6, "hearth under-furnished");
-  assert.ok(den.length >= 6, "den under-furnished");
-  assert.ok(loft.length >= 6, "loft under-furnished");
+  assert.ok(hearth.length >= 36, "hearth under-furnished");
+  assert.ok(den.length >= 36, "den under-furnished");
+  assert.ok(loft.length >= 36, "loft under-furnished");
 
   // Floor indices drive Y-scoped colliders: 2/3/4 bottom-up.
   hearth.forEach((p) => assert.equal(p.floor, 2, `${p.id} floor`));
@@ -309,13 +303,12 @@ test("all three interior levels are furnished from the vendored Kenney kit", () 
   });
 });
 
-test("mushroom furniture positions expand 4x and every model scale becomes 0.8x", () => {
-  const pieces = FURNITURE_PLACEMENTS.filter((piece) => piece.room.startsWith("mushroom-"));
-  assert.equal(pieces.length, Object.keys(MUSHROOM_FURNITURE_BASELINE).length);
+test("signature mushroom furniture anchors expand 4x and scale to 0.8x", () => {
+  const byId = new Map(FURNITURE_PLACEMENTS.map((piece) => [piece.id, piece]));
 
-  for (const piece of pieces) {
-    const baseline = MUSHROOM_FURNITURE_BASELINE[piece.id];
-    assert.ok(baseline, `missing baseline for ${piece.id}`);
+  for (const [id, baseline] of Object.entries(MUSHROOM_SIGNATURE_BASELINE)) {
+    const piece = byId.get(id);
+    assert.ok(piece, `missing signature piece ${id}`);
     const [oldX, level, oldZ, oldScale, oldYOffset = 0] = baseline;
     const expectedXZ = scaleMushroomInteriorPoint(oldX, oldZ);
 
@@ -333,6 +326,19 @@ test("mushroom furniture positions expand 4x and every model scale becomes 0.8x"
       `${piece.id} scale becomes 0.8x`
     );
   }
+});
+
+test("the sleepy loft pig rests on the measured top of the Kenney bed", () => {
+  const bed = FURNITURE_PLACEMENTS.find((piece) => piece.id === "m3-bed");
+  const sleeper = PORKY_PLACEMENTS.find((piece) => piece.id === "meshy-sleepy-loft");
+  assert.ok(bed && sleeper);
+  assert.equal(sleeper.onFurnitureId, bed.id);
+  assert.deepEqual(bed.position, MUSHROOM_LOFT_BED_POSITION);
+  assert.equal(sleeper.position[0], bed.position[0]);
+  assert.equal(sleeper.position[2], bed.position[2]);
+  assert.ok(nearlyEqual(sleeper.position[1], MUSHROOM_LOFT_BED_TOP_Y + 0.02));
+  const supportHeight = sleeper.position[1] - MUSHROOM_INTERIOR.floorY[2];
+  assert.ok(supportHeight > 0.7 && supportHeight < 0.85);
 });
 
 // ── Procedural factory (node-pure) ─────────────────────────────────────────

@@ -12,6 +12,10 @@ import {
   MUSHROOM_INTERIOR_FLOOR_Y,
   scaleMushroomInteriorPoint
 } from "./mushroom-interior-config.js";
+import {
+  MUSHROOM_LOFT_BED_POSITION,
+  MUSHROOM_LOFT_BED_TOP_Y
+} from "./furniture-placements.js";
 
 const mushroomSleeperXZ = scaleMushroomInteriorPoint(-7.2, 19.6);
 const MAIN_FLOOR_Y = 0.12;
@@ -226,8 +230,15 @@ export const PORKY_PLACEMENTS = [
     room: "mushroom-loft",
     floor: 4,
     clearanceRadius: 0.75,
-    position: mushroomPorkyPosition(-7.0, 2, 14.8),
-    rotationY: 0.4
+    // The sleeping model is grounded by its loader, so its Y anchor belongs
+    // on the measured top of the Kenney bed rather than on the room floor.
+    position: [
+      MUSHROOM_LOFT_BED_POSITION[0],
+      MUSHROOM_LOFT_BED_TOP_Y + 0.02,
+      MUSHROOM_LOFT_BED_POSITION[2]
+    ],
+    rotationY: 0,
+    onFurnitureId: "m3-bed"
   },
   {
     id: "meshy-pampered-loft",
