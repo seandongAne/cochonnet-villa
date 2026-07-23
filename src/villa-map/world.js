@@ -2,6 +2,19 @@ import { deriveFurnitureColliders } from "./furniture-colliders.js";
 import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "./architecture-placements.js";
+import {
+  MUSHROOM_FLOOR_Y_RANGES,
+  MUSHROOM_FURNITURE_SCALE,
+  MUSHROOM_INTERIOR_BASE_Y,
+  MUSHROOM_INTERIOR_CENTER,
+  MUSHROOM_INTERIOR_EYE_Y,
+  MUSHROOM_INTERIOR_FLOOR_Y,
+  MUSHROOM_INTERIOR_LEVEL_HEIGHT,
+  MUSHROOM_INTERIOR_SCALE,
+  scaleMushroomInteriorPoint,
+  scaleMushroomInteriorX,
+  scaleMushroomInteriorZ
+} from "./mushroom-interior-config.js";
 
 // Y level constants for the main villa.
 // Ground floor walls run from y=0 to y=5.6 (lowerHeight in createModernVilla).
@@ -37,48 +50,59 @@ const STAIR_ZONE = {
 };
 
 // ============================================================================
-// Mushroom-house interior — a three-storey "pocket" space buried UNDERGROUND
-// directly beneath the mushroom house (XZ centre -6,18; nothing renders below
-// the ground plane, so the tower is invisible from the courtyard). Entering /
-// leaving happens via the door interactions' teleport actions, never by
-// walking, so the pocket needs no XZ connection to the outdoors.
+// Mushroom-house interior — an independent three-storey "pocket" space buried
+// UNDERGROUND. Entering/leaving happens via teleport actions, so its dimensions
+// no longer depend on the exterior mushroom. The visual shell and its layout
+// coordinates are uniformly 4x; the player stays human-scale and furniture is
+// separately reduced to 0.8x of its former model size.
 //
-// Levels (slab TOP y): L1 -40, L2 -36, L3 -32. Player eye = slab + 1.6.
+// Levels (slab TOP y): L1 -80, L2 -64, L3 -48. Player eye = slab + 1.6.
 // Every interior zone and collider carries a Y activation band so courtyard
 // players (y≈1.6) standing over the buried tower never interact with it.
 // ============================================================================
+const mushroomSpawnXZ = scaleMushroomInteriorPoint(-6, 20.8);
 export const MUSHROOM_INTERIOR = {
-  center: { x: -6, z: 18 },
-  baseY: -40,
-  levelHeight: 4,
-  eyeY: [-38.4, -34.4, -30.4],
+  scale: MUSHROOM_INTERIOR_SCALE,
+  furnitureScale: MUSHROOM_FURNITURE_SCALE,
+  center: MUSHROOM_INTERIOR_CENTER,
+  baseY: MUSHROOM_INTERIOR_BASE_Y,
+  levelHeight: MUSHROOM_INTERIOR_LEVEL_HEIGHT,
+  floorY: MUSHROOM_INTERIOR_FLOOR_Y,
+  eyeY: MUSHROOM_INTERIOR_EYE_Y,
   // Inner walkable square (the visual shell is a cylinder r≈4.75; corner
   // colliders below knock the square back toward an octagon).
-  footprint: { minX: -10.4, maxX: -1.6, minZ: 13.6, maxZ: 22.4 },
-  spawn: { x: -6, y: -38.4, z: 20.8, yaw: 0 },
+  footprint: {
+    minX: scaleMushroomInteriorX(-10.4),
+    maxX: scaleMushroomInteriorX(-1.6),
+    minZ: scaleMushroomInteriorZ(13.6),
+    maxZ: scaleMushroomInteriorZ(22.4)
+  },
+  spawn: { ...mushroomSpawnXZ, y: MUSHROOM_INTERIOR_EYE_Y[0], yaw: 0 },
   exitSpawn: { x: -6, y: 1.6, z: 24.2, yaw: Math.PI }
 };
 
 // Per-level Y activation bands (camera Y while standing on that level is the
 // eyeY above; bands tile the whole tower so stair interpolation hands over
 // cleanly between levels).
-const MUSH_L1_Y = { minY: -41.5, maxY: -36.6 };
-const MUSH_L2_Y = { minY: -36.6, maxY: -32.6 };
-const MUSH_L3_Y = { minY: -32.6, maxY: -27 };
-const MUSH_ALL_Y = { minY: -42, maxY: -26 };
+const MUSH_L1_Y = MUSHROOM_FLOOR_Y_RANGES[2];
+const MUSH_L2_Y = MUSHROOM_FLOOR_Y_RANGES[3];
+const MUSH_L3_Y = MUSHROOM_FLOOR_Y_RANGES[4];
+const MUSH_ALL_Y = {
+  minY: MUSHROOM_INTERIOR_BASE_Y - 2,
+  maxY: MUSH_L3_Y.maxY
+};
 
 // Interior stair flights. Both ascend NORTHWARD (enter at maxZ on the lower
 // level, exit at minZ on the upper one) exactly like the villa stair, and both
 // are Y-scoped so only players already inside the tower are captured.
-// Flights are 2.4 m wide: the player radius (0.62) is added to every collider
-// at test time, so the side rails pinch the walkable corridor to ~1.2 m — a
-// narrower flight would seal itself shut.
+// Their authored 2.4 m width becomes 9.6 m in the 4x pocket; player radius and
+// walking speed remain unchanged so the enlarged stairs feel genuinely roomy.
 const MUSHROOM_STAIR_A = {
   id: "mushroom-stairs-a", // L1 → L2, east side
-  minX: -4.5,
-  maxX: -2.1,
-  minZ: 16.6,
-  maxZ: 21,
+  minX: scaleMushroomInteriorX(-4.5),
+  maxX: scaleMushroomInteriorX(-2.1),
+  minZ: scaleMushroomInteriorZ(16.6),
+  maxZ: scaleMushroomInteriorZ(21),
   floorY: MUSHROOM_INTERIOR.eyeY[0],
   upperY: MUSHROOM_INTERIOR.eyeY[1],
   speedMultiplier: 0.8,
@@ -87,10 +111,10 @@ const MUSHROOM_STAIR_A = {
 };
 const MUSHROOM_STAIR_B = {
   id: "mushroom-stairs-b", // L2 → L3, west side
-  minX: -9.9,
-  maxX: -7.5,
-  minZ: 16.6,
-  maxZ: 21,
+  minX: scaleMushroomInteriorX(-9.9),
+  maxX: scaleMushroomInteriorX(-7.5),
+  minZ: scaleMushroomInteriorZ(16.6),
+  maxZ: scaleMushroomInteriorZ(21),
   floorY: MUSHROOM_INTERIOR.eyeY[1],
   upperY: MUSHROOM_INTERIOR.eyeY[2],
   speedMultiplier: 0.8,
@@ -112,34 +136,59 @@ function mushroomFloorZone(level, band) {
   };
 }
 
+function mushroomInteractionPosition(x, level, z) {
+  const point = scaleMushroomInteriorPoint(x, z);
+  return {
+    ...point,
+    y: MUSHROOM_INTERIOR.eyeY[level] - 0.1
+  };
+}
+
 function mushroomInteriorColliders() {
+  const scaledBox = (id, x, z, width, depth, yRange) => {
+    const point = scaleMushroomInteriorPoint(x, z);
+    return boxCollider(
+      id,
+      point.x,
+      point.z,
+      width * MUSHROOM_INTERIOR_SCALE,
+      depth * MUSHROOM_INTERIOR_SCALE,
+      yRange
+    );
+  };
+
   return [
     // Perimeter (inner faces ≈ ±4.4 from the centre). No corner blocks — they
     // would pinch the stair-flight entries shut once the player radius is
     // added; the visual "soil shell" around the tower covers the diagonal
     // overshoot instead.
-    boxCollider("mushroom-int-wall-n", -6, 13.3, 9.6, 0.6, MUSH_ALL_Y),
-    boxCollider("mushroom-int-wall-s", -6, 22.7, 9.6, 0.6, MUSH_ALL_Y),
-    boxCollider("mushroom-int-wall-e", -1.3, 18, 0.6, 9.6, MUSH_ALL_Y),
-    boxCollider("mushroom-int-wall-w", -10.7, 18, 0.6, 9.6, MUSH_ALL_Y),
-    // Stair side rails. Deliberately SHORTER than the flight (z∈[17.2,20.2])
-    // so, with the player radius added, both flight ends stay enterable while
-    // the mid-flight sides are sealed.
-    boxCollider("mushroom-stair-a-rail-w", -4.6, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_A.minY, maxY: MUSHROOM_STAIR_A.maxY }),
-    boxCollider("mushroom-stair-a-rail-e", -2.0, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_A.minY, maxY: MUSHROOM_STAIR_A.maxY }),
-    boxCollider("mushroom-stair-b-rail-w", -10.0, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_B.minY, maxY: MUSHROOM_STAIR_B.maxY }),
-    boxCollider("mushroom-stair-b-rail-e", -7.4, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_B.minY, maxY: MUSHROOM_STAIR_B.maxY }),
+    scaledBox("mushroom-int-wall-n", -6, 13.3, 9.6, 0.6, MUSH_ALL_Y),
+    scaledBox("mushroom-int-wall-s", -6, 22.7, 9.6, 0.6, MUSH_ALL_Y),
+    scaledBox("mushroom-int-wall-e", -1.3, 18, 0.6, 9.6, MUSH_ALL_Y),
+    scaledBox("mushroom-int-wall-w", -10.7, 18, 0.6, 9.6, MUSH_ALL_Y),
+    // Stair side rails. Their normalized spans scale with the flight, while
+    // both ends stay open so players can enter and leave cleanly.
+    scaledBox("mushroom-stair-a-rail-w", -4.6, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_A.minY, maxY: MUSHROOM_STAIR_A.maxY }),
+    scaledBox("mushroom-stair-a-rail-e", -2.0, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_A.minY, maxY: MUSHROOM_STAIR_A.maxY }),
+    scaledBox("mushroom-stair-b-rail-w", -10.0, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_B.minY, maxY: MUSHROOM_STAIR_B.maxY }),
+    scaledBox("mushroom-stair-b-rail-e", -7.4, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_B.minY, maxY: MUSHROOM_STAIR_B.maxY }),
     // Under-stair blocks: stop the LOWER level's players from wandering into
     // the solid upper half of a flight and getting yanked up by the stair
-    // zone. Kept short (z ≤ 17.8) and with the band top below the climb path
-    // so ascending/descending players never brush them.
-    boxCollider("mushroom-stair-a-under", -3.3, 17.05, 2.4, 1.5, { minY: MUSH_L1_Y.minY, maxY: -36.7 }),
-    boxCollider("mushroom-stair-b-under", -8.7, 17.05, 2.4, 1.5, { minY: MUSH_L2_Y.minY, maxY: -32.7 }),
+    // zone. Their Y bands only catch a player still standing on the lower
+    // floor, so ascending/descending players never brush them.
+    scaledBox("mushroom-stair-a-under", -3.3, 17.05, 2.4, 1.5, {
+      minY: MUSH_L1_Y.minY,
+      maxY: MUSHROOM_INTERIOR.eyeY[0] + 2
+    }),
+    scaledBox("mushroom-stair-b-under", -8.7, 17.05, 2.4, 1.5, {
+      minY: MUSH_L2_Y.minY,
+      maxY: MUSHROOM_INTERIOR.eyeY[1] + 2
+    }),
     // Stairwell rim guards on the level ABOVE each flight's low (south) end so
     // nobody strolls off the slab edge into the open well. Ascending players
     // pass beneath the band; the level's own walkers are blocked.
-    boxCollider("mushroom-stair-a-rim", -3.3, 21.15, 2.8, 0.4, MUSH_L2_Y),
-    boxCollider("mushroom-stair-b-rim", -8.7, 21.15, 2.8, 0.4, MUSH_L3_Y)
+    scaledBox("mushroom-stair-a-rim", -3.3, 21.15, 2.8, 0.4, MUSH_L2_Y),
+    scaledBox("mushroom-stair-b-rim", -8.7, 21.15, 2.8, 0.4, MUSH_L3_Y)
   ];
 }
 
@@ -237,23 +286,23 @@ export function createVillaWorld() {
       {
         id: "mushroom-hearth",
         name: "蘑菇屋·一层灶间",
-        center: { x: -6, z: 18 },
-        size: { x: 8, z: 8 },
-        floorY: MUSHROOM_INTERIOR.baseY
+        center: MUSHROOM_INTERIOR.center,
+        size: { x: 8 * MUSHROOM_INTERIOR_SCALE, z: 8 * MUSHROOM_INTERIOR_SCALE },
+        floorY: MUSHROOM_INTERIOR.floorY[0]
       },
       {
         id: "mushroom-den",
         name: "蘑菇屋·二层玩乐窝",
-        center: { x: -6, z: 18 },
-        size: { x: 8, z: 8 },
-        floorY: MUSHROOM_INTERIOR.baseY + MUSHROOM_INTERIOR.levelHeight
+        center: MUSHROOM_INTERIOR.center,
+        size: { x: 8 * MUSHROOM_INTERIOR_SCALE, z: 8 * MUSHROOM_INTERIOR_SCALE },
+        floorY: MUSHROOM_INTERIOR.floorY[1]
       },
       {
         id: "mushroom-loft",
         name: "蘑菇屋·顶层星光阁楼",
-        center: { x: -6, z: 18 },
-        size: { x: 8, z: 8 },
-        floorY: MUSHROOM_INTERIOR.baseY + MUSHROOM_INTERIOR.levelHeight * 2
+        center: MUSHROOM_INTERIOR.center,
+        size: { x: 8 * MUSHROOM_INTERIOR_SCALE, z: 8 * MUSHROOM_INTERIOR_SCALE },
+        floorY: MUSHROOM_INTERIOR.floorY[2]
       },
       {
         id: "dog-house-view",
@@ -314,7 +363,7 @@ export function createVillaWorld() {
       boxCollider("lower-spring-back-rock", 21, 5.5, 6.4, 0.6),
       boxCollider("lower-spring-front-rock", 21, 12.5, 6.4, 0.6),
       // Mushroom house exterior. Y-scoped to the ground so players inside the
-      // buried interior pocket (y ≈ -40) never hit it from below.
+      // buried interior pocket (y ≈ -80) never hit it from below.
       boxCollider("mushroom-house", -6, 18, 10.0, 10.0, { minY: 0, maxY: 30 }),
       // Decor inside the great hall (ground-floor only).
       boxCollider("blanket-pile", -5, -15, 3.0, 2.4, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
@@ -416,15 +465,15 @@ export function createVillaWorld() {
         id: "great-hall-west",
         title: "西厅沙发",
         body: "矮矮的奶白沙发摆在赤陶色背景墙前，毯子窝就藏在沙发脚边。",
-        position: { x: -7, y: 1.4, z: -10 },
-        radius: 3.2
+        position: { x: -6.2, y: 1.4, z: -12.2 },
+        radius: 3.4
       },
       {
         id: "great-hall-east",
         title: "东厅长桌",
         body: "长桌可以坐下十只小猪一起喝下午茶，靠墙的橱柜里整齐摆着小碗。",
-        position: { x: 7, y: 1.4, z: -10 },
-        radius: 3.2
+        position: { x: 8.2, y: 1.4, z: -10.5 },
+        radius: 3.6
       },
       {
         id: "main-stairs",
@@ -437,15 +486,15 @@ export function createVillaWorld() {
         id: "master-bedroom",
         title: "二楼主卧",
         body: "蓬松的奶白被子上摆着藏青色靠枕，床头铜灯把光打得很暖。",
-        // Phase 4: moved off the (now smaller) bed to the open floor at its foot.
-        position: { x: -5.5, y: 7.8, z: -8.5 },
+        // Open landing at the foot of the bed.
+        position: { x: -5.5, y: 7.8, z: -9.0 },
         radius: 3.4
       },
       {
         id: "study-loft",
         title: "二楼书房",
         body: "靠窗的小书桌可以看到温泉的水汽升起，书架上塞满小猪们的故事书。",
-        // Phase 4: nudged to the open SE corner, clear of the desk + reading chair.
+        // Open spot inside the doorway, clear of the desk and bookcase.
         position: { x: 6.0, y: 7.8, z: -11.6 },
         radius: 3.0
       },
@@ -479,7 +528,7 @@ export function createVillaWorld() {
         id: "mushroom-exit",
         title: "蘑菇屋木门",
         body: "圆圆的木门通回山庄庭院，门边挂着小猪们的草帽。",
-        position: { x: -6, y: -38.5, z: 21.6 },
+        position: mushroomInteractionPosition(-6, 0, 21.6),
         radius: 2.4,
         action: {
           label: "按 E 回到庭院",
@@ -490,21 +539,21 @@ export function createVillaWorld() {
         id: "mushroom-hearth",
         title: "一层灶间",
         body: "圆圆的餐桌正对着小灶台，汤锅里咕嘟咕嘟冒着蘑菇汤的香气。",
-        position: { x: -7.5, y: -38.5, z: 16.4 },
+        position: mushroomInteractionPosition(-7.5, 0, 16.4),
         radius: 2.8
       },
       {
         id: "mushroom-den",
         title: "二层玩乐窝",
         body: "软沙发、故事书和小地毯挤满了二层——下雨天小猪们全窝在这里打滚。",
-        position: { x: -6.2, y: -34.5, z: 17.2 },
+        position: mushroomInteractionPosition(-6.2, 1, 17.2),
         radius: 2.8
       },
       {
         id: "mushroom-loft",
         title: "顶层星光阁楼",
         body: "菌盖穹顶下嵌着一圈发光的小圆窗，最小的小猪说那是蘑菇屋自己的星星。",
-        position: { x: -6.4, y: -30.5, z: 19.2 },
+        position: mushroomInteractionPosition(-6.4, 2, 19.2),
         radius: 2.8
       },
       {

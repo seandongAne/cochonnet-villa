@@ -38,11 +38,33 @@ const ROOM_LIGHTS = [
   { x: -5.5, y: 10.6, z: -11, color: "#ffd2a3", intensity: 8, distance: 8 },
   { x: 5.5, y: 10.6, z: -13.5, color: "#fff0d6", intensity: 7, distance: 7 },
   { x: 5.5, y: 10.6, z: -8.5, color: "#ffd2a3", intensity: 7, distance: 7 },
-  // Mushroom-house pocket interior (buried; sunlight barely reaches it) —
-  // one warm cluster per storey. Slab tops sit at y = -40 / -36 / -32.
-  { x: -6, y: -36.8, z: 18, color: "#ffd9a8", intensity: 11, distance: 11 },
-  { x: -6, y: -32.8, z: 18, color: "#ffce96", intensity: 10, distance: 10 },
-  { x: -6, y: -28.6, z: 18, color: "#ffe6bd", intensity: 10, distance: 11 }
+  // Mushroom-house pocket interior (buried; sunlight barely reaches it).
+  // Positions/distances follow the 4x room scale; inverse-square intensity is
+  // compensated by scale² so corresponding points keep similar brightness.
+  {
+    x: MUSHROOM_INTERIOR.center.x,
+    y: MUSHROOM_INTERIOR.floorY[0] + 3.2 * MUSHROOM_INTERIOR.scale,
+    z: MUSHROOM_INTERIOR.center.z,
+    color: "#ffd9a8",
+    intensity: 11 * MUSHROOM_INTERIOR.scale ** 2,
+    distance: 11 * MUSHROOM_INTERIOR.scale
+  },
+  {
+    x: MUSHROOM_INTERIOR.center.x,
+    y: MUSHROOM_INTERIOR.floorY[1] + 3.2 * MUSHROOM_INTERIOR.scale,
+    z: MUSHROOM_INTERIOR.center.z,
+    color: "#ffce96",
+    intensity: 10 * MUSHROOM_INTERIOR.scale ** 2,
+    distance: 10 * MUSHROOM_INTERIOR.scale
+  },
+  {
+    x: MUSHROOM_INTERIOR.center.x,
+    y: MUSHROOM_INTERIOR.floorY[2] + 3.4 * MUSHROOM_INTERIOR.scale,
+    z: MUSHROOM_INTERIOR.center.z,
+    color: "#ffe6bd",
+    intensity: 10 * MUSHROOM_INTERIOR.scale ** 2,
+    distance: 11 * MUSHROOM_INTERIOR.scale
+  }
 ];
 
 // Self-hosted image-based lighting. Bakes three's built-in RoomEnvironment into

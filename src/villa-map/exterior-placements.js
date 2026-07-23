@@ -23,14 +23,13 @@
 // scale) so the shadow + collider layers size themselves without loading a GLB.
 //
 // LAYOUT (kept out of the central stone path x∈[-0.7,4.7] and clear of the
-// villa z<-2, hot springs x≳14, mushroom house, trees, dog house, sign, gate):
-//   - a stone-ring fountain/well centerpiece on the open west lawn
-//   - lanterns lining the path just outside its west (x≈-1.5) and east (x≈5.5)
-//     edges (thin poles → not solid, so no invisible bumps)
-//   - benches facing the fountain
-//   - a rustic campfire + log seating cluster standing in for a picnic spot on
-//     the far west lawn (the kits ship no picnic table — see report)
-//   - planters flanking the villa front door, plus flowers / bushes as accents
+// villa z<-2, hot springs x≳14, mushroom house, trees and dog house):
+//   - a straight four-lantern arrival axis
+//   - a formal fountain garden on the west lawn: fountain, opposing benches,
+//     paired flowers and two corner shrubs
+//   - one compact campfire + log cluster on the far west lawn
+// Entrance planters belong to architecture-placements.js. Keeping them out of
+// this list avoids the former double row of pots around the porch.
 
 const EXT = (name) => `/models/exterior/${name}.glb`;
 
@@ -44,7 +43,7 @@ export const EXTERIOR_PLACEMENTS = [
   // ===== Centerpiece — stone-ring fountain/well on the west lawn =====
   {
     id: "court-fountain", room: "courtyard", url: EXT("statueRing"),
-    position: [-8, G, 8], rotationY: 0, scale: 1.65, model: "statueRing",
+    position: [-8.5, G, 8.5], rotationY: 0, scale: 1.65, model: "statueRing",
     floor: 0, footprint: { x: 2.178, z: 1.452 }, solid: true, noShadow: false
   },
 
@@ -70,86 +69,62 @@ export const EXTERIOR_PLACEMENTS = [
     floor: 0, footprint: { x: 1.097, z: 0.951 }, solid: false, noShadow: false
   },
 
-  // ===== Benches facing the fountain =====
-  // South bench (z=4) looks north (+Z) toward the fountain at z=8.
+  // ===== Opposing benches make the fountain a readable garden room =====
+  // South bench looks north (+Z) toward the fountain.
   {
     id: "court-bench-s", room: "courtyard", url: EXT("bench"),
-    position: [-8, G, 4.2], rotationY: 0, scale: 0.65, model: "bench",
+    position: [-8.5, G, 5.0], rotationY: 0, scale: 0.65, model: "bench",
     floor: 0, footprint: { x: 1.603, z: 0.904 }, solid: true, noShadow: false
   },
-  // West bench (x=-11.5) looks east (+X, rotationY = -PI/2) toward the fountain.
+  // North bench looks south (-Z) toward the fountain.
   {
-    id: "court-bench-w", room: "courtyard", url: EXT("bench"),
-    position: [-11.5, G, 8], rotationY: -Math.PI / 2, scale: 0.65, model: "bench",
-    // footprint is LOCAL (unrotated); the collider/shadow layers apply rotationY.
+    id: "court-bench-n", room: "courtyard", url: EXT("bench"),
+    position: [-8.5, G, 12.0], rotationY: Math.PI, scale: 0.65, model: "bench",
     floor: 0, footprint: { x: 1.603, z: 0.904 }, solid: true, noShadow: false
   },
 
   // ===== Rustic campfire + log cluster (picnic-spot stand-in) far west lawn ===
   {
     id: "court-campfire", room: "courtyard", url: EXT("campfire"),
-    position: [-14, G, 13], rotationY: 0, scale: 1.15, model: "campfire",
+    position: [-15, G, 14.5], rotationY: 0, scale: 1.15, model: "campfire",
     floor: 0, footprint: { x: 1.369, z: 1.305 }, solid: true, noShadow: false
   },
   {
     id: "court-log-1", room: "courtyard", url: EXT("log"),
-    position: [-14, G, 11.2], rotationY: Math.PI / 2, scale: 0.95, model: "log",
+    position: [-15, G, 12.5], rotationY: Math.PI / 2, scale: 0.95, model: "log",
     floor: 0, footprint: { x: 0.489, z: 1.484 }, solid: true, noShadow: false
   },
   {
     id: "court-log-2", room: "courtyard", url: EXT("log"),
-    position: [-14, G, 14.8], rotationY: Math.PI / 2, scale: 0.95, model: "log",
+    position: [-15, G, 16.5], rotationY: Math.PI / 2, scale: 0.95, model: "log",
     floor: 0, footprint: { x: 0.489, z: 1.484 }, solid: true, noShadow: false
   },
 
-  // ===== Planters flanking the villa front door (z just into the grass) =====
-  {
-    id: "court-planter-w", room: "courtyard", url: EXT("potLarge"),
-    position: [-6, G, 0.6], rotationY: 0, scale: 0.72, model: "potLarge",
-    floor: 0, footprint: { x: 0.893, z: 0.773 }, solid: true, noShadow: false
-  },
-  {
-    id: "court-planter-e", room: "courtyard", url: EXT("potLarge"),
-    position: [6, G, 0.6], rotationY: 0, scale: 0.72, model: "potLarge",
-    floor: 0, footprint: { x: 0.893, z: 0.773 }, solid: true, noShadow: false
-  },
-
-  // ===== Garden accents — flowers, small pot, bushes, a decorative rock ======
-  // Flowers in the front-door planters (sit on top — placed beside, grounded).
+  // ===== Fountain-garden accents: paired flowers + two outer shrubs ========
   {
     id: "court-flower-w", room: "courtyard", url: EXT("flowerRed"),
-    position: [-6, G, 1.4], rotationY: 0, scale: 1.25, model: "flowerRed",
+    position: [-11.0, G, 8.5], rotationY: 0, scale: 1.25, model: "flowerRed",
     floor: 0, footprint: { x: 0.437, z: 0.498 }, solid: false, noShadow: false
   },
   {
     id: "court-flower-e", room: "courtyard", url: EXT("flowerYellow"),
-    position: [6, G, 1.4], rotationY: 0, scale: 1.25, model: "flowerYellow",
+    position: [-6.0, G, 8.5], rotationY: 0, scale: 1.25, model: "flowerYellow",
     floor: 0, footprint: { x: 0.437, z: 0.498 }, solid: false, noShadow: false
   },
   {
-    id: "court-pot-small", room: "courtyard", url: EXT("potSmall"),
-    position: [-9.6, G, 6], rotationY: 0, scale: 0.85, model: "potSmall",
-    floor: 0, footprint: { x: 0.604, z: 0.524 }, solid: false, noShadow: false
-  },
-  {
     id: "court-bush-1", room: "courtyard", url: EXT("bush"),
-    position: [-12, G, 4.5], rotationY: 0, scale: 0.75, model: "bush",
+    position: [-11.2, G, 11.7], rotationY: 0, scale: 0.75, model: "bush",
     floor: 0, footprint: { x: 0.995, z: 0.995 }, solid: false, noShadow: false
   },
   {
     id: "court-bush-2", room: "courtyard", url: EXT("bushLarge"),
-    position: [9, G, 5], rotationY: 0.4, scale: 0.85, model: "bushLarge",
+    position: [-5.8, G, 5.3], rotationY: 0.4, scale: 0.85, model: "bushLarge",
     floor: 0, footprint: { x: 0.699, z: 0.628 }, solid: false, noShadow: false
   },
-  {
-    id: "court-rock", room: "courtyard", url: EXT("rock"),
-    position: [-16, G, 8.5], rotationY: 0.8, scale: 0.62, model: "rock",
-    floor: 0, footprint: { x: 1.071, z: 1.384 }, solid: true, noShadow: false
-  },
-  // A small garden sign on the west lawn near the fountain approach.
+  // A single sign marks the opening from the path into the fountain garden.
   {
     id: "court-sign", room: "courtyard", url: EXT("sign"),
-    position: [-4.5, G, 10], rotationY: -0.5, scale: 1.2, model: "sign",
+    position: [-5.4, G, 10.7], rotationY: -0.45, scale: 1.2, model: "sign",
     floor: 0, footprint: { x: 0.792, z: 0.185 }, solid: false, noShadow: false
   }
 ];

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { deriveFurnitureColliders } from "../src/villa-map/furniture-colliders.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
+import { MUSHROOM_FLOOR_Y_RANGES } from "../src/villa-map/mushroom-interior-config.js";
 import { collidesWithWorld, createVillaWorld } from "../src/villa-map/world.js";
 
 // Expected Y band per floor index — must mirror furniture-colliders.js.
@@ -10,9 +11,9 @@ import { collidesWithWorld, createVillaWorld } from "../src/villa-map/world.js";
 const FLOOR_Y_RANGES = {
   0: { minY: 0, maxY: 5.6 },
   1: { minY: 6.65, maxY: 11.25 },
-  2: { minY: -41.5, maxY: -36.6 },
-  3: { minY: -36.6, maxY: -32.6 },
-  4: { minY: -32.6, maxY: -27 }
+  2: MUSHROOM_FLOOR_Y_RANGES[2],
+  3: MUSHROOM_FLOOR_Y_RANGES[3],
+  4: MUSHROOM_FLOOR_Y_RANGES[4]
 };
 
 test("derives one well-formed collider per solid furniture piece", () => {
@@ -80,7 +81,9 @@ test("upper-floor solid piece is Y-scoped above the ground floor", () => {
   assert.equal(bedCollider.minY, 6.65, "upper collider sits above ground floor");
 
   const world = createVillaWorld();
-  world.colliders.push(...colliders);
+  // Isolate the furniture layer: another ground-floor object may legitimately
+  // share the bed's XZ coordinates in this multi-storey world.
+  world.colliders = colliders;
 
   // An upper-floor player at the bed centre collides...
   assert.equal(

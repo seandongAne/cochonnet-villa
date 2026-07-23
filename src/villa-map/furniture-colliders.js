@@ -11,16 +11,18 @@
 // when playerY is outside [minY, maxY]), so a ground player never bumps into
 // upstairs furniture and vice-versa.
 
+import { MUSHROOM_FLOOR_Y_RANGES } from "./mushroom-interior-config.js";
+
 // Floor Y ranges — must match the constants in world.js exactly.
 // Ground floor walls span y∈[0, 5.6]; the upper slab/walls span y∈[6.65, 11.25].
-// Floors 2–4 are the buried mushroom-house interior levels (slab tops -40/-36/
-// -32, player eye slab+1.6); their bands mirror the world.js MUSH_L*_Y bands.
+// Floors 2–4 are the independent mushroom-house pocket levels; their bands
+// come from the same shared config used by world zones and teleports.
 const FLOOR_Y_RANGES = {
   0: { minY: 0, maxY: 5.6 },
   1: { minY: 6.65, maxY: 11.25 },
-  2: { minY: -41.5, maxY: -36.6 },
-  3: { minY: -36.6, maxY: -32.6 },
-  4: { minY: -32.6, maxY: -27 }
+  2: MUSHROOM_FLOOR_Y_RANGES[2],
+  3: MUSHROOM_FLOOR_Y_RANGES[3],
+  4: MUSHROOM_FLOOR_Y_RANGES[4]
 };
 
 // collidesWithWorld already ADDS the player radius (0.62) as margin at test

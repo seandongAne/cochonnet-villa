@@ -1,11 +1,13 @@
 import * as THREE from "three";
+import { MUSHROOM_INTERIOR_SCALE } from "./mushroom-interior-config.js";
 
 // Procedural interior of the mushroom house — a cosy three-storey round tower.
 //
 // The interior is a "pocket" space buried underground beneath the mushroom
-// house (see MUSHROOM_INTERIOR in world.js): Scene.jsx mounts this group at
-// world (-6, -40, 18), so everything here is LOCAL — origin at the L1 floor
-// top, +4 per storey, tower radius ≈ 4.75.
+// house (see MUSHROOM_INTERIOR in world.js): Scene.jsx mounts this group at the
+// pocket origin and the group applies the shared 4x scale. The authored mesh
+// remains LOCAL at +4 per storey and radius ≈4.75; its world-space storeys are
+// therefore 16 m apart and the exterior mushroom stays untouched.
 //
 // Framework-agnostic factory in the assets.js mould: geometries + materials +
 // groups only (no TextureLoader, no document), so the node test suite can
@@ -21,13 +23,21 @@ const LEVEL_HEIGHT = 4;
 const WALL_HEIGHT = LEVEL_HEIGHT * 3 + 0.4;
 const SLAB_THICKNESS = 0.35;
 
-const STAIR_RUN = { bottomZ: 3.0, topZ: -1.4, width: 2.4, steps: 10 };
+// Keep stair risers near the original player-friendly world height while the
+// flight's overall run/rise scales 4x: 10 authored steps × scale = 40 steps.
+const STAIR_RUN = {
+  bottomZ: 3.0,
+  topZ: -1.4,
+  width: 2.4,
+  steps: 10 * MUSHROOM_INTERIOR_SCALE
+};
 const STAIR_A_X = 2.7; // world -3.3
 const STAIR_B_X = -2.7; // world -8.7
 
 export function createMushroomInterior(materials) {
   const group = new THREE.Group();
   group.name = "mushroom-interior";
+  group.scale.setScalar(MUSHROOM_INTERIOR_SCALE);
 
   // Inward-facing clones of the shared materials. DoubleSide so a player who
   // squeezes into the square-collider corners (slightly outside the round

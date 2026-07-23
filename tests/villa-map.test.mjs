@@ -12,7 +12,7 @@ import { PORKY_MODEL_VARIANTS } from "../src/villa-map/porky-models.js";
 import { PORKY_PLACEMENTS } from "../src/villa-map/placements.js";
 import { FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
-import { collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
+import { MUSHROOM_INTERIOR, collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
 import { findNearestInteraction } from "../src/villa-map/interaction.js";
 
 test("homepage exposes a dedicated villa map CTA", () => {
@@ -495,7 +495,7 @@ test("furniture placements reference vendored CC0 GLBs within the world bounds",
     const [x, y, z] = piece.position;
     assert.ok(x > world.bounds.minX && x < world.bounds.maxX, `${piece.id} x out of bounds`);
     assert.ok(z > world.bounds.minZ && z < world.bounds.maxZ, `${piece.id} z out of bounds`);
-    assert.ok(y >= -41, `${piece.id} should sit at/above its floor`);
+    assert.ok(y >= MUSHROOM_INTERIOR.baseY, `${piece.id} should sit at/above its floor`);
 
     assert.equal(typeof piece.rotationY, "number");
   });

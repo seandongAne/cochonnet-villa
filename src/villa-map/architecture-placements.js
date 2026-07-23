@@ -6,10 +6,10 @@
 // suite assert on it (in-bounds positions, vendored files exist, footprints
 // present) without a DOM.
 //
-// GOAL: dress the villa's front entrance so the hand-built procedural shell reads
-// as a designed entryway — topiary planters flanking the OPEN entry, side
-// railings lining the porch/steps, and stone planter boxes at the foot of the
-// steps. (The villa front is deliberately an open-plan portal — no door piece.)
+// GOAL: dress the villa's front entrance with one calm, symmetrical layer —
+// topiaries flanking the OPEN entry, one continuous-looking railing per side,
+// and stone planter boxes at the foot of the steps. (The villa front is
+// deliberately an open-plan portal — no door piece.)
 //
 // Coordinates are WORLD-space. The villa front face is at z ≈ -2.2 with an open
 // entry gap x∈[-5,5] (front faces +Z, toward the courtyard / the player who
@@ -58,57 +58,47 @@ export const ARCHITECTURE_PLACEMENTS = [
   // entrance is dressed with greenery, railings and planters only.
 
   // ===== Flanking topiary planters either side of the open entry (on the porch) =====
-  // Small/tall accents tucked just inside the porch, clear of the procedural
-  // entry planters at (±4.4, -1.2). Non-solid so the player can brush past.
+  // Small/tall accents tucked to the outer third of the portal. Non-solid so
+  // the player can brush past while the centre remains visually empty.
   {
     id: "arch-topiary-w", room: "entrance", url: ARCH("pottedPlant"),
-    position: [-2.6, G, -0.5], rotationY: 0, scale: 1.6, model: "pottedPlant",
-    floor: 0, footprint: { x: 0.746, z: 0.848 }, solid: false, noShadow: false
+    position: [-3.4, G, -0.2], rotationY: 0, scale: 1.5, model: "pottedPlant",
+    floor: 0, footprint: { x: 0.700, z: 0.795 }, solid: false, noShadow: false
   },
   {
     id: "arch-topiary-e", room: "entrance", url: ARCH("pottedPlant"),
-    position: [2.6, G, -0.5], rotationY: 0, scale: 1.6, model: "pottedPlant",
-    floor: 0, footprint: { x: 0.746, z: 0.848 }, solid: false, noShadow: false
+    position: [3.4, G, -0.2], rotationY: 0, scale: 1.5, model: "pottedPlant",
+    floor: 0, footprint: { x: 0.700, z: 0.795 }, solid: false, noShadow: false
   },
 
   // ===== Porch / step side railings (x≈±5.9, on the porch edge) =====
-  // The 0.475-wide fence panel is rotated PI/2 so it runs ALONG Z (lining the
-  // edge); two per side step the railing out toward the stairs. Footprint stays
-  // LOCAL (unrotated) — the collider layer rotates it, giving a thin X span at
-  // x≈±5.9 that never reaches the x∈[-5,5] door path. Solid.
+  // One longer panel per side replaces the old four short repeated segments.
+  // The model is rotated PI/2 so it runs ALONG Z. Footprint stays LOCAL
+  // (unrotated) — the collider layer rotates it, giving a thin X span that
+  // never reaches the x∈[-5,5] door path. Solid.
   {
-    id: "arch-railing-w1", room: "entrance", url: ARCH("railing"),
-    position: [-5.9, G, 0.8], rotationY: Math.PI / 2, scale: 1.5, model: "railing",
-    floor: 0, footprint: { x: 1.567, z: 0.247 }, solid: true, noShadow: false
+    id: "arch-railing-w", room: "entrance", url: ARCH("railing"),
+    position: [-5.9, G, 1.8], rotationY: Math.PI / 2, scale: 2.4, model: "railing",
+    floor: 0, footprint: { x: 2.508, z: 0.396 }, solid: true, noShadow: false
   },
   {
-    id: "arch-railing-w2", room: "entrance", url: ARCH("railing"),
-    position: [-5.9, G, 2.7], rotationY: Math.PI / 2, scale: 1.5, model: "railing",
-    floor: 0, footprint: { x: 1.567, z: 0.247 }, solid: true, noShadow: false
-  },
-  {
-    id: "arch-railing-e1", room: "entrance", url: ARCH("railing"),
-    position: [5.9, G, 0.8], rotationY: Math.PI / 2, scale: 1.5, model: "railing",
-    floor: 0, footprint: { x: 1.567, z: 0.247 }, solid: true, noShadow: false
-  },
-  {
-    id: "arch-railing-e2", room: "entrance", url: ARCH("railing"),
-    position: [5.9, G, 2.7], rotationY: Math.PI / 2, scale: 1.5, model: "railing",
-    floor: 0, footprint: { x: 1.567, z: 0.247 }, solid: true, noShadow: false
+    id: "arch-railing-e", room: "entrance", url: ARCH("railing"),
+    position: [5.9, G, 1.8], rotationY: Math.PI / 2, scale: 2.4, model: "railing",
+    floor: 0, footprint: { x: 2.508, z: 0.396 }, solid: true, noShadow: false
   },
 
   // ===== Stone planter boxes at the foot of the steps (flanking the path) =====
-  // Sit at z≈4.6 (below the courtyard lamp line at z=6), just outside the porch
+  // Sit at z≈4.8 (below the courtyard lamp line at z=6), just outside the porch
   // edge at x≈±6.6 so their solid colliders stay well clear of the x∈[-5,5] door
-  // path; clear of the courtyard planters at (±6, 0.6) (those sit at z≈0.6).
+  // path. These are now the entrance's only planter boxes.
   {
     id: "arch-planter-w", room: "entrance", url: ARCH("planter"),
-    position: [-6.6, G, 4.6], rotationY: 0, scale: 1.7, model: "planter",
-    floor: 0, footprint: { x: 1.496, z: 1.122 }, solid: true, noShadow: false
+    position: [-6.6, G, 4.8], rotationY: 0, scale: 1.55, model: "planter",
+    floor: 0, footprint: { x: 1.364, z: 1.023 }, solid: true, noShadow: false
   },
   {
     id: "arch-planter-e", room: "entrance", url: ARCH("planter"),
-    position: [6.6, G, 4.6], rotationY: 0, scale: 1.7, model: "planter",
-    floor: 0, footprint: { x: 1.496, z: 1.122 }, solid: true, noShadow: false
+    position: [6.6, G, 4.8], rotationY: 0, scale: 1.55, model: "planter",
+    floor: 0, footprint: { x: 1.364, z: 1.023 }, solid: true, noShadow: false
   }
 ];

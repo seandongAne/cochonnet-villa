@@ -69,14 +69,13 @@ test("every placement record exposes the model name the spacing guard keys on", 
   });
 });
 
-test("the two audited book-pile fixes hold (study desk + west hall)", () => {
-  const byId = new Map(FURNITURE_PLACEMENTS.map((p) => [p.id, p]));
-  const distance = (aId, bId) => {
-    const a = byId.get(aId);
-    const b = byId.get(bId);
-    assert.ok(a && b, `expected both ${aId} and ${bId} to exist`);
-    return Math.hypot(a.position[0] - b.position[0], a.position[2] - b.position[2]);
-  };
-  assert.ok(distance("study-books", "study-desk-books") >= MIN_DISTANCE);
-  assert.ok(distance("west-books", "west-floor-books") >= MIN_DISTANCE);
+test("each room has at most one loose book pile", () => {
+  const byRoom = Map.groupBy(FURNITURE_PLACEMENTS, (piece) => piece.room);
+  for (const [room, pieces] of byRoom) {
+    const books = pieces.filter((piece) => piece.model === "books");
+    assert.ok(
+      books.length <= 1,
+      `${room} has ${books.length} loose book piles; keep one intentional accent`
+    );
+  }
 });

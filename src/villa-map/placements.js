@@ -8,6 +8,13 @@
 //
 // rotationY ≈ Math.PI means the piglet faces south (+Z), toward the entry path,
 // so its sculpted face is visible to a player walking in from the gate.
+import {
+  MUSHROOM_INTERIOR_FLOOR_Y,
+  scaleMushroomInteriorPoint
+} from "./mushroom-interior-config.js";
+
+const mushroomSleeperXZ = scaleMushroomInteriorPoint(-7.2, 19.6);
+
 export const PORKY_PLACEMENTS = [
   {
     id: "guaguazhu",
@@ -84,12 +91,16 @@ export const PORKY_PLACEMENTS = [
   },
   {
     // Napping on the rug edge inside the mushroom-house pocket interior
-    // (L1 slab top is world y = -40; see MUSHROOM_INTERIOR in world.js).
+    // (its normalized XZ migrates with the 4x room; the pig stays pig-sized).
     id: "mushroom-sleeper",
     variant: "guadai",
     modelScale: 0.68,
     fallbackScale: 0.6,
-    position: [-7.2, -39.95, 19.6],
+    position: [
+      mushroomSleeperXZ.x,
+      MUSHROOM_INTERIOR_FLOOR_Y[0] + 0.05,
+      mushroomSleeperXZ.z
+    ],
     rotationY: 0.9
   }
 ];
