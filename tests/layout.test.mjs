@@ -5,19 +5,22 @@ import { ARCHITECTURE_PLACEMENTS } from "../src/villa-map/architecture-placement
 import { EXTERIOR_PLACEMENTS } from "../src/villa-map/exterior-placements.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
 
-// These are visual-density budgets, not inventory targets. They keep each
-// space centred on one primary furniture group and prevent another broad
-// "cozy clutter" pass from silently filling every empty corner again.
+// The main villa keeps its restrained one-group-per-room budgets. The 4x
+// mushroom pocket is intentionally different: each giant level needs several
+// close clusters to read as a warm home rather than a mostly empty hall.
 const ROOM_PIECE_BUDGETS = {
   "entry-foyer": 4,
   "great-hall-west": 8,
   "great-hall-east": 11,
   "master-bedroom": 8,
   "study-loft": 6,
-  "lounge-balcony": 7,
-  "mushroom-hearth": 7,
-  "mushroom-den": 6,
-  "mushroom-loft": 6
+  "lounge-balcony": 7
+};
+
+const MUSHROOM_DENSITY_BANDS = {
+  "mushroom-hearth": { min: 36, max: 45 },
+  "mushroom-den": { min: 36, max: 45 },
+  "mushroom-loft": { min: 36, max: 45 }
 };
 
 function rotatedAabb(piece) {
@@ -53,14 +56,31 @@ test("each interior room stays within its curated visual-density budget", () => 
   }
 });
 
-test("rooms use at most one grounding rug", () => {
+test("each expanded mushroom level keeps several dense furniture clusters", () => {
+  const byRoom = Map.groupBy(FURNITURE_PLACEMENTS, (piece) => piece.room);
+
+  for (const [room, band] of Object.entries(MUSHROOM_DENSITY_BANDS)) {
+    const pieces = byRoom.get(room) ?? [];
+    assert.ok(
+      pieces.length >= band.min && pieces.length <= band.max,
+      `${room} has ${pieces.length} pieces; expected ${band.min}-${band.max}`
+    );
+    assert.ok(
+      new Set(pieces.map((piece) => piece.model)).size >= 14,
+      `${room} should use a varied mix of Kenney furniture`
+    );
+  }
+});
+
+test("rooms use at most one grounding rug per intentional furniture cluster", () => {
   const byRoom = Map.groupBy(FURNITURE_PLACEMENTS, (piece) => piece.room);
 
   for (const [room, pieces] of byRoom) {
     const rugs = pieces.filter((piece) => /^rug/.test(piece.model));
+    const maxRugs = room.startsWith("mushroom-") ? 4 : 1;
     assert.ok(
-      rugs.length <= 1,
-      `${room} layers ${rugs.length} rugs; use one rug to define one focal group`
+      rugs.length <= maxRugs,
+      `${room} layers ${rugs.length} rugs; expected at most ${maxRugs}`
     );
   }
 });

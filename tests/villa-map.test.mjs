@@ -566,8 +566,10 @@ test("new porkies clear furniture footprints and the rescued hot-spring pig clea
     for (const prop of props) {
       if (pig.floor !== prop.floor) continue;
       // Flat rugs are valid under-foot surfaces; tabletop accents share XZ
-      // with their supporting furniture, which is checked separately.
+      // with their supporting furniture, which is checked separately. A pig
+      // may likewise name one intentional support surface (the loft bed).
       if (prop.noShadow) continue;
+      if (pig.onFurnitureId === prop.id) continue;
       const angle = prop.rotationY ?? 0;
       const cos = Math.abs(Math.cos(angle));
       const sin = Math.abs(Math.sin(angle));
