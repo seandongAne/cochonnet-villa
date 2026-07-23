@@ -1,5 +1,11 @@
 import * as THREE from "three";
-import { MUSHROOM_INTERIOR_SCALE } from "./mushroom-interior-config.js";
+import {
+  MUSHROOM_INTERIOR_SCALE,
+  MUSHROOM_RAIL_HEIGHT,
+  MUSHROOM_SLAB_THICKNESS,
+  MUSHROOM_STAIR_OPENING_MARGIN,
+  MUSHROOM_STAIR_WIDTH
+} from "./mushroom-interior-config.js";
 
 // Procedural interior of the mushroom house — a cosy three-storey round tower.
 //
@@ -15,20 +21,23 @@ import { MUSHROOM_INTERIOR_SCALE } from "./mushroom-interior-config.js";
 //
 // Layout contract (must stay in sync with world.js):
 //   slab tops   y = 0 (L1), 4 (L2), 8 (L3)
-//   stair A     L1→L2, local x∈[-3.9,-2.7]+6 = [2.1,3.3], z 3.0 (bottom) → -1.4 (top)
-//   stair B     L2→L3, local x∈[-3.3,-2.1]   = [-3.3,-2.1], same z run
+//   stair A     L1→L2, world width 2.4 m centred at local x=2.7
+//   stair B     L2→L3, world width 2.4 m centred at local x=-2.7
+//   both runs   local z 3.0 (bottom) → -1.4 (top), expanded to 17.6 m
 //   door        south wall, local z ≈ +4.5
 const RADIUS = 4.75;
 const LEVEL_HEIGHT = 4;
 const WALL_HEIGHT = LEVEL_HEIGHT * 3 + 0.4;
-const SLAB_THICKNESS = 0.35;
+const PLAYER_DETAIL_SCALE = 1 / MUSHROOM_INTERIOR_SCALE;
+const SLAB_THICKNESS = MUSHROOM_SLAB_THICKNESS * PLAYER_DETAIL_SCALE;
 
 // Keep stair risers near the original player-friendly world height while the
 // flight's overall run/rise scales 4x: 10 authored steps × scale = 40 steps.
 const STAIR_RUN = {
   bottomZ: 3.0,
   topZ: -1.4,
-  width: 2.4,
+  // Counter-scale the width because the parent group is enlarged 4x.
+  width: MUSHROOM_STAIR_WIDTH * PLAYER_DETAIL_SCALE,
   steps: 10 * MUSHROOM_INTERIOR_SCALE
 };
 const STAIR_A_X = 2.7; // world -3.3
@@ -118,10 +127,10 @@ export function createMushroomInterior(materials) {
   }
 
   // ---- Stair flights + balustrades ----------------------------------------
-  group.add(buildStairFlight("mushroom-interior-stair-a", STAIR_A_X, 0, "west", materials));
-  group.add(buildStairFlight("mushroom-interior-stair-b", STAIR_B_X, LEVEL_HEIGHT, "east", materials));
-  group.add(buildWellRailing("mushroom-interior-well-a", STAIR_A_X, LEVEL_HEIGHT, "west", materials));
-  group.add(buildWellRailing("mushroom-interior-well-b", STAIR_B_X, LEVEL_HEIGHT * 2, "east", materials));
+  group.add(buildStairFlight("mushroom-interior-stair-a", STAIR_A_X, 0, materials));
+  group.add(buildStairFlight("mushroom-interior-stair-b", STAIR_B_X, LEVEL_HEIGHT, materials));
+  group.add(buildWellRailing("mushroom-interior-well-a", STAIR_A_X, LEVEL_HEIGHT, materials));
+  group.add(buildWellRailing("mushroom-interior-well-b", STAIR_B_X, LEVEL_HEIGHT * 2, materials));
 
   // ---- Round glowing windows (fake light — the pocket is buried) -----------
   // A few per storey; L3 gets a full "star ring" under the dome to match its
@@ -217,8 +226,9 @@ function buildSlab(name, topY, stairX, materials) {
   // flight's low end (z 3.4, just past the bottom step) to the top step's rear
   // edge (z -1.5) so the landing is solid the moment you step off the flight.
   const hole = new THREE.Path();
-  const hx0 = stairX - STAIR_RUN.width / 2 - 0.2;
-  const hx1 = stairX + STAIR_RUN.width / 2 + 0.2;
+  const holeMargin = MUSHROOM_STAIR_OPENING_MARGIN * PLAYER_DETAIL_SCALE;
+  const hx0 = stairX - STAIR_RUN.width / 2 - holeMargin;
+  const hx1 = stairX + STAIR_RUN.width / 2 + holeMargin;
   hole.moveTo(hx0, -3.4);
   hole.lineTo(hx1, -3.4);
   hole.lineTo(hx1, 1.5);
@@ -236,13 +246,38 @@ function buildSlab(name, topY, stairX, materials) {
   slab.position.y = topY - SLAB_THICKNESS;
   slab.receiveShadow = true;
   slab.castShadow = true;
+
+  // Pale reveal boards line the four inner faces. Besides making the cut-out
+  // unmistakable from below, their player-scale thickness prevents the dark
+  // floor material from reading as a sealed ceiling at a shallow camera angle.
+  const revealThickness = 0.08 * PLAYER_DETAIL_SCALE;
+  const holeLength = 4.9;
+  const holeWidth = hx1 - hx0;
+  const shapeCenterY = (-3.4 + 1.5) / 2;
+  const addReveal = (revealName, width, height, depth, x, y) => {
+    const reveal = new THREE.Mesh(
+      new THREE.BoxGeometry(width, height, depth),
+      materials.ceiling
+    );
+    reveal.name = `${name}-reveal-${revealName}`;
+    // Coordinates are in the slab's pre-rotation shape space: geometry Y
+    // becomes world Z and geometry Z becomes world Y after rotation.x=-PI/2.
+    reveal.position.set(x, y, SLAB_THICKNESS / 2);
+    reveal.castShadow = false;
+    reveal.receiveShadow = true;
+    slab.add(reveal);
+  };
+  addReveal("west", revealThickness, holeLength, SLAB_THICKNESS, hx0, shapeCenterY);
+  addReveal("east", revealThickness, holeLength, SLAB_THICKNESS, hx1, shapeCenterY);
+  addReveal("south", holeWidth, revealThickness, SLAB_THICKNESS, stairX, -3.4);
+  addReveal("north", holeWidth, revealThickness, SLAB_THICKNESS, stairX, 1.5);
   return slab;
 }
 
 // One straight flight ascending northward (z decreases) from `baseY` to
 // `baseY + LEVEL_HEIGHT`. Solid full-height risers so the flight reads chunky
-// from every angle; a sloped handrail guards the open side.
-function buildStairFlight(name, centerX, baseY, openSide, materials) {
+// from every angle; sloped handrails guard both freestanding sides.
+function buildStairFlight(name, centerX, baseY, materials) {
   const flight = new THREE.Group();
   flight.name = name;
 
@@ -267,21 +302,55 @@ function buildStairFlight(name, centerX, baseY, openSide, materials) {
     flight.add(step);
   }
 
-  // Sloped handrail on the open side (the other side hugs the wall).
-  const railX = openSide === "west" ? centerX - STAIR_RUN.width / 2 - 0.08 : centerX + STAIR_RUN.width / 2 + 0.08;
+  // The pocket expanded away from both walls, so both sides need a handrail.
+  // Cross-sections, heights and post spacing are counter-scaled back to pig /
+  // player proportions while the rail length still spans the 4x flight.
   const slope = Math.atan2(LEVEL_HEIGHT, run);
-  const rail = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.12, Math.hypot(run, LEVEL_HEIGHT) + 0.4),
-    materials.fascia
+  const worldSlopeLength = Math.hypot(
+    run * MUSHROOM_INTERIOR_SCALE,
+    LEVEL_HEIGHT * MUSHROOM_INTERIOR_SCALE
   );
-  rail.position.set(railX, baseY + LEVEL_HEIGHT / 2 + 0.95, (STAIR_RUN.bottomZ + STAIR_RUN.topZ) / 2);
-  rail.rotation.x = slope;
-  flight.add(rail);
-  for (const t of [0.15, 0.5, 0.85]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.0, 0.07), materials.fascia);
-    const z = STAIR_RUN.bottomZ - t * run;
-    post.position.set(railX, baseY + t * LEVEL_HEIGHT + 0.5, z);
-    flight.add(post);
+  const postCount = Math.max(2, Math.ceil(worldSlopeLength / 1.1) + 1);
+  for (const [side, direction] of [["west", -1], ["east", 1]]) {
+    const railX = centerX + direction * (
+      STAIR_RUN.width / 2 + 0.08 * PLAYER_DETAIL_SCALE
+    );
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.08 * PLAYER_DETAIL_SCALE,
+        0.12 * PLAYER_DETAIL_SCALE,
+        Math.hypot(run, LEVEL_HEIGHT) + 0.4 * PLAYER_DETAIL_SCALE
+      ),
+      materials.fascia
+    );
+    rail.name = `${name}-handrail-${side}`;
+    rail.position.set(
+      railX,
+      baseY + LEVEL_HEIGHT / 2 + 0.95 * PLAYER_DETAIL_SCALE,
+      (STAIR_RUN.bottomZ + STAIR_RUN.topZ) / 2
+    );
+    rail.rotation.x = slope;
+    flight.add(rail);
+
+    for (let i = 0; i < postCount; i += 1) {
+      const t = i / (postCount - 1);
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.07 * PLAYER_DETAIL_SCALE,
+          MUSHROOM_RAIL_HEIGHT * PLAYER_DETAIL_SCALE,
+          0.07 * PLAYER_DETAIL_SCALE
+        ),
+        materials.fascia
+      );
+      post.name = `${name}-post-${side}-${i}`;
+      const z = STAIR_RUN.bottomZ - t * run;
+      post.position.set(
+        railX,
+        baseY + t * LEVEL_HEIGHT + MUSHROOM_RAIL_HEIGHT / 2 * PLAYER_DETAIL_SCALE,
+        z
+      );
+      flight.add(post);
+    }
   }
 
   return flight;
@@ -290,35 +359,60 @@ function buildStairFlight(name, centerX, baseY, openSide, materials) {
 // Balustrade around the stairwell hole on the slab ABOVE a flight: posts + top
 // rail along the hole's open long edge and its south (low) end, matching the
 // invisible rim-guard colliders in world.js.
-function buildWellRailing(name, stairX, floorY, openSide, materials) {
+function buildWellRailing(name, stairX, floorY, materials) {
   const railing = new THREE.Group();
   railing.name = name;
 
-  const edgeX = openSide === "west" ? stairX - STAIR_RUN.width / 2 - 0.28 : stairX + STAIR_RUN.width / 2 + 0.28;
-  const addRail = (x, z, length, alongZ) => {
+  const edgeOffset = STAIR_RUN.width / 2
+    + (MUSHROOM_STAIR_OPENING_MARGIN + 0.08) * PLAYER_DETAIL_SCALE;
+  const addRail = (railName, x, z, length, alongZ) => {
     const rail = new THREE.Mesh(
-      new THREE.BoxGeometry(alongZ ? 0.08 : length, 0.1, alongZ ? length : 0.08),
+      new THREE.BoxGeometry(
+        alongZ ? 0.08 * PLAYER_DETAIL_SCALE : length,
+        0.1 * PLAYER_DETAIL_SCALE,
+        alongZ ? length : 0.08 * PLAYER_DETAIL_SCALE
+      ),
       materials.wood
     );
-    rail.position.set(x, floorY + 1.0, z);
+    rail.name = railName;
+    rail.position.set(x, floorY + MUSHROOM_RAIL_HEIGHT * PLAYER_DETAIL_SCALE, z);
     railing.add(rail);
-    const postCount = Math.max(2, Math.round(length / 1.1));
+    const postCount = Math.max(
+      2,
+      Math.ceil(length * MUSHROOM_INTERIOR_SCALE / 1.1) + 1
+    );
     for (let i = 0; i < postCount; i += 1) {
-      const t = postCount === 1 ? 0.5 : i / (postCount - 1);
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.0, 0.07), materials.wood);
+      const t = i / (postCount - 1);
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.07 * PLAYER_DETAIL_SCALE,
+          MUSHROOM_RAIL_HEIGHT * PLAYER_DETAIL_SCALE,
+          0.07 * PLAYER_DETAIL_SCALE
+        ),
+        materials.wood
+      );
+      post.name = `${railName}-post-${i}`;
       post.position.set(
         alongZ ? x : x - length / 2 + length * t,
-        floorY + 0.5,
+        floorY + MUSHROOM_RAIL_HEIGHT / 2 * PLAYER_DETAIL_SCALE,
         alongZ ? z - length / 2 + length * t : z
       );
       railing.add(post);
     }
   };
 
-  // Long edge beside the hole.
-  addRail(edgeX, 0.95, 4.9, true);
+  // Both long edges beside the now freestanding narrow stairwell.
+  addRail(`${name}-rail-west`, stairX - edgeOffset, 0.95, 4.9, true);
+  addRail(`${name}-rail-east`, stairX + edgeOffset, 0.95, 4.9, true);
   // South (low) end of the hole — matches the rim-guard collider.
-  addRail(stairX, 3.5, STAIR_RUN.width + 0.7, false);
+  addRail(
+    `${name}-rail-south`,
+    stairX,
+    3.5,
+    STAIR_RUN.width
+      + (MUSHROOM_STAIR_OPENING_MARGIN * 2 + 0.2) * PLAYER_DETAIL_SCALE,
+    false
+  );
 
   return railing;
 }

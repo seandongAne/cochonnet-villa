@@ -34,3 +34,30 @@ test("villa shell bevels its chunky boxes via RoundedBoxGeometry", () => {
   // beveled; thin slivers (glass, mullions) intentionally stay plain boxes.
   assert.ok(rounded >= 10, `expected several beveled boxes, found ${rounded}`);
 });
+
+test("the final villa shell leaves the main stairwell open through every ceiling layer", () => {
+  const villa = createModernVilla(createMaterials());
+  villa.updateMatrixWorld(true);
+
+  // Probe only the storey boundary: the staircase below and upper roof above
+  // are intentional, but no ceiling/floor surface may occupy this vertical
+  // slice through the centre of the 3 x 4 m stair opening.
+  const ray = new THREE.Raycaster(
+    new THREE.Vector3(0, 6.8, 3),
+    new THREE.Vector3(0, -1, 0),
+    0,
+    1
+  );
+  const hits = ray.intersectObject(villa, true);
+  assert.equal(
+    hits.length,
+    0,
+    `stairwell blocked by ${hits.map((hit) => hit.object.name || hit.object.geometry?.type).join(", ")}`
+  );
+
+  const lowerRoof = villa.getObjectByName("villa-lower-roof");
+  const underside = villa.getObjectByName("villa-lower-roof-underside");
+  assert.ok(lowerRoof && underside, "cut-out roof layers missing");
+  assert.equal(lowerRoof.children.length, 4);
+  assert.equal(underside.children.length, 4);
+});

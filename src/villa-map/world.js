@@ -11,6 +11,8 @@ import {
   MUSHROOM_INTERIOR_FLOOR_Y,
   MUSHROOM_INTERIOR_LEVEL_HEIGHT,
   MUSHROOM_INTERIOR_SCALE,
+  MUSHROOM_STAIR_OPENING_MARGIN,
+  MUSHROOM_STAIR_WIDTH,
   scaleMushroomInteriorPoint,
   scaleMushroomInteriorX,
   scaleMushroomInteriorZ
@@ -95,14 +97,18 @@ const MUSH_ALL_Y = {
 // Interior stair flights. Both ascend NORTHWARD (enter at maxZ on the lower
 // level, exit at minZ on the upper one) exactly like the villa stair, and both
 // are Y-scoped so only players already inside the tower are captured.
-// Their authored 2.4 m width becomes 9.6 m in the 4x pocket; player radius and
-// walking speed remain unchanged so the enlarged stairs feel genuinely roomy.
+// The run and rise follow the enlarged room, but width stays player-scale at
+// 2.4 m so the stairs and handrails remain proportional to the pigs.
+const MUSHROOM_STAIR_A_CENTER_X = scaleMushroomInteriorX(-3.3);
+const MUSHROOM_STAIR_B_CENTER_X = scaleMushroomInteriorX(-8.7);
+const MUSHROOM_STAIR_MIN_Z = scaleMushroomInteriorZ(16.6);
+const MUSHROOM_STAIR_MAX_Z = scaleMushroomInteriorZ(21);
 const MUSHROOM_STAIR_A = {
   id: "mushroom-stairs-a", // L1 → L2, east side
-  minX: scaleMushroomInteriorX(-4.5),
-  maxX: scaleMushroomInteriorX(-2.1),
-  minZ: scaleMushroomInteriorZ(16.6),
-  maxZ: scaleMushroomInteriorZ(21),
+  minX: MUSHROOM_STAIR_A_CENTER_X - MUSHROOM_STAIR_WIDTH / 2,
+  maxX: MUSHROOM_STAIR_A_CENTER_X + MUSHROOM_STAIR_WIDTH / 2,
+  minZ: MUSHROOM_STAIR_MIN_Z,
+  maxZ: MUSHROOM_STAIR_MAX_Z,
   floorY: MUSHROOM_INTERIOR.eyeY[0],
   upperY: MUSHROOM_INTERIOR.eyeY[1],
   speedMultiplier: 0.8,
@@ -111,10 +117,10 @@ const MUSHROOM_STAIR_A = {
 };
 const MUSHROOM_STAIR_B = {
   id: "mushroom-stairs-b", // L2 → L3, west side
-  minX: scaleMushroomInteriorX(-9.9),
-  maxX: scaleMushroomInteriorX(-7.5),
-  minZ: scaleMushroomInteriorZ(16.6),
-  maxZ: scaleMushroomInteriorZ(21),
+  minX: MUSHROOM_STAIR_B_CENTER_X - MUSHROOM_STAIR_WIDTH / 2,
+  maxX: MUSHROOM_STAIR_B_CENTER_X + MUSHROOM_STAIR_WIDTH / 2,
+  minZ: MUSHROOM_STAIR_MIN_Z,
+  maxZ: MUSHROOM_STAIR_MAX_Z,
   floorY: MUSHROOM_INTERIOR.eyeY[1],
   upperY: MUSHROOM_INTERIOR.eyeY[2],
   speedMultiplier: 0.8,
@@ -156,6 +162,48 @@ function mushroomInteriorColliders() {
       yRange
     );
   };
+  const stairCenterZ = (MUSHROOM_STAIR_MIN_Z + MUSHROOM_STAIR_MAX_Z) / 2;
+  const stairDepth = MUSHROOM_STAIR_MAX_Z - MUSHROOM_STAIR_MIN_Z;
+  const railWidth = 0.2;
+  const railOffset = MUSHROOM_STAIR_WIDTH / 2 + railWidth / 2;
+  const stairRail = (id, centerX, side, stair) => boxCollider(
+    id,
+    centerX + side * railOffset,
+    stairCenterZ,
+    railWidth,
+    stairDepth,
+    { minY: stair.minY, maxY: stair.maxY }
+  );
+  const normalWidthScaledZBox = (
+    id,
+    centerX,
+    sourceZ,
+    width,
+    sourceDepth,
+    yRange
+  ) => boxCollider(
+    id,
+    centerX,
+    scaleMushroomInteriorZ(sourceZ),
+    width,
+    sourceDepth * MUSHROOM_INTERIOR_SCALE,
+    yRange
+  );
+  const normalBoxAtScaledZ = (
+    id,
+    centerX,
+    sourceZ,
+    width,
+    depth,
+    yRange
+  ) => boxCollider(
+    id,
+    centerX,
+    scaleMushroomInteriorZ(sourceZ),
+    width,
+    depth,
+    yRange
+  );
 
   return [
     // Perimeter (inner faces ≈ ±4.4 from the centre). No corner blocks — they
@@ -166,29 +214,77 @@ function mushroomInteriorColliders() {
     scaledBox("mushroom-int-wall-s", -6, 22.7, 9.6, 0.6, MUSH_ALL_Y),
     scaledBox("mushroom-int-wall-e", -1.3, 18, 0.6, 9.6, MUSH_ALL_Y),
     scaledBox("mushroom-int-wall-w", -10.7, 18, 0.6, 9.6, MUSH_ALL_Y),
-    // Stair side rails. Their normalized spans scale with the flight, while
-    // both ends stay open so players can enter and leave cleanly.
-    scaledBox("mushroom-stair-a-rail-w", -4.6, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_A.minY, maxY: MUSHROOM_STAIR_A.maxY }),
-    scaledBox("mushroom-stair-a-rail-e", -2.0, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_A.minY, maxY: MUSHROOM_STAIR_A.maxY }),
-    scaledBox("mushroom-stair-b-rail-w", -10.0, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_B.minY, maxY: MUSHROOM_STAIR_B.maxY }),
-    scaledBox("mushroom-stair-b-rail-e", -7.4, 18.7, 0.2, 3.0, { minY: MUSHROOM_STAIR_B.minY, maxY: MUSHROOM_STAIR_B.maxY }),
+    // Normal-width side rails follow the full enlarged run. The centre aisle
+    // stays open while both sides match the visible one-metre handrails.
+    stairRail(
+      "mushroom-stair-a-rail-w",
+      MUSHROOM_STAIR_A_CENTER_X,
+      -1,
+      MUSHROOM_STAIR_A
+    ),
+    stairRail(
+      "mushroom-stair-a-rail-e",
+      MUSHROOM_STAIR_A_CENTER_X,
+      1,
+      MUSHROOM_STAIR_A
+    ),
+    stairRail(
+      "mushroom-stair-b-rail-w",
+      MUSHROOM_STAIR_B_CENTER_X,
+      -1,
+      MUSHROOM_STAIR_B
+    ),
+    stairRail(
+      "mushroom-stair-b-rail-e",
+      MUSHROOM_STAIR_B_CENTER_X,
+      1,
+      MUSHROOM_STAIR_B
+    ),
     // Under-stair blocks: stop the LOWER level's players from wandering into
     // the solid upper half of a flight and getting yanked up by the stair
     // zone. Their Y bands only catch a player still standing on the lower
     // floor, so ascending/descending players never brush them.
-    scaledBox("mushroom-stair-a-under", -3.3, 17.05, 2.4, 1.5, {
-      minY: MUSH_L1_Y.minY,
-      maxY: MUSHROOM_INTERIOR.eyeY[0] + 2
-    }),
-    scaledBox("mushroom-stair-b-under", -8.7, 17.05, 2.4, 1.5, {
-      minY: MUSH_L2_Y.minY,
-      maxY: MUSHROOM_INTERIOR.eyeY[1] + 2
-    }),
+    normalWidthScaledZBox(
+      "mushroom-stair-a-under",
+      MUSHROOM_STAIR_A_CENTER_X,
+      17.05,
+      MUSHROOM_STAIR_WIDTH,
+      1.5,
+      {
+        minY: MUSH_L1_Y.minY,
+        maxY: MUSHROOM_INTERIOR.eyeY[0] + 2
+      }
+    ),
+    normalWidthScaledZBox(
+      "mushroom-stair-b-under",
+      MUSHROOM_STAIR_B_CENTER_X,
+      17.05,
+      MUSHROOM_STAIR_WIDTH,
+      1.5,
+      {
+        minY: MUSH_L2_Y.minY,
+        maxY: MUSHROOM_INTERIOR.eyeY[1] + 2
+      }
+    ),
     // Stairwell rim guards on the level ABOVE each flight's low (south) end so
     // nobody strolls off the slab edge into the open well. Ascending players
     // pass beneath the band; the level's own walkers are blocked.
-    scaledBox("mushroom-stair-a-rim", -3.3, 21.15, 2.8, 0.4, MUSH_L2_Y),
-    scaledBox("mushroom-stair-b-rim", -8.7, 21.15, 2.8, 0.4, MUSH_L3_Y)
+    normalBoxAtScaledZ(
+      "mushroom-stair-a-rim",
+      MUSHROOM_STAIR_A_CENTER_X,
+      21.15,
+      MUSHROOM_STAIR_WIDTH + MUSHROOM_STAIR_OPENING_MARGIN * 2,
+      0.4,
+      MUSH_L2_Y
+    ),
+    normalBoxAtScaledZ(
+      "mushroom-stair-b-rim",
+      MUSHROOM_STAIR_B_CENTER_X,
+      21.15,
+      MUSHROOM_STAIR_WIDTH + MUSHROOM_STAIR_OPENING_MARGIN * 2,
+      0.4,
+      MUSH_L3_Y
+    )
   ];
 }
 

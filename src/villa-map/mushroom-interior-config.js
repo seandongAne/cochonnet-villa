@@ -6,6 +6,16 @@
 
 export const MUSHROOM_INTERIOR_SCALE = 4;
 export const MUSHROOM_FURNITURE_SCALE = 0.8;
+// Player-scale circulation details do not inherit the pocket's architectural
+// scale. The flight still spans the enlarged 16 m storey, but remains a normal
+// 2.4 m wide with one-metre handrails.
+export const MUSHROOM_STAIR_WIDTH = 2.4;
+export const MUSHROOM_RAIL_HEIGHT = 1;
+// Floor construction and clearance also stay at a believable player scale.
+// These are WORLD-space values; mushroom-interior.js counter-scales them before
+// the entire pocket group receives its 4x transform.
+export const MUSHROOM_SLAB_THICKNESS = 0.35;
+export const MUSHROOM_STAIR_OPENING_MARGIN = 0.4;
 
 export const MUSHROOM_INTERIOR_CENTER = Object.freeze({ x: -6, z: 18 });
 

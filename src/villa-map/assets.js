@@ -180,23 +180,44 @@ export function createModernVilla(materials) {
   addBeveledBox(group, 0.6, 0.6, 0.6, materials.trim, -doorHalfWidth + 0.6, 0.3, frontZ + 1.0, {}, 0.05);
   addBeveledBox(group, 0.6, 0.6, 0.6, materials.trim, doorHalfWidth - 0.6, 0.3, frontZ + 1.0, {}, 0.05);
 
-  // ---- Lower roof: large sloped overhang (shed-style) ---------------------
+  // ---- Lower roof: sloped overhang with a real stairwell opening -----------
   // Slopes upward toward the back so the front edge hangs lower over the porch
-  // and the back rises higher into the upper-level base.
+  // and the back rises higher into the upper-level base. This used to be one
+  // solid box (plus a solid underside) beneath the cut-out upper floor, which
+  // visually sealed the staircase despite the floor itself having a hole.
   const lowerRoofThickness = 0.36;
   const lowerRoofY = lowerHeight + 0.6;
   const lowerRoofSlope = -0.05;
-  const lowerRoof = addBeveledBox(
-    group, buildingWidth + 1.6, lowerRoofThickness, buildingDepth + 1.4,
-    materials.roof, 0, lowerRoofY, 0, { x: lowerRoofSlope }, 0.05
-  );
-  lowerRoof.name = "villa-lower-roof";
+  // Slightly oversize the roof cut-out relative to the 3 x 4 m upper-floor
+  // hole so the sloped roof edges never peek into the vertical opening.
+  const stairRoofOpening = {
+    minX: -1.62,
+    maxX: 1.62,
+    minZ: 0.88,
+    maxZ: 5.12
+  };
+  addCutoutBoxLayer(group, {
+    name: "villa-lower-roof",
+    width: buildingWidth + 1.6,
+    height: lowerRoofThickness,
+    depth: buildingDepth + 1.4,
+    material: materials.roof,
+    y: lowerRoofY,
+    rotationX: lowerRoofSlope,
+    opening: stairRoofOpening
+  });
 
-  // Painted underside trim, just under the roof.
-  const roofUnderside = addBox(
-    group, buildingWidth + 1.4, 0.06, buildingDepth + 1.2,
-    materials.trim, 0, lowerRoofY - 0.22, 0, { x: lowerRoofSlope }
-  );
+  // Painted underside trim follows the exact same opening.
+  addCutoutBoxLayer(group, {
+    name: "villa-lower-roof-underside",
+    width: buildingWidth + 1.4,
+    height: 0.06,
+    depth: buildingDepth + 1.2,
+    material: materials.trim,
+    y: lowerRoofY - 0.22,
+    rotationX: lowerRoofSlope,
+    opening: stairRoofOpening
+  });
 
   // Fascia / eave board hanging off the lower-roof front lip — a thin walnut
   // band that follows the front edge, the detail that turns a bare slab into a
@@ -1179,6 +1200,69 @@ function addBox(group, width, height, depth, material, x, y, z, rotation = {}) {
   mesh.receiveShadow = true;
   group.add(mesh);
   return mesh;
+}
+
+// Builds a rectangular layer from four non-overlapping boxes around an open
+// centre rectangle. A shared rotated parent keeps every piece on the same
+// sloped plane; rotating each box around its own centre would create steps at
+// the seams and could partially close the opening again.
+function addCutoutBoxLayer(group, {
+  name,
+  width,
+  height,
+  depth,
+  material,
+  y,
+  rotationX,
+  opening
+}) {
+  const layer = new THREE.Group();
+  layer.name = name;
+  layer.position.y = y;
+  layer.rotation.x = rotationX;
+  group.add(layer);
+
+  const minX = -width / 2;
+  const maxX = width / 2;
+  const minZ = -depth / 2;
+  const maxZ = depth / 2;
+  const pieces = [
+    { id: "west", minX, maxX: opening.minX, minZ, maxZ },
+    { id: "east", minX: opening.maxX, maxX, minZ, maxZ },
+    {
+      id: "north",
+      minX: opening.minX,
+      maxX: opening.maxX,
+      minZ,
+      maxZ: opening.minZ
+    },
+    {
+      id: "south",
+      minX: opening.minX,
+      maxX: opening.maxX,
+      minZ: opening.maxZ,
+      maxZ
+    }
+  ];
+
+  for (const piece of pieces) {
+    const pieceWidth = piece.maxX - piece.minX;
+    const pieceDepth = piece.maxZ - piece.minZ;
+    if (pieceWidth <= 0 || pieceDepth <= 0) continue;
+    const mesh = addBox(
+      layer,
+      pieceWidth,
+      height,
+      pieceDepth,
+      material,
+      (piece.minX + piece.maxX) / 2,
+      0,
+      (piece.minZ + piece.maxZ) / 2
+    );
+    mesh.name = `${name}-${piece.id}`;
+  }
+
+  return layer;
 }
 
 // Same contract as addBox but builds a RoundedBoxGeometry so the chunky shell

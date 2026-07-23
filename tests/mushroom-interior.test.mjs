@@ -13,6 +13,10 @@ import { createMushroomInterior } from "../src/villa-map/mushroom-interior.js";
 import {
   MUSHROOM_FURNITURE_SCALE,
   MUSHROOM_INTERIOR_SCALE,
+  MUSHROOM_RAIL_HEIGHT,
+  MUSHROOM_SLAB_THICKNESS,
+  MUSHROOM_STAIR_OPENING_MARGIN,
+  MUSHROOM_STAIR_WIDTH,
   scaleMushroomInteriorPoint
 } from "../src/villa-map/mushroom-interior-config.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
@@ -129,11 +133,14 @@ test("stair interpolation carries the player between interior levels", () => {
   assert.ok(stairA);
   assert.equal(stairA.floorY, MUSHROOM_INTERIOR.eyeY[0]);
   assert.equal(stairA.upperY, MUSHROOM_INTERIOR.eyeY[1]);
+  assert.ok(nearlyEqual(stairA.maxX - stairA.minX, MUSHROOM_STAIR_WIDTH));
+  assert.ok(nearlyEqual(stairA.maxZ - stairA.minZ, 4.4 * MUSHROOM_INTERIOR_SCALE));
 
   const stairB = world.stairs.find((s) => s.id === "mushroom-stairs-b");
   assert.ok(stairB);
   assert.equal(stairB.floorY, MUSHROOM_INTERIOR.eyeY[1]);
   assert.equal(stairB.upperY, MUSHROOM_INTERIOR.eyeY[2]);
+  assert.ok(nearlyEqual(stairB.maxX - stairB.minX, MUSHROOM_STAIR_WIDTH));
 });
 
 test("interior walls contain the player; the courtyard above stays unaffected", () => {
@@ -171,6 +178,26 @@ test("stair flights stay enterable and guarded (rails, under-stair, rims)", () =
     z: (stair.minZ + stair.maxZ) / 2
   });
   assert.ok(stairA && stairB);
+
+  const aWestRail = byCollider("mushroom-stair-a-rail-w");
+  const aUnder = byCollider("mushroom-stair-a-under");
+  const aRim = byCollider("mushroom-stair-a-rim");
+  assert.ok(aWestRail && aUnder && aRim);
+  assert.ok(
+    nearlyEqual(aWestRail.maxX - aWestRail.minX, 0.2),
+    "rail collider stays 20 cm thick"
+  );
+  assert.ok(
+    nearlyEqual(aUnder.maxX - aUnder.minX, MUSHROOM_STAIR_WIDTH),
+    "under-stair block stays normal width"
+  );
+  assert.ok(
+    nearlyEqual(
+      aRim.maxX - aRim.minX,
+      MUSHROOM_STAIR_WIDTH + MUSHROOM_STAIR_OPENING_MARGIN * 2
+    ),
+    "rim guard follows the narrow stairwell"
+  );
 
   // Bottom entry of flight A (south end) is open to an L1 player…
   assert.equal(collidesWithWorld({
@@ -259,8 +286,8 @@ test("all three interior levels are furnished from the vendored Kenney kit", () 
   const stairA = createVillaWorld().stairs.find((stair) => stair.id === "mushroom-stairs-a");
   const stairB = createVillaWorld().stairs.find((stair) => stair.id === "mushroom-stairs-b");
   const stairwell = (stair) => ({
-    minX: stair.minX - 0.2 * MUSHROOM_INTERIOR_SCALE,
-    maxX: stair.maxX + 0.2 * MUSHROOM_INTERIOR_SCALE,
+    minX: stair.minX - MUSHROOM_STAIR_OPENING_MARGIN,
+    maxX: stair.maxX + MUSHROOM_STAIR_OPENING_MARGIN,
     minZ: scaleMushroomInteriorPoint(0, 16.5).z,
     maxZ: scaleMushroomInteriorPoint(0, 21.4).z
   });
@@ -327,19 +354,51 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   const l2 = byName("mushroom-interior-slab-l2");
   const l3 = byName("mushroom-interior-slab-l3");
   assert.ok(l2 && l3, "upper slabs missing");
-  assert.ok(Math.abs(l2.position.y + 0.35 - 4) < 1e-9, "L2 slab top at local 4");
-  assert.ok(Math.abs(l3.position.y + 0.35 - 8) < 1e-9, "L3 slab top at local 8");
+  const localSlabThickness = MUSHROOM_SLAB_THICKNESS / MUSHROOM_INTERIOR_SCALE;
   assert.ok(
-    nearlyEqual((l2.position.y + 0.35) * interior.scale.y, MUSHROOM_INTERIOR.levelHeight),
+    Math.abs(l2.position.y + localSlabThickness - 4) < 1e-9,
+    "L2 slab top at local 4"
+  );
+  assert.ok(
+    Math.abs(l3.position.y + localSlabThickness - 8) < 1e-9,
+    "L3 slab top at local 8"
+  );
+  assert.ok(
+    nearlyEqual(
+      (l2.position.y + localSlabThickness) * interior.scale.y,
+      MUSHROOM_INTERIOR.levelHeight
+    ),
     "L2 slab top is 16 m above L1 after scaling"
   );
   assert.ok(
-    nearlyEqual((l3.position.y + 0.35) * interior.scale.y, MUSHROOM_INTERIOR.levelHeight * 2),
+    nearlyEqual(
+      (l3.position.y + localSlabThickness) * interior.scale.y,
+      MUSHROOM_INTERIOR.levelHeight * 2
+    ),
     "L3 slab top is 32 m above L1 after scaling"
+  );
+  assert.ok(
+    nearlyEqual(
+      l2.geometry.parameters.options.depth * interior.scale.y,
+      MUSHROOM_SLAB_THICKNESS
+    ),
+    "slab stays 35 cm thick instead of inheriting the 4x room scale"
   );
   // Each upper slab is cut by exactly one stairwell hole.
   assert.equal(l2.geometry.parameters.shapes.holes.length, 1);
   assert.equal(l3.geometry.parameters.shapes.holes.length, 1);
+  const openingPoints = l2.geometry.parameters.shapes.holes[0].getPoints();
+  const openingXs = openingPoints.map((point) => point.x);
+  assert.ok(
+    nearlyEqual(
+      (Math.max(...openingXs) - Math.min(...openingXs)) * interior.scale.x,
+      MUSHROOM_STAIR_WIDTH + MUSHROOM_STAIR_OPENING_MARGIN * 2
+    ),
+    "stair opening keeps comfortable clearance around the normal-width flight"
+  );
+  for (const side of ["west", "east", "south", "north"]) {
+    assert.ok(byName(`mushroom-interior-slab-l2-reveal-${side}`), `${side} reveal missing`);
+  }
 
   // The enlarged flights use 40 smaller risers each, keeping each world-space
   // step near the original player-friendly height while spanning 16 m.
@@ -349,6 +408,23 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   });
   const stepsPerFlight = 10 * MUSHROOM_INTERIOR_SCALE;
   assert.equal(steps.length, stepsPerFlight * 2);
+  const aFirst = byName("mushroom-interior-stair-a-step-0");
+  assert.ok(aFirst);
+  assert.ok(
+    nearlyEqual(aFirst.geometry.parameters.width * interior.scale.x, MUSHROOM_STAIR_WIDTH),
+    "stair width stays at 2.4 m instead of inheriting the 4x room scale"
+  );
+  assert.ok(
+    nearlyEqual(
+      aFirst.geometry.parameters.depth * interior.scale.z,
+      4.4 / stepsPerFlight * MUSHROOM_INTERIOR_SCALE
+    ),
+    "each tread stays pig/player scale"
+  );
+  assert.ok(
+    nearlyEqual(aFirst.geometry.parameters.height * interior.scale.y, 0.4),
+    "each riser stays 0.4 m high"
+  );
   const aTop = byName(`mushroom-interior-stair-a-step-${stepsPerFlight - 1}`);
   assert.ok(aTop);
   const aTopSurface = aTop.position.y + aTop.geometry.parameters.height / 2;
@@ -361,6 +437,29 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   assert.ok(
     nearlyEqual(bTopSurface * interior.scale.y, MUSHROOM_INTERIOR.levelHeight * 2),
     "flight B top step flush with scaled L3"
+  );
+
+  const handrail = byName("mushroom-interior-stair-a-handrail-west");
+  const handrailPost = byName("mushroom-interior-stair-a-post-west-0");
+  const oppositeHandrail = byName("mushroom-interior-stair-a-handrail-east");
+  const wellRail = byName("mushroom-interior-well-a-rail-west");
+  const wellPost = byName("mushroom-interior-well-a-rail-west-post-0");
+  assert.ok(handrail && oppositeHandrail && handrailPost && wellRail && wellPost);
+  assert.ok(
+    nearlyEqual(handrail.geometry.parameters.width * interior.scale.x, 0.08),
+    "handrail stays 8 cm thick"
+  );
+  assert.ok(
+    nearlyEqual(handrailPost.geometry.parameters.height * interior.scale.y, MUSHROOM_RAIL_HEIGHT),
+    "stair posts stay one metre high"
+  );
+  assert.ok(
+    nearlyEqual(wellRail.geometry.parameters.height * interior.scale.y, 0.1),
+    "well rail stays 10 cm tall"
+  );
+  assert.ok(
+    nearlyEqual(wellPost.geometry.parameters.height * interior.scale.y, MUSHROOM_RAIL_HEIGHT),
+    "well posts stay one metre high"
   );
 
   // Glowing portholes on every storey (the loft's "star ring" included).
