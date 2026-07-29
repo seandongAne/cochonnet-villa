@@ -11,9 +11,9 @@ import {
 //
 // The interior is a "pocket" space buried underground beneath the mushroom
 // house (see MUSHROOM_INTERIOR in world.js): Scene.jsx mounts this group at the
-// pocket origin and the group applies the shared 4x scale. The authored mesh
-// remains LOCAL at +4 per storey and radius ≈4.75; its world-space storeys are
-// therefore 16 m apart and the exterior mushroom stays untouched.
+// pocket origin and the group applies the shared magical scale. The authored
+// mesh remains LOCAL at +4 per storey and radius ≈4.75; the exterior mushroom
+// stays untouched while the interior remains roomier than it looks outside.
 //
 // Framework-agnostic factory in the assets.js mould: geometries + materials +
 // groups only (no TextureLoader, no document), so the node test suite can
@@ -31,12 +31,12 @@ const WALL_HEIGHT = LEVEL_HEIGHT * 3 + 0.4;
 const PLAYER_DETAIL_SCALE = 1 / MUSHROOM_INTERIOR_SCALE;
 const SLAB_THICKNESS = MUSHROOM_SLAB_THICKNESS * PLAYER_DETAIL_SCALE;
 
-// Keep stair risers near the original player-friendly world height while the
-// flight's overall run/rise scales 4x: 10 authored steps × scale = 40 steps.
+// Keep stair risers at a consistent world height while the flight's overall
+// run/rise follows the room: 10 authored steps × the configured scale.
 const STAIR_RUN = {
   bottomZ: 3.0,
   topZ: -1.4,
-  // Counter-scale the width because the parent group is enlarged 4x.
+  // Counter-scale the width because the parent group is enlarged.
   width: MUSHROOM_STAIR_WIDTH * PLAYER_DETAIL_SCALE,
   steps: 10 * MUSHROOM_INTERIOR_SCALE
 };
@@ -67,6 +67,21 @@ export function createMushroomInterior(materials) {
     emissiveIntensity: 1.1,
     roughness: 0.6
   });
+  const fairyBulbMaterials = ["#ffd37a", "#ff9f76", "#fff0b8"].map(
+    (color) => new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.8,
+      roughness: 0.48
+    })
+  );
+  const buntingMaterials = ["#ce6d5b", "#e6a44c", "#7fa38a"].map(
+    (color) => new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.86,
+      side: THREE.DoubleSide
+    })
+  );
 
   // ---- Shell: soil surround, base slab, round wall, glowing gill dome ------
   // The walkable square's diagonals overshoot the round wall a little; a dark
@@ -192,6 +207,22 @@ export function createMushroomInterior(materials) {
     group.add(bulb);
   }
 
+  // ---- Low fairy-light canopies -------------------------------------------
+  // The magical pocket is intentionally larger than the exterior shell, but
+  // a low player-scale canopy gives each storey an intimate ceiling. Three
+  // gently sagging strands cross every level with warm bulbs and bunting;
+  // geometry is counter-scaled so the lights remain hand-sized regardless of
+  // the architectural pocket scale.
+  for (const [level, levelY] of [0, LEVEL_HEIGHT, LEVEL_HEIGHT * 2].entries()) {
+    group.add(buildFairyLightCanopy(
+      `mushroom-interior-fairy-canopy-${level + 1}`,
+      levelY,
+      materials,
+      fairyBulbMaterials,
+      buntingMaterials
+    ));
+  }
+
   // ---- Storybook clutter: baby mushrooms by the door + under stair A -------
   [
     { x: -1.5, z: 3.9, scale: 0.8 },
@@ -212,6 +243,67 @@ export function createMushroomInterior(materials) {
   });
 
   return group;
+}
+
+function buildFairyLightCanopy(
+  name,
+  levelY,
+  materials,
+  bulbMaterials,
+  buntingMaterials
+) {
+  const canopy = new THREE.Group();
+  canopy.name = name;
+
+  const halfSpan = 5.4 * PLAYER_DETAIL_SCALE;
+  const edgeHeight = levelY + 3.25 * PLAYER_DETAIL_SCALE;
+  const sag = 0.38 * PLAYER_DETAIL_SCALE;
+  const zOffsets = [-2.6, 0, 2.6].map((z) => z * PLAYER_DETAIL_SCALE);
+
+  zOffsets.forEach((z, strandIndex) => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-halfSpan, edgeHeight, z),
+      new THREE.Vector3(0, edgeHeight - sag, z),
+      new THREE.Vector3(halfSpan, edgeHeight, z)
+    ]);
+    const cord = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 24, 0.025 * PLAYER_DETAIL_SCALE, 5, false),
+      materials.fascia
+    );
+    cord.name = `${name}-strand-${strandIndex + 1}`;
+    canopy.add(cord);
+
+    for (let bulbIndex = 0; bulbIndex < 9; bulbIndex += 1) {
+      const t = (bulbIndex + 0.5) / 9;
+      const point = curve.getPoint(t);
+      const bulb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09 * PLAYER_DETAIL_SCALE, 10, 8),
+        bulbMaterials[(bulbIndex + strandIndex) % bulbMaterials.length]
+      );
+      bulb.name = `${name}-bulb-${strandIndex + 1}-${bulbIndex + 1}`;
+      bulb.position.copy(point);
+      bulb.position.y -= 0.08 * PLAYER_DETAIL_SCALE;
+      canopy.add(bulb);
+
+      if (bulbIndex < 8) {
+        const pennant = new THREE.Mesh(
+          new THREE.ConeGeometry(
+            0.15 * PLAYER_DETAIL_SCALE,
+            0.34 * PLAYER_DETAIL_SCALE,
+            3
+          ),
+          buntingMaterials[(bulbIndex + strandIndex) % buntingMaterials.length]
+        );
+        pennant.name = `${name}-pennant-${strandIndex + 1}-${bulbIndex + 1}`;
+        pennant.position.copy(curve.getPoint((bulbIndex + 1) / 9));
+        pennant.position.y -= 0.22 * PLAYER_DETAIL_SCALE;
+        pennant.rotation.z = Math.PI;
+        canopy.add(pennant);
+      }
+    }
+  });
+
+  return canopy;
 }
 
 // Round slab with a rectangular stairwell hole centred on `stairX`. Extruded
@@ -304,7 +396,7 @@ function buildStairFlight(name, centerX, baseY, materials) {
 
   // The pocket expanded away from both walls, so both sides need a handrail.
   // Cross-sections, heights and post spacing are counter-scaled back to pig /
-  // player proportions while the rail length still spans the 4x flight.
+  // player proportions while the rail length still spans the scaled flight.
   const slope = Math.atan2(LEVEL_HEIGHT, run);
   const worldSlopeLength = Math.hypot(
     run * MUSHROOM_INTERIOR_SCALE,

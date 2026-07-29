@@ -113,7 +113,7 @@ export const PORKY_PLACEMENTS = [
   },
   {
     // Napping on the rug edge inside the mushroom-house pocket interior
-    // (its normalized XZ migrates with the 4x room; the pig stays pig-sized).
+    // (its normalized XZ migrates with the scaled room; the pig stays pig-sized).
     id: "mushroom-sleeper",
     variant: "guadai",
     modelScale: 0.68,
@@ -186,9 +186,9 @@ export const PORKY_PLACEMENTS = [
   },
 
   // ===== New Meshy residents: mushroom-house pocket interior (5) =========
-  // The pocket room is scaled 4x while the pigs remain life-sized. Positions
-  // use the original normalized tower coordinates so they stay on the correct
-  // side of both stairwells even if the pocket scale changes later.
+  // The magical pocket scales independently while the pigs remain life-sized.
+  // Positions use the original normalized tower coordinates so they stay on
+  // the correct side of both stairwells if the room scale changes again.
   {
     id: "meshy-watermelon-hearth",
     variant: "watermelon-hat-pig",
@@ -231,7 +231,7 @@ export const PORKY_PLACEMENTS = [
     floor: 4,
     clearanceRadius: 0.75,
     // The sleeping model is grounded by its loader, so its Y anchor belongs
-    // on the measured top of the Kenney bed rather than on the room floor.
+    // on the measured top of the KayKit bed rather than on the room floor.
     position: [
       MUSHROOM_LOFT_BED_POSITION[0],
       MUSHROOM_LOFT_BED_TOP_Y + 0.02,
@@ -248,7 +248,8 @@ export const PORKY_PLACEMENTS = [
     room: "mushroom-loft",
     floor: 4,
     clearanceRadius: 1.05,
-    position: mushroomPorkyPosition(-3.8, 2, 20.2),
+    // Tucked beside the east dresser, clear of the new reading-chair cluster.
+    position: mushroomPorkyPosition(-3.4, 2, 19.0),
     rotationY: -2.35
   },
 

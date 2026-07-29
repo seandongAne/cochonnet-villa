@@ -17,16 +17,41 @@
 // derived fields, so they stay framework-agnostic and never load a GLB or
 // parse a URL.
 //
-// Adding a room = copy its Kenney GLBs into public/models/furniture/, append
-// records here, and drop that room's procedural set from createModernVilla.
+// Adding a room = vendor its licensed GLBs, append records here with the
+// source pack's baseScale, and drop that room's procedural set if it had one.
 
-import { FURNITURE_BASE_SCALE } from "./furniture-models.js";
 import {
-  mushroomFurniturePosition,
-  mushroomFurnitureScale
-} from "./mushroom-interior-config.js";
+  KAYKIT_FURNITURE_BASE_SCALE,
+  furnitureScaleForPlacement
+} from "./furniture-models.js";
+import { mushroomFurnitureWorldPosition } from "./mushroom-interior-config.js";
 
 const KIT = (name) => `/models/furniture/${name}.glb`;
+const MUSHROOM_KIT = (name) => `/models/mushroom-furniture/${name}.glb`;
+
+// KayKit records keep their readable, pre-expansion X/Z plan coordinates and
+// opt into the pack's metre-scale base factor. This is deliberately separate
+// from the 2.2x Kenney base scale used by the main villa.
+const MUSHROOM_ROOM_FOR_LEVEL = ["mushroom-hearth", "mushroom-den", "mushroom-loft"];
+const mushroomPiece = (model, {
+  id,
+  level,
+  x,
+  z,
+  y = 0,
+  rotationY = 0,
+  scale = 1,
+  ...overrides
+}) => ({
+  id,
+  room: MUSHROOM_ROOM_FOR_LEVEL[level],
+  url: MUSHROOM_KIT(model),
+  position: mushroomFurnitureWorldPosition(x, level, z, y),
+  rotationY,
+  scale,
+  baseScale: KAYKIT_FURNITURE_BASE_SCALE,
+  ...overrides
+});
 
 // Ground-floor walking surface (great-hall floor box top ≈ 0.11) and the
 // upper-floor slab top (≈ 6.65). Pieces sit on these; the loader already
@@ -34,22 +59,28 @@ const KIT = (name) => `/models/furniture/${name}.glb`;
 const FLOOR_Y = 0.11;
 const UPPER_Y = 6.66;
 
-// Shared loft-bed geometry for the sleeping pig placement. The bed's overall
-// 0.375-unit bbox includes its headboard; the actual cover surface is 0.26
-// units high. Keeping that measured mattress height with the anchor prevents
-// the pig from hovering above the pillows when the composition is retuned.
-const BED_DOUBLE_MATTRESS_HEIGHT = 0.26;
-export const MUSHROOM_LOFT_BED_POSITION = mushroomFurniturePosition(-4.8, 2, 15.4);
-export const MUSHROOM_LOFT_BED_SCALE = mushroomFurnitureScale(1.55);
+// Shared KayKit loft-bed geometry for the Meshy sleeping pig. A vertical ray
+// through the GLB's cover lands at 0.55 source metres; keeping that measured
+// support height beside the anchor prevents the pig from floating when the
+// composition is retuned.
+const MUSHROOM_LOFT_BED_ANCHOR = Object.freeze({
+  level: 2,
+  x: -4.25,
+  z: 14.65,
+  scale: 1.02
+});
+const BED_DOUBLE_B_MATTRESS_TOP = 0.55;
+export const MUSHROOM_LOFT_BED_POSITION = mushroomFurnitureWorldPosition(
+  MUSHROOM_LOFT_BED_ANCHOR.x,
+  MUSHROOM_LOFT_BED_ANCHOR.level,
+  MUSHROOM_LOFT_BED_ANCHOR.z
+);
+export const MUSHROOM_LOFT_BED_SCALE = MUSHROOM_LOFT_BED_ANCHOR.scale;
 export const MUSHROOM_LOFT_BED_TOP_Y =
   MUSHROOM_LOFT_BED_POSITION[1]
-  + BED_DOUBLE_MATTRESS_HEIGHT * FURNITURE_BASE_SCALE * MUSHROOM_LOFT_BED_SCALE;
-
-// `mushroomFurniturePosition` applies the pocket's 0.8 furniture factor to Y
-// offsets as well as model scale. Pass the pre-pocket Kenney top height here
-// so books, lamps and plants actually sit on their supporting surface.
-const kenneyTopOffset = (nativeHeight, placementScale) =>
-  nativeHeight * FURNITURE_BASE_SCALE * placementScale;
+  + BED_DOUBLE_B_MATTRESS_TOP
+    * KAYKIT_FURNITURE_BASE_SCALE
+    * MUSHROOM_LOFT_BED_SCALE;
 
 // Native (unscaled) XZ footprints measured from each vendored GLB
 // (`node _measure.mjs`, a throwaway Phase-3 helper). width = local X,
@@ -80,7 +111,62 @@ export const FURNITURE_FOOTPRINTS = {
   sideTable: { x: 0.534, z: 0.22 },
   sideTableDrawers: { x: 0.534, z: 0.222 },
   table: { x: 0.841, z: 0.447 },
-  tableCoffee: { x: 0.661, z: 0.4 }
+  tableCoffee: { x: 0.661, z: 0.4 },
+
+  // KayKit Furniture Bits 1.0 (source units are already close to metres).
+  armchair: { x: 1.8, z: 1.6 },
+  armchair_pillows: { x: 1.8, z: 1.6 },
+  bed_double_A: { x: 3.1, z: 3 },
+  bed_double_B: { x: 3.1, z: 3 },
+  bed_single_A: { x: 1.6, z: 3 },
+  bed_single_B: { x: 1.6, z: 3 },
+  book_set: { x: 0.78, z: 0.365 },
+  book_single: { x: 0.26, z: 0.365 },
+  cabinet_medium: { x: 2, z: 1.002 },
+  cabinet_medium_decorated: { x: 2.042, z: 1.002 },
+  cabinet_small: { x: 1, z: 1.002 },
+  cabinet_small_decorated: { x: 1.048, z: 1.104 },
+  cactus_medium_A: { x: 0.88, z: 0.837 },
+  cactus_medium_B: { x: 0.88, z: 0.837 },
+  cactus_small_A: { x: 0.5, z: 0.5 },
+  cactus_small_B: { x: 0.5, z: 0.5 },
+  chair_A: { x: 0.75, z: 0.845 },
+  chair_A_wood: { x: 0.75, z: 0.845 },
+  chair_B: { x: 0.75, z: 0.845 },
+  chair_B_wood: { x: 0.75, z: 0.845 },
+  chair_C: { x: 0.75, z: 0.936 },
+  chair_stool: { x: 0.75, z: 0.75 },
+  chair_stool_wood: { x: 0.75, z: 0.75 },
+  couch: { x: 3, z: 1.6 },
+  couch_pillows: { x: 3, z: 1.6 },
+  lamp_standing: { x: 1, z: 1 },
+  lamp_table: { x: 1, z: 1 },
+  pictureframe_large_A: { x: 1.01, z: 0.2 },
+  pictureframe_large_B: { x: 2, z: 0.2 },
+  pictureframe_medium: { x: 0.7, z: 0.2 },
+  pictureframe_small_A: { x: 0.5, z: 0.2 },
+  pictureframe_small_B: { x: 0.7, z: 0.2 },
+  pictureframe_small_C: { x: 0.5, z: 0.2 },
+  pictureframe_standing_A: { x: 0.5, z: 0.379 },
+  pictureframe_standing_B: { x: 0.7, z: 0.357 },
+  pillow_A: { x: 0.65, z: 0.5 },
+  pillow_B: { x: 0.65, z: 0.5 },
+  rug_oval_A: { x: 3, z: 2 },
+  rug_oval_B: { x: 3, z: 2 },
+  rug_rectangle_A: { x: 3, z: 2 },
+  rug_rectangle_B: { x: 3, z: 2 },
+  rug_rectangle_stripes_A: { x: 3, z: 2 },
+  rug_rectangle_stripes_B: { x: 3, z: 2 },
+  shelf_A_big: { x: 2, z: 0.5 },
+  shelf_A_small: { x: 1, z: 0.5 },
+  shelf_B_large: { x: 2, z: 0.5 },
+  shelf_B_large_decorated: { x: 2, z: 0.5 },
+  shelf_B_small: { x: 1, z: 0.5 },
+  shelf_B_small_decorated: { x: 1, z: 0.571 },
+  table_low: { x: 2.4, z: 1.5 },
+  table_medium: { x: 2, z: 2 },
+  table_medium_long: { x: 3, z: 2 },
+  table_small: { x: 1, z: 1 }
 };
 
 // Per-model behaviour policy (agreed Phase-3 defaults):
@@ -115,7 +201,61 @@ const FURNITURE_POLICY = {
   sideTable: { solid: true },
   sideTableDrawers: { solid: true },
   table: { solid: true },
-  tableCoffee: { solid: true }
+  tableCoffee: { solid: true },
+
+  armchair: { solid: true },
+  armchair_pillows: { solid: true },
+  bed_double_A: { solid: true },
+  bed_double_B: { solid: true },
+  bed_single_A: { solid: true },
+  bed_single_B: { solid: true },
+  book_set: { noShadow: true },
+  book_single: { noShadow: true },
+  cabinet_medium: { solid: true },
+  cabinet_medium_decorated: { solid: true },
+  cabinet_small: { solid: true },
+  cabinet_small_decorated: { solid: true },
+  cactus_medium_A: { noShadow: true },
+  cactus_medium_B: { noShadow: true },
+  cactus_small_A: { noShadow: true },
+  cactus_small_B: { noShadow: true },
+  chair_A: {},
+  chair_A_wood: {},
+  chair_B: {},
+  chair_B_wood: {},
+  chair_C: {},
+  chair_stool: {},
+  chair_stool_wood: {},
+  couch: { solid: true },
+  couch_pillows: { solid: true },
+  lamp_standing: {},
+  lamp_table: { noShadow: true },
+  pictureframe_large_A: { noShadow: true },
+  pictureframe_large_B: { noShadow: true },
+  pictureframe_medium: { noShadow: true },
+  pictureframe_small_A: { noShadow: true },
+  pictureframe_small_B: { noShadow: true },
+  pictureframe_small_C: { noShadow: true },
+  pictureframe_standing_A: { noShadow: true },
+  pictureframe_standing_B: { noShadow: true },
+  pillow_A: { noShadow: true },
+  pillow_B: { noShadow: true },
+  rug_oval_A: { noShadow: true },
+  rug_oval_B: { noShadow: true },
+  rug_rectangle_A: { noShadow: true },
+  rug_rectangle_B: { noShadow: true },
+  rug_rectangle_stripes_A: { noShadow: true },
+  rug_rectangle_stripes_B: { noShadow: true },
+  shelf_A_big: { noShadow: true },
+  shelf_A_small: { noShadow: true },
+  shelf_B_large: { noShadow: true },
+  shelf_B_large_decorated: { noShadow: true },
+  shelf_B_small: { noShadow: true },
+  shelf_B_small_decorated: { noShadow: true },
+  table_low: { solid: true },
+  table_medium: { solid: true },
+  table_medium_long: { solid: true },
+  table_small: { solid: true }
 };
 
 // Raw per-room placements. `position` is the world-space footprint centre.
@@ -198,172 +338,132 @@ const RAW_PLACEMENTS = [
   { id: "lounge-plant", room: "lounge-balcony", url: KIT("pottedPlant"), position: [7.4, UPPER_Y, -6.7], rotationY: 0, scale: 1.8 },
 
   // ============================================================================
-  // 蘑菇屋内部 — the pocket tower is four times the exterior composition's
-  // footprint, so each floor is arranged as several close furniture clusters
-  // instead of one tiny island. Repeated soft furnishings, lamps and greenery
-  // make the rooms feel lived-in while the door axis and stair landings stay
-  // open. Coordinates remain in the original normalized tower space.
+  // 蘑菇屋内部 — KayKit Furniture Bits turns the magical pocket tower into three
+  // layered, lived-in rooms. Furniture forms several close clusters per floor;
+  // elevated shelves, pictures, books and cushions fill the vertical field
+  // without adding collision. Coordinates stay in the readable source plan.
   // ============================================================================
 
-  // ----- 一层灶间 / mushroom-hearth — dining, pantry and fireside nook -----
-  // The four-seat table is intentionally snug. A three-piece kitchen run hugs
-  // the north wall, pantry storage occupies the west curve, and a reading nook
-  // fills the south-west quarter without pinching the straight door route.
-  { id: "m1-rug", room: "mushroom-hearth", url: KIT("rugRound"), position: mushroomFurniturePosition(-7.4, 0, 17.2), rotationY: 0, scale: mushroomFurnitureScale(2.4) },
-  { id: "m1-table", room: "mushroom-hearth", url: KIT("table"), position: mushroomFurniturePosition(-7.4, 0, 17.2), rotationY: 0, scale: mushroomFurnitureScale(1.9) },
-  { id: "m1-chair-n", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-7.4, 0, 16.65), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-chair-s", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-7.4, 0, 17.75), rotationY: Math.PI, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-chair-w", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-8.05, 0, 17.2), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-chair-e", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-6.75, 0, 17.2), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
+  // ----- 一层灶间 / mushroom-hearth — pantry + crowded family table -----
+  // The centre/south arrival lane and east stair remain open. The north wall is
+  // a full pantry, the west half a six-seat table, and the south-west corner a
+  // tiny tea chair layered with a second rug, lamp, cushions and wall shelves.
+  mushroomPiece("rug_rectangle_stripes_A", { id: "m1-dining-rug", level: 0, x: -8.05, z: 17.05, scale: 1.55 }),
+  mushroomPiece("table_medium_long", { id: "m1-dining-table", level: 0, x: -8.05, z: 17.05, scale: 1.08 }),
+  mushroomPiece("chair_A_wood", { id: "m1-chair-nw", level: 0, x: -8.55, z: 16.55, rotationY: 0 }),
+  mushroomPiece("chair_B_wood", { id: "m1-chair-ne", level: 0, x: -7.55, z: 16.55, rotationY: 0 }),
+  mushroomPiece("chair_A", { id: "m1-chair-sw", level: 0, x: -8.55, z: 17.55, rotationY: Math.PI }),
+  mushroomPiece("chair_B", { id: "m1-chair-se", level: 0, x: -7.55, z: 17.55, rotationY: Math.PI }),
+  mushroomPiece("chair_C", { id: "m1-chair-west", level: 0, x: -8.72, z: 17.05, rotationY: -Math.PI / 2 }),
+  mushroomPiece("book_set", { id: "m1-table-books", level: 0, x: -8.22, z: 17.05, y: 0.97, rotationY: 0.28 }),
+  mushroomPiece("cactus_small_A", { id: "m1-table-cactus", level: 0, x: -7.78, z: 17.05, y: 0.97, scale: 0.88 }),
 
-  { id: "m1-kitchen-rug", room: "mushroom-hearth", url: KIT("rugRectangle"), position: mushroomFurniturePosition(-5.7, 0, 14.45), rotationY: 0, scale: mushroomFurnitureScale(2.2) },
-  { id: "m1-counter-w", room: "mushroom-hearth", url: KIT("sideTableDrawers"), position: mushroomFurniturePosition(-6.45, 0, 14.25), rotationY: 0, scale: mushroomFurnitureScale(1.7) },
-  { id: "m1-counter", room: "mushroom-hearth", url: KIT("sideTableDrawers"), position: mushroomFurniturePosition(-5.7, 0, 14.25), rotationY: 0, scale: mushroomFurnitureScale(1.7) },
-  { id: "m1-counter-e", room: "mushroom-hearth", url: KIT("sideTableDrawers"), position: mushroomFurniturePosition(-4.95, 0, 14.25), rotationY: 0, scale: mushroomFurnitureScale(1.7) },
-  { id: "m1-counter-lamp", room: "mushroom-hearth", url: KIT("lampRoundTable"), position: mushroomFurniturePosition(-6.45, 0, 14.25, kenneyTopOffset(0.384, 1.7)), rotationY: 0, scale: mushroomFurnitureScale(1.45) },
-  { id: "m1-counter-books", room: "mushroom-hearth", url: KIT("books"), position: mushroomFurniturePosition(-5.7, 0, 14.25, kenneyTopOffset(0.384, 1.7)), rotationY: 0.25, scale: mushroomFurnitureScale(1.45) },
-  { id: "m1-counter-plant", room: "mushroom-hearth", url: KIT("plantSmall2"), position: mushroomFurniturePosition(-4.95, 0, 14.25, kenneyTopOffset(0.384, 1.7)), rotationY: 0, scale: mushroomFurnitureScale(2.0) },
+  mushroomPiece("cabinet_medium_decorated", { id: "m1-pantry-wide", level: 0, x: -7.15, z: 14.12, rotationY: 0, scale: 1.05 }),
+  mushroomPiece("cabinet_small_decorated", { id: "m1-pantry-small", level: 0, x: -5.95, z: 14.08, rotationY: 0, scale: 1.05 }),
+  mushroomPiece("cabinet_medium", { id: "m1-pantry-sideboard", level: 0, x: -4.65, z: 14.08, rotationY: 0, scale: 1.05 }),
+  mushroomPiece("shelf_B_large_decorated", { id: "m1-pantry-shelf", level: 0, x: -7.15, z: 13.92, y: 2.1, rotationY: 0, scale: 1.1 }),
+  mushroomPiece("shelf_B_small_decorated", { id: "m1-spice-shelf", level: 0, x: -5.72, z: 13.92, y: 2.25, rotationY: 0 }),
+  mushroomPiece("book_single", { id: "m1-pantry-book", level: 0, x: -4.85, z: 14.1, y: 0.94, rotationY: -0.18 }),
+  mushroomPiece("cactus_small_B", { id: "m1-pantry-cactus", level: 0, x: -4.45, z: 14.1, y: 0.94, scale: 0.9 }),
+  mushroomPiece("pictureframe_standing_A", { id: "m1-pantry-photo", level: 0, x: -6.88, z: 14.08, y: 1.68, rotationY: 0.12 }),
+  mushroomPiece("chair_stool_wood", { id: "m1-kitchen-stool-a", level: 0, x: -6.05, z: 15.05, rotationY: Math.PI }),
+  mushroomPiece("chair_stool", { id: "m1-kitchen-stool-b", level: 0, x: -5.35, z: 15.05, rotationY: Math.PI }),
 
-  { id: "m1-cupboard", room: "mushroom-hearth", url: KIT("bookcaseClosedWide"), position: mushroomFurniturePosition(-9.7, 0, 16.2), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-pantry", room: "mushroom-hearth", url: KIT("bookcaseClosedDoors"), position: mushroomFurniturePosition(-9.7, 0, 18.5), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-pantry-plant-n", room: "mushroom-hearth", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-9.3, 0, 14.7), rotationY: 0, scale: mushroomFurnitureScale(1.65) },
-  { id: "m1-pantry-plant-s", room: "mushroom-hearth", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-9.35, 0, 20.0), rotationY: 0, scale: mushroomFurnitureScale(1.65) },
+  mushroomPiece("rug_oval_B", { id: "m1-tea-rug", level: 0, x: -9.05, z: 20.25, rotationY: 0.28, scale: 1.22 }),
+  mushroomPiece("armchair_pillows", { id: "m1-tea-chair", level: 0, x: -9.12, z: 20.18, rotationY: 0.42, scale: 0.94 }),
+  mushroomPiece("table_small", { id: "m1-tea-table", level: 0, x: -8.28, z: 20.35, rotationY: 0.22, scale: 0.9 }),
+  mushroomPiece("lamp_table", { id: "m1-tea-lamp", level: 0, x: -8.28, z: 20.35, y: 0.82, scale: 0.72 }),
+  mushroomPiece("lamp_standing", { id: "m1-floor-lamp", level: 0, x: -9.72, z: 21.05, scale: 0.88 }),
+  mushroomPiece("pillow_A", { id: "m1-floor-cushion", level: 0, x: -8.52, z: 20.92, y: 0.08, rotationY: -0.35, scale: 1.05 }),
+  mushroomPiece("cabinet_small", { id: "m1-tea-cabinet", level: 0, x: -8.18, z: 21.65, rotationY: Math.PI, scale: 0.92 }),
+  mushroomPiece("cactus_medium_A", { id: "m1-tea-cactus", level: 0, x: -8.18, z: 21.65, y: 0.84, scale: 0.78 }),
 
-  { id: "m1-nook-rug", room: "mushroom-hearth", url: KIT("rugRounded"), position: mushroomFurniturePosition(-8.0, 0, 20.3), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.7) },
-  { id: "m1-nook-chair-w", room: "mushroom-hearth", url: KIT("loungeChair"), position: mushroomFurniturePosition(-8.7, 0, 20.1), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.4) },
-  { id: "m1-nook-chair-e", room: "mushroom-hearth", url: KIT("loungeChairRelax"), position: mushroomFurniturePosition(-7.35, 0, 20.45), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.3) },
-  { id: "m1-nook-table", room: "mushroom-hearth", url: KIT("sideTable"), position: mushroomFurniturePosition(-8.0, 0, 20.25), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.2) },
-  { id: "m1-nook-lamp", room: "mushroom-hearth", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-8.9, 0, 21.0), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m1-entry-mat", room: "mushroom-hearth", url: KIT("rugDoormat"), position: mushroomFurniturePosition(-6.0, 0, 22.1), rotationY: 0, scale: mushroomFurnitureScale(2.0) },
-  { id: "m1-coat-rack", room: "mushroom-hearth", url: KIT("coatRackStanding"), position: mushroomFurniturePosition(-6.9, 0, 21.9), rotationY: 0, scale: mushroomFurnitureScale(1.7) },
-  { id: "m1-east-bookcase", room: "mushroom-hearth", url: KIT("bookcaseOpen"), position: mushroomFurniturePosition(-2.0, 0, 18.0), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.65) },
+  mushroomPiece("pictureframe_large_B", { id: "m1-north-picture", level: 0, x: -8.75, z: 13.76, y: 2.3, rotationY: 0, scale: 1.15 }),
+  mushroomPiece("pictureframe_medium", { id: "m1-north-picture-small", level: 0, x: -3.72, z: 13.74, y: 2.55, rotationY: 0, scale: 1.05 }),
+  mushroomPiece("pictureframe_small_A", { id: "m1-west-picture-a", level: 0, x: -10.18, z: 18.45, y: 2.2, rotationY: Math.PI / 2, scale: 1.2 }),
+  mushroomPiece("pictureframe_small_B", { id: "m1-west-picture-b", level: 0, x: -10.18, z: 19.12, y: 3.15, rotationY: Math.PI / 2, scale: 1.15 }),
+  mushroomPiece("shelf_A_big", { id: "m1-west-wall-shelf", level: 0, x: -10.15, z: 17.25, y: 2.0, rotationY: Math.PI / 2, scale: 1.05 }),
+  mushroomPiece("book_set", { id: "m1-west-shelf-books", level: 0, x: -10.02, z: 17.25, y: 2.38, rotationY: Math.PI / 2, scale: 0.9 }),
 
-  // A second, open breakfast table occupies the broad middle of the floor;
-  // low chairs preserve sightlines while removing the empty dance-floor gap.
-  { id: "m1-breakfast-table", room: "mushroom-hearth", url: KIT("table"), position: mushroomFurniturePosition(-4.8, 0, 18.1), rotationY: 0, scale: mushroomFurnitureScale(2.2) },
-  { id: "m1-breakfast-chair-n", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-4.8, 0, 17.5), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-breakfast-chair-s", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-4.8, 0, 18.7), rotationY: Math.PI, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-breakfast-chair-w", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-5.5, 0, 18.1), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-breakfast-chair-e", room: "mushroom-hearth", url: KIT("chair"), position: mushroomFurniturePosition(-4.1, 0, 18.1), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m1-breakfast-lamp", room: "mushroom-hearth", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-5.5, 0, 19.0), rotationY: 0, scale: mushroomFurnitureScale(1.5) },
-  { id: "m1-breakfast-plant", room: "mushroom-hearth", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-4.15, 0, 19.2), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
+  // ----- 二层玩乐窝 / mushroom-den — pillow fort + little library -----
+  // Seating is pulled into a tight north-centre conversation island. Thin wall
+  // furniture wraps both sides; the south-centre reading nest visually joins
+  // the room while leaving a diagonal route from stair A to stair B.
+  mushroomPiece("rug_rectangle_A", { id: "m2-lounge-rug", level: 1, x: -6.0, z: 15.25, scale: 1.55 }),
+  mushroomPiece("couch_pillows", { id: "m2-couch", level: 1, x: -6.0, z: 14.35, rotationY: 0, scale: 1.05 }),
+  mushroomPiece("chair_C", { id: "m2-chair-west", level: 1, x: -7.08, z: 15.45, rotationY: -0.45, scale: 1.05 }),
+  mushroomPiece("chair_A", { id: "m2-chair-east", level: 1, x: -4.92, z: 15.45, rotationY: 0.45, scale: 1.05 }),
+  mushroomPiece("table_low", { id: "m2-coffee-table", level: 1, x: -6.0, z: 15.65, scale: 1.0 }),
+  mushroomPiece("book_set", { id: "m2-coffee-books", level: 1, x: -6.22, z: 15.65, y: 0.47, rotationY: -0.25, scale: 0.92 }),
+  mushroomPiece("cactus_small_A", { id: "m2-coffee-cactus", level: 1, x: -5.75, z: 15.65, y: 0.47, scale: 0.82 }),
+  mushroomPiece("lamp_table", { id: "m2-coffee-lamp", level: 1, x: -6.0, z: 15.48, y: 0.47, scale: 0.62 }),
+  mushroomPiece("pillow_A", { id: "m2-couch-pillow-a", level: 1, x: -6.35, z: 14.45, y: 0.55, rotationY: -0.2 }),
+  mushroomPiece("pillow_B", { id: "m2-couch-pillow-b", level: 1, x: -5.7, z: 14.45, y: 0.55, rotationY: 0.22 }),
+  mushroomPiece("lamp_standing", { id: "m2-lounge-lamp", level: 1, x: -7.72, z: 14.35, scale: 0.9 }),
 
-  // East-wall storage and a tiny landing chair make the stair side feel just
-  // as inhabited as the pantry side without narrowing the flight itself.
-  { id: "m1-gallery-wide", room: "mushroom-hearth", url: KIT("bookcaseClosedWide"), position: mushroomFurniturePosition(-3.8, 0, 14.35), rotationY: 0, scale: mushroomFurnitureScale(1.65) },
-  { id: "m1-gallery-wardrobe", room: "mushroom-hearth", url: KIT("bookcaseClosedDoors"), position: mushroomFurniturePosition(-2.1, 0, 16.1), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.65) },
-  { id: "m1-gallery-console", room: "mushroom-hearth", url: KIT("sideTableDrawers"), position: mushroomFurniturePosition(-2.0, 0, 19.7), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.5) },
-  { id: "m1-gallery-console-lamp", room: "mushroom-hearth", url: KIT("lampRoundTable"), position: mushroomFurniturePosition(-2.0, 0, 19.7, kenneyTopOffset(0.384, 1.5)), rotationY: 0, scale: mushroomFurnitureScale(1.35) },
-  { id: "m1-gallery-plant", room: "mushroom-hearth", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-2.8, 0, 20.8), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m1-gallery-chair", room: "mushroom-hearth", url: KIT("loungeChair"), position: mushroomFurniturePosition(-4.5, 0, 21.25), rotationY: -0.6, scale: mushroomFurnitureScale(1.3) },
-  { id: "m1-gallery-floor-lamp", room: "mushroom-hearth", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-5.0, 0, 21.6), rotationY: 0, scale: mushroomFurnitureScale(1.45) },
+  mushroomPiece("cabinet_medium_decorated", { id: "m2-east-cabinet", level: 1, x: -1.95, z: 15.25, rotationY: -Math.PI / 2, scale: 1.02 }),
+  mushroomPiece("shelf_B_large_decorated", { id: "m2-east-shelf-large", level: 1, x: -1.76, z: 17.15, y: 1.9, rotationY: -Math.PI / 2, scale: 1.12 }),
+  mushroomPiece("shelf_B_small_decorated", { id: "m2-east-shelf-small", level: 1, x: -1.76, z: 18.1, y: 3.0, rotationY: -Math.PI / 2, scale: 1.05 }),
+  mushroomPiece("book_single", { id: "m2-east-shelf-book", level: 1, x: -1.9, z: 17.28, y: 2.27, rotationY: -Math.PI / 2 }),
+  mushroomPiece("pictureframe_large_A", { id: "m2-east-picture", level: 1, x: -1.72, z: 19.25, y: 2.25, rotationY: -Math.PI / 2, scale: 1.2 }),
+  mushroomPiece("pictureframe_small_C", { id: "m2-east-picture-small", level: 1, x: -1.7, z: 20.15, y: 3.15, rotationY: -Math.PI / 2, scale: 1.25 }),
+  mushroomPiece("cactus_medium_B", { id: "m2-east-cactus", level: 1, x: -2.05, z: 21.45, scale: 0.9 }),
 
-  // ----- 二层玩乐窝 / mushroom-den — salon, study and curved library -----
-  // Three overlapping activities fill the floor while leaving the two stair
-  // approaches clear: a compact sofa group north, a desk along the east wall,
-  // and a low reading library across the south arc.
-  { id: "m2-rug", room: "mushroom-den", url: KIT("rugRounded"), position: mushroomFurniturePosition(-6.0, 1, 15.4), rotationY: 0, scale: mushroomFurnitureScale(2.5) },
-  { id: "m2-sofa", room: "mushroom-den", url: KIT("loungeSofaLong"), position: mushroomFurniturePosition(-6.0, 1, 14.75), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m2-coffee-table", room: "mushroom-den", url: KIT("tableCoffee"), position: mushroomFurniturePosition(-6.0, 1, 15.65), rotationY: 0, scale: mushroomFurnitureScale(1.5) },
-  { id: "m2-table-books", room: "mushroom-den", url: KIT("books"), position: mushroomFurniturePosition(-5.8, 1, 15.65, kenneyTopOffset(0.23, 1.5)), rotationY: -0.35, scale: mushroomFurnitureScale(1.4) },
-  { id: "m2-living-chair-w", room: "mushroom-den", url: KIT("loungeChair"), position: mushroomFurniturePosition(-7.1, 1, 15.85), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.4) },
-  { id: "m2-living-chair-e", room: "mushroom-den", url: KIT("loungeChairRelax"), position: mushroomFurniturePosition(-4.9, 1, 15.85), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.35) },
-  { id: "m2-living-table", room: "mushroom-den", url: KIT("sideTable"), position: mushroomFurniturePosition(-7.2, 1, 14.75), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.15) },
-  { id: "m2-living-lamp", room: "mushroom-den", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-7.7, 1, 14.6), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m2-living-plant", room: "mushroom-den", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-4.4, 1, 14.8), rotationY: 0, scale: mushroomFurnitureScale(1.65) },
+  mushroomPiece("cabinet_medium", { id: "m2-west-cabinet", level: 1, x: -10.02, z: 14.72, rotationY: Math.PI / 2, scale: 0.98 }),
+  mushroomPiece("pictureframe_medium", { id: "m2-west-picture", level: 1, x: -10.22, z: 15.95, y: 2.2, rotationY: Math.PI / 2, scale: 1.2 }),
+  mushroomPiece("shelf_A_small", { id: "m2-west-shelf", level: 1, x: -10.2, z: 14.02, y: 2.05, rotationY: Math.PI / 2, scale: 1.2 }),
+  mushroomPiece("pictureframe_standing_B", { id: "m2-west-photo", level: 1, x: -9.95, z: 14.72, y: 0.92, rotationY: Math.PI / 2 }),
 
-  { id: "m2-study-rug", room: "mushroom-den", url: KIT("rugRectangle"), position: mushroomFurniturePosition(-2.15, 1, 18.0), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-study-desk", room: "mushroom-den", url: KIT("desk"), position: mushroomFurniturePosition(-1.9, 1, 18.0), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.65) },
-  { id: "m2-study-chair", room: "mushroom-den", url: KIT("chairDesk"), position: mushroomFurniturePosition(-2.35, 1, 18.0), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.55) },
-  { id: "m2-study-monitor", room: "mushroom-den", url: KIT("computerScreen"), position: mushroomFurniturePosition(-1.9, 1, 18.0, kenneyTopOffset(0.384, 1.65)), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.45) },
-  { id: "m2-study-plant-small", room: "mushroom-den", url: KIT("plantSmall2"), position: mushroomFurniturePosition(-1.9, 1, 17.6, kenneyTopOffset(0.384, 1.65)), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-study-lamp", room: "mushroom-den", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-2.35, 1, 19.6), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m2-study-plant", room: "mushroom-den", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-2.35, 1, 16.2), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
-  { id: "m2-study-bookcase", room: "mushroom-den", url: KIT("bookcaseOpen"), position: mushroomFurniturePosition(-2.35, 1, 20.2), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.65) },
+  mushroomPiece("rug_oval_A", { id: "m2-reading-rug", level: 1, x: -6.25, z: 20.55, rotationY: -0.2, scale: 1.25 }),
+  mushroomPiece("armchair_pillows", { id: "m2-reading-chair", level: 1, x: -6.55, z: 20.48, rotationY: -0.35, scale: 0.96 }),
+  mushroomPiece("table_small", { id: "m2-reading-table", level: 1, x: -5.62, z: 20.55, rotationY: 0.18, scale: 0.92 }),
+  mushroomPiece("pictureframe_standing_A", { id: "m2-reading-photo", level: 1, x: -5.62, z: 20.55, y: 0.84, rotationY: 0.15 }),
+  mushroomPiece("book_single", { id: "m2-reading-book", level: 1, x: -5.42, z: 20.55, y: 0.84, rotationY: -0.35 }),
+  mushroomPiece("lamp_standing", { id: "m2-reading-lamp", level: 1, x: -7.38, z: 21.35, scale: 0.88 }),
+  mushroomPiece("pillow_B", { id: "m2-floor-cushion", level: 1, x: -5.55, z: 21.18, y: 0.08, rotationY: 0.45, scale: 1.08 }),
+  mushroomPiece("pictureframe_large_B", { id: "m2-south-picture", level: 1, x: -4.2, z: 22.18, y: 2.35, rotationY: Math.PI, scale: 1.05 }),
+  mushroomPiece("shelf_B_small", { id: "m2-south-shelf", level: 1, x: -6.05, z: 22.2, y: 2.0, rotationY: Math.PI, scale: 1.15 }),
 
-  { id: "m2-library-rug", room: "mushroom-den", url: KIT("rugRound"), position: mushroomFurniturePosition(-6.5, 1, 21.45), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-bookcase", room: "mushroom-den", url: KIT("bookcaseOpen"), position: mushroomFurniturePosition(-6.8, 1, 21.85), rotationY: Math.PI, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-library-wide", room: "mushroom-den", url: KIT("bookcaseClosedWide"), position: mushroomFurniturePosition(-5.1, 1, 21.95), rotationY: Math.PI, scale: mushroomFurnitureScale(1.65) },
-  { id: "m2-library-wardrobe", room: "mushroom-den", url: KIT("bookcaseClosedDoors"), position: mushroomFurniturePosition(-3.8, 1, 21.7), rotationY: Math.PI, scale: mushroomFurnitureScale(1.7) },
-  { id: "m2-floor-lamp", room: "mushroom-den", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-7.7, 1, 21.2), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m2-library-chair", room: "mushroom-den", url: KIT("loungeChairRelax"), position: mushroomFurniturePosition(-7.0, 1, 20.9), rotationY: 0.65, scale: mushroomFurnitureScale(1.3) },
-  { id: "m2-library-table", room: "mushroom-den", url: KIT("sideTable"), position: mushroomFurniturePosition(-6.3, 1, 20.9), rotationY: 0, scale: mushroomFurnitureScale(1.2) },
-  { id: "m2-coat-rack", room: "mushroom-den", url: KIT("coatRackStanding"), position: mushroomFurniturePosition(-4.7, 1, 21.1), rotationY: 0, scale: mushroomFurnitureScale(1.65) },
-  { id: "m2-library-plant", room: "mushroom-den", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-8.2, 1, 21.5), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
+  // ----- 顶层星光阁楼 / mushroom-loft — bed canopy + dressing corners -----
+  // The bed occupies the north-east quadrant, safely east of stairwell B. A
+  // south reading island, an east dresser wall and a compact north-west vanity
+  // make the cap floor feel inhabited from every camera direction.
+  mushroomPiece("rug_rectangle_B", { id: "m3-bed-rug", level: 2, x: -4.25, z: 15.0, scale: 1.55 }),
+  mushroomPiece("bed_double_B", { id: "m3-bed", ...MUSHROOM_LOFT_BED_ANCHOR }),
+  mushroomPiece("cabinet_small_decorated", { id: "m3-nightstand-west", level: 2, x: -5.35, z: 14.5, scale: 0.88 }),
+  mushroomPiece("table_small", { id: "m3-nightstand-east", level: 2, x: -3.08, z: 14.5, scale: 0.86 }),
+  mushroomPiece("lamp_table", { id: "m3-bed-lamp-west", level: 2, x: -5.35, z: 14.5, y: 1.24, scale: 0.68 }),
+  mushroomPiece("lamp_table", { id: "m3-bed-lamp-east", level: 2, x: -3.08, z: 14.5, y: 0.78, scale: 0.68 }),
+  mushroomPiece("pillow_A", { id: "m3-bed-pillow-a", level: 2, x: -4.58, z: 14.2, y: 0.72, rotationY: 0.08, scale: 1.05 }),
+  mushroomPiece("pillow_B", { id: "m3-bed-pillow-b", level: 2, x: -3.92, z: 14.2, y: 0.72, rotationY: -0.08, scale: 1.05 }),
+  mushroomPiece("pictureframe_standing_B", { id: "m3-bed-photo", level: 2, x: -5.35, z: 14.5, y: 1.24, rotationY: 0.12 }),
+  mushroomPiece("book_single", { id: "m3-bed-book", level: 2, x: -3.08, z: 14.5, y: 0.78, rotationY: -0.25 }),
 
-  // A central games table bridges the distant salon and library compositions.
-  // It uses dining chairs (walk-through by policy), so the narrow passage
-  // between stair A and stair B remains forgiving despite the fuller view.
-  { id: "m2-games-rug", room: "mushroom-den", url: KIT("rugRound"), position: mushroomFurniturePosition(-6.2, 1, 18.4), rotationY: 0, scale: mushroomFurnitureScale(2.2) },
-  { id: "m2-games-table", room: "mushroom-den", url: KIT("table"), position: mushroomFurniturePosition(-6.2, 1, 18.4), rotationY: 0, scale: mushroomFurnitureScale(2.1) },
-  { id: "m2-games-chair-n", room: "mushroom-den", url: KIT("chair"), position: mushroomFurniturePosition(-6.2, 1, 17.8), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-games-chair-s", room: "mushroom-den", url: KIT("chair"), position: mushroomFurniturePosition(-6.2, 1, 19.0), rotationY: Math.PI, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-games-chair-w", room: "mushroom-den", url: KIT("chair"), position: mushroomFurniturePosition(-6.9, 1, 18.4), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-games-chair-e", room: "mushroom-den", url: KIT("chair"), position: mushroomFurniturePosition(-5.5, 1, 18.4), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m2-games-floor-lamp", room: "mushroom-den", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-5.2, 1, 19.2), rotationY: 0, scale: mushroomFurnitureScale(1.5) },
-  { id: "m2-games-plant", room: "mushroom-den", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-7.1, 1, 19.3), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m2-games-side-table", room: "mushroom-den", url: KIT("sideTable"), position: mushroomFurniturePosition(-7.2, 1, 18.1), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.15) },
-  { id: "m2-games-side-lamp", room: "mushroom-den", url: KIT("lampRoundTable"), position: mushroomFurniturePosition(-7.2, 1, 18.1, kenneyTopOffset(0.384, 1.15)), rotationY: 0, scale: mushroomFurnitureScale(1.3) },
-  { id: "m2-north-wide", room: "mushroom-den", url: KIT("bookcaseClosedWide"), position: mushroomFurniturePosition(-7.7, 1, 14.15), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
-  { id: "m2-north-wardrobe", room: "mushroom-den", url: KIT("bookcaseClosedDoors"), position: mushroomFurniturePosition(-3.5, 1, 14.45), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
-  { id: "m2-west-coat-rack", room: "mushroom-den", url: KIT("coatRackStanding"), position: mushroomFurniturePosition(-9.5, 1, 16.0), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
-  { id: "m2-games-lounge-chair", room: "mushroom-den", url: KIT("loungeChair"), position: mushroomFurniturePosition(-4.65, 1, 19.4), rotationY: -0.8, scale: mushroomFurnitureScale(1.3) },
+  mushroomPiece("cabinet_medium_decorated", { id: "m3-east-dresser", level: 2, x: -1.92, z: 17.15, rotationY: -Math.PI / 2, scale: 1.08 }),
+  mushroomPiece("cabinet_medium", { id: "m3-east-storage", level: 2, x: -1.92, z: 19.0, rotationY: -Math.PI / 2, scale: 1.0 }),
+  mushroomPiece("cactus_medium_A", { id: "m3-dresser-cactus", level: 2, x: -1.92, z: 17.02, y: 1.68, scale: 0.78 }),
+  mushroomPiece("shelf_B_large_decorated", { id: "m3-east-shelf", level: 2, x: -1.73, z: 20.35, y: 2.0, rotationY: -Math.PI / 2, scale: 1.12 }),
+  mushroomPiece("pictureframe_large_A", { id: "m3-east-picture", level: 2, x: -1.7, z: 15.75, y: 2.35, rotationY: -Math.PI / 2, scale: 1.2 }),
+  mushroomPiece("pictureframe_small_C", { id: "m3-east-picture-small", level: 2, x: -1.7, z: 21.45, y: 3.1, rotationY: -Math.PI / 2, scale: 1.25 }),
 
-  // ----- 顶层星光阁楼 / mushroom-loft — bed, dressing area and two nooks -----
-  // The bed ensemble is finally close enough to read as one composition. A
-  // dressing/vanity run follows the east curve, while separate reading and
-  // loveseat groups make the broad cap floor feel warm from every approach.
-  { id: "m3-rug", room: "mushroom-loft", url: KIT("rugRounded"), position: mushroomFurniturePosition(-4.8, 2, 15.7), rotationY: 0, scale: mushroomFurnitureScale(2.2) },
-  { id: "m3-bed", room: "mushroom-loft", url: KIT("bedDouble"), position: MUSHROOM_LOFT_BED_POSITION, rotationY: 0, scale: MUSHROOM_LOFT_BED_SCALE },
-  { id: "m3-nightstand-l", room: "mushroom-loft", url: KIT("sideTable"), position: mushroomFurniturePosition(-5.25, 2, 14.95), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.25) },
-  { id: "m3-nightstand", room: "mushroom-loft", url: KIT("sideTable"), position: mushroomFurniturePosition(-4.35, 2, 14.95), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.25) },
-  { id: "m3-night-lamp-l", room: "mushroom-loft", url: KIT("lampRoundTable"), position: mushroomFurniturePosition(-5.25, 2, 14.95, kenneyTopOffset(0.384, 1.25)), rotationY: 0, scale: mushroomFurnitureScale(1.45) },
-  { id: "m3-night-lamp", room: "mushroom-loft", url: KIT("lampRoundTable"), position: mushroomFurniturePosition(-4.35, 2, 14.95, kenneyTopOffset(0.384, 1.25)), rotationY: 0, scale: mushroomFurnitureScale(1.45) },
-  { id: "m3-night-books", room: "mushroom-loft", url: KIT("books"), position: mushroomFurniturePosition(-5.25, 2, 14.95, kenneyTopOffset(0.384, 1.25)), rotationY: 0.35, scale: mushroomFurnitureScale(1.35) },
+  mushroomPiece("rug_oval_A", { id: "m3-reading-rug", level: 2, x: -5.3, z: 20.55, rotationY: 0.22, scale: 1.32 }),
+  mushroomPiece("armchair_pillows", { id: "m3-reading-chair", level: 2, x: -5.02, z: 20.42, rotationY: 0.38, scale: 0.98 }),
+  mushroomPiece("chair_C", { id: "m3-reading-chair-small", level: 2, x: -6.38, z: 20.58, rotationY: -0.52, scale: 1.02 }),
+  mushroomPiece("table_low", { id: "m3-reading-table", level: 2, x: -5.72, z: 19.7, rotationY: 0.18, scale: 0.92 }),
+  mushroomPiece("book_set", { id: "m3-reading-books", level: 2, x: -5.9, z: 19.7, y: 0.44, rotationY: 0.25, scale: 0.9 }),
+  mushroomPiece("cactus_small_B", { id: "m3-reading-cactus", level: 2, x: -5.45, z: 19.7, y: 0.44, scale: 0.82 }),
+  mushroomPiece("lamp_standing", { id: "m3-reading-lamp", level: 2, x: -6.72, z: 21.45, scale: 0.9 }),
+  mushroomPiece("pillow_A", { id: "m3-floor-cushion", level: 2, x: -4.35, z: 21.25, y: 0.08, rotationY: -0.4, scale: 1.08 }),
 
-  { id: "m3-wardrobe", room: "mushroom-loft", url: KIT("bookcaseClosedDoors"), position: mushroomFurniturePosition(-2.0, 2, 16.5), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.7) },
-  { id: "m3-coat-rack", room: "mushroom-loft", url: KIT("coatRackStanding"), position: mushroomFurniturePosition(-2.0, 2, 18.0), rotationY: 0, scale: mushroomFurnitureScale(1.65) },
-  { id: "m3-dresser", room: "mushroom-loft", url: KIT("sideTableDrawers"), position: mushroomFurniturePosition(-2.1, 2, 19.3), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.6) },
-  { id: "m3-dresser-plant", room: "mushroom-loft", url: KIT("plantSmall2"), position: mushroomFurniturePosition(-2.1, 2, 19.3, kenneyTopOffset(0.384, 1.6)), rotationY: 0, scale: mushroomFurnitureScale(1.9) },
-  { id: "m3-vanity", room: "mushroom-loft", url: KIT("desk"), position: mushroomFurniturePosition(-2.45, 2, 20.1), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.55) },
-  { id: "m3-vanity-chair", room: "mushroom-loft", url: KIT("chairDesk"), position: mushroomFurniturePosition(-2.9, 2, 20.1), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.5) },
-  { id: "m3-vanity-lamp", room: "mushroom-loft", url: KIT("lampRoundTable"), position: mushroomFurniturePosition(-2.45, 2, 20.1, kenneyTopOffset(0.384, 1.55)), rotationY: 0, scale: mushroomFurnitureScale(1.4) },
-  { id: "m3-dressing-plant", room: "mushroom-loft", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-2.9, 2, 21.0), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-
-  { id: "m3-reading-rug", room: "mushroom-loft", url: KIT("rugRound"), position: mushroomFurniturePosition(-6.2, 2, 20.7), rotationY: 0, scale: mushroomFurnitureScale(2.0) },
-  { id: "m3-chair", room: "mushroom-loft", url: KIT("loungeChairRelax"), position: mushroomFurniturePosition(-7.0, 2, 20.8), rotationY: 1.1, scale: mushroomFurnitureScale(1.35) },
-  { id: "m3-reading-chair", room: "mushroom-loft", url: KIT("loungeChair"), position: mushroomFurniturePosition(-5.4, 2, 21.0), rotationY: -1.0, scale: mushroomFurnitureScale(1.4) },
-  { id: "m3-reading-table", room: "mushroom-loft", url: KIT("sideTable"), position: mushroomFurniturePosition(-6.2, 2, 20.65), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.2) },
-  { id: "m3-reading-lamp", room: "mushroom-loft", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-7.4, 2, 21.5), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m3-reading-plant", room: "mushroom-loft", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-5.25, 2, 21.7), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-
-  { id: "m3-loveseat-rug", room: "mushroom-loft", url: KIT("rugRectangle"), position: mushroomFurniturePosition(-8.1, 2, 15.4), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-loveseat", room: "mushroom-loft", url: KIT("loungeSofaLong"), position: mushroomFurniturePosition(-8.1, 2, 14.7), rotationY: 0, scale: mushroomFurnitureScale(1.45) },
-  { id: "m3-loveseat-table", room: "mushroom-loft", url: KIT("tableCoffee"), position: mushroomFurniturePosition(-8.1, 2, 15.65), rotationY: 0, scale: mushroomFurnitureScale(1.4) },
-  { id: "m3-loveseat-chair", room: "mushroom-loft", url: KIT("loungeChairRelax"), position: mushroomFurniturePosition(-9.15, 2, 15.7), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.3) },
-  { id: "m3-loveseat-bookcase", room: "mushroom-loft", url: KIT("bookcaseClosedWide"), position: mushroomFurniturePosition(-9.6, 2, 15.8), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.55) },
-  { id: "m3-loveseat-plant", room: "mushroom-loft", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-9.2, 2, 14.5), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-
-  // A six-seat craft table fills the visual centre of the enormous cap floor.
-  // The sleeper's bed remains the calm focal point beyond it, now framed by
-  // additional storage and light rather than isolated against a bare wall.
-  { id: "m3-craft-rug", room: "mushroom-loft", url: KIT("rugRectangle"), position: mushroomFurniturePosition(-6.1, 2, 18.2), rotationY: 0, scale: mushroomFurnitureScale(2.0) },
-  { id: "m3-craft-table", room: "mushroom-loft", url: KIT("table"), position: mushroomFurniturePosition(-6.1, 2, 18.2), rotationY: 0, scale: mushroomFurnitureScale(2.2) },
-  { id: "m3-craft-chair-nw", room: "mushroom-loft", url: KIT("chair"), position: mushroomFurniturePosition(-6.5, 2, 17.6), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-craft-chair-ne", room: "mushroom-loft", url: KIT("chair"), position: mushroomFurniturePosition(-5.7, 2, 17.6), rotationY: 0, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-craft-chair-sw", room: "mushroom-loft", url: KIT("chair"), position: mushroomFurniturePosition(-6.5, 2, 18.8), rotationY: Math.PI, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-craft-chair-se", room: "mushroom-loft", url: KIT("chair"), position: mushroomFurniturePosition(-5.7, 2, 18.8), rotationY: Math.PI, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-craft-chair-w", room: "mushroom-loft", url: KIT("chair"), position: mushroomFurniturePosition(-6.9, 2, 18.2), rotationY: Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-craft-chair-e", room: "mushroom-loft", url: KIT("chair"), position: mushroomFurniturePosition(-5.3, 2, 18.2), rotationY: -Math.PI / 2, scale: mushroomFurnitureScale(1.8) },
-  { id: "m3-craft-lamp", room: "mushroom-loft", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-7.2, 2, 18.9), rotationY: 0, scale: mushroomFurnitureScale(1.5) },
-  { id: "m3-craft-plant", room: "mushroom-loft", url: KIT("pottedPlant"), position: mushroomFurniturePosition(-5.0, 2, 19.0), rotationY: 0, scale: mushroomFurnitureScale(1.55) },
-  { id: "m3-north-bookcase", room: "mushroom-loft", url: KIT("bookcaseOpen"), position: mushroomFurniturePosition(-6.8, 2, 14.1), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
-  { id: "m3-north-wardrobe", room: "mushroom-loft", url: KIT("bookcaseClosedDoors"), position: mushroomFurniturePosition(-3.3, 2, 14.25), rotationY: 0, scale: mushroomFurnitureScale(1.6) },
-  { id: "m3-bed-floor-lamp", room: "mushroom-loft", url: KIT("lampRoundFloor"), position: mushroomFurniturePosition(-3.2, 2, 15.4), rotationY: 0, scale: mushroomFurnitureScale(1.45) },
-  { id: "m3-bed-bench-table", room: "mushroom-loft", url: KIT("sideTable"), position: mushroomFurniturePosition(-4.8, 2, 17.4), rotationY: 0, scale: mushroomFurnitureScale(1.3) }
+  mushroomPiece("cabinet_small", { id: "m3-west-vanity", level: 2, x: -10.0, z: 14.75, rotationY: Math.PI / 2, scale: 0.95 }),
+  mushroomPiece("chair_stool_wood", { id: "m3-vanity-stool", level: 2, x: -9.25, z: 14.75, rotationY: -Math.PI / 2, scale: 0.95 }),
+  mushroomPiece("pictureframe_large_B", { id: "m3-vanity-mirror", level: 2, x: -10.2, z: 15.72, y: 1.8, rotationY: Math.PI / 2, scale: 1.0 }),
+  mushroomPiece("cactus_medium_B", { id: "m3-vanity-cactus", level: 2, x: -10.0, z: 14.75, y: 0.84, scale: 0.72 }),
+  mushroomPiece("shelf_A_big", { id: "m3-south-shelf", level: 2, x: -8.0, z: 22.18, y: 2.05, rotationY: Math.PI, scale: 1.08 }),
+  mushroomPiece("pictureframe_medium", { id: "m3-south-picture", level: 2, x: -3.25, z: 22.2, y: 2.4, rotationY: Math.PI, scale: 1.2 })
 ];
 
-// basename of a `/models/furniture/<name>.glb` url.
+// Basename shared by both vendored furniture directories.
 function modelName(url) {
   return url.slice(url.lastIndexOf("/") + 1, -".glb".length);
 }
@@ -387,7 +487,7 @@ function floorIndexForPlacement(placement) {
 export const FURNITURE_PLACEMENTS = RAW_PLACEMENTS.map((raw) => {
   const name = modelName(raw.url);
   const native = FURNITURE_FOOTPRINTS[name] ?? { x: 0.5, z: 0.5 };
-  const s = FURNITURE_BASE_SCALE * (raw.scale ?? 1);
+  const s = furnitureScaleForPlacement(raw);
   const policy = FURNITURE_POLICY[name] ?? {};
   return {
     ...raw,

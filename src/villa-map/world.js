@@ -55,10 +55,10 @@ const STAIR_ZONE = {
 // Mushroom-house interior — an independent three-storey "pocket" space buried
 // UNDERGROUND. Entering/leaving happens via teleport actions, so its dimensions
 // no longer depend on the exterior mushroom. The visual shell and its layout
-// coordinates are uniformly 4x; the player stays human-scale and furniture is
-// separately reduced to 0.8x of its former model size.
+// share a compact magical scale; the player, stair width, rails and furniture
+// remain human-scale through independent counter-scaling/base factors.
 //
-// Levels (slab TOP y): L1 -80, L2 -64, L3 -48. Player eye = slab + 1.6.
+// Level slab/eye heights are derived from mushroom-interior-config.js.
 // Every interior zone and collider carries a Y activation band so courtyard
 // players (y≈1.6) standing over the buried tower never interact with it.
 // ============================================================================
@@ -634,21 +634,21 @@ export function createVillaWorld() {
       {
         id: "mushroom-hearth",
         title: "一层灶间",
-        body: "圆圆的餐桌正对着小灶台，汤锅里咕嘟咕嘟冒着蘑菇汤的香气。",
+        body: "储物柜、长餐桌和茶角挤在暖灯串下面，蘑菇汤的香气绕着一整圈书架打转。",
         position: mushroomInteractionPosition(-7.5, 0, 16.4),
         radius: 2.8
       },
       {
         id: "mushroom-den",
         title: "二层玩乐窝",
-        body: "软沙发、故事书和小地毯挤满了二层——下雨天小猪们全窝在这里打滚。",
+        body: "抱枕沙发、故事书、照片和两块小地毯挤满了二层——下雨天小猪们全窝在彩旗下面打滚。",
         position: mushroomInteractionPosition(-6.2, 1, 17.2),
         radius: 2.8
       },
       {
         id: "mushroom-loft",
         title: "顶层星光阁楼",
-        body: "菌盖穹顶下嵌着一圈发光的小圆窗，最小的小猪说那是蘑菇屋自己的星星。",
+        body: "床、梳妆角和阅读窝贴着菌盖排开；圆窗与低低的灯串一起亮着，像蘑菇屋自己的星星。",
         position: mushroomInteractionPosition(-6.4, 2, 19.2),
         radius: 2.8
       },

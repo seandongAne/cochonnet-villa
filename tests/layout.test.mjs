@@ -5,9 +5,9 @@ import { ARCHITECTURE_PLACEMENTS } from "../src/villa-map/architecture-placement
 import { EXTERIOR_PLACEMENTS } from "../src/villa-map/exterior-placements.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
 
-// The main villa keeps its restrained one-group-per-room budgets. The 4x
-// mushroom pocket is intentionally different: each giant level needs several
-// close clusters to read as a warm home rather than a mostly empty hall.
+// The main villa remains intentionally edited and airy. The mushroom tower is
+// the deliberate exception: each compact magical floor uses multiple close
+// clusters and vertical decor, so it owns a separate dense target range.
 const ROOM_PIECE_BUDGETS = {
   "entry-foyer": 4,
   "great-hall-west": 8,
@@ -17,10 +17,10 @@ const ROOM_PIECE_BUDGETS = {
   "lounge-balcony": 7
 };
 
-const MUSHROOM_DENSITY_BANDS = {
-  "mushroom-hearth": { min: 36, max: 45 },
-  "mushroom-den": { min: 36, max: 45 },
-  "mushroom-loft": { min: 36, max: 45 }
+const MUSHROOM_DENSITY_RANGES = {
+  "mushroom-hearth": { min: 30, max: 36 },
+  "mushroom-den": { min: 30, max: 36 },
+  "mushroom-loft": { min: 30, max: 36 }
 };
 
 function rotatedAabb(piece) {
@@ -56,31 +56,27 @@ test("each interior room stays within its curated visual-density budget", () => 
   }
 });
 
-test("each expanded mushroom level keeps several dense furniture clusters", () => {
+test("each mushroom level stays within its intentional crowded-density range", () => {
   const byRoom = Map.groupBy(FURNITURE_PLACEMENTS, (piece) => piece.room);
 
-  for (const [room, band] of Object.entries(MUSHROOM_DENSITY_BANDS)) {
+  for (const [room, range] of Object.entries(MUSHROOM_DENSITY_RANGES)) {
     const pieces = byRoom.get(room) ?? [];
     assert.ok(
-      pieces.length >= band.min && pieces.length <= band.max,
-      `${room} has ${pieces.length} pieces; expected ${band.min}-${band.max}`
-    );
-    assert.ok(
-      new Set(pieces.map((piece) => piece.model)).size >= 14,
-      `${room} should use a varied mix of Kenney furniture`
+      pieces.length >= range.min && pieces.length <= range.max,
+      `${room} has ${pieces.length} pieces; expected ${range.min}-${range.max}`
     );
   }
 });
 
-test("rooms use at most one grounding rug per intentional furniture cluster", () => {
+test("main rooms use one grounding rug; mushroom floors may define two clusters", () => {
   const byRoom = Map.groupBy(FURNITURE_PLACEMENTS, (piece) => piece.room);
 
   for (const [room, pieces] of byRoom) {
     const rugs = pieces.filter((piece) => /^rug/.test(piece.model));
-    const maxRugs = room.startsWith("mushroom-") ? 4 : 1;
+    const maxRugs = room.startsWith("mushroom-") ? 2 : 1;
     assert.ok(
       rugs.length <= maxRugs,
-      `${room} layers ${rugs.length} rugs; expected at most ${maxRugs}`
+      `${room} layers ${rugs.length} rugs; maximum is ${maxRugs}`
     );
   }
 });

@@ -39,32 +39,30 @@ const ROOM_LIGHTS = [
   { x: 5.5, y: 10.6, z: -13.5, color: "#fff0d6", intensity: 7, distance: 7 },
   { x: 5.5, y: 10.6, z: -8.5, color: "#ffd2a3", intensity: 7, distance: 7 },
   // Mushroom-house pocket interior (buried; sunlight barely reaches it).
-  // Positions/distances follow the 4x room scale; inverse-square intensity is
-  // compensated by scale² so corresponding points keep similar brightness.
-  {
-    x: MUSHROOM_INTERIOR.center.x,
-    y: MUSHROOM_INTERIOR.floorY[0] + 3.2 * MUSHROOM_INTERIOR.scale,
-    z: MUSHROOM_INTERIOR.center.z,
-    color: "#ffd9a8",
-    intensity: 11 * MUSHROOM_INTERIOR.scale ** 2,
-    distance: 11 * MUSHROOM_INTERIOR.scale
-  },
-  {
-    x: MUSHROOM_INTERIOR.center.x,
-    y: MUSHROOM_INTERIOR.floorY[1] + 3.2 * MUSHROOM_INTERIOR.scale,
-    z: MUSHROOM_INTERIOR.center.z,
-    color: "#ffce96",
-    intensity: 10 * MUSHROOM_INTERIOR.scale ** 2,
-    distance: 10 * MUSHROOM_INTERIOR.scale
-  },
-  {
-    x: MUSHROOM_INTERIOR.center.x,
-    y: MUSHROOM_INTERIOR.floorY[2] + 3.4 * MUSHROOM_INTERIOR.scale,
-    z: MUSHROOM_INTERIOR.center.z,
-    color: "#ffe6bd",
-    intensity: 10 * MUSHROOM_INTERIOR.scale ** 2,
-    distance: 11 * MUSHROOM_INTERIOR.scale
-  }
+  // Two low warm pools per floor sit inside the fairy-light canopies. Keeping
+  // them close to furniture creates cosy contrast instead of one flat giant
+  // ceiling light washing the whole magical pocket.
+  ...MUSHROOM_INTERIOR.floorY.flatMap((floorY, level) => {
+    const colors = ["#ffb96f", "#ffab78", "#ffd08c"];
+    return [
+      {
+        x: MUSHROOM_INTERIOR.center.x - 3.1,
+        y: floorY + 3.0,
+        z: MUSHROOM_INTERIOR.center.z - 2.5,
+        color: colors[level],
+        intensity: 52,
+        distance: 10
+      },
+      {
+        x: MUSHROOM_INTERIOR.center.x + 3.1,
+        y: floorY + 3.0,
+        z: MUSHROOM_INTERIOR.center.z + 2.5,
+        color: colors[level],
+        intensity: 46,
+        distance: 9
+      }
+    ];
+  })
 ];
 
 // Self-hosted image-based lighting. Bakes three's built-in RoomEnvironment into
@@ -133,10 +131,9 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
         placement,
         object: createPorkyModel(materials, placement)
       })),
-      // Phase 2: pre-made CC0 GLB furniture (Kenney kit). Built once, mounted
-      // through <primitive> like the porkies; each piece streams its GLB in
-      // over a placeholder. Rooms still using boxy furniture are built inside
-      // createModernVilla instead.
+      // Pre-made CC0 GLB furniture (Kenney in the villa, KayKit Furniture Bits
+      // in the mushroom tower). Built once, mounted through <primitive> like
+      // the porkies; each piece streams its GLB in over a placeholder.
       furniture: FURNITURE_PLACEMENTS.map((placement) => ({
         placement,
         object: createFurniturePiece(placement)
@@ -244,7 +241,7 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
       {/* ---- Contact-shadow blobs (Phase 3; under interior + exterior props) ---- */}
       <primitive object={built.shadows} />
 
-      {/* ---- Furniture (Kenney CC0 GLB props, Phase 2) ---- */}
+      {/* ---- Furniture (Kenney + KayKit CC0 GLB props) ---- */}
       {/* In `?edit=1` mode each piece is click-selectable so the gizmo can grab
           it; the handlers are omitted entirely for ordinary visitors. */}
       {built.furniture.map(({ placement, object }) => (

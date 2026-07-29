@@ -4,8 +4,9 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 // Generic GLB furniture-prop loader — the Phase 2 counterpart to
 // porky-models.js. Both share the same shape (GLTFLoader + per-URL promise
 // cache + bounding-box fit + procedural placeholder), but furniture pieces are
-// pre-made CC0 assets (Kenney Furniture Kit) that ship with their own baked
-// materials, so we never recolour them — we only scale, recentre and ground.
+// pre-made CC0 assets (Kenney Furniture Kit + KayKit Furniture Bits) that ship
+// with their own baked materials, so we never recolour them — we only scale,
+// recentre and ground.
 //
 // Reused verbatim by the React layer (mounted through <primitive>) and the
 // node test suite (the placement DATA is asserted in furniture-placements.js).
@@ -17,6 +18,15 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 // correct relative size. Per-piece nudges go through placement.scale.
 export const FURNITURE_BASE_SCALE = 2.2;
 
+// KayKit Furniture Bits is authored close to real-world metres (its couch is
+// three source units wide), unlike the smaller Kenney kit. Placement records
+// from that pack opt into this base scale so both kits meet at player scale.
+export const KAYKIT_FURNITURE_BASE_SCALE = 1;
+
+export function furnitureScaleForPlacement(placement) {
+  return (placement.baseScale ?? FURNITURE_BASE_SCALE) * (placement.scale ?? 1);
+}
+
 const loader = new GLTFLoader();
 const modelCache = new Map();
 
@@ -27,7 +37,7 @@ const modelCache = new Map();
 // own footprint centre.
 export function createFurniturePiece(placement) {
   const group = new THREE.Group();
-  const scale = FURNITURE_BASE_SCALE * (placement.scale ?? 1);
+  const scale = furnitureScaleForPlacement(placement);
 
   const placeholder = new THREE.Mesh(
     new THREE.BoxGeometry(0.6, 0.3, 0.6),

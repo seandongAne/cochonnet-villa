@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 
@@ -530,13 +530,14 @@ test("villa scene places every Meshy pig across main villa, mushroom house, and 
 
   // The tower is round, not merely its rectangular floor-zone AABB. Keep the
   // full authored base of each pig inside the curved inner wall.
+  const mushroomWallRadius = 4.75 * MUSHROOM_INTERIOR.scale;
   meshy.filter((placement) => placement.area === "mushroom-house").forEach((placement) => {
     const radialDistance = Math.hypot(
       placement.position[0] - MUSHROOM_INTERIOR.center.x,
       placement.position[2] - MUSHROOM_INTERIOR.center.z
     );
     assert.ok(
-      radialDistance + placement.clearanceRadius <= 16,
+      radialDistance + placement.clearanceRadius <= mushroomWallRadius,
       `${placement.id} sits outside the round mushroom room`
     );
   });
@@ -623,7 +624,7 @@ test("furniture placements reference vendored CC0 GLBs within the world bounds",
 
   FURNITURE_PLACEMENTS.forEach((piece) => {
     assert.ok(roomIds.has(piece.room), `unknown furniture room: ${piece.room}`);
-    assert.match(piece.url, /^\/models\/furniture\/.+\.glb$/);
+    assert.match(piece.url, /^\/models\/(?:furniture|mushroom-furniture)\/.+\.glb$/);
 
     // The GLB the scene will fetch must actually be vendored in public/.
     const filePath = fileURLToPath(new URL(`../public${piece.url}`, import.meta.url));
@@ -638,6 +639,18 @@ test("furniture placements reference vendored CC0 GLBs within the world bounds",
 
     assert.equal(typeof piece.rotationY, "number");
   });
+});
+
+test("the complete CC0 KayKit Furniture Bits pack is vendored for the mushroom house", () => {
+  const modelDir = fileURLToPath(
+    new URL("../public/models/mushroom-furniture/", import.meta.url)
+  );
+  const models = readdirSync(modelDir).filter((name) => name.endsWith(".glb"));
+  assert.equal(models.length, 53, "expected the complete free KayKit model set");
+
+  const license = readFileSync(`${modelDir}/LICENSE.txt`, "utf8");
+  assert.match(license, /Creative Commons Zero, CC0/);
+  assert.match(license, /Kay Lousberg/);
 });
 
 test("the west great hall is furnished with multiple GLB props (Phase 2 room)", () => {

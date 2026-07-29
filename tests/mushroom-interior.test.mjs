@@ -9,6 +9,7 @@ import {
   findStairZone
 } from "../src/villa-map/world.js";
 import { createMaterials } from "../src/villa-map/assets.js";
+import { KAYKIT_FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.js";
 import { createMushroomInterior } from "../src/villa-map/mushroom-interior.js";
 import {
   MUSHROOM_FURNITURE_SCALE,
@@ -20,22 +21,12 @@ import {
   scaleMushroomInteriorPoint
 } from "../src/villa-map/mushroom-interior-config.js";
 import {
+  FURNITURE_FOOTPRINTS,
   FURNITURE_PLACEMENTS,
   MUSHROOM_LOFT_BED_POSITION,
   MUSHROOM_LOFT_BED_TOP_Y
 } from "../src/villa-map/furniture-placements.js";
 import { PORKY_PLACEMENTS } from "../src/villa-map/placements.js";
-
-// A few signature anchors pin the normalized-to-world migration without
-// mirroring the full intentionally-dense placement inventory in the test.
-const MUSHROOM_SIGNATURE_BASELINE = {
-  "m1-table": [-7.4, 0, 17.2, 1.9],
-  "m1-entry-mat": [-6.0, 0, 22.1, 2.0],
-  "m2-sofa": [-6.0, 1, 14.75, 1.55],
-  "m2-study-desk": [-1.9, 1, 18.0, 1.65],
-  "m3-bed": [-4.8, 2, 15.4, 1.55],
-  "m3-vanity": [-2.45, 2, 20.1, 1.55]
-};
 
 const nearlyEqual = (actual, expected, epsilon = 1e-9) =>
   Math.abs(actual - expected) <= epsilon;
@@ -59,10 +50,10 @@ test("mushroom interior exposes spawn/exit teleports wired to the door interacti
   assert.equal(collidesWithWorld(MUSHROOM_INTERIOR.spawn, world), false);
 });
 
-test("the pocket interior is 4x while the exterior mushroom stays unchanged", () => {
+test("the compact magical pocket stays larger than the unchanged exterior mushroom", () => {
   const world = createVillaWorld();
   assert.equal(MUSHROOM_INTERIOR.scale, MUSHROOM_INTERIOR_SCALE);
-  assert.equal(MUSHROOM_INTERIOR.scale, 4);
+  assert.equal(MUSHROOM_INTERIOR.scale, 1.6);
   assert.equal(MUSHROOM_INTERIOR.furnitureScale, MUSHROOM_FURNITURE_SCALE);
   assert.equal(MUSHROOM_INTERIOR.furnitureScale, 0.8);
 
@@ -219,6 +210,69 @@ test("stair flights stay enterable and guarded (rails, under-stair, rims)", () =
   assert.equal(collidesWithWorld({ ...centerOf(byCollider("mushroom-stair-b-rim")), y: l3 }, world), true);
 });
 
+test("furnished floors preserve a player-width route through all three levels", () => {
+  const world = createVillaWorld();
+  const stairA = world.stairs.find((stair) => stair.id === "mushroom-stairs-a");
+  const stairB = world.stairs.find((stair) => stair.id === "mushroom-stairs-b");
+  const stairX = (stair) => (stair.minX + stair.maxX) / 2;
+  const routes = [
+    {
+      name: "entry to stair A",
+      y: MUSHROOM_INTERIOR.eyeY[0],
+      start: MUSHROOM_INTERIOR.spawn,
+      goal: { x: stairX(stairA), z: stairA.maxZ + 0.8 }
+    },
+    {
+      name: "stair A landing to stair B",
+      y: MUSHROOM_INTERIOR.eyeY[1],
+      start: { x: stairX(stairA), z: stairA.minZ - 0.8 },
+      goal: { x: stairX(stairB), z: stairB.maxZ + 0.8 }
+    },
+    {
+      name: "stair B landing to loft centre",
+      y: MUSHROOM_INTERIOR.eyeY[2],
+      start: { x: stairX(stairB), z: stairB.minZ - 0.8 },
+      goal: MUSHROOM_INTERIOR.center
+    }
+  ];
+
+  const step = 0.35;
+  const fp = MUSHROOM_INTERIOR.footprint;
+  const snap = (point) => ({
+    x: Math.round(point.x / step) * step,
+    z: Math.round(point.z / step) * step
+  });
+  const key = (point) => `${Math.round(point.x / step)},${Math.round(point.z / step)}`;
+
+  for (const route of routes) {
+    const start = snap(route.start);
+    const goal = snap(route.goal);
+    const queue = [start];
+    const seen = new Set([key(start)]);
+    let cursor = 0;
+    let reached = false;
+
+    while (cursor < queue.length && !reached) {
+      const current = queue[cursor++];
+      if (Math.hypot(current.x - goal.x, current.z - goal.z) <= step * 1.5) {
+        reached = true;
+        break;
+      }
+      for (const [dx, dz] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+        const next = { x: current.x + dx, z: current.z + dz };
+        if (next.x < fp.minX || next.x > fp.maxX || next.z < fp.minZ || next.z > fp.maxZ) continue;
+        const nextKey = key(next);
+        if (seen.has(nextKey)) continue;
+        if (collidesWithWorld({ ...next, y: route.y }, world)) continue;
+        seen.add(nextKey);
+        queue.push(next);
+      }
+    }
+
+    assert.equal(reached, true, `${route.name} is blocked by the dense furnishing`);
+  }
+});
+
 test("interior interactions exist on all three levels plus the exit door", () => {
   const world = createVillaWorld();
   const byId = new Map(world.interactions.map((item) => [item.id, item]));
@@ -248,34 +302,42 @@ test("interior rooms are registered with their sunken floor heights", () => {
   assert.equal(roomsById.get("mushroom-den")?.floorY, MUSHROOM_INTERIOR.floorY[1]);
   assert.equal(roomsById.get("mushroom-loft")?.floorY, MUSHROOM_INTERIOR.floorY[2]);
   for (const id of ["mushroom-hearth", "mushroom-den", "mushroom-loft"]) {
-    assert.deepEqual(roomsById.get(id)?.size, { x: 32, z: 32 });
+    assert.deepEqual(roomsById.get(id)?.size, {
+      x: 8 * MUSHROOM_INTERIOR_SCALE,
+      z: 8 * MUSHROOM_INTERIOR_SCALE
+    });
   }
 });
 
 // ── Interior furniture data ────────────────────────────────────────────────
 
-test("all three interior levels are furnished from the vendored Kenney kit", () => {
+test("all three interior levels are densely furnished from the vendored KayKit pack", () => {
   const byRoom = (room) => FURNITURE_PLACEMENTS.filter((p) => p.room === room);
 
   const hearth = byRoom("mushroom-hearth");
   const den = byRoom("mushroom-den");
   const loft = byRoom("mushroom-loft");
-  assert.ok(hearth.length >= 36, "hearth under-furnished");
-  assert.ok(den.length >= 36, "den under-furnished");
-  assert.ok(loft.length >= 36, "loft under-furnished");
+  assert.ok(hearth.length >= 30, "hearth should feel crowded");
+  assert.ok(den.length >= 30, "den should feel crowded");
+  assert.ok(loft.length >= 30, "loft should feel crowded");
 
   // Floor indices drive Y-scoped colliders: 2/3/4 bottom-up.
   hearth.forEach((p) => assert.equal(p.floor, 2, `${p.id} floor`));
   den.forEach((p) => assert.equal(p.floor, 3, `${p.id} floor`));
   loft.forEach((p) => assert.equal(p.floor, 4, `${p.id} floor`));
 
-  // Signature pieces per storey: dining table, sofa, bed.
-  assert.ok(hearth.some((p) => p.model === "table"), "hearth needs its table");
-  assert.ok(den.some((p) => p.model === "loungeSofaLong"), "den needs its sofa");
-  assert.ok(loft.some((p) => p.model === "bedDouble"), "loft needs its bed");
+  // Signature pieces per storey: family table, pillow sofa, double bed.
+  assert.ok(hearth.some((p) => p.model === "table_medium_long"), "hearth needs its table");
+  assert.ok(den.some((p) => p.model === "couch_pillows"), "den needs its sofa");
+  assert.ok(loft.some((p) => p.model === "bed_double_B"), "loft needs its bed");
+
+  [...hearth, ...den, ...loft].forEach((piece) => {
+    assert.match(piece.url, /^\/models\/mushroom-furniture\/.+\.glb$/);
+    assert.equal(piece.baseScale, KAYKIT_FURNITURE_BASE_SCALE, `${piece.id} KayKit scale`);
+  });
 
   // Every piece sits inside the expanded tower footprint, clear of its own
-  // level's scaled stairwell hole.
+  // level's scaled stair flight / hole.
   const fp = MUSHROOM_INTERIOR.footprint;
   const stairA = createVillaWorld().stairs.find((stair) => stair.id === "mushroom-stairs-a");
   const stairB = createVillaWorld().stairs.find((stair) => stair.id === "mushroom-stairs-b");
@@ -285,50 +347,61 @@ test("all three interior levels are furnished from the vendored Kenney kit", () 
     minZ: scaleMushroomInteriorPoint(0, 16.5).z,
     maxZ: scaleMushroomInteriorPoint(0, 21.4).z
   });
-  const holes = { 3: stairwell(stairA), 4: stairwell(stairB) };
+  const exclusions = {
+    2: [stairwell(stairA)],
+    3: [stairwell(stairA), stairwell(stairB)],
+    4: [stairwell(stairB)]
+  };
   [...hearth, ...den, ...loft].forEach((p) => {
     const [x, , z] = p.position;
     assert.ok(x > fp.minX && x < fp.maxX, `${p.id} x inside tower`);
     assert.ok(z > fp.minZ && z < fp.maxZ, `${p.id} z inside tower`);
-    const hole = holes[p.floor];
-    if (hole) {
+    const floorY = MUSHROOM_INTERIOR.floorY[p.floor - 2];
+    const isElevatedDecor = !p.solid && p.position[1] > floorY + 0.4;
+    for (const hole of isElevatedDecor ? [] : (exclusions[p.floor] ?? [])) {
       const half = Math.max(p.footprint.x, p.footprint.z) / 2;
       const overlaps =
         x + half > hole.minX &&
         x - half < hole.maxX &&
         z + half > hole.minZ &&
         z - half < hole.maxZ;
-      assert.equal(overlaps, false, `${p.id} overlaps its level's stairwell hole`);
+      assert.equal(overlaps, false, `${p.id} overlaps its level's stair circulation`);
     }
   });
 });
 
-test("signature mushroom furniture anchors expand 4x and scale to 0.8x", () => {
-  const byId = new Map(FURNITURE_PLACEMENTS.map((piece) => [piece.id, piece]));
+test("mushroom furniture uses metre-scale footprints and layered vertical clutter", () => {
+  const pieces = FURNITURE_PLACEMENTS.filter((piece) => piece.room.startsWith("mushroom-"));
+  assert.equal(pieces.length, 94);
 
-  for (const [id, baseline] of Object.entries(MUSHROOM_SIGNATURE_BASELINE)) {
-    const piece = byId.get(id);
-    assert.ok(piece, `missing signature piece ${id}`);
-    const [oldX, level, oldZ, oldScale, oldYOffset = 0] = baseline;
-    const expectedXZ = scaleMushroomInteriorPoint(oldX, oldZ);
-
-    assert.ok(nearlyEqual(piece.position[0], expectedXZ.x), `${piece.id} x migrates 4x`);
-    assert.ok(nearlyEqual(piece.position[2], expectedXZ.z), `${piece.id} z migrates 4x`);
+  const models = new Set(pieces.map((piece) => piece.model));
+  assert.ok(models.size >= 28, `expected broad pack variety, got ${models.size} models`);
+  for (const piece of pieces) {
+    const native = FURNITURE_FOOTPRINTS[piece.model];
+    assert.ok(native, `${piece.id} needs a measured native footprint`);
+    const scale = KAYKIT_FURNITURE_BASE_SCALE * piece.scale;
     assert.ok(
-      nearlyEqual(
-        piece.position[1],
-        MUSHROOM_INTERIOR.floorY[level] + 0.05 + oldYOffset * MUSHROOM_FURNITURE_SCALE
-      ),
-      `${piece.id} y follows its new floor`
+      nearlyEqual(piece.footprint.x, native.x * scale),
+      `${piece.id} footprint.x uses the KayKit base scale`
     );
     assert.ok(
-      nearlyEqual(piece.scale, oldScale * MUSHROOM_FURNITURE_SCALE),
-      `${piece.id} scale becomes 0.8x`
+      nearlyEqual(piece.footprint.z, native.z * scale),
+      `${piece.id} footprint.z uses the KayKit base scale`
     );
+  }
+
+  // Shelves, pictures, books, lamps and cushions should visibly climb above
+  // the floor rather than concentrating all 94 pieces in one flat layer.
+  for (const [level, floorY] of MUSHROOM_INTERIOR.floorY.entries()) {
+    const floor = level + 2;
+    const elevated = pieces.filter(
+      (piece) => piece.floor === floor && piece.position[1] > floorY + 0.4
+    );
+    assert.ok(elevated.length >= 9, `mushroom floor ${floor} lacks vertical clutter`);
   }
 });
 
-test("the sleepy loft pig rests on the measured top of the Kenney bed", () => {
+test("the sleepy loft pig rests on the measured top of the KayKit bed", () => {
   const bed = FURNITURE_PLACEMENTS.find((piece) => piece.id === "m3-bed");
   const sleeper = PORKY_PLACEMENTS.find((piece) => piece.id === "meshy-sleepy-loft");
   assert.ok(bed && sleeper);
@@ -338,7 +411,7 @@ test("the sleepy loft pig rests on the measured top of the Kenney bed", () => {
   assert.equal(sleeper.position[2], bed.position[2]);
   assert.ok(nearlyEqual(sleeper.position[1], MUSHROOM_LOFT_BED_TOP_Y + 0.02));
   const supportHeight = sleeper.position[1] - MUSHROOM_INTERIOR.floorY[2];
-  assert.ok(supportHeight > 0.7 && supportHeight < 0.85);
+  assert.ok(supportHeight > 0.6 && supportHeight < 0.7);
 });
 
 // ── Procedural factory (node-pure) ─────────────────────────────────────────
@@ -356,7 +429,7 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   assert.ok(byName("mushroom-interior-soil"), "soil surround missing");
 
   // Both slabs keep their authored local coordinates while the parent scale
-  // moves their effective tops to world-relative 16 m and 32 m.
+  // moves their effective tops to the two configured world storey heights.
   const l2 = byName("mushroom-interior-slab-l2");
   const l3 = byName("mushroom-interior-slab-l3");
   assert.ok(l2 && l3, "upper slabs missing");
@@ -374,21 +447,21 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
       (l2.position.y + localSlabThickness) * interior.scale.y,
       MUSHROOM_INTERIOR.levelHeight
     ),
-    "L2 slab top is 16 m above L1 after scaling"
+    "L2 slab top follows the configured level height"
   );
   assert.ok(
     nearlyEqual(
       (l3.position.y + localSlabThickness) * interior.scale.y,
       MUSHROOM_INTERIOR.levelHeight * 2
     ),
-    "L3 slab top is 32 m above L1 after scaling"
+    "L3 slab top follows twice the configured level height"
   );
   assert.ok(
     nearlyEqual(
       l2.geometry.parameters.options.depth * interior.scale.y,
       MUSHROOM_SLAB_THICKNESS
     ),
-    "slab stays 35 cm thick instead of inheriting the 4x room scale"
+    "slab stays 35 cm thick instead of inheriting the room scale"
   );
   // Each upper slab is cut by exactly one stairwell hole.
   assert.equal(l2.geometry.parameters.shapes.holes.length, 1);
@@ -406,8 +479,8 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
     assert.ok(byName(`mushroom-interior-slab-l2-reveal-${side}`), `${side} reveal missing`);
   }
 
-  // The enlarged flights use 40 smaller risers each, keeping each world-space
-  // step near the original player-friendly height while spanning 16 m.
+  // Step count follows the room scale, keeping every world-space riser at the
+  // same height while the flight spans the compact magical storey.
   const steps = [];
   interior.traverse((child) => {
     if (/mushroom-interior-stair-[ab]-step-/.test(child.name)) steps.push(child);
@@ -418,7 +491,7 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   assert.ok(aFirst);
   assert.ok(
     nearlyEqual(aFirst.geometry.parameters.width * interior.scale.x, MUSHROOM_STAIR_WIDTH),
-    "stair width stays at 2.4 m instead of inheriting the 4x room scale"
+    "stair width stays at 2.4 m instead of inheriting the room scale"
   );
   assert.ok(
     nearlyEqual(
@@ -474,4 +547,18 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
     if (child.name.startsWith("mushroom-interior-window-")) windows.push(child);
   });
   assert.ok(windows.length >= 12, "expected portholes on all storeys");
+
+  // Each level gets a low, player-scale canopy: 3 cords, 27 bulbs and 24
+  // pennants. This is the warmth/density layer that visually lowers the tall
+  // magical room without affecting collisions.
+  for (let level = 1; level <= 3; level += 1) {
+    const prefix = `mushroom-interior-fairy-canopy-${level}`;
+    const canopy = byName(prefix);
+    assert.ok(canopy, `${prefix} missing`);
+    const names = [];
+    canopy.traverse((child) => names.push(child.name));
+    assert.equal(names.filter((name) => name.includes("-strand-")).length, 3);
+    assert.equal(names.filter((name) => name.includes("-bulb-")).length, 27);
+    assert.equal(names.filter((name) => name.includes("-pennant-")).length, 24);
+  }
 });

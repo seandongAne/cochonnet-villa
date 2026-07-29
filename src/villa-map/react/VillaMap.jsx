@@ -40,11 +40,17 @@ function formatRotation(ry) {
 // current (live) transform, ready to paste back over the original.
 function recordLine(placement, live) {
   const f = (n) => Number(n).toFixed(2);
+  const kit = placement.url.startsWith("/models/mushroom-furniture/")
+    ? "MUSHROOM_KIT"
+    : "KIT";
+  const baseScale = placement.baseScale == null
+    ? ""
+    : `, baseScale: ${placement.baseScale}`;
   return (
     `{ id: "${placement.id}", room: "${placement.room}", ` +
-    `url: KIT("${placement.model}"), ` +
+    `url: ${kit}("${placement.model}"), ` +
     `position: [${f(live.x)}, ${f(live.y)}, ${f(live.z)}], ` +
-    `rotationY: ${formatRotation(live.ry)}, scale: ${placement.scale ?? 1} },`
+    `rotationY: ${formatRotation(live.ry)}, scale: ${placement.scale ?? 1}${baseScale} },`
   );
 }
 
