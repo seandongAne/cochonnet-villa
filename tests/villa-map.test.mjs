@@ -14,6 +14,10 @@ import { FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.js";
 import { FURNITURE_PLACEMENTS } from "../src/villa-map/furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "../src/villa-map/exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "../src/villa-map/architecture-placements.js";
+import {
+  MUSHROOM_INTERIOR_LOCAL_RADIUS,
+  MUSHROOM_INTERIOR_SCALE
+} from "../src/villa-map/mushroom-interior-config.js";
 import { MUSHROOM_INTERIOR, collidesWithWorld, createVillaWorld, findStairZone, findWaterZone, isOnUpperFloor } from "../src/villa-map/world.js";
 import { findNearestInteraction } from "../src/villa-map/interaction.js";
 
@@ -357,7 +361,9 @@ test("explorer controls lower camera and slow movement in shallow hot spring wat
 test("mushroom house windows are thin and flush with the front wall", () => {
   const house = createMushroomHouse(createMaterials());
   const facade = house.getObjectByName("mushroom-house-facade");
-  const windows = house.children.filter((child) => child.name.startsWith("mushroom-window-"));
+  const windows = ["left", "right"].map((side) =>
+    house.getObjectByName(`mushroom-window-${side}`)
+  );
   const facadeFrontZ = facade.position.z - facade.geometry.parameters.depth / 2;
 
   assert.ok(facade);
@@ -369,6 +375,44 @@ test("mushroom house windows are thin and flush with the front wall", () => {
     assert.ok(backZ < facadeFrontZ);
     assert.ok(facadeFrontZ - backZ < 0.08);
   });
+
+  for (const side of ["left", "right"]) {
+    const rails = ["top", "bottom", "west", "east"].map((part) =>
+      house.getObjectByName(`mushroom-window-${side}-frame-${part}`)
+    );
+    assert.ok(rails.every(Boolean), `${side} window needs four separate frame rails`);
+    rails.forEach((rail) => assert.equal(rail.geometry.type, "BoxGeometry"));
+    assert.equal(
+      house.getObjectByName(`mushroom-window-${side}-arch`)?.geometry.type,
+      "TorusGeometry",
+      `${side} window crown must be open trim instead of a filled slab`
+    );
+  }
+});
+
+test("mushroom facade and porch layers do not intersect the stem or cap", () => {
+  const house = createMushroomHouse(createMaterials());
+  const stem = house.getObjectByName("mushroom-house-stem");
+  const facade = house.getObjectByName("mushroom-house-facade");
+  const header = house.getObjectByName("mushroom-house-porch-header");
+  const soffit = house.getObjectByName("mushroom-house-porch-soffit");
+  const gill = house.getObjectByName("mushroom-house-gill-base");
+  assert.ok(stem && facade && header && soffit && gill);
+
+  const stemFrontZ = stem.position.z - Math.max(
+    stem.geometry.parameters.radiusTop,
+    stem.geometry.parameters.radiusBottom
+  );
+  const facadeFrontZ = facade.position.z - facade.geometry.parameters.depth / 2;
+  const facadeBackZ = facade.position.z + facade.geometry.parameters.depth / 2;
+  assert.ok(stemFrontZ - facadeFrontZ >= 0.2, "facade must cover the curved stem front");
+  assert.ok(facadeBackZ > stemFrontZ, "facade back must remain anchored inside the stem");
+
+  const gillBottomY = gill.position.y - gill.geometry.parameters.height / 2;
+  for (const porchPart of [header, soffit]) {
+    const topY = porchPart.position.y + porchPart.geometry.parameters.height / 2;
+    assert.ok(topY <= gillBottomY, `${porchPart.name} intersects the cap gills`);
+  }
 });
 
 test("mushroom house has a visible exterior door clear of wall and doorstep", () => {
@@ -390,6 +434,11 @@ test("mushroom house has a visible exterior door clear of wall and doorstep", ()
 
   assert.ok(doorBackZ < facadeFrontZ, "door must sit fully in front of the facade");
   assert.ok(doorBottomY > doorstepTopY, "door must clear the doorstep instead of clipping through it");
+  assert.equal(
+    house.getObjectByName("mushroom-house-door-arch")?.geometry.type,
+    "TorusGeometry",
+    "door crown must be an open arch instead of a filled half-cylinder"
+  );
 });
 
 test("porky face has prominent eyes, snout, nostrils, and smile", () => {
@@ -537,7 +586,8 @@ test("villa scene places every Meshy pig across main villa, mushroom house, and 
       placement.position[2] - MUSHROOM_INTERIOR.center.z
     );
     assert.ok(
-      radialDistance + placement.clearanceRadius <= mushroomWallRadius,
+      radialDistance + placement.clearanceRadius
+        <= MUSHROOM_INTERIOR_LOCAL_RADIUS * MUSHROOM_INTERIOR_SCALE - 0.4,
       `${placement.id} sits outside the round mushroom room`
     );
   });

@@ -13,6 +13,7 @@ import { KAYKIT_FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.j
 import { createMushroomInterior } from "../src/villa-map/mushroom-interior.js";
 import {
   MUSHROOM_FURNITURE_SCALE,
+  MUSHROOM_INTERIOR_LOCAL_RADIUS,
   MUSHROOM_INTERIOR_SCALE,
   MUSHROOM_RAIL_HEIGHT,
   MUSHROOM_SLAB_THICKNESS,
@@ -50,12 +51,12 @@ test("mushroom interior exposes spawn/exit teleports wired to the door interacti
   assert.equal(collidesWithWorld(MUSHROOM_INTERIOR.spawn, world), false);
 });
 
-test("the compact magical pocket stays larger than the unchanged exterior mushroom", () => {
+test("the pocket interior is 2x while the exterior mushroom stays unchanged", () => {
   const world = createVillaWorld();
   assert.equal(MUSHROOM_INTERIOR.scale, MUSHROOM_INTERIOR_SCALE);
-  assert.equal(MUSHROOM_INTERIOR.scale, 1.6);
+  assert.equal(MUSHROOM_INTERIOR.scale, 2);
   assert.equal(MUSHROOM_INTERIOR.furnitureScale, MUSHROOM_FURNITURE_SCALE);
-  assert.equal(MUSHROOM_INTERIOR.furnitureScale, 0.8);
+  assert.equal(MUSHROOM_INTERIOR.furnitureScale, 1);
 
   assert.ok(
     nearlyEqual(
@@ -336,36 +337,75 @@ test("all three interior levels are densely furnished from the vendored KayKit p
     assert.equal(piece.baseScale, KAYKIT_FURNITURE_BASE_SCALE, `${piece.id} KayKit scale`);
   });
 
-  // Every piece sits inside the expanded tower footprint, clear of its own
-  // level's scaled stair flight / hole.
-  const fp = MUSHROOM_INTERIOR.footprint;
-  const stairA = createVillaWorld().stairs.find((stair) => stair.id === "mushroom-stairs-a");
-  const stairB = createVillaWorld().stairs.find((stair) => stair.id === "mushroom-stairs-b");
-  const stairwell = (stair) => ({
-    minX: stair.minX - MUSHROOM_STAIR_OPENING_MARGIN,
-    maxX: stair.maxX + MUSHROOM_STAIR_OPENING_MARGIN,
-    minZ: scaleMushroomInteriorPoint(0, 16.5).z,
-    maxZ: scaleMushroomInteriorPoint(0, 21.4).z
-  });
-  const exclusions = {
-    2: [stairwell(stairA)],
-    3: [stairwell(stairA), stairwell(stairB)],
-    4: [stairwell(stairB)]
+  // Check every rotated footprint corner against the real circular wall. A
+  // centre-only or square-bounds check lets wide shelves, rugs and pictures
+  // disappear into the curved shell even though their anchors look valid.
+  const safeRadius = MUSHROOM_INTERIOR_LOCAL_RADIUS * MUSHROOM_INTERIOR_SCALE - 0.15;
+  const rotatedAabb = (piece) => {
+    const theta = piece.rotationY ?? 0;
+    const cos = Math.abs(Math.cos(theta));
+    const sin = Math.abs(Math.sin(theta));
+    const halfX = (piece.footprint.x * cos + piece.footprint.z * sin) / 2;
+    const halfZ = (piece.footprint.x * sin + piece.footprint.z * cos) / 2;
+    const [x, , z] = piece.position;
+    return { minX: x - halfX, maxX: x + halfX, minZ: z - halfZ, maxZ: z + halfZ };
   };
-  [...hearth, ...den, ...loft].forEach((p) => {
-    const [x, , z] = p.position;
-    assert.ok(x > fp.minX && x < fp.maxX, `${p.id} x inside tower`);
-    assert.ok(z > fp.minZ && z < fp.maxZ, `${p.id} z inside tower`);
-    const floorY = MUSHROOM_INTERIOR.floorY[p.floor - 2];
-    const isElevatedDecor = !p.solid && p.position[1] > floorY + 0.4;
-    for (const hole of isElevatedDecor ? [] : (exclusions[p.floor] ?? [])) {
-      const half = Math.max(p.footprint.x, p.footprint.z) / 2;
-      const overlaps =
-        x + half > hole.minX &&
-        x - half < hole.maxX &&
-        z + half > hole.minZ &&
-        z - half < hole.maxZ;
-      assert.equal(overlaps, false, `${p.id} overlaps its level's stair circulation`);
+  const overlaps = (box, rect) =>
+    box.maxX > rect.minX &&
+    box.minX < rect.maxX &&
+    box.maxZ > rect.minZ &&
+    box.minZ < rect.maxZ;
+
+  const allPieces = [...hearth, ...den, ...loft];
+  allPieces.forEach((piece) => {
+    const box = rotatedAabb(piece);
+    for (const x of [box.minX, box.maxX]) {
+      for (const z of [box.minZ, box.maxZ]) {
+        const radius = Math.hypot(
+          x - MUSHROOM_INTERIOR.center.x,
+          z - MUSHROOM_INTERIOR.center.z
+        );
+        assert.ok(radius <= safeRadius, `${piece.id} reaches ${radius.toFixed(2)} m into the wall`);
+      }
+    }
+  });
+
+  // Lower floors clear the physical flights; upper floors clear the exact
+  // enlarged holes cut into their slabs.
+  const world = createVillaWorld();
+  const stairA = world.stairs.find((stair) => stair.id === "mushroom-stairs-a");
+  const stairB = world.stairs.find((stair) => stair.id === "mushroom-stairs-b");
+  const flightRect = (stair) => ({
+    minX: stair.minX - 0.25,
+    maxX: stair.maxX + 0.25,
+    minZ: stair.minZ - 0.25,
+    maxZ: stair.maxZ + 0.5
+  });
+  const interior = createMushroomInterior(createMaterials());
+  const holeRect = (slabName) => {
+    const slab = interior.getObjectByName(slabName);
+    const points = slab.geometry.parameters.shapes.holes[0].getPoints();
+    const xs = points.map((point) => MUSHROOM_INTERIOR.center.x + point.x * MUSHROOM_INTERIOR_SCALE);
+    const zs = points.map((point) => MUSHROOM_INTERIOR.center.z - point.y * MUSHROOM_INTERIOR_SCALE);
+    return {
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      minZ: Math.min(...zs),
+      maxZ: Math.max(...zs)
+    };
+  };
+  const forbiddenByFloor = {
+    2: [flightRect(stairA)],
+    3: [holeRect("mushroom-interior-slab-l2"), flightRect(stairB)],
+    4: [holeRect("mushroom-interior-slab-l3")]
+  };
+  allPieces.forEach((piece) => {
+    const floorY = MUSHROOM_INTERIOR.floorY[piece.floor - 2];
+    const isElevatedDecor = !piece.solid && piece.position[1] > floorY + 0.4;
+    if (isElevatedDecor) return;
+    const box = rotatedAabb(piece);
+    for (const forbidden of forbiddenByFloor[piece.floor]) {
+      assert.equal(overlaps(box, forbidden), false, `${piece.id} overlaps a stair or ceiling opening`);
     }
   });
 });
@@ -426,6 +466,11 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   assert.ok(byName("mushroom-interior-wall"), "round wall missing");
   assert.ok(byName("mushroom-interior-dome"), "cap dome missing");
   assert.ok(byName("mushroom-interior-door"), "exit door missing");
+  assert.equal(
+    byName("mushroom-interior-door-arch")?.geometry.type,
+    "TorusGeometry",
+    "door arch must be open trim, not a filled half-cylinder"
+  );
   assert.ok(byName("mushroom-interior-soil"), "soil surround missing");
 
   // Both slabs keep their authored local coordinates while the parent scale
@@ -461,13 +506,14 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
       l2.geometry.parameters.options.depth * interior.scale.y,
       MUSHROOM_SLAB_THICKNESS
     ),
-    "slab stays 35 cm thick instead of inheriting the room scale"
+    "slab stays 30 cm thick instead of inheriting the room scale"
   );
   // Each upper slab is cut by exactly one stairwell hole.
   assert.equal(l2.geometry.parameters.shapes.holes.length, 1);
   assert.equal(l3.geometry.parameters.shapes.holes.length, 1);
   const openingPoints = l2.geometry.parameters.shapes.holes[0].getPoints();
   const openingXs = openingPoints.map((point) => point.x);
+  const openingYs = openingPoints.map((point) => point.y);
   assert.ok(
     nearlyEqual(
       (Math.max(...openingXs) - Math.min(...openingXs)) * interior.scale.x,
@@ -475,6 +521,40 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
     ),
     "stair opening keeps comfortable clearance around the normal-width flight"
   );
+  assert.ok(
+    (Math.max(...openingYs) - Math.min(...openingYs)) * interior.scale.z
+      >= 4.4 * MUSHROOM_INTERIOR_SCALE + 1.35,
+    "stair opening extends beyond both ends of the flight for headroom"
+  );
+  const assertNoCeilingAcrossOpening = (slab) => {
+    const position = slab.geometry.attributes.position;
+    const points = slab.geometry.parameters.shapes.holes[0].getPoints();
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const depth = slab.geometry.parameters.options.depth;
+    for (let index = 0; index < position.count; index += 3) {
+      const zs = [0, 1, 2].map((offset) => position.getZ(index + offset));
+      const isCap =
+        zs.every((z) => nearlyEqual(z, 0)) ||
+        zs.every((z) => nearlyEqual(z, depth));
+      if (!isCap) continue;
+      const x = [0, 1, 2]
+        .map((offset) => position.getX(index + offset))
+        .reduce((sum, value) => sum + value, 0) / 3;
+      const y = [0, 1, 2]
+        .map((offset) => position.getY(index + offset))
+        .reduce((sum, value) => sum + value, 0) / 3;
+      assert.equal(
+        x > minX && x < maxX && y > minY && y < maxY,
+        false,
+        `${slab.name} has a ceiling triangle across its stair opening`
+      );
+    }
+  };
+  assertNoCeilingAcrossOpening(l2);
+  assertNoCeilingAcrossOpening(l3);
   for (const side of ["west", "east", "south", "north"]) {
     assert.ok(byName(`mushroom-interior-slab-l2-reveal-${side}`), `${side} reveal missing`);
   }
@@ -482,28 +562,39 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   // Step count follows the room scale, keeping every world-space riser at the
   // same height while the flight spans the compact magical storey.
   const steps = [];
+  const risers = [];
   interior.traverse((child) => {
     if (/mushroom-interior-stair-[ab]-step-/.test(child.name)) steps.push(child);
+    if (/mushroom-interior-stair-[ab]-riser-/.test(child.name)) risers.push(child);
   });
   const stepsPerFlight = 10 * MUSHROOM_INTERIOR_SCALE;
   assert.equal(steps.length, stepsPerFlight * 2);
+  assert.equal(risers.length, stepsPerFlight * 2);
   const aFirst = byName("mushroom-interior-stair-a-step-0");
   assert.ok(aFirst);
   assert.ok(
     nearlyEqual(aFirst.geometry.parameters.width * interior.scale.x, MUSHROOM_STAIR_WIDTH),
-    "stair width stays at 2.4 m instead of inheriting the room scale"
+    "stair width stays at 3.2 m instead of inheriting the room scale"
   );
   assert.ok(
     nearlyEqual(
       aFirst.geometry.parameters.depth * interior.scale.z,
-      4.4 / stepsPerFlight * MUSHROOM_INTERIOR_SCALE
+      4.4 / stepsPerFlight * MUSHROOM_INTERIOR_SCALE + 0.04
     ),
     "each tread stays pig/player scale"
   );
   assert.ok(
-    nearlyEqual(aFirst.geometry.parameters.height * interior.scale.y, 0.4),
-    "each riser stays 0.4 m high"
+    nearlyEqual(aFirst.geometry.parameters.height * interior.scale.y, 0.18),
+    "each tread stays 18 cm thick instead of becoming a full-height block"
   );
+  const aFirstRiser = byName("mushroom-interior-stair-a-riser-0");
+  assert.ok(aFirstRiser);
+  assert.ok(
+    nearlyEqual(aFirstRiser.geometry.parameters.height * interior.scale.y, 0.4),
+    "each independent riser stays 40 cm high"
+  );
+  assert.ok(byName("mushroom-interior-stair-a-stringer-west"));
+  assert.ok(byName("mushroom-interior-stair-a-stringer-east"));
   const aTop = byName(`mushroom-interior-stair-a-step-${stepsPerFlight - 1}`);
   assert.ok(aTop);
   const aTopSurface = aTop.position.y + aTop.geometry.parameters.height / 2;
@@ -543,8 +634,18 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
 
   // Glowing portholes on every storey (the loft's "star ring" included).
   const windows = [];
+  const windowTrims = [];
   interior.traverse((child) => {
-    if (child.name.startsWith("mushroom-interior-window-")) windows.push(child);
+    if (/^mushroom-interior-window-\d+-\d+$/.test(child.name)) windows.push(child);
+    if (child.name.startsWith("mushroom-interior-window-trim-")) windowTrims.push(child);
+  });
+  assert.equal(windows.length, 15, "expected portholes on all storeys");
+  assert.equal(windowTrims.length, windows.length, "each porthole needs visible trim");
+  [...windows, ...windowTrims].forEach((decor) => {
+    assert.ok(
+      Math.hypot(decor.position.x, decor.position.z) <= MUSHROOM_INTERIOR_LOCAL_RADIUS - 0.1,
+      `${decor.name} is buried in the curved wall`
+    );
   });
   assert.ok(windows.length >= 12, "expected portholes on all storeys");
 

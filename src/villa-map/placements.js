@@ -208,7 +208,8 @@ export const PORKY_PLACEMENTS = [
     room: "mushroom-den",
     floor: 3,
     clearanceRadius: 0.65,
-    position: mushroomPorkyPosition(-8.8, 1, 15.4),
+    // West-side open nook, clear of the compact cabinet run and stair B.
+    position: mushroomPorkyPosition(-9.75, 1, 18.75),
     rotationY: 0.82
   },
   {
@@ -219,7 +220,7 @@ export const PORKY_PLACEMENTS = [
     room: "mushroom-den",
     floor: 3,
     clearanceRadius: 0.7,
-    position: mushroomPorkyPosition(-5.4, 1, 21.4),
+    position: mushroomPorkyPosition(-5.5, 1, 19.25),
     rotationY: -2.95
   },
   {
@@ -248,8 +249,8 @@ export const PORKY_PLACEMENTS = [
     room: "mushroom-loft",
     floor: 4,
     clearanceRadius: 1.05,
-    // Tucked beside the east dresser, clear of the new reading-chair cluster.
-    position: mushroomPorkyPosition(-3.4, 2, 19.0),
+    // Tucked west of the east dresser, with a full body radius of clearance.
+    position: mushroomPorkyPosition(-3.75, 2, 19.0),
     rotationY: -2.35
   },
 

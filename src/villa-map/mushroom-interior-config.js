@@ -4,27 +4,34 @@
 // a teleport into this independent space, so the interior is free to use its
 // own scale without changing the exterior mesh or collider.
 
-// A 1.6x magical pocket is still noticeably larger than the exterior shell,
-// while keeping its furnished floors intimate (about 15 m across instead of
-// the former 38 m showroom). Storeys are 6.4 m high.
-export const MUSHROOM_INTERIOR_SCALE = 1.6;
-export const MUSHROOM_FURNITURE_SCALE = 0.8;
+// The pocket is deliberately twice the authored cottage composition. This is
+// large enough for three comfortable pig-scale floors without turning each
+// level into the previously oversized hall that made the furniture look miniature.
+export const MUSHROOM_INTERIOR_SCALE = 2;
+// Keep every furniture model at its curated/original placement size.
+export const MUSHROOM_FURNITURE_SCALE = 1;
+// KayKit's authored clusters already read well at their former 1.6x spread.
+// Retaining that proportional plan inside the new 2x shell creates a 20%
+// circulation/wall buffer instead of pushing shelves and pictures through the
+// round wall. Model scale remains 1; this affects X/Z anchors only.
+export const MUSHROOM_FURNITURE_LAYOUT_SCALE = 1.6;
+export const MUSHROOM_INTERIOR_LOCAL_RADIUS = 4.75;
 // Player-scale circulation details do not inherit the pocket's architectural
-// scale. The flight still spans the enlarged storey, but remains a normal
-// 2.4 m wide with one-metre handrails.
-export const MUSHROOM_STAIR_WIDTH = 2.4;
-export const MUSHROOM_RAIL_HEIGHT = 1;
+// scale. The flight spans the enlarged 8 m storey, but remains a comfortable
+// 3.2 m wide with player-height handrails.
+export const MUSHROOM_STAIR_WIDTH = 3.2;
+export const MUSHROOM_RAIL_HEIGHT = 1.05;
 // Floor construction and clearance also stay at a believable player scale.
 // These are WORLD-space values; mushroom-interior.js counter-scales them before
-// the entire pocket group receives its architectural transform.
-export const MUSHROOM_SLAB_THICKNESS = 0.35;
-export const MUSHROOM_STAIR_OPENING_MARGIN = 0.4;
+// the entire pocket group receives its 2x transform.
+export const MUSHROOM_SLAB_THICKNESS = 0.3;
+export const MUSHROOM_STAIR_OPENING_MARGIN = 0.8;
 
 export const MUSHROOM_INTERIOR_CENTER = Object.freeze({ x: -6, z: 18 });
 
-// Burying the origin at -80 keeps the complete compact tower safely below the
-// meadow while preserving wide separation from the courtyard collision bands.
-export const MUSHROOM_INTERIOR_BASE_Y = -80;
+// The 2x visual tower is about 35 m tall from its L1 origin to the cap top.
+// Burying the origin at -48 keeps the whole pocket safely below the meadow.
+export const MUSHROOM_INTERIOR_BASE_Y = -48;
 export const MUSHROOM_INTERIOR_LEVEL_HEIGHT = 4 * MUSHROOM_INTERIOR_SCALE;
 export const MUSHROOM_INTERIOR_EYE_OFFSET = 1.6;
 
@@ -76,9 +83,8 @@ export function scaleMushroomInteriorPoint(x, z) {
   };
 }
 
-// Legacy Kenney furniture migrations keep the old composition's normalized
-// position and 0.8x model scale. New KayKit records use the world-offset helper
-// below and their own metre-scale base factor.
+// Legacy Kenney migrations follow the full room transform. The current KayKit
+// records use the padded world-offset helper below.
 export function mushroomFurniturePosition(x, level, z, yOffset = 0) {
   const point = scaleMushroomInteriorPoint(x, z);
   return [
@@ -88,11 +94,15 @@ export function mushroomFurniturePosition(x, level, z, yOffset = 0) {
   ];
 }
 
-// New furniture authored directly for the pocket uses world-metre vertical
-// offsets instead of the legacy 0.8x migration above. X/Z stay in the readable
-// plan coordinates, then fan out with the configured room scale.
+// KayKit furniture uses world-metre vertical offsets. Its readable source-plan
+// X/Z anchors retain the curated 1.6x composition inside the 2x architecture.
 export function mushroomFurnitureWorldPosition(x, level, z, yOffset = 0) {
-  const point = scaleMushroomInteriorPoint(x, z);
+  const point = {
+    x: MUSHROOM_INTERIOR_CENTER.x
+      + (x - MUSHROOM_INTERIOR_CENTER.x) * MUSHROOM_FURNITURE_LAYOUT_SCALE,
+    z: MUSHROOM_INTERIOR_CENTER.z
+      + (z - MUSHROOM_INTERIOR_CENTER.z) * MUSHROOM_FURNITURE_LAYOUT_SCALE
+  };
   return [
     point.x,
     MUSHROOM_INTERIOR_FLOOR_Y[level] + 0.05 + yOffset,

@@ -55,10 +55,10 @@ const STAIR_ZONE = {
 // Mushroom-house interior — an independent three-storey "pocket" space buried
 // UNDERGROUND. Entering/leaving happens via teleport actions, so its dimensions
 // no longer depend on the exterior mushroom. The visual shell and its layout
-// share a compact magical scale; the player, stair width, rails and furniture
-// remain human-scale through independent counter-scaling/base factors.
+// coordinates are uniformly 2x; the player stays human-scale and furniture
+// keeps its original curated model size.
 //
-// Level slab/eye heights are derived from mushroom-interior-config.js.
+// Levels (slab TOP y): L1 -48, L2 -40, L3 -32. Player eye = slab + 1.6.
 // Every interior zone and collider carries a Y activation band so courtyard
 // players (y≈1.6) standing over the buried tower never interact with it.
 // ============================================================================
@@ -98,9 +98,9 @@ const MUSH_ALL_Y = {
 // level, exit at minZ on the upper one) exactly like the villa stair, and both
 // are Y-scoped so only players already inside the tower are captured.
 // The run and rise follow the enlarged room, but width stays player-scale at
-// 2.4 m so the stairs and handrails remain proportional to the pigs.
-const MUSHROOM_STAIR_A_CENTER_X = scaleMushroomInteriorX(-3.3);
-const MUSHROOM_STAIR_B_CENTER_X = scaleMushroomInteriorX(-8.7);
+// 3.2 m so the stairs and handrails remain comfortable for visitors and pigs.
+const MUSHROOM_STAIR_A_CENTER_X = scaleMushroomInteriorX(-4);
+const MUSHROOM_STAIR_B_CENTER_X = scaleMushroomInteriorX(-8);
 const MUSHROOM_STAIR_MIN_Z = scaleMushroomInteriorZ(16.6);
 const MUSHROOM_STAIR_MAX_Z = scaleMushroomInteriorZ(21);
 const MUSHROOM_STAIR_A = {

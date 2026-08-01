@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import {
+  MUSHROOM_INTERIOR_LOCAL_RADIUS,
   MUSHROOM_INTERIOR_SCALE,
   MUSHROOM_RAIL_HEIGHT,
   MUSHROOM_SLAB_THICKNESS,
@@ -11,9 +12,9 @@ import {
 //
 // The interior is a "pocket" space buried underground beneath the mushroom
 // house (see MUSHROOM_INTERIOR in world.js): Scene.jsx mounts this group at the
-// pocket origin and the group applies the shared magical scale. The authored
-// mesh remains LOCAL at +4 per storey and radius ≈4.75; the exterior mushroom
-// stays untouched while the interior remains roomier than it looks outside.
+// pocket origin and the group applies the shared 2x scale. The authored mesh
+// remains LOCAL at +4 per storey and radius ≈4.75; its world-space storeys are
+// therefore 8 m apart and the exterior mushroom stays untouched.
 //
 // Framework-agnostic factory in the assets.js mould: geometries + materials +
 // groups only (no TextureLoader, no document), so the node test suite can
@@ -21,27 +22,33 @@ import {
 //
 // Layout contract (must stay in sync with world.js):
 //   slab tops   y = 0 (L1), 4 (L2), 8 (L3)
-//   stair A     L1→L2, world width 2.4 m centred at local x=2.7
-//   stair B     L2→L3, world width 2.4 m centred at local x=-2.7
-//   both runs   local z 3.0 (bottom) → -1.4 (top), expanded to 17.6 m
+//   stair A     L1→L2, world width 3.2 m centred at local x=2.0
+//   stair B     L2→L3, world width 3.2 m centred at local x=-2.0
+//   both runs   local z 3.0 (bottom) → -1.4 (top), expanded to 8.8 m
 //   door        south wall, local z ≈ +4.5
-const RADIUS = 4.75;
+const RADIUS = MUSHROOM_INTERIOR_LOCAL_RADIUS;
 const LEVEL_HEIGHT = 4;
 const WALL_HEIGHT = LEVEL_HEIGHT * 3 + 0.4;
 const PLAYER_DETAIL_SCALE = 1 / MUSHROOM_INTERIOR_SCALE;
 const SLAB_THICKNESS = MUSHROOM_SLAB_THICKNESS * PLAYER_DETAIL_SCALE;
 
-// Keep stair risers at a consistent world height while the flight's overall
-// run/rise follows the room: 10 authored steps × the configured scale.
+// Keep stair risers at a player-friendly world height while the flight's
+// overall run/rise scales 2x: 10 authored steps × scale = 20 steps.
 const STAIR_RUN = {
   bottomZ: 3.0,
   topZ: -1.4,
-  // Counter-scale the width because the parent group is enlarged.
+  // Counter-scale the width because the parent group is enlarged 2x.
   width: MUSHROOM_STAIR_WIDTH * PLAYER_DETAIL_SCALE,
   steps: 10 * MUSHROOM_INTERIOR_SCALE
 };
-const STAIR_A_X = 2.7; // world -3.3
-const STAIR_B_X = -2.7; // world -8.7
+const STAIR_OPENING = {
+  // Every corner must remain inside the circular slab. A hole that intersects
+  // the outer contour triangulates into stray ceiling faces.
+  bottomZ: 3.4,
+  topZ: -1.7
+};
+const STAIR_A_X = 2.0; // source-space x=-4, world x=-2 at 2x
+const STAIR_B_X = -2.0; // source-space x=-8, world x=-10 at 2x
 
 export function createMushroomInterior(materials) {
   const group = new THREE.Group();
@@ -164,6 +171,7 @@ export function createMushroomInterior(materials) {
       group.add(disc);
       // Wooden porthole trim ring.
       const trim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.05, 8, 20), materials.wood);
+      trim.name = `mushroom-interior-window-trim-${level + 1}-${index}`;
       trim.position.copy(disc.position);
       trim.rotation.y = angle + Math.PI;
       group.add(trim);
@@ -176,12 +184,11 @@ export function createMushroomInterior(materials) {
   door.position.set(0, 1.35, RADIUS - 0.35);
   group.add(door);
   const doorArch = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.85, 0.85, 0.18, 24, 1, false, 0, Math.PI),
-    materials.wood
+    new THREE.TorusGeometry(0.86, 0.09, 8, 24, Math.PI),
+    materials.fascia
   );
-  doorArch.rotation.x = Math.PI / 2;
-  doorArch.rotation.z = Math.PI;
-  doorArch.position.set(0, 2.7, RADIUS - 0.35);
+  doorArch.name = "mushroom-interior-door-arch";
+  doorArch.position.set(0, 2.7, RADIUS - 0.46);
   group.add(doorArch);
   for (const px of [-0.95, 0.95]) {
     const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.8, 0.24), materials.fascia);
@@ -315,16 +322,17 @@ function buildSlab(name, topY, stairX, materials) {
   shape.absarc(0, 0, RADIUS - 0.03, 0, Math.PI * 2, false);
 
   // Shape-space v = -z (the mesh is rotated -PI/2 about X). Hole runs from the
-  // flight's low end (z 3.4, just past the bottom step) to the top step's rear
-  // edge (z -1.5) so the landing is solid the moment you step off the flight.
+  // flight's low end to beyond the top step's rear edge. The extra clearance
+  // prevents the L2 ceiling from visually or physically sealing the L2→L3
+  // approach at shallow camera angles.
   const hole = new THREE.Path();
   const holeMargin = MUSHROOM_STAIR_OPENING_MARGIN * PLAYER_DETAIL_SCALE;
   const hx0 = stairX - STAIR_RUN.width / 2 - holeMargin;
   const hx1 = stairX + STAIR_RUN.width / 2 + holeMargin;
-  hole.moveTo(hx0, -3.4);
-  hole.lineTo(hx1, -3.4);
-  hole.lineTo(hx1, 1.5);
-  hole.lineTo(hx0, 1.5);
+  hole.moveTo(hx0, -STAIR_OPENING.bottomZ);
+  hole.lineTo(hx1, -STAIR_OPENING.bottomZ);
+  hole.lineTo(hx1, -STAIR_OPENING.topZ);
+  hole.lineTo(hx0, -STAIR_OPENING.topZ);
   hole.closePath();
   shape.holes.push(hole);
 
@@ -343,9 +351,11 @@ function buildSlab(name, topY, stairX, materials) {
   // unmistakable from below, their player-scale thickness prevents the dark
   // floor material from reading as a sealed ceiling at a shallow camera angle.
   const revealThickness = 0.08 * PLAYER_DETAIL_SCALE;
-  const holeLength = 4.9;
+  const holeLength = STAIR_OPENING.bottomZ - STAIR_OPENING.topZ;
   const holeWidth = hx1 - hx0;
-  const shapeCenterY = (-3.4 + 1.5) / 2;
+  const shapeMinY = -STAIR_OPENING.bottomZ;
+  const shapeMaxY = -STAIR_OPENING.topZ;
+  const shapeCenterY = (shapeMinY + shapeMaxY) / 2;
   const addReveal = (revealName, width, height, depth, x, y) => {
     const reveal = new THREE.Mesh(
       new THREE.BoxGeometry(width, height, depth),
@@ -361,14 +371,15 @@ function buildSlab(name, topY, stairX, materials) {
   };
   addReveal("west", revealThickness, holeLength, SLAB_THICKNESS, hx0, shapeCenterY);
   addReveal("east", revealThickness, holeLength, SLAB_THICKNESS, hx1, shapeCenterY);
-  addReveal("south", holeWidth, revealThickness, SLAB_THICKNESS, stairX, -3.4);
-  addReveal("north", holeWidth, revealThickness, SLAB_THICKNESS, stairX, 1.5);
+  addReveal("south", holeWidth, revealThickness, SLAB_THICKNESS, stairX, shapeMinY);
+  addReveal("north", holeWidth, revealThickness, SLAB_THICKNESS, stairX, shapeMaxY);
   return slab;
 }
 
 // One straight flight ascending northward (z decreases) from `baseY` to
-// `baseY + LEVEL_HEIGHT`. Solid full-height risers so the flight reads chunky
-// from every angle; sloped handrails guard both freestanding sides.
+// `baseY + LEVEL_HEIGHT`. Thin treads, one-rise fascia boards and two slim
+// stringers keep the underside open instead of forming a floor-to-ceiling
+// wedge; sloped handrails guard both freestanding sides.
 function buildStairFlight(name, centerX, baseY, materials) {
   const flight = new THREE.Group();
   flight.name = name;
@@ -376,28 +387,68 @@ function buildStairFlight(name, centerX, baseY, materials) {
   const run = STAIR_RUN.bottomZ - STAIR_RUN.topZ;
   const tread = run / STAIR_RUN.steps;
   const rise = LEVEL_HEIGHT / STAIR_RUN.steps;
+  const treadThickness = 0.18 * PLAYER_DETAIL_SCALE;
+  const riserThickness = 0.08 * PLAYER_DETAIL_SCALE;
 
   for (let i = 0; i < STAIR_RUN.steps; i += 1) {
-    const height = (i + 1) * rise;
+    const topY = baseY + (i + 1) * rise;
     const step = new THREE.Mesh(
-      new THREE.BoxGeometry(STAIR_RUN.width, height, tread),
+      new THREE.BoxGeometry(
+        STAIR_RUN.width,
+        treadThickness,
+        tread + 0.04 * PLAYER_DETAIL_SCALE
+      ),
       materials.wood
     );
     step.name = `${name}-step-${i}`;
     step.position.set(
       centerX,
-      baseY + height / 2,
+      topY - treadThickness / 2,
       STAIR_RUN.bottomZ - (i + 0.5) * tread
     );
     step.castShadow = true;
     step.receiveShadow = true;
     flight.add(step);
+
+    const riser = new THREE.Mesh(
+      new THREE.BoxGeometry(STAIR_RUN.width, rise, riserThickness),
+      materials.fascia
+    );
+    riser.name = `${name}-riser-${i}`;
+    riser.position.set(
+      centerX,
+      topY - rise / 2,
+      STAIR_RUN.bottomZ - (i + 1) * tread
+    );
+    riser.castShadow = true;
+    riser.receiveShadow = true;
+    flight.add(riser);
   }
 
-  // The pocket expanded away from both walls, so both sides need a handrail.
-  // Cross-sections, heights and post spacing are counter-scaled back to pig /
-  // player proportions while the rail length still spans the scaled flight.
   const slope = Math.atan2(LEVEL_HEIGHT, run);
+  const slopeLength = Math.hypot(run, LEVEL_HEIGHT);
+  for (const direction of [-1, 1]) {
+    const stringer = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.16 * PLAYER_DETAIL_SCALE,
+        0.22 * PLAYER_DETAIL_SCALE,
+        slopeLength
+      ),
+      materials.wood
+    );
+    stringer.name = `${name}-stringer-${direction < 0 ? "west" : "east"}`;
+    stringer.position.set(
+      centerX + direction * (STAIR_RUN.width / 2 - 0.2 * PLAYER_DETAIL_SCALE),
+      baseY + LEVEL_HEIGHT / 2 - 0.2 * PLAYER_DETAIL_SCALE,
+      (STAIR_RUN.bottomZ + STAIR_RUN.topZ) / 2
+    );
+    stringer.rotation.x = slope;
+    stringer.castShadow = true;
+    flight.add(stringer);
+  }
+
+  // Both freestanding sides get a handrail. Cross-sections, heights and post
+  // spacing stay at player scale while the rail spans the full 2x flight.
   const worldSlopeLength = Math.hypot(
     run * MUSHROOM_INTERIOR_SCALE,
     LEVEL_HEIGHT * MUSHROOM_INTERIOR_SCALE
