@@ -3,6 +3,10 @@ import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "./architecture-placements.js";
 import {
+  MUSHROOM_OBSERVATORY_SWITCH_ACTION_TYPE,
+  MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID
+} from "./mushroom-interior.js";
+import {
   MUSHROOM_FLOOR_Y_RANGES,
   MUSHROOM_FURNITURE_SCALE,
   MUSHROOM_INTERIOR_BASE_Y,
@@ -10,6 +14,7 @@ import {
   MUSHROOM_INTERIOR_EYE_Y,
   MUSHROOM_INTERIOR_FLOOR_Y,
   MUSHROOM_INTERIOR_LEVEL_HEIGHT,
+  MUSHROOM_INTERIOR_LOCAL_RADIUS,
   MUSHROOM_INTERIOR_SCALE,
   MUSHROOM_STAIR_OPENING_MARGIN,
   MUSHROOM_STAIR_WIDTH,
@@ -129,13 +134,19 @@ const MUSHROOM_STAIR_B = {
 };
 
 function mushroomFloorZone(level, band) {
-  const fp = MUSHROOM_INTERIOR.footprint;
+  // Use the round shell's full AABB here, rather than the smaller navigation
+  // square exposed on MUSHROOM_INTERIOR.footprint. The radial wall collider
+  // below owns the actual playable outline; keeping its cardinal edge inside
+  // the floor zone prevents camera height from snapping toward ground level
+  // during the final few centimetres of a walk toward the curved wall.
+  const radius = MUSHROOM_INTERIOR_LOCAL_RADIUS * MUSHROOM_INTERIOR_SCALE;
+  const { x, z } = MUSHROOM_INTERIOR.center;
   return {
     id: `mushroom-floor-${level + 1}`,
-    minX: fp.minX,
-    maxX: fp.maxX,
-    minZ: fp.minZ,
-    maxZ: fp.maxZ,
+    minX: x - radius,
+    maxX: x + radius,
+    minZ: z - radius,
+    maxZ: z + radius,
     eyeY: MUSHROOM_INTERIOR.eyeY[level],
     minY: band.minY,
     maxY: band.maxY
@@ -151,17 +162,6 @@ function mushroomInteractionPosition(x, level, z) {
 }
 
 function mushroomInteriorColliders() {
-  const scaledBox = (id, x, z, width, depth, yRange) => {
-    const point = scaleMushroomInteriorPoint(x, z);
-    return boxCollider(
-      id,
-      point.x,
-      point.z,
-      width * MUSHROOM_INTERIOR_SCALE,
-      depth * MUSHROOM_INTERIOR_SCALE,
-      yRange
-    );
-  };
   const stairCenterZ = (MUSHROOM_STAIR_MIN_Z + MUSHROOM_STAIR_MAX_Z) / 2;
   const stairDepth = MUSHROOM_STAIR_MAX_Z - MUSHROOM_STAIR_MIN_Z;
   const railWidth = 0.2;
@@ -206,14 +206,17 @@ function mushroomInteriorColliders() {
   );
 
   return [
-    // Perimeter (inner faces ≈ ±4.4 from the centre). No corner blocks — they
-    // would pinch the stair-flight entries shut once the player radius is
-    // added; the visual "soil shell" around the tower covers the diagonal
-    // overshoot instead.
-    scaledBox("mushroom-int-wall-n", -6, 13.3, 9.6, 0.6, MUSH_ALL_Y),
-    scaledBox("mushroom-int-wall-s", -6, 22.7, 9.6, 0.6, MUSH_ALL_Y),
-    scaledBox("mushroom-int-wall-e", -1.3, 18, 0.6, 9.6, MUSH_ALL_Y),
-    scaledBox("mushroom-int-wall-w", -10.7, 18, 0.6, 9.6, MUSH_ALL_Y),
+    // Match the visible cylindrical shell. The former four-box approximation
+    // left open diagonal corners where a player could step through the round
+    // wall and into the surrounding soil. One inward-facing radial boundary
+    // closes the full circumference without pinching either stair entrance.
+    circleBoundaryCollider(
+      "mushroom-int-round-wall",
+      MUSHROOM_INTERIOR.center.x,
+      MUSHROOM_INTERIOR.center.z,
+      MUSHROOM_INTERIOR_LOCAL_RADIUS * MUSHROOM_INTERIOR_SCALE,
+      MUSH_ALL_Y
+    ),
     // Normal-width side rails follow the full enlarged run. The centre aisle
     // stays open while both sides match the visible one-metre handrails.
     stairRail(
@@ -648,9 +651,23 @@ export function createVillaWorld() {
       {
         id: "mushroom-loft",
         title: "顶层星光阁楼",
-        body: "床、梳妆角和阅读窝贴着菌盖排开；圆窗与低低的灯串一起亮着，像蘑菇屋自己的星星。",
+        body: "床、梳妆角和阅读窝贴着菌盖排开；暗红圆窗沿墙发出柔和引路光，头顶是一整片没有遮挡的银河穹顶。",
         position: mushroomInteractionPosition(-6.4, 2, 19.2),
         radius: 2.8
+      },
+      {
+        id: MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID,
+        title: "三楼灯光开关",
+        body: "墙上的黄铜开关控制整层灯光。把灯关掉，等眼睛适应黑暗，看看穹顶会发生什么……",
+        // Matches the physical switch's local offset (-4.55, -1.25) after the
+        // pocket's 2x transform. It is beside the top of stair B and can be
+        // reached without walking through the vanity or the curved wall.
+        position: mushroomInteractionPosition(-10.55, 2, 16.75),
+        radius: 2.6,
+        action: {
+          type: MUSHROOM_OBSERVATORY_SWITCH_ACTION_TYPE,
+          label: "按 E 关闭灯光，仰望星空"
+        }
       },
       {
         id: "dog-house-view",
@@ -763,6 +780,22 @@ export function boxCollider(id, x, z, width, depth, opts) {
   return collider;
 }
 
+// An inward-facing circular boundary: positions remain walkable only while
+// the player's full radius fits inside `radius`. This is distinct from a solid
+// circular obstacle, where the blocked area would be the circle's interior.
+function circleBoundaryCollider(id, x, z, radius, opts) {
+  const collider = {
+    id,
+    kind: "circle-boundary",
+    centerX: x,
+    centerZ: z,
+    radius
+  };
+  if (opts?.minY !== undefined) collider.minY = opts.minY;
+  if (opts?.maxY !== undefined) collider.maxY = opts.maxY;
+  return collider;
+}
+
 export function collidesWithWorld(position, world) {
   const radius = world.player.radius;
   // Default Y to player ground-floor height — keeps tests that pass only
@@ -783,6 +816,12 @@ export function collidesWithWorld(position, world) {
     // Skip colliders that don't span this player's Y range.
     if (collider.minY !== undefined && playerY > collider.maxY) return false;
     if (collider.maxY !== undefined && playerY < collider.minY) return false;
+    if (collider.kind === "circle-boundary") {
+      const dx = position.x - collider.centerX;
+      const dz = position.z - collider.centerZ;
+      const maxCenterRadius = Math.max(0, collider.radius - radius);
+      return dx * dx + dz * dz > maxCenterRadius * maxCenterRadius;
+    }
     return (
       position.x > collider.minX - radius &&
       position.x < collider.maxX + radius &&

@@ -133,15 +133,25 @@ test("stair interpolation carries the player between interior levels", () => {
 test("interior walls contain the player; the courtyard above stays unaffected", () => {
   const world = createVillaWorld();
   const l1 = MUSHROOM_INTERIOR.eyeY[0];
-  const fp = MUSHROOM_INTERIOR.footprint;
+  const wallRadius = MUSHROOM_INTERIOR_LOCAL_RADIUS * MUSHROOM_INTERIOR_SCALE;
+  const openRadius = wallRadius - world.player.radius - 0.01;
+  const blockedRadius = wallRadius - world.player.radius + 0.01;
 
-  // The centre stays open; probes just inside each scaled inner face hit a
-  // perimeter wall.
+  // The centre stays open. At every cardinal face the player's full radius can
+  // approach the visible cylinder, but their centre cannot cross its edge.
   assert.equal(collidesWithWorld({ ...MUSHROOM_INTERIOR.center, y: l1 }, world), false);
-  assert.equal(collidesWithWorld({ x: fp.minX + 0.2, y: l1, z: MUSHROOM_INTERIOR.center.z }, world), true);
-  assert.equal(collidesWithWorld({ x: fp.maxX - 0.2, y: l1, z: MUSHROOM_INTERIOR.center.z }, world), true);
-  assert.equal(collidesWithWorld({ x: MUSHROOM_INTERIOR.center.x, y: l1, z: fp.minZ + 0.2 }, world), true);
-  assert.equal(collidesWithWorld({ x: MUSHROOM_INTERIOR.center.x, y: l1, z: fp.maxZ - 0.2 }, world), true);
+  for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    assert.equal(collidesWithWorld({
+      x: MUSHROOM_INTERIOR.center.x + dx * openRadius,
+      y: l1,
+      z: MUSHROOM_INTERIOR.center.z + dz * openRadius
+    }, world), false);
+    assert.equal(collidesWithWorld({
+      x: MUSHROOM_INTERIOR.center.x + dx * blockedRadius,
+      y: l1,
+      z: MUSHROOM_INTERIOR.center.z + dz * blockedRadius
+    }, world), true);
+  }
 
   // The mushroom house's GROUND collider still blocks the courtyard walker…
   assert.equal(collidesWithWorld({ x: -6, y: 1.6, z: 18 }, world), true);
@@ -695,17 +705,49 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
   });
   assert.ok(windows.length >= 12, "expected portholes on all storeys");
 
-  // Each level gets a low, player-scale canopy: 3 cords, 27 bulbs and 24
-  // pennants. This is the warmth/density layer that visually lowers the tall
-  // magical room without affecting collisions.
-  for (let level = 1; level <= 3; level += 1) {
+  // The two cosy lower levels get wall-anchored, player-scale canopies: 3
+  // cords, 6 anchor studs, 27 bulbs and 24 pennants. L3 stays completely clear
+  // so nothing interrupts the observatory's star-dome sightline.
+  for (let level = 1; level <= 2; level += 1) {
     const prefix = `mushroom-interior-fairy-canopy-${level}`;
     const canopy = byName(prefix);
     assert.ok(canopy, `${prefix} missing`);
     const names = [];
     canopy.traverse((child) => names.push(child.name));
     assert.equal(names.filter((name) => name.includes("-strand-")).length, 3);
+    assert.equal(names.filter((name) => name.includes("-anchor-")).length, 6);
     assert.equal(names.filter((name) => name.includes("-bulb-")).length, 27);
     assert.equal(names.filter((name) => name.includes("-pennant-")).length, 24);
+
+    for (let strand = 1; strand <= 3; strand += 1) {
+      const cord = canopy.getObjectByName(`${prefix}-strand-${strand}`);
+      const west = canopy.getObjectByName(`${prefix}-anchor-${strand}-west`);
+      const east = canopy.getObjectByName(`${prefix}-anchor-${strand}-east`);
+      const points = cord.geometry.parameters.path.points;
+
+      assert.ok(west && east, `strand ${strand} is missing a wall anchor`);
+      assert.ok(
+        nearlyEqual(Math.hypot(west.position.x, west.position.z), MUSHROOM_INTERIOR_LOCAL_RADIUS - 0.08),
+        `${west.name} does not meet the curved wall`
+      );
+      assert.ok(
+        nearlyEqual(Math.hypot(east.position.x, east.position.z), MUSHROOM_INTERIOR_LOCAL_RADIUS - 0.08),
+        `${east.name} does not meet the curved wall`
+      );
+      assert.ok(west.position.distanceTo(points[0]) < 1e-9);
+      assert.ok(east.position.distanceTo(points.at(-1)) < 1e-9);
+    }
+
+    const firstCord = canopy.getObjectByName(`${prefix}-strand-1`);
+    const firstPennant = canopy.getObjectByName(`${prefix}-pennant-1-1`);
+    const joinPoint = firstCord.geometry.parameters.path.getPoint(1 / 9);
+    assert.ok(
+      nearlyEqual(
+        firstPennant.position.y + firstPennant.geometry.parameters.height / 2,
+        joinPoint.y
+      ),
+      "pennant must meet its cord without a floating gap"
+    );
   }
+  assert.equal(byName("mushroom-interior-fairy-canopy-3"), undefined);
 });

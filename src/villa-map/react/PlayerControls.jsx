@@ -8,7 +8,14 @@ import { findNearestInteraction } from "../interaction.js";
 // the proximity HUD logic (interaction.js) into the R3F render loop. Both
 // modules are reused verbatim from the vanilla-Three build — this component
 // only wires them to R3F's camera, canvas, and per-frame tick.
-export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onInteraction }) {
+export function PlayerControls({
+  world,
+  lockRef,
+  wantLockRef,
+  onLockChange,
+  onInteraction,
+  onToggleObservatoryLights
+}) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
   const controlsRef = useRef(null);
@@ -27,6 +34,10 @@ export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onIn
       // direction the destination intends.
       onAction: () => {
         const target = nearestRef.current;
+        if (target?.action?.type === "toggle-observatory-lights") {
+          onToggleObservatoryLights?.();
+          return;
+        }
         const destination = target?.action?.teleport;
         if (!destination || !controlsRef.current) {
           return;
@@ -54,8 +65,20 @@ export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onIn
       }
       controlsRef.current = null;
     };
-  }, [camera, gl, world, lockRef, wantLockRef, onLockChange, onInteraction]);
+  }, [
+    camera,
+    gl,
+    world,
+    lockRef,
+    wantLockRef,
+    onLockChange,
+    onInteraction,
+    onToggleObservatoryLights
+  ]);
 
+  // Run before visual frame followers such as the camera-centred observatory
+  // sky. This removes the tiny one-frame sky lag that would otherwise show up
+  // as a false parallax wobble while walking.
   useFrame((_, delta) => {
     const controls = controlsRef.current;
     if (!controls) {
@@ -71,7 +94,7 @@ export function PlayerControls({ world, lockRef, wantLockRef, onLockChange, onIn
       activeId.current = id;
       onInteraction(nearest ?? null);
     }
-  });
+  }, -2);
 
   return null;
 }

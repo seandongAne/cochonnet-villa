@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
@@ -15,6 +15,7 @@ const CLIP_MIN = 2.5;
 const CLIP_MAX = 12.5;
 const CLIP_STEP = 1.5;
 const CLIP_DEFAULT = 6.0;
+const OBSERVATORY_LIGHT_ACTION = "toggle-observatory-lights";
 
 // Snap a radian angle to a tidy multiple of π/2 when it's within ~1° of one, so
 // the copied record reads `Math.PI / 2` like the hand-authored data rather than
@@ -69,6 +70,30 @@ export default function VillaMap() {
   const [exploring, setExploring] = useState(false);
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState(null);
+  // The observatory deliberately opens with its dim cinema-style house lights
+  // on. The first star reveal therefore belongs to the visitor at the switch.
+  const [observatoryLightsOn, setObservatoryLightsOn] = useState(true);
+  const toggleObservatoryLights = useCallback(() => {
+    setObservatoryLightsOn((lightsOn) => !lightsOn);
+  }, []);
+
+  const displayedInteraction = useMemo(() => {
+    if (interaction?.action?.type !== OBSERVATORY_LIGHT_ACTION) {
+      return interaction;
+    }
+
+    return {
+      ...interaction,
+      title: observatoryLightsOn ? "观星台灯光开关" : "星空模式已开启",
+      body: observatoryLightsOn
+        ? "三楼保持着电影院般的微暗暖光。关掉室内灯，等眼前慢慢暗下来。"
+        : "房灯已经熄灭，只剩下微弱的红色引导灯和整片星空。",
+      action: {
+        ...interaction.action,
+        label: observatoryLightsOn ? "按 E 关灯看星空" : "按 E 重新开灯"
+      }
+    };
+  }, [interaction, observatoryLightsOn]);
 
   // Editor state.
   const [selected, setSelected] = useState(null); // { placement, object }
@@ -162,11 +187,13 @@ export default function VillaMap() {
       className={`villa-map-root${exploring ? " is-exploring" : ""}`}
       data-villa-map-root
     >
+      {/* The buried observatory's distant sky is clipped through its real
+          roof silhouette, so request a stencil buffer explicitly. */}
       <Canvas
         className="villa-map-canvas"
         shadows={{ type: PCFShadowMap }}
         dpr={[1, 1.8]}
-        gl={{ antialias: true }}
+        gl={{ antialias: true, stencil: true }}
         camera={{
           fov: 70,
           near: 0.1,
@@ -180,6 +207,7 @@ export default function VillaMap() {
           world={world}
           editMode={editMode}
           onSelectPiece={editMode ? selectPiece : undefined}
+          observatoryLightsOn={observatoryLightsOn}
         />
         {editMode ? (
           <EditControls
@@ -195,6 +223,7 @@ export default function VillaMap() {
             wantLockRef={wantLockRef}
             onLockChange={setExploring}
             onInteraction={setInteraction}
+            onToggleObservatoryLights={toggleObservatoryLights}
           />
         )}
       </Canvas>
@@ -233,13 +262,14 @@ export default function VillaMap() {
 
       {loading && <div className="villa-map-loading">正在搭建猪猪山庄...</div>}
 
-      {interaction && !editMode && (
+      {displayedInteraction && !editMode && (
         <aside className="interaction-panel" aria-label="互动信息">
-          <h2>{interaction.title}</h2>
-          <p>{interaction.body}</p>
-          {interaction.action?.label && (
+          <h2>{displayedInteraction.title}</h2>
+          <p>{displayedInteraction.body}</p>
+          {displayedInteraction.action?.label && (
             <p className="interaction-action-hint">
-              <kbd>E</kbd> {interaction.action.label.replace(/^按 E ?/, "")}
+              <kbd>E</kbd>{" "}
+              {displayedInteraction.action.label.replace(/^按 E ?/, "")}
             </p>
           )}
         </aside>

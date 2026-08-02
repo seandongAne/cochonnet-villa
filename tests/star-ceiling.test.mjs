@@ -10,6 +10,7 @@ import {
   MUSHROOM_STAR_DOME_NAME,
   MUSHROOM_STAR_TEXTURE_URL
 } from "../src/villa-map/mushroom-interior.js";
+import { MUSHROOM_INTERIOR_LOCAL_RADIUS } from "../src/villa-map/mushroom-interior-config.js";
 
 const TEXTURE_URL = new URL(
   `../public${MUSHROOM_STAR_TEXTURE_URL}`,
@@ -62,6 +63,28 @@ test("the soil surround leaves the photographed loft ceiling unobstructed", () =
     .intersectObject(interior, true)
     .find((hit) => hit.object === dome || hit.object === soil);
   assert.equal(shellHit?.object, dome, "the soil cap must not hide the star dome");
+});
+
+test("the star dome has a flush dark rim instead of protruding wooden ribs", () => {
+  const interior = createMushroomInterior(createMaterials());
+  const dome = interior.getObjectByName(MUSHROOM_STAR_DOME_NAME);
+  const rim = interior.getObjectByName("mushroom-interior-dome-rim");
+
+  assert.ok(rim, "star-dome seam trim missing");
+  assert.equal(rim.geometry.type, "TorusGeometry");
+  assert.equal(rim.material.side, THREE.DoubleSide);
+  assert.ok(
+    rim.geometry.parameters.radius - rim.geometry.parameters.tube >
+      MUSHROOM_INTERIOR_LOCAL_RADIUS - 0.15,
+    "star-dome trim must hug the wall instead of projecting into the room"
+  );
+  assert.equal(
+    interior.children.some(
+      (child) => child.geometry?.type === "BoxGeometry" && child.position.y >= dome.position.y
+    ),
+    false,
+    "no radial wooden ribs may obstruct the dome edge"
+  );
 });
 
 test("the browser scene loads and disposes the sRGB dome texture", () => {

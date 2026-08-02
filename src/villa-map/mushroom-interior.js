@@ -52,11 +52,10 @@ const STAIR_B_X = -2.0; // source-space x=-8, world x=-10 at 2x
 
 // The factory stays Node-pure: it only advertises the public asset URL and
 // builds a dark fallback material. Scene.jsx owns browser-only TextureLoader
-// work and applies the photograph to this named mesh after it has loaded.
+// work and uses this named mesh as the exact aperture for the distant sky.
 export const MUSHROOM_STAR_DOME_NAME = "mushroom-interior-dome";
 export const MUSHROOM_STAR_TEXTURE_URL =
   "/textures/qwantani-night-puresky-dome-4k.webp";
-export const MUSHROOM_STAR_BRIGHTNESS = 1.35;
 export const MUSHROOM_OBSERVATORY_EXPOSURE = 0.5;
 
 // L1/L2 stay storybook-warm. L3 deliberately switches to dim, short-range
@@ -70,6 +69,15 @@ export const MUSHROOM_FLOOR_LIGHTS = Object.freeze([
 
 export const MUSHROOM_OBSERVATORY_WALL_NAME = "mushroom-observatory-wall-lining";
 export const MUSHROOM_OBSERVATORY_FLOOR_NAME = "mushroom-observatory-floor-overlay";
+export const MUSHROOM_OBSERVATORY_SWITCH_NAME = "mushroom-observatory-light-switch";
+export const MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME =
+  "mushroom-observatory-light-switch-lever";
+export const MUSHROOM_OBSERVATORY_SWITCH_LED_NAME =
+  "mushroom-observatory-light-switch-led";
+export const MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID =
+  "mushroom-observatory-light-switch";
+export const MUSHROOM_OBSERVATORY_SWITCH_ACTION_TYPE =
+  "toggle-observatory-lights";
 
 export function createMushroomInterior(materials) {
   const group = new THREE.Group();
@@ -114,14 +122,6 @@ export function createMushroomInterior(materials) {
     emissiveIntensity: 0.28,
     roughness: 0.9
   });
-  const observatoryBulbMaterials = ["#3a0806", "#4b0b08", "#2d0605"].map(
-    (color) => new THREE.MeshStandardMaterial({
-      color,
-      emissive: "#ff2a1c",
-      emissiveIntensity: 0.24,
-      roughness: 0.9
-    })
-  );
   const observatoryWallMaterial = new THREE.MeshStandardMaterial({
     color: "#01030a",
     roughness: 0.98,
@@ -132,6 +132,12 @@ export function createMushroomInterior(materials) {
     color: "#02040b",
     roughness: 1,
     metalness: 0
+  });
+  const starDomeRimMaterial = new THREE.MeshStandardMaterial({
+    color: "#02050c",
+    roughness: 1,
+    metalness: 0,
+    side: THREE.DoubleSide
   });
   const buntingMaterials = ["#ce6d5b", "#e6a44c", "#7fa38a"].map(
     (color) => new THREE.MeshStandardMaterial({
@@ -201,14 +207,17 @@ export function createMushroomInterior(materials) {
   observatoryWall.receiveShadow = true;
   group.add(observatoryWall);
 
-  // Radial "gill" ribs under the dome rim — echoes the cap underside outside.
-  for (let i = 0; i < 18; i += 1) {
-    const angle = (i / 18) * Math.PI * 2;
-    const gill = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.9), materials.wood);
-    gill.position.set(Math.cos(angle) * (RADIUS - 0.55), WALL_HEIGHT + 0.12, Math.sin(angle) * (RADIUS - 0.55));
-    gill.rotation.y = -angle + Math.PI / 2;
-    group.add(gill);
-  }
+  // A slim dark collar hides the wall/dome seam without reaching into the
+  // sightline. The old radial wooden "gill" ribs projected into the room and
+  // read as a ring of unexplained sticks around the stars.
+  const domeRim = new THREE.Mesh(
+    new THREE.TorusGeometry(RADIUS - 0.08, 0.045, 8, 64),
+    starDomeRimMaterial
+  );
+  domeRim.name = "mushroom-interior-dome-rim";
+  domeRim.rotation.x = Math.PI / 2;
+  domeRim.position.y = WALL_HEIGHT + 0.015;
+  group.add(domeRim);
 
   // ---- Upper slabs (round, with a stairwell hole each) ---------------------
   group.add(buildSlab("mushroom-interior-slab-l2", LEVEL_HEIGHT, STAIR_A_X, materials));
@@ -233,6 +242,13 @@ export function createMushroomInterior(materials) {
   group.add(buildStairFlight("mushroom-interior-stair-b", STAIR_B_X, LEVEL_HEIGHT, materials));
   group.add(buildWellRailing("mushroom-interior-well-a", STAIR_A_X, LEVEL_HEIGHT, materials));
   group.add(buildWellRailing("mushroom-interior-well-b", STAIR_B_X, LEVEL_HEIGHT * 2, materials));
+
+  // A real wall control gives the observatory reveal a physical cause. It is
+  // mounted beside the L2→L3 arrival on the north-west curve, at player hand
+  // height and clear of the vanity. Its tiny locator LED remains findable when
+  // the room goes cinema-dark. Stable child names let the React layer animate
+  // the rocker and recolour the LED without owning any of this geometry.
+  group.add(buildObservatoryLightSwitch());
 
   // ---- Round glowing windows (fake light — the pocket is buried) -----------
   // A few per storey; L3 gets a full "star ring" under the dome to match its
@@ -282,18 +298,17 @@ export function createMushroomInterior(materials) {
   knob.position.set(0.55, 1.3, RADIUS - 0.5);
   group.add(knob);
 
-  // ---- Hanging pendant lamps, one per storey -------------------------------
-  for (const [level, lampY, cordTop] of [
-    [0, 3.1, LEVEL_HEIGHT - SLAB_THICKNESS],
-    [1, 7.1, LEVEL_HEIGHT * 2 - SLAB_THICKNESS],
-    [2, 10.9, WALL_HEIGHT + 0.6]
+  // ---- Hanging pendant lamps on the two cosy lower storeys -----------------
+  for (const [lampY, cordTop] of [
+    [3.1, LEVEL_HEIGHT - SLAB_THICKNESS],
+    [7.1, LEVEL_HEIGHT * 2 - SLAB_THICKNESS]
   ]) {
     const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, cordTop - lampY, 8), materials.fascia);
     cord.position.set(0.6, (cordTop + lampY) / 2, -0.6);
     group.add(cord);
     const bulb = new THREE.Mesh(
       new THREE.SphereGeometry(0.24, 14, 12),
-      level === 2 ? observatoryGlowMaterial : glowMaterial
+      glowMaterial
     );
     bulb.name = `mushroom-interior-pendant-${lampY}`;
     bulb.position.set(0.6, lampY, -0.6);
@@ -303,15 +318,16 @@ export function createMushroomInterior(materials) {
   // ---- Low fairy-light canopies -------------------------------------------
   // The magical pocket is intentionally larger than the exterior shell, but
   // a low player-scale canopy gives each storey an intimate ceiling. Three
-  // gently sagging strands cross every level with warm bulbs and bunting;
+  // gently sagging strands cross the two lower levels with warm bulbs and
+  // bunting. The observatory stays completely clear beneath its star dome;
   // geometry is counter-scaled so the lights remain hand-sized regardless of
   // the architectural pocket scale.
-  for (const [level, levelY] of [0, LEVEL_HEIGHT, LEVEL_HEIGHT * 2].entries()) {
+  for (const [level, levelY] of [0, LEVEL_HEIGHT].entries()) {
     group.add(buildFairyLightCanopy(
       `mushroom-interior-fairy-canopy-${level + 1}`,
       levelY,
       materials,
-      level === 2 ? observatoryBulbMaterials : fairyBulbMaterials,
+      fairyBulbMaterials,
       buntingMaterials
     ));
   }
@@ -338,6 +354,83 @@ export function createMushroomInterior(materials) {
   return group;
 }
 
+function buildObservatoryLightSwitch() {
+  const lightSwitch = new THREE.Group();
+  lightSwitch.name = MUSHROOM_OBSERVATORY_SWITCH_NAME;
+  lightSwitch.userData.interactionId = MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID;
+  lightSwitch.userData.actionType = MUSHROOM_OBSERVATORY_SWITCH_ACTION_TYPE;
+
+  // These are authored-local offsets from the tower centre. The 2x parent
+  // scale places the switch at world XZ (-15.1, 15.5), matching world.js's
+  // interaction marker. Its back edge slightly enters the 4.75 m wall skin,
+  // so the plate reads as mounted instead of hovering in front of the curve.
+  const x = -4.55;
+  const z = -1.25;
+  lightSwitch.position.set(x, LEVEL_HEIGHT * 2 + 0.7, z);
+  const wallAngle = Math.atan2(x, z);
+  lightSwitch.rotation.y = wallAngle + Math.PI;
+
+  const plateMaterial = new THREE.MeshStandardMaterial({
+    color: "#8b6a43",
+    metalness: 0.48,
+    roughness: 0.42
+  });
+  const leverMaterial = new THREE.MeshStandardMaterial({
+    color: "#e7deca",
+    roughness: 0.58,
+    metalness: 0.04
+  });
+  const locatorMaterial = new THREE.MeshBasicMaterial({
+    color: "#ff7043",
+    toneMapped: false,
+    fog: false
+  });
+
+  // Dimensions are counter-authored for the 2x tower root: the visible plate
+  // is a human-scale 40 × 60 cm in world space, large enough to read while
+  // keeping the rocker itself believable.
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.3, 0.035),
+    plateMaterial
+  );
+  plate.name = `${MUSHROOM_OBSERVATORY_SWITCH_NAME}-plate`;
+  lightSwitch.add(plate);
+
+  const lever = new THREE.Mesh(
+    new THREE.BoxGeometry(0.09, 0.15, 0.035),
+    leverMaterial
+  );
+  lever.name = MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME;
+  lever.position.z = 0.045;
+  lever.rotation.x = -0.22;
+  lever.userData.lightsOnRotationX = -0.22;
+  lever.userData.lightsOffRotationX = 0.22;
+  lightSwitch.add(lever);
+
+  const led = new THREE.Mesh(
+    new THREE.SphereGeometry(0.025, 12, 8),
+    locatorMaterial
+  );
+  led.name = MUSHROOM_OBSERVATORY_SWITCH_LED_NAME;
+  led.position.set(0, -0.105, 0.055);
+  led.userData.lightsOnColor = "#ffb36b";
+  led.userData.lightsOffColor = "#ff452e";
+  lightSwitch.add(led);
+
+  for (const y of [-0.125, 0.125]) {
+    const screw = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.012, 0.012, 0.012, 10),
+      leverMaterial
+    );
+    screw.name = `${MUSHROOM_OBSERVATORY_SWITCH_NAME}-screw-${y < 0 ? "lower" : "upper"}`;
+    screw.rotation.x = Math.PI / 2;
+    screw.position.set(0, y, 0.025);
+    lightSwitch.add(screw);
+  }
+
+  return lightSwitch;
+}
+
 function buildFairyLightCanopy(
   name,
   levelY,
@@ -348,12 +441,16 @@ function buildFairyLightCanopy(
   const canopy = new THREE.Group();
   canopy.name = name;
 
-  const halfSpan = 5.4 * PLAYER_DETAIL_SCALE;
   const edgeHeight = levelY + 3.25 * PLAYER_DETAIL_SCALE;
   const sag = 0.38 * PLAYER_DETAIL_SCALE;
   const zOffsets = [-2.6, 0, 2.6].map((z) => z * PLAYER_DETAIL_SCALE);
 
   zOffsets.forEach((z, strandIndex) => {
+    // Meet the inside of the round wall at this strand's Z coordinate. The
+    // previous fixed span stopped several metres short, making the entire
+    // canopy look unsupported in the oversized pocket interior.
+    const anchorRadius = RADIUS - 0.08;
+    const halfSpan = Math.sqrt(anchorRadius ** 2 - z ** 2);
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-halfSpan, edgeHeight, z),
       new THREE.Vector3(0, edgeHeight - sag, z),
@@ -365,6 +462,16 @@ function buildFairyLightCanopy(
     );
     cord.name = `${name}-strand-${strandIndex + 1}`;
     canopy.add(cord);
+
+    for (const [sideName, x] of [["west", -halfSpan], ["east", halfSpan]]) {
+      const anchor = new THREE.Mesh(
+        new THREE.SphereGeometry(0.11 * PLAYER_DETAIL_SCALE, 10, 8),
+        materials.trim
+      );
+      anchor.name = `${name}-anchor-${strandIndex + 1}-${sideName}`;
+      anchor.position.set(x, edgeHeight, z);
+      canopy.add(anchor);
+    }
 
     for (let bulbIndex = 0; bulbIndex < 9; bulbIndex += 1) {
       const t = (bulbIndex + 0.5) / 9;
@@ -379,17 +486,20 @@ function buildFairyLightCanopy(
       canopy.add(bulb);
 
       if (bulbIndex < 8) {
+        const pennantHeight = 0.34 * PLAYER_DETAIL_SCALE;
         const pennant = new THREE.Mesh(
           new THREE.ConeGeometry(
             0.15 * PLAYER_DETAIL_SCALE,
-            0.34 * PLAYER_DETAIL_SCALE,
+            pennantHeight,
             3
           ),
           buntingMaterials[(bulbIndex + strandIndex) % buntingMaterials.length]
         );
         pennant.name = `${name}-pennant-${strandIndex + 1}-${bulbIndex + 1}`;
         pennant.position.copy(curve.getPoint((bulbIndex + 1) / 9));
-        pennant.position.y -= 0.22 * PLAYER_DETAIL_SCALE;
+        // After the triangle is flipped, its broad top edge is +height / 2.
+        // Lowering the centre by exactly half its height joins it to the cord.
+        pennant.position.y -= pennantHeight / 2;
         pennant.rotation.z = Math.PI;
         canopy.add(pennant);
       }
