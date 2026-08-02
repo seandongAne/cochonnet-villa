@@ -33,6 +33,7 @@ import { EXTERIOR_PLACEMENTS } from "../exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "../architecture-placements.js";
 import { createShadowBlobs } from "../shadows.js";
 import { createMushroomSky } from "../mushroom-sky.js";
+import { createObservatoryRiftVisual } from "../observatory-rift-visual.js";
 import { createObservatoryAdaptationState } from "../observatory-adaptation.js";
 import { MushroomObservatoryRuntime } from "./MushroomObservatoryRuntime.jsx";
 
@@ -385,7 +386,10 @@ export function Scene({
   world,
   editMode = false,
   onSelectPiece,
-  observatoryLightsOn = true
+  observatoryLightsOn = true,
+  observatoryRiftOpen = false,
+  observatoryLensActive = false,
+  onObservatoryHiddenEffectsReset
 }) {
   const observatoryAdaptationRef = useRef(
     createObservatoryAdaptationState({
@@ -421,6 +425,7 @@ export function Scene({
       // the courtyard (nothing renders below the ground plane).
       mushroomInterior: createMushroomInterior(materials),
       mushroomSky: createMushroomSky(),
+      observatoryRift: createObservatoryRiftVisual(),
       hay: createHayBale(materials.hay),
       blanket: createBlanketPile(materials.blanket),
       tinyBlanket: createBlanketPile(materials.blue),
@@ -516,6 +521,10 @@ export function Scene({
         sky={built.mushroomSky}
         lightsOn={observatoryLightsOn}
         adaptationRef={observatoryAdaptationRef}
+        riftVisual={built.observatoryRift}
+        riftOpen={observatoryRiftOpen}
+        lensActive={observatoryLensActive}
+        onHiddenEffectsReset={onObservatoryHiddenEffectsReset}
       />
 
       {/* ---- Terrain ---- */}
@@ -547,6 +556,11 @@ export function Scene({
       {/* Camera-centred distant Milky Way + sparse GPU star field. Hidden
           unless the player is physically inside the third-floor observatory. */}
       <primitive object={built.mushroomSky} />
+      {/* R's hidden event writes a progressively larger stencil hemisphere,
+          then draws several finite-distance fragment bands through it. The
+          room and furniture remain normal depth occluders, which is what
+          makes the expansion feel spatial instead of like another sky layer. */}
+      <primitive object={built.observatoryRift} />
       <primitive object={built.hay} position={[6, 0, -19]} />
       <primitive object={built.blanket} position={[-5, 0.03, -15]} />
       <primitive object={built.tinyBlanket} position={[7, 0.04, -19]} scale={0.56} />

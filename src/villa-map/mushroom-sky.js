@@ -19,9 +19,24 @@ export const MUSHROOM_SKY_APERTURE_NAME = "mushroom-observatory-sky-aperture";
 export const MUSHROOM_SKY_RADIUS = 80;
 export const MUSHROOM_SKY_STAR_COUNT = 360;
 // The photograph is deliberately subdued into a low-frequency Milky Way
-// backdrop. Crisp GPU stars sit above it; keeping the photo below unity avoids
-// the luminous-screen cue that made the old physical dome feel nearby.
-export const MUSHROOM_SKY_IMAGE_BRIGHTNESS = 0.46;
+// backdrop. Crisp GPU stars and the volumetric dust layer carry the living
+// detail; keeping the photograph this subdued stops it reading as the single
+// dominant ceiling image.
+export const MUSHROOM_SKY_IMAGE_BRIGHTNESS = 0.36;
+
+// Default parent-space direction and angular dimensions for the hidden
+// lensing event. Runtime may derive that direction and a restrained angular
+// scale from a finite world anchor; the actual far layers remain
+// camera-centred, so they still have no ordinary translation parallax.
+export const MUSHROOM_SKY_LENS_DEFAULT_DIRECTION = Object.freeze({
+  x: 0.31,
+  y: 0.79,
+  z: -0.53
+});
+export const MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS = 0.095;
+export const MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS = 0.42;
+export const MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS = 0.032;
+export const MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH = 1.15;
 
 // A complete revolution takes many hours. The motion should be felt as a
 // living sky over time, never read as a rotating photograph.
@@ -58,6 +73,12 @@ const BACKDROP_FRAGMENT_SHADER = /* glsl */ `
   uniform sampler2D uSkyTexture;
   uniform float uBrightness;
   uniform float uReveal;
+  uniform float uLensAmount;
+  uniform vec3 uLensDirection;
+  uniform float uLensEinsteinRadius;
+  uniform float uLensInfluenceRadius;
+  uniform float uLensHorizonRadius;
+  uniform float uLensRingStrength;
 
   varying vec3 vSkyDirection;
 
@@ -74,24 +95,72 @@ const BACKDROP_FRAGMENT_SHADER = /* glsl */ `
     return texture2D(uSkyTexture, skyUv(direction)).rgb;
   }
 
+  float angularDistance(vec3 first, vec3 second) {
+    vec3 a = normalize(first);
+    vec3 b = normalize(second);
+    return atan(length(cross(a, b)), clamp(dot(a, b), -1.0, 1.0));
+  }
+
+  vec3 lensBackdropDirection(vec3 apparentDirection) {
+    // This branch keeps the ordinary observatory on its original texture path
+    // when the hidden event is inactive.
+    if (uLensAmount <= 0.0) return apparentDirection;
+
+    vec3 lensDirection = normalize(uLensDirection);
+    float alignment = clamp(dot(apparentDirection, lensDirection), -1.0, 1.0);
+    float imageAngle = angularDistance(apparentDirection, lensDirection);
+    if (imageAngle >= uLensInfluenceRadius) return apparentDirection;
+
+    vec3 radialDirection = apparentDirection - lensDirection * alignment;
+    if (length(radialDirection) < 0.00001) {
+      vec3 fallbackAxis = abs(lensDirection.y) < 0.92
+        ? vec3(0.0, 1.0, 0.0)
+        : vec3(1.0, 0.0, 0.0);
+      radialDirection = cross(fallbackAxis, lensDirection);
+    }
+    radialDirection = normalize(radialDirection);
+
+    // Inverse point-mass lens equation. At the Einstein radius every azimuth
+    // samples the same source direction, producing a true geometric ring in
+    // the panorama rather than a bright decal laid over the photograph.
+    float safeImageAngle = max(imageAngle, 0.003);
+    float lensSquared = uLensEinsteinRadius * uLensEinsteinRadius * uLensAmount;
+    float sourceAngle = imageAngle - lensSquared / safeImageAngle;
+    sourceAngle = clamp(
+      sourceAngle,
+      -uLensInfluenceRadius,
+      uLensInfluenceRadius
+    );
+    float influence = 1.0 - smoothstep(
+      uLensEinsteinRadius * 1.45,
+      uLensInfluenceRadius,
+      imageAngle
+    );
+    sourceAngle = mix(imageAngle, sourceAngle, influence);
+    vec3 sourceDirection = lensDirection * cos(sourceAngle)
+      + radialDirection * sin(sourceAngle);
+    return normalize(sourceDirection);
+  }
+
   void main() {
     vec3 ray = normalize(vSkyDirection);
-    vec3 referenceAxis = abs(ray.y) > 0.94
+    vec3 sampledRay = lensBackdropDirection(ray);
+    vec3 referenceAxis = abs(sampledRay.y) > 0.94
       ? vec3(1.0, 0.0, 0.0)
       : vec3(0.0, 1.0, 0.0);
-    vec3 tangent = normalize(cross(referenceAxis, ray));
-    vec3 bitangent = normalize(cross(ray, tangent));
+    vec3 tangent = normalize(cross(referenceAxis, sampledRay));
+    vec3 bitangent = normalize(cross(sampledRay, tangent));
 
     // Remove pin-point detail from the photograph without spreading every
     // source star into a visible blur kernel. Only a locally bright centre is
     // pulled toward its four-direction surround; broad Milky Way clouds stay.
     float spread = 0.0035;
-    vec3 centre = readSky(ray);
+    vec3 centre = readSky(sampledRay);
     vec3 surround = (
-      readSky(normalize(ray + tangent * spread))
-      + readSky(normalize(ray - tangent * spread))
-      + readSky(normalize(ray + bitangent * spread))
-      + readSky(normalize(ray - bitangent * spread))
+      readSky(normalize(sampledRay + tangent * spread))
+      + readSky(normalize(sampledRay - tangent * spread))
+      + readSky(normalize(sampledRay + bitangent * spread))
+      + readSky(normalize(sampledRay - bitangent * spread))
     ) * 0.25;
     float centreLuma = dot(centre, vec3(0.2126, 0.7152, 0.0722));
     float surroundLuma = dot(surround, vec3(0.2126, 0.7152, 0.0722));
@@ -104,6 +173,56 @@ const BACKDROP_FRAGMENT_SHADER = /* glsl */ `
     sky = mix(sky, vec3(0.012, 0.018, 0.045), poleBlend * 0.78);
     sky = pow(max(sky, vec3(0.0)), vec3(1.06)) * uBrightness * uReveal;
 
+    // A native-fragment event horizon and anti-aliased photon ring make the
+    // event unmistakably volumetric even though the original Milky Way remains
+    // a panorama. The ring follows the same spherical lens equation as both
+    // procedural star layers; it is not baked into or upscaled with the 4K map.
+    if (uLensAmount > 0.0) {
+      vec3 lensDirection = normalize(uLensDirection);
+      float imageAngle = angularDistance(ray, lensDirection);
+      float lensVisibility = smoothstep(0.015, 0.16, uLensAmount);
+      float lensScale = sqrt(max(uLensAmount, 0.0));
+      float horizonRadius = uLensHorizonRadius * lensScale;
+      float einsteinRadius = uLensEinsteinRadius * lensScale;
+      float pixelAngle = max(fwidth(imageAngle), 0.00028);
+      float horizon = 1.0 - smoothstep(
+        horizonRadius - pixelAngle * 1.25,
+        horizonRadius + pixelAngle * 1.25,
+        imageAngle
+      );
+      float ringWidth = max(pixelAngle * 2.2, uLensEinsteinRadius * 0.026);
+      float photonRing = 1.0 - smoothstep(
+        ringWidth,
+        ringWidth * 2.2,
+        abs(imageAngle - einsteinRadius)
+      );
+
+      vec3 ringAxis = abs(lensDirection.y) < 0.92
+        ? normalize(cross(vec3(0.0, 1.0, 0.0), lensDirection))
+        : normalize(cross(vec3(1.0, 0.0, 0.0), lensDirection));
+      vec3 ringBitangent = normalize(cross(lensDirection, ringAxis));
+      vec3 ringRadial = ray - lensDirection * dot(ray, lensDirection);
+      if (length(ringRadial) < 0.00001) ringRadial = ringAxis;
+      ringRadial = normalize(ringRadial);
+      float ringAzimuth = atan(
+        dot(ringRadial, ringBitangent),
+        dot(ringRadial, ringAxis)
+      );
+      float relativisticBeaming = 0.72 + 0.28 * cos(ringAzimuth - 0.65);
+      vec3 photonColour = mix(
+        vec3(0.44, 0.66, 1.0),
+        vec3(1.0, 0.72, 0.34),
+        0.5 + 0.5 * cos(ringAzimuth + 0.35)
+      );
+      sky += photonColour
+        * photonRing
+        * relativisticBeaming
+        * uLensRingStrength
+        * lensVisibility
+        * uReveal;
+      sky *= 1.0 - horizon * lensVisibility;
+    }
+
     gl_FragColor = vec4(sky, 1.0);
     #include <colorspace_fragment>
   }
@@ -112,6 +231,10 @@ const BACKDROP_FRAGMENT_SHADER = /* glsl */ `
 const STAR_VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
   uniform float uPixelRatio;
+  uniform float uLensAmount;
+  uniform vec3 uLensDirection;
+  uniform float uLensEinsteinRadius;
+  uniform float uLensInfluenceRadius;
 
   attribute float aPhase;
   attribute float aTwinkleSpeed;
@@ -120,8 +243,49 @@ const STAR_VERTEX_SHADER = /* glsl */ `
   attribute vec3 aColor;
 
   varying float vBrightness;
+  varying float vLensMagnification;
   varying float vTwinkleStrength;
   varying vec3 vColor;
+
+  float angularDistance(vec3 first, vec3 second) {
+    vec3 a = normalize(first);
+    vec3 b = normalize(second);
+    return atan(length(cross(a, b)), clamp(dot(a, b), -1.0, 1.0));
+  }
+
+  vec3 lensStarPosition(vec3 sourcePosition) {
+    if (uLensAmount <= 0.0) return sourcePosition;
+
+    float sphereRadius = length(sourcePosition);
+    vec3 sourceDirection = sourcePosition / max(sphereRadius, 0.0001);
+    vec3 lensDirection = normalize(uLensDirection);
+    float alignment = clamp(dot(sourceDirection, lensDirection), -1.0, 1.0);
+    float sourceAngle = angularDistance(sourceDirection, lensDirection);
+    if (sourceAngle >= uLensInfluenceRadius) return sourcePosition;
+
+    vec3 radialDirection = sourceDirection - lensDirection * alignment;
+    if (length(radialDirection) < 0.00001) {
+      vec3 fallbackAxis = abs(lensDirection.y) < 0.92
+        ? vec3(0.0, 1.0, 0.0)
+        : vec3(1.0, 0.0, 0.0);
+      radialDirection = cross(fallbackAxis, lensDirection);
+    }
+    radialDirection = normalize(radialDirection);
+
+    float lensSquared = uLensEinsteinRadius * uLensEinsteinRadius * uLensAmount;
+    float imageAngle = 0.5 * (
+      sourceAngle + sqrt(sourceAngle * sourceAngle + 4.0 * lensSquared)
+    );
+    float influence = 1.0 - smoothstep(
+      uLensEinsteinRadius * 1.35,
+      uLensInfluenceRadius,
+      sourceAngle
+    );
+    imageAngle = mix(sourceAngle, imageAngle, influence);
+    vec3 apparentDirection = lensDirection * cos(imageAngle)
+      + radialDirection * sin(imageAngle);
+    return normalize(apparentDirection) * sphereRadius;
+  }
 
   void main() {
     float wave = sin(uTime * aTwinkleSpeed + aPhase);
@@ -132,10 +296,20 @@ const STAR_VERTEX_SHADER = /* glsl */ `
     float sparkle = pow(max(0.0, 0.5 + 0.5 * wave), 10.0);
     float fullTwinkle = 0.28 + 0.58 * shimmer + 0.52 * sparkle;
     vBrightness = mix(0.84, fullTwinkle, aTwinkleStrength);
+    vec3 apparentPosition = position;
+    vLensMagnification = 1.0;
+    if (uLensAmount > 0.0) {
+      float sourceAngle = angularDistance(position, uLensDirection);
+      float lensInfluence = uLensAmount * (
+        1.0 - smoothstep(uLensEinsteinRadius, uLensInfluenceRadius, sourceAngle)
+      );
+      vLensMagnification += lensInfluence * 0.72;
+      apparentPosition = lensStarPosition(position);
+    }
     vTwinkleStrength = aTwinkleStrength;
     vColor = aColor;
 
-    vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+    vec4 viewPosition = modelViewMatrix * vec4(apparentPosition, 1.0);
     gl_Position = projectionMatrix * viewPosition;
     // Screen-space sizes avoid the "near particles" cue caused by perspective
     // attenuation. These are celestial points, not dust floating in the room.
@@ -144,7 +318,7 @@ const STAR_VERTEX_SHADER = /* glsl */ `
       0.78 + 0.30 * shimmer + 0.28 * sparkle,
       aTwinkleStrength
     );
-    gl_PointSize = aSize * uPixelRatio * sizePulse;
+    gl_PointSize = aSize * uPixelRatio * sizePulse * vLensMagnification;
   }
 `;
 
@@ -152,6 +326,7 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
   uniform float uReveal;
 
   varying float vBrightness;
+  varying float vLensMagnification;
   varying float vTwinkleStrength;
   varying vec3 vColor;
 
@@ -168,10 +343,10 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
     float brightCrest = smoothstep(0.88, 1.18, vBrightness);
     float flare = (verticalRay + horizontalRay) * heroStar * brightCrest;
     float alpha = (core * 0.90 + halo * 0.28 + flare * 0.74)
-      * vBrightness * uReveal;
+      * vBrightness * uReveal * 0.86 * vLensMagnification;
     if (alpha < 0.015) discard;
     gl_FragColor = vec4(
-      vColor * (1.05 + vBrightness * 0.40 + flare * 0.55),
+      vColor * (0.96 + vBrightness * 0.32 + flare * 0.44),
       alpha
     );
     #include <colorspace_fragment>
@@ -279,6 +454,69 @@ function createStarGeometry(starCount, radius, seed) {
   return geometry;
 }
 
+const lensDirectionScratch = new THREE.Vector3();
+const lensQuaternionScratch = new THREE.Quaternion();
+
+function copyMushroomLensDirection(target, direction) {
+  if (direction?.isVector3) {
+    target.copy(direction);
+  } else if (Array.isArray(direction) || ArrayBuffer.isView(direction)) {
+    target.set(
+      Number(direction[0]),
+      Number(direction[1]),
+      Number(direction[2])
+    );
+  } else if (direction && typeof direction === "object") {
+    target.set(Number(direction.x), Number(direction.y), Number(direction.z));
+  } else {
+    target.set(
+      MUSHROOM_SKY_LENS_DEFAULT_DIRECTION.x,
+      MUSHROOM_SKY_LENS_DEFAULT_DIRECTION.y,
+      MUSHROOM_SKY_LENS_DEFAULT_DIRECTION.z
+    );
+  }
+
+  if (
+    !Number.isFinite(target.x)
+    || !Number.isFinite(target.y)
+    || !Number.isFinite(target.z)
+    || target.lengthSq() < 1e-8
+  ) {
+    target.set(
+      MUSHROOM_SKY_LENS_DEFAULT_DIRECTION.x,
+      MUSHROOM_SKY_LENS_DEFAULT_DIRECTION.y,
+      MUSHROOM_SKY_LENS_DEFAULT_DIRECTION.z
+    );
+  }
+  return target.normalize();
+}
+
+function applyMushroomSkyLensUniforms(sky) {
+  const state = sky?.userData?.lens;
+  if (!state) return;
+
+  for (const object of [sky.userData.backdrop, sky.userData.stars]) {
+    const uniforms = object?.material?.uniforms;
+    if (!uniforms?.uLensAmount) continue;
+    // The public direction is fixed in the sky group's parent space. Convert
+    // it into each independently drifting child's local space so the black
+    // hole stays fixed while the old panorama and hero field continue their
+    // barely perceptible celestial rotation underneath it.
+    lensQuaternionScratch.copy(object.quaternion).invert();
+    lensDirectionScratch.copy(state.direction).applyQuaternion(lensQuaternionScratch);
+    uniforms.uLensDirection.value.copy(lensDirectionScratch).normalize();
+    uniforms.uLensAmount.value = state.amount;
+    uniforms.uLensEinsteinRadius.value = state.einsteinRadius;
+    uniforms.uLensInfluenceRadius.value = state.influenceRadius;
+    if (uniforms.uLensHorizonRadius) {
+      uniforms.uLensHorizonRadius.value = state.horizonRadius;
+    }
+    if (uniforms.uLensRingStrength) {
+      uniforms.uLensRingStrength.value = state.ringStrength;
+    }
+  }
+}
+
 export function createMushroomSky({
   starCount = MUSHROOM_SKY_STAR_COUNT,
   radius = MUSHROOM_SKY_RADIUS,
@@ -292,7 +530,23 @@ export function createMushroomSky({
     uniforms: {
       uSkyTexture: { value: null },
       uBrightness: { value: MUSHROOM_SKY_IMAGE_BRIGHTNESS },
-      uReveal: { value: 0 }
+      uReveal: { value: 0 },
+      uLensAmount: { value: 0 },
+      uLensDirection: {
+        value: copyMushroomLensDirection(new THREE.Vector3())
+      },
+      uLensEinsteinRadius: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
+      },
+      uLensInfluenceRadius: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
+      },
+      uLensHorizonRadius: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS
+      },
+      uLensRingStrength: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH
+      }
     },
     vertexShader: BACKDROP_VERTEX_SHADER,
     fragmentShader: BACKDROP_FRAGMENT_SHADER,
@@ -305,7 +559,11 @@ export function createMushroomSky({
   backdropMaterial.name = "mushroom-distant-sky-material";
 
   const backdrop = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 72, 28, 0, Math.PI * 2, 0, Math.PI / 2),
+    // The ordinary physical dome stencil still exposes only the photographic
+    // upper hemisphere. R's expanded stencil reaches a little below the eye
+    // horizon to meet the L3 floor, so extend the far shell into the texture's
+    // deliberately dark horizon row instead of revealing the meadow colour.
+    new THREE.SphereGeometry(radius, 72, 32, 0, Math.PI * 2, 0, Math.PI * 0.59),
     backdropMaterial
   );
   backdrop.name = MUSHROOM_SKY_BACKDROP_NAME;
@@ -318,7 +576,17 @@ export function createMushroomSky({
     uniforms: {
       uTime: { value: 0 },
       uPixelRatio: { value: 1 },
-      uReveal: { value: 0 }
+      uReveal: { value: 0 },
+      uLensAmount: { value: 0 },
+      uLensDirection: {
+        value: copyMushroomLensDirection(new THREE.Vector3())
+      },
+      uLensEinsteinRadius: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
+      },
+      uLensInfluenceRadius: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
+      }
     },
     vertexShader: STAR_VERTEX_SHADER,
     fragmentShader: STAR_FRAGMENT_SHADER,
@@ -349,7 +617,16 @@ export function createMushroomSky({
   sky.userData.twinkleSample = 0;
   sky.userData.backdrop = backdrop;
   sky.userData.stars = stars;
+  sky.userData.lens = {
+    amount: 0,
+    direction: copyMushroomLensDirection(new THREE.Vector3()),
+    einsteinRadius: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS,
+    influenceRadius: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS,
+    horizonRadius: MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS,
+    ringStrength: MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH
+  };
   sky.userData.disposed = false;
+  applyMushroomSkyLensUniforms(sky);
   return sky;
 }
 
@@ -457,6 +734,7 @@ export function updateMushroomSky(
   );
   backdrop.rotation.y = SKY_START_ROTATION + elapsed * MUSHROOM_SKY_BACKDROP_DRIFT;
   stars.rotation.y = STAR_START_ROTATION + elapsed * MUSHROOM_SKY_STAR_DRIFT;
+  applyMushroomSkyLensUniforms(sky);
   backdrop.material.uniforms.uReveal.value = backdropRevealAmount;
   stars.material.uniforms.uTime.value = elapsed;
   stars.material.uniforms.uReveal.value = starRevealAmount;
@@ -485,6 +763,42 @@ export function setMushroomSkyPixelRatio(sky, pixelRatio) {
     1,
     1.8
   );
+}
+
+export function setMushroomSkyLens(sky, lens = {}) {
+  const state = sky?.userData?.lens;
+  if (!state || sky.userData.disposed) return;
+
+  const options = typeof lens === "number" ? { amount: lens } : (lens ?? {});
+  state.amount = Number.isFinite(options.amount)
+    ? THREE.MathUtils.clamp(options.amount, 0, 1)
+    : state.amount;
+  state.einsteinRadius = Number.isFinite(options.einsteinRadius)
+    ? THREE.MathUtils.clamp(options.einsteinRadius, 0.015, 0.22)
+    : state.einsteinRadius;
+  const requestedInfluence = Number.isFinite(options.influenceRadius)
+    ? options.influenceRadius
+    : state.influenceRadius;
+  state.influenceRadius = THREE.MathUtils.clamp(
+    Math.max(requestedInfluence, state.einsteinRadius * 1.6),
+    0.08,
+    0.9
+  );
+  state.horizonRadius = Number.isFinite(options.horizonRadius)
+    ? THREE.MathUtils.clamp(
+      options.horizonRadius,
+      0.004,
+      state.einsteinRadius * 0.65
+    )
+    : Math.min(state.horizonRadius, state.einsteinRadius * 0.65);
+  state.ringStrength = Number.isFinite(options.ringStrength)
+    ? THREE.MathUtils.clamp(options.ringStrength, 0, 2)
+    : state.ringStrength;
+  if (options.direction !== undefined) {
+    copyMushroomLensDirection(state.direction, options.direction);
+  }
+
+  applyMushroomSkyLensUniforms(sky);
 }
 
 export function disposeMushroomSky(sky) {

@@ -11,7 +11,13 @@ import {
 } from "../src/villa-map/world.js";
 import { createMaterials } from "../src/villa-map/assets.js";
 import { KAYKIT_FURNITURE_BASE_SCALE } from "../src/villa-map/furniture-models.js";
-import { createMushroomInterior } from "../src/villa-map/mushroom-interior.js";
+import {
+  createMushroomInterior,
+  MUSHROOM_OBSERVATORY_DOME_RIM_NAME,
+  MUSHROOM_OBSERVATORY_OUTER_WALL_NAME,
+  MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME,
+  MUSHROOM_OBSERVATORY_WALL_NAME
+} from "../src/villa-map/mushroom-interior.js";
 import {
   MUSHROOM_FURNITURE_SCALE,
   MUSHROOM_INTERIOR_LOCAL_RADIUS,
@@ -528,6 +534,17 @@ test("mushroom interior factory builds three storeys with stairs, dome and door"
     "door arch must be open trim, not a filled half-cylinder"
   );
   assert.ok(byName("mushroom-interior-soil"), "soil surround missing");
+  for (const name of [
+    MUSHROOM_OBSERVATORY_WALL_NAME,
+    MUSHROOM_OBSERVATORY_OUTER_WALL_NAME,
+    MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME,
+    MUSHROOM_OBSERVATORY_DOME_RIM_NAME
+  ]) {
+    const surface = byName(name);
+    assert.ok(surface, `${name} rift surface missing`);
+    assert.equal(surface.material.transparent, true, `${name} must fade`);
+    assert.equal(surface.material.depthWrite, false, `${name} must reveal the sky`);
+  }
 
   // Both slabs keep their authored local coordinates while the parent scale
   // moves their effective tops to the two configured world storey heights.

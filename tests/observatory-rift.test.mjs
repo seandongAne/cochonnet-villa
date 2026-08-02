@@ -1,0 +1,163 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import {
+  createObservatoryRiftState,
+  evaluateObservatoryRift,
+  OBSERVATORY_RIFT_TIMING,
+  stepObservatoryRift
+} from "../src/villa-map/observatory-rift.js";
+
+const CHANNEL_NAMES = [
+  "apertureExpansion",
+  "wallDissolve",
+  "foregroundDepth",
+  "foregroundParallax",
+  "ringIntensity",
+  "backdropSuppression",
+  "spatialMotionScale"
+];
+
+test("the rift starts closed with immutable normalized channels", () => {
+  const state = createObservatoryRiftState({ inLoft: true });
+
+  assert.equal(state.mode, "closed");
+  assert.equal(state.transitionProgress, 0);
+  assert.equal(state.targetOpen, false);
+  assert.ok(Object.isFrozen(state));
+  assert.ok(Object.isFrozen(state.channels));
+  for (const channel of CHANNEL_NAMES) {
+    assert.ok(state.channels[channel] >= 0 && state.channels[channel] <= 1);
+  }
+});
+
+test("opening is deterministic and stages foreground depth before wall loss", () => {
+  const initial = createObservatoryRiftState({ inLoft: true });
+  const input = {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.openingSeconds * 0.3,
+    targetOpen: true,
+    inLoft: true
+  };
+  const first = stepObservatoryRift(initial, input);
+  const second = stepObservatoryRift(initial, input);
+
+  assert.deepEqual(first, second);
+  assert.equal(initial.mode, "closed", "the prior state must not be mutated");
+  assert.equal(first.mode, "opening");
+  assert.ok(first.channels.foregroundDepth > first.channels.wallDissolve);
+  assert.ok(first.channels.apertureExpansion > first.channels.wallDissolve);
+  assert.ok(first.channels.ringIntensity > 0);
+});
+
+test("the aperture completely covers the room before any wall can dissolve", () => {
+  const beforeHandoff = evaluateObservatoryRift(0.85);
+  const afterHandoff = evaluateObservatoryRift(0.9);
+
+  assert.ok(beforeHandoff.apertureExpansion < 1);
+  assert.equal(beforeHandoff.wallDissolve, 0);
+  assert.equal(afterHandoff.apertureExpansion, 1);
+  assert.ok(afterHandoff.wallDissolve > 0);
+});
+
+test("a complete opening exposes every depth channel and retains a quiet rim", () => {
+  const opened = stepObservatoryRift(
+    createObservatoryRiftState({ inLoft: true }),
+    {
+      deltaSeconds: OBSERVATORY_RIFT_TIMING.openingSeconds,
+      targetOpen: true,
+      inLoft: true
+    }
+  );
+
+  assert.equal(opened.mode, "open");
+  assert.equal(opened.transitionProgress, 1);
+  assert.equal(opened.channels.apertureExpansion, 1);
+  assert.equal(opened.channels.wallDissolve, 1);
+  assert.equal(opened.channels.foregroundDepth, 1);
+  assert.equal(opened.channels.foregroundParallax, 1);
+  assert.equal(opened.channels.backdropSuppression, 1);
+  assert.ok(opened.channels.ringIntensity > 0);
+  assert.ok(opened.channels.ringIntensity < 0.25);
+});
+
+test("reversing midway preserves all channels without a visual jump", () => {
+  let state = createObservatoryRiftState({ inLoft: true });
+  state = stepObservatoryRift(state, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.openingSeconds * 0.55,
+    targetOpen: true,
+    inLoft: true
+  });
+  const beforeReversal = state.channels;
+
+  const reversed = stepObservatoryRift(state, {
+    deltaSeconds: 0,
+    targetOpen: false,
+    inLoft: true
+  });
+  assert.equal(reversed.mode, "closing");
+  assert.deepEqual(reversed.channels, beforeReversal);
+
+  const closed = stepObservatoryRift(reversed, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.closingSeconds,
+    targetOpen: false,
+    inLoft: true
+  });
+  assert.equal(closed.mode, "closed");
+  assert.equal(closed.transitionProgress, 0);
+});
+
+test("leaving L3 fail-closes and clears an accidentally retained request", () => {
+  let state = createObservatoryRiftState({ inLoft: true });
+  state = stepObservatoryRift(state, {
+    deltaSeconds: 2,
+    targetOpen: true,
+    inLoft: true
+  });
+  assert.ok(state.transitionProgress > 0);
+
+  const outside = stepObservatoryRift(state, {
+    deltaSeconds: 1,
+    targetOpen: true,
+    inLoft: false
+  });
+  assert.equal(outside.mode, "closed");
+  assert.equal(outside.targetOpen, false);
+  assert.equal(outside.transitionProgress, 0);
+  assert.equal(outside.channels.wallDissolve, 0);
+  assert.equal(outside.channels.foregroundDepth, 0);
+});
+
+test("reduced motion keeps the dissolve but removes parallax and rim travel", () => {
+  const ordinary = evaluateObservatoryRift(0.5);
+  const reduced = evaluateObservatoryRift(0.5, { reducedMotion: true });
+
+  assert.equal(reduced.apertureExpansion, ordinary.apertureExpansion);
+  assert.equal(reduced.wallDissolve, ordinary.wallDissolve);
+  assert.equal(reduced.foregroundDepth, ordinary.foregroundDepth);
+  assert.equal(reduced.backdropSuppression, ordinary.backdropSuppression);
+  assert.ok(ordinary.foregroundParallax > 0);
+  assert.equal(reduced.foregroundParallax, 0);
+  assert.equal(reduced.spatialMotionScale, 0);
+  assert.ok(reduced.ringIntensity < ordinary.ringIntensity);
+});
+
+test("invalid time and progress inputs stay finite and bounded", () => {
+  for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const channels = evaluateObservatoryRift(value);
+    for (const channel of CHANNEL_NAMES) {
+      assert.ok(Number.isFinite(channels[channel]));
+      assert.ok(channels[channel] >= 0 && channels[channel] <= 1);
+    }
+  }
+
+  const initial = createObservatoryRiftState({ inLoft: true });
+  for (const deltaSeconds of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const state = stepObservatoryRift(initial, {
+      deltaSeconds,
+      targetOpen: true,
+      inLoft: true
+    });
+    assert.equal(state.transitionProgress, 0);
+    assert.equal(state.mode, "opening");
+  }
+});

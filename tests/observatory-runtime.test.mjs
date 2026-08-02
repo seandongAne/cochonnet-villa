@@ -66,7 +66,10 @@ test("the -1 frame director owns one shared adaptation state and maps every chan
     "lighting, palette, exposure and markers should follow houseLight"
   );
   assert.match(runtime, /backdropReveal:\s*channels\.portalReveal/);
-  assert.match(runtime, /starReveal:\s*channels\.brightStarReveal/);
+  assert.match(
+    runtime,
+    /starReveal:\s*baseImageComparison \? 0 : channels\.brightStarReveal/
+  );
   assert.match(
     runtime,
     /resources\.dome\.material\.color\.copy\([\s\S]*?channels\.roomDarkness/
@@ -79,6 +82,8 @@ test("the -1 frame director owns one shared adaptation state and maps every chan
     runtime,
     /updateObservatoryPortalComposite\([\s\S]*?channels\.nebulaReveal/
   );
+  assert.match(runtime, /emissionStrength:\s*NEBULA_EMISSION_STRENGTH/);
+  assert.match(runtime, /extinctionStrength:\s*NEBULA_EXTINCTION_STRENGTH/);
   assert.ok(
     matchCount(
       runtime,
@@ -238,6 +243,11 @@ test("diagnostics expose runtime state and motion query overrides stay QA-only",
     runtime,
     /const motionOverride = diagnosticsMode \? search\.get\("motion"\) : null/
   );
+  assert.match(runtime, /requestedSkyMode === "base" \? "base" : "impossible"/);
+  assert.match(runtime, /window\.__villaObservatoryRuntimeSetSkyMode = setComparisonMode/);
+  assert.match(runtime, /const skyBackdropMaterial = sky\.userData\.backdrop\?\.material/);
+  assert.match(runtime, /starReveal:\s*baseImageComparison \? 0 : channels\.brightStarReveal/);
+  assert.match(runtime, /resources\.gaia\.visible = !baseImageComparison/);
   assert.match(
     runtime,
     /motionOverride === "full"[\s\S]*?motionOverride === "reduce"[\s\S]*?motionQuery\?\.matches === true/
@@ -318,6 +328,28 @@ test("shader failures are classified and per-frame draw metrics report actual wo
   assert.match(runtime, /addedDrawCalls:\s*\(sky\.visible \? 2 : 0\)/);
   assert.match(
     runtime,
-    /const shouldAnimate = inLoft\s*&& channels\.nebulaReveal > PORTAL_REVEAL_EPSILON;/
+    /const shouldAnimate = !baseImageComparison\s*&& inLoft\s*&& channels\.nebulaReveal > PORTAL_REVEAL_EPSILON;/
   );
+});
+
+test("hidden Rift/Lens events fail closed and preserve finite-distance depth cues", () => {
+  assert.match(runtime, /stepObservatoryRift\(/);
+  assert.match(runtime, /updateObservatoryRiftVisual\(/);
+  assert.match(runtime, /updateRiftFadeSurfaces\(resources, riftChannels\.wallDissolve\)/);
+  assert.match(runtime, /resetHiddenEffectRendering\(resources, sky, riftVisual\)/);
+  assert.match(runtime, /riftVisual\.userData\.lifecycleToken = lifecycleToken/);
+  assert.match(
+    runtime,
+    /riftVisual\?\.userData\.lifecycleToken === lifecycleToken[\s\S]*?disposeObservatoryRiftVisual\(riftVisual\)/,
+    "StrictMode remounts must not dispose the replacement lifecycle"
+  );
+  assert.match(runtime, /LENS_WORLD_POSITION[\s\S]*?resources\.lensDistance/);
+  assert.match(runtime, /LENS_WORLD_DISTANCE \/ resources\.lensDistance/);
+  assert.match(runtime, /projectObservatoryPortalLens\(camera, LENS_WORLD_POSITION/);
+  assert.match(
+    runtime,
+    /lensAmount:\s*resources\.portalLensVisible \? resources\.lensAmount : 0/,
+    "the FBO distortion must disappear when the finite lens is behind the camera"
+  );
+  assert.match(runtime, /backdropSuppression \* 0\.62/);
 });

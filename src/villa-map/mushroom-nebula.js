@@ -1,8 +1,8 @@
 import * as THREE from "three";
 
 // Node-safe volumetric layer for the observatory portal. It renders linear
-// radiance into a small offscreen target; observatory-portal.js composites that
-// target through the physical dome stencil at the main canvas resolution.
+// emission in RGB and accumulated opacity in A; observatory-portal.js then
+// applies both emission and extinction through the physical dome stencil.
 
 export const MUSHROOM_NEBULA_NAME = "mushroom-observatory-volumetric-nebula";
 export const MUSHROOM_NEBULA_MATERIAL_NAME =
@@ -150,7 +150,9 @@ const NEBULA_FRAGMENT_SHADER = /* glsl */ `
       travel += stepLength;
     }
 
-    gl_FragColor = vec4(radiance * clamp(uReveal, 0.0, 1.0), 1.0);
+    float reveal = clamp(uReveal, 0.0, 1.0);
+    float opacity = 1.0 - transmittance;
+    gl_FragColor = vec4(radiance * reveal, opacity * reveal);
   }
 `;
 

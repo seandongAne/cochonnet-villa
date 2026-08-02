@@ -89,6 +89,10 @@ test("the query-only harness uses manual frames only in deterministic test mode"
     /\{observatoryDiagnosticsMode && \(\s*<ObservatoryDiagnosticsPanel/
   );
   assert.match(villaMapSource, /data-observatory-lights="off"/);
+  assert.match(villaMapSource, /data-observatory-sky="base"/);
+  assert.match(villaMapSource, /data-observatory-sky="impossible"/);
+  assert.match(villaMapSource, /api\.setSkyMode\("base"\)/);
+  assert.match(villaMapSource, /api\.setSkyMode\("impossible"\)/);
   assert.match(villaMapSource, /data-observatory-advance=\{seconds\}/);
   assert.match(villaMapSource, /data-observatory-context="lose"/);
   assert.match(villaMapSource, /data-observatory-context="restore"/);
@@ -102,6 +106,10 @@ test("the query-only harness uses manual frames only in deterministic test mode"
   assert.doesNotMatch(diagnosticsSource, /const state = useThree\(\);/);
   assert.match(diagnosticsSource, /currentState\.clock\.elapsedTime \+ 1 \/ safeFps/);
   assert.match(diagnosticsSource, /registerProvider\(name, provider\)/);
+  assert.match(
+    diagnosticsSource,
+    /setSkyMode\(value\)[\s\S]*?window\.__villaObservatoryRuntimeSetSkyMode\(value\)/
+  );
 });
 
 test("query-only diagnostics safely inject and restore WebGL context loss", () => {

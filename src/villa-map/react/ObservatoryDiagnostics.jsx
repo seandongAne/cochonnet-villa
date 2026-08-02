@@ -17,6 +17,8 @@ export function ObservatoryDiagnostics({
   mode,
   lightsOn,
   setLightsOn,
+  hiddenEffects,
+  onHiddenAction,
   initialView = "loft-center",
   onReady
 }) {
@@ -29,8 +31,10 @@ export function ObservatoryDiagnostics({
   const samplesRef = useRef([]);
   const providersRef = useRef(new Map());
   const lightsOnRef = useRef(lightsOn);
+  const hiddenEffectsRef = useRef(hiddenEffects);
 
   lightsOnRef.current = lightsOn;
+  hiddenEffectsRef.current = hiddenEffects;
 
   useFrame((_, delta) => {
     const samples = samplesRef.current;
@@ -119,6 +123,7 @@ export function ObservatoryDiagnostics({
       return {
         mode,
         lightsOn: lightsOnRef.current,
+        hiddenEffects: hiddenEffectsRef.current,
         camera: {
           position: camera.position.toArray(),
           quaternion: camera.quaternion.toArray(),
@@ -146,6 +151,18 @@ export function ObservatoryDiagnostics({
       setView,
       setLights(value) {
         setLightsOn(Boolean(value));
+      },
+      setSkyMode(value) {
+        if (typeof window.__villaObservatoryRuntimeSetSkyMode !== "function") {
+          return null;
+        }
+        return window.__villaObservatoryRuntimeSetSkyMode(value);
+      },
+      toggleHiddenEffect(action) {
+        if (action !== "rift" && action !== "lens") {
+          throw new Error(`Unknown observatory hidden effect: ${action}`);
+        }
+        onHiddenAction?.(action);
       },
       resetSamples() {
         samplesRef.current = [];
@@ -210,7 +227,7 @@ export function ObservatoryDiagnostics({
       onReady?.(null);
       providersRef.current.clear();
     };
-  }, [getState, initialView, mode, onReady, setLightsOn]);
+  }, [getState, initialView, mode, onHiddenAction, onReady, setLightsOn]);
 
   return null;
 }

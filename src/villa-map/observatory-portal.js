@@ -12,7 +12,10 @@ export const OBSERVATORY_PORTAL_STENCIL_REF = 7;
 export const OBSERVATORY_PORTAL_TARGET_MAX_WIDTH = 1280;
 export const OBSERVATORY_PORTAL_TARGET_MAX_HEIGHT = 720;
 export const OBSERVATORY_PORTAL_DEFAULT_QUALITY = "medium";
-export const OBSERVATORY_PORTAL_DEFAULT_PARALLAX_SCALE = 0.16;
+export const OBSERVATORY_PORTAL_DEFAULT_PARALLAX_SCALE = 0.2;
+export const OBSERVATORY_PORTAL_DEFAULT_EMISSION_STRENGTH = 0.04;
+export const OBSERVATORY_PORTAL_DEFAULT_EXTINCTION_STRENGTH = 0.9;
+export const OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS = 0.085;
 
 export const OBSERVATORY_PORTAL_QUALITY_PRESETS = Object.freeze({
   high: Object.freeze({
@@ -23,7 +26,7 @@ export const OBSERVATORY_PORTAL_QUALITY_PRESETS = Object.freeze({
     renderScale: 0.68,
     maxWidth: OBSERVATORY_PORTAL_TARGET_MAX_WIDTH,
     maxHeight: OBSERVATORY_PORTAL_TARGET_MAX_HEIGHT,
-    parallaxScale: 0.22
+    parallaxScale: 0.26
   }),
   medium: Object.freeze({
     id: "medium",
@@ -57,15 +60,60 @@ const COMPOSITE_VERTEX_SHADER = /* glsl */ `
 const COMPOSITE_FRAGMENT_SHADER = /* glsl */ `
   uniform sampler2D uPortalTexture;
   uniform float uReveal;
+  uniform float uEmissionStrength;
+  uniform float uExtinctionStrength;
+  uniform float uLensAmount;
+  uniform vec2 uLensCenter;
+  uniform float uLensAspect;
+  uniform float uLensRadius;
 
   varying vec2 vUv;
 
   void main() {
-    vec3 portalRadiance = texture2D(
+    // The inactive branch is an exact UV passthrough and avoids lens math on
+    // every Portal pixel during the ordinary observatory experience.
+    vec2 portalUv = vUv;
+    float lensOcclusion = 0.0;
+    if (uLensAmount > 0.0) {
+      vec2 lensMetric = (vUv - uLensCenter) * vec2(uLensAspect, 1.0);
+      float rawLensDistance = length(lensMetric);
+      float lensDistance = max(rawLensDistance, 0.002);
+      float lensInfluence = 1.0 - smoothstep(
+        uLensRadius,
+        uLensRadius * 3.2,
+        lensDistance
+      );
+      // This intentional counter-warp is stronger than the far field's
+      // spherical deflection. Near dust shears in the opposing direction,
+      // making the depth split readable on a flat display.
+      float lensDeflection = uLensAmount
+        * lensInfluence
+        * 0.013
+        / (lensDistance + 0.045);
+      vec2 radialDirection = lensMetric / max(rawLensDistance, 0.00001);
+      vec2 warpedMetric = lensMetric + radialDirection * lensDeflection;
+      portalUv = uLensCenter + warpedMetric / vec2(uLensAspect, 1.0);
+      lensOcclusion = 1.0 - smoothstep(
+        uLensRadius * 0.12,
+        uLensRadius * 0.58,
+        lensDistance
+      );
+    }
+    vec4 portalVolume = texture2D(
       uPortalTexture,
-      clamp(vUv, vec2(0.0), vec2(1.0))
-    ).rgb;
-    gl_FragColor = vec4(portalRadiance, clamp(uReveal, 0.0, 1.0));
+      clamp(portalUv, vec2(0.0), vec2(1.0))
+    );
+    portalVolume *= 1.0 - lensOcclusion * uLensAmount * 0.88;
+    float reveal = clamp(uReveal, 0.0, 1.0);
+    vec3 emission = portalVolume.rgb * uEmissionStrength * reveal;
+    float extinction = clamp(
+      portalVolume.a * uExtinctionStrength * reveal,
+      0.0,
+      0.72
+    );
+    // Custom premultiplied-style blending evaluates:
+    // final = emission + existingSky * (1 - extinction).
+    gl_FragColor = vec4(emission, extinction);
     #include <colorspace_fragment>
   }
 `;
@@ -93,6 +141,61 @@ function copyVector3(target, value) {
     );
   }
   return target;
+}
+
+const portalLensProjectionScratch = new THREE.Vector3();
+
+/**
+ * Project a finite world-space lens into Portal UV space.
+ *
+ * A point behind the camera can still produce plausible-looking NDC values,
+ * so callers must not use `Vector3.project()` alone. This helper rejects the
+ * rear hemisphere, non-finite projections and points too far outside the
+ * viewport to influence a visible Portal pixel.
+ */
+export function projectObservatoryPortalLens(
+  camera,
+  worldPosition,
+  target = new THREE.Vector2(),
+  viewportMargin = 0.45
+) {
+  target.set(0.5, 0.5);
+  if (!camera?.isCamera || !worldPosition) return false;
+
+  const worldX = Array.isArray(worldPosition) || ArrayBuffer.isView(worldPosition)
+    ? worldPosition[0]
+    : worldPosition.x;
+  const worldY = Array.isArray(worldPosition) || ArrayBuffer.isView(worldPosition)
+    ? worldPosition[1]
+    : worldPosition.y;
+  const worldZ = Array.isArray(worldPosition) || ArrayBuffer.isView(worldPosition)
+    ? worldPosition[2]
+    : worldPosition.z;
+  if (!Number.isFinite(worldX) || !Number.isFinite(worldY) || !Number.isFinite(worldZ)) {
+    return false;
+  }
+  portalLensProjectionScratch.set(worldX, worldY, worldZ);
+
+  camera.updateWorldMatrix?.(true, false);
+  portalLensProjectionScratch.applyMatrix4(camera.matrixWorldInverse);
+  const near = Number.isFinite(camera.near) ? Math.max(camera.near, 0.001) : 0.001;
+  if (!Number.isFinite(portalLensProjectionScratch.z)
+    || portalLensProjectionScratch.z >= -near) {
+    return false;
+  }
+
+  portalLensProjectionScratch.set(worldX, worldY, worldZ).project(camera);
+  const x = portalLensProjectionScratch.x * 0.5 + 0.5;
+  const y = portalLensProjectionScratch.y * 0.5 + 0.5;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+  target.set(x, y);
+
+  const margin = THREE.MathUtils.clamp(
+    Number.isFinite(viewportMargin) ? viewportMargin : 0.45,
+    0,
+    2
+  );
+  return x >= -margin && x <= 1 + margin && y >= -margin && y <= 1 + margin;
 }
 
 function portalMaterialFrom(value) {
@@ -280,6 +383,12 @@ export function centerObservatoryPortalFarField(farField, portalCamera) {
 export function createObservatoryPortalCompositeMaterial({
   texture = null,
   reveal = 0,
+  emissionStrength = OBSERVATORY_PORTAL_DEFAULT_EMISSION_STRENGTH,
+  extinctionStrength = OBSERVATORY_PORTAL_DEFAULT_EXTINCTION_STRENGTH,
+  lensAmount = 0,
+  lensCenter = [0.5, 0.5],
+  lensAspect = 1,
+  lensRadius = OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS,
   stencilRef = OBSERVATORY_PORTAL_STENCIL_REF
 } = {}) {
   const material = new THREE.ShaderMaterial({
@@ -287,12 +396,69 @@ export function createObservatoryPortalCompositeMaterial({
       uPortalTexture: { value: texture },
       uReveal: {
         value: THREE.MathUtils.clamp(Number.isFinite(reveal) ? reveal : 0, 0, 1)
+      },
+      uEmissionStrength: {
+        value: THREE.MathUtils.clamp(
+          Number.isFinite(emissionStrength)
+            ? emissionStrength
+            : OBSERVATORY_PORTAL_DEFAULT_EMISSION_STRENGTH,
+          0,
+          2
+        )
+      },
+      uExtinctionStrength: {
+        value: THREE.MathUtils.clamp(
+          Number.isFinite(extinctionStrength)
+            ? extinctionStrength
+            : OBSERVATORY_PORTAL_DEFAULT_EXTINCTION_STRENGTH,
+          0,
+          2
+        )
+      },
+      uLensAmount: {
+        value: THREE.MathUtils.clamp(
+          Number.isFinite(lensAmount) ? lensAmount : 0,
+          0,
+          1
+        )
+      },
+      uLensCenter: {
+        value: new THREE.Vector2(
+          Number.isFinite(lensCenter?.x)
+            ? lensCenter.x
+            : Number.isFinite(lensCenter?.[0]) ? lensCenter[0] : 0.5,
+          Number.isFinite(lensCenter?.y)
+            ? lensCenter.y
+            : Number.isFinite(lensCenter?.[1]) ? lensCenter[1] : 0.5
+        )
+      },
+      uLensAspect: {
+        value: THREE.MathUtils.clamp(
+          Number.isFinite(lensAspect) ? lensAspect : 1,
+          0.25,
+          4
+        )
+      },
+      uLensRadius: {
+        value: THREE.MathUtils.clamp(
+          Number.isFinite(lensRadius)
+            ? lensRadius
+            : OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS,
+          0.02,
+          0.3
+        )
       }
     },
     vertexShader: COMPOSITE_VERTEX_SHADER,
     fragmentShader: COMPOSITE_FRAGMENT_SHADER,
     transparent: true,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendEquationAlpha: THREE.AddEquation,
+    blendSrcAlpha: THREE.OneFactor,
+    blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
     depthTest: false,
     depthWrite: false,
     toneMapped: false,
@@ -328,16 +494,25 @@ export function createObservatoryPortalComposite(options = {}) {
   );
   composite.name = OBSERVATORY_PORTAL_COMPOSITE_NAME;
   composite.frustumCulled = false;
-  // The current crisp stars use -900. Draw the low-frequency nebula first so
-  // stars remain sharp and room transparency can still appear over both.
-  composite.renderOrder = -950;
+  // Gaia and hero stars use -920/-900. Draw after them so near dust can absorb
+  // the fixed far field; ordinary room transparency (order 0) remains in front.
+  composite.renderOrder = -880;
   composite.userData.observatoryDisposed = false;
   return composite;
 }
 
 export function updateObservatoryPortalComposite(
   compositeOrMaterial,
-  { texture, reveal } = {}
+  {
+    texture,
+    reveal,
+    emissionStrength,
+    extinctionStrength,
+    lensAmount,
+    lensCenter,
+    lensAspect,
+    lensRadius
+  } = {}
 ) {
   const material = portalMaterialFrom(compositeOrMaterial);
   if (!material?.uniforms) return false;
@@ -349,6 +524,51 @@ export function updateObservatoryPortalComposite(
       Number.isFinite(reveal) ? reveal : 0,
       0,
       1
+    );
+  }
+  if (emissionStrength !== undefined) {
+    material.uniforms.uEmissionStrength.value = THREE.MathUtils.clamp(
+      Number.isFinite(emissionStrength) ? emissionStrength : 0,
+      0,
+      2
+    );
+  }
+  if (extinctionStrength !== undefined) {
+    material.uniforms.uExtinctionStrength.value = THREE.MathUtils.clamp(
+      Number.isFinite(extinctionStrength) ? extinctionStrength : 0,
+      0,
+      2
+    );
+  }
+  if (lensAmount !== undefined) {
+    material.uniforms.uLensAmount.value = THREE.MathUtils.clamp(
+      Number.isFinite(lensAmount) ? lensAmount : 0,
+      0,
+      1
+    );
+  }
+  if (lensCenter !== undefined) {
+    material.uniforms.uLensCenter.value.set(
+      Number.isFinite(lensCenter?.x)
+        ? lensCenter.x
+        : Number.isFinite(lensCenter?.[0]) ? lensCenter[0] : 0,
+      Number.isFinite(lensCenter?.y)
+        ? lensCenter.y
+        : Number.isFinite(lensCenter?.[1]) ? lensCenter[1] : 0
+    );
+  }
+  if (lensAspect !== undefined) {
+    material.uniforms.uLensAspect.value = THREE.MathUtils.clamp(
+      Number.isFinite(lensAspect) ? lensAspect : 1,
+      0.25,
+      4
+    );
+  }
+  if (lensRadius !== undefined) {
+    material.uniforms.uLensRadius.value = THREE.MathUtils.clamp(
+      Number.isFinite(lensRadius) ? lensRadius : OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS,
+      0.02,
+      0.3
     );
   }
   return true;

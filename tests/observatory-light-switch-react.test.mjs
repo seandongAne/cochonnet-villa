@@ -18,12 +18,21 @@ test("the observatory starts with house lights on and E toggles them", () => {
     villaMap,
     /\[observatoryLightsOn, setObservatoryLightsOn\] = useState\(\s*observatoryDiagnosticsMode \? observatoryInitialLightsOn : true\s*\)/
   );
-  assert.match(villaMap, /setObservatoryLightsOn\(\(lightsOn\) => !lightsOn\)/);
+  assert.match(
+    villaMap,
+    /const toggleObservatoryLights = useCallback\(\(\) => \{\s*setObservatoryLights\(!observatoryLightsOnRef\.current\);/
+  );
+  assert.match(
+    villaMap,
+    /if \(nextLightsOn\) resetObservatoryHiddenEffects\(\)/,
+    "turning the physical lights back on must clear both hidden events"
+  );
   assert.match(
     controls,
     /target\?\.action\?\.type === "toggle-observatory-lights"/
   );
   assert.match(controls, /onToggleObservatoryLights\?\.\(\)/);
+  assert.match(controls, /onObservatoryHiddenAction\?\.\(action\)/);
 });
 
 test("the HUD explains both switch states", () => {
@@ -51,7 +60,10 @@ test("lighting falls before a smooth sky reveal and keeps faint red guides", () 
   assert.match(source, /MUSHROOM_OBSERVATORY_EXPOSURE \* 0\.34/);
   assert.match(runtime, /stepObservatoryAdaptation/);
   assert.match(runtime, /backdropReveal: channels\.portalReveal/);
-  assert.match(runtime, /starReveal: channels\.brightStarReveal/);
+  assert.match(
+    runtime,
+    /starReveal:\s*baseImageComparison \? 0 : channels\.brightStarReveal/
+  );
   assert.match(runtime, /setGaiaStarReveal\(resources\.gaia, channels\.faintStarReveal\)/);
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME/);
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_LED_NAME/);

@@ -13,6 +13,10 @@ import {
   MUSHROOM_SKY_APERTURE_NAME,
   MUSHROOM_SKY_BACKDROP_NAME,
   MUSHROOM_SKY_IMAGE_BRIGHTNESS,
+  MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS,
+  MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS,
+  MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS,
+  MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH,
   MUSHROOM_SKY_NAME,
   MUSHROOM_SKY_RADIUS,
   MUSHROOM_SKY_STAR_COUNT,
@@ -20,6 +24,7 @@ import {
   MUSHROOM_SKY_TWINKLE_SPEED_MIN,
   MUSHROOM_SKY_STARS_NAME,
   removeMushroomSkyAperture,
+  setMushroomSkyLens,
   setMushroomSkyPixelRatio,
   updateMushroomSky
 } from "../src/villa-map/mushroom-sky.js";
@@ -37,9 +42,9 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
   assert.equal(sky.name, MUSHROOM_SKY_NAME);
   assert.equal(sky.visible, false);
   assert.equal(MUSHROOM_SKY_RADIUS, 80);
-  assert.equal(MUSHROOM_SKY_IMAGE_BRIGHTNESS, 0.46);
+  assert.equal(MUSHROOM_SKY_IMAGE_BRIGHTNESS, 0.36);
   assert.equal(backdrop.geometry.parameters.radius, MUSHROOM_SKY_RADIUS);
-  assert.equal(backdrop.geometry.parameters.thetaLength, Math.PI / 2);
+  assert.equal(backdrop.geometry.parameters.thetaLength, Math.PI * 0.59);
   assert.equal(backdrop.material.type, "ShaderMaterial");
   assert.equal(backdrop.material.side, THREE.BackSide);
   assert.equal(backdrop.material.transparent, false, "backdrop must stay in the opaque render list");
@@ -54,8 +59,30 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
     MUSHROOM_SKY_IMAGE_BRIGHTNESS
   );
   assert.equal(backdrop.material.uniforms.uReveal.value, 0);
+  assert.equal(backdrop.material.uniforms.uLensAmount.value, 0);
+  assert.equal(
+    backdrop.material.uniforms.uLensEinsteinRadius.value,
+    MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
+  );
+  assert.equal(
+    backdrop.material.uniforms.uLensInfluenceRadius.value,
+    MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
+  );
+  assert.equal(
+    backdrop.material.uniforms.uLensHorizonRadius.value,
+    MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS
+  );
+  assert.equal(
+    backdrop.material.uniforms.uLensRingStrength.value,
+    MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH
+  );
   assert.match(backdrop.material.vertexShader, /vSkyDirection = position/);
   assert.match(backdrop.material.fragmentShader, /vec2 skyUv\(vec3 direction\)/);
+  assert.match(backdrop.material.fragmentShader, /vec3 lensBackdropDirection/);
+  assert.match(backdrop.material.fragmentShader, /Inverse point-mass lens equation/);
+  assert.match(backdrop.material.fragmentShader, /float pixelAngle = max\(fwidth\(imageAngle\)/);
+  assert.match(backdrop.material.fragmentShader, /float photonRing = 1\.0 - smoothstep/);
+  assert.match(backdrop.material.fragmentShader, /sky \*= 1\.0 - horizon \* lensVisibility/);
   assert.match(backdrop.material.fragmentShader, /float spread = 0\.0035/);
   assert.match(backdrop.material.fragmentShader, /float pointDetail = smoothstep/);
   assert.match(backdrop.material.fragmentShader, /#include <colorspace_fragment>/);
@@ -65,9 +92,19 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
   assert.equal(stars.geometry.attributes.position.count, MUSHROOM_SKY_STAR_COUNT);
   assert.equal(stars.material.type, "ShaderMaterial");
   assert.equal(stars.material.blending, THREE.AdditiveBlending);
+  assert.match(
+    stars.material.fragmentShader,
+    /vBrightness \* uReveal \* 0\.86/,
+    "hero stars should support the sky without overpowering its depth layers"
+  );
   assert.equal(stars.material.depthTest, false);
   assert.equal(stars.material.depthWrite, false);
   assert.equal(stars.material.uniforms.uReveal.value, 0);
+  assert.equal(stars.material.uniforms.uLensAmount.value, 0);
+  assert.equal(
+    stars.material.uniforms.uLensEinsteinRadius.value,
+    MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
+  );
   assert.equal(stars.material.stencilFunc, THREE.EqualStencilFunc);
   assert.ok(
     stars.renderOrder < 0,
@@ -75,6 +112,8 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
   );
   assert.match(stars.material.vertexShader, /uTime \* aTwinkleSpeed \+ aPhase/);
   assert.match(stars.material.vertexShader, /float sparkle = pow/);
+  assert.match(stars.material.vertexShader, /vec3 lensStarPosition/);
+  assert.match(stars.material.vertexShader, /vLensMagnification/);
   assert.match(stars.material.vertexShader, /mix\(0\.84, fullTwinkle, aTwinkleStrength\)/);
   assert.match(stars.material.vertexShader, /uPixelRatio \* sizePulse/);
   assert.match(stars.material.fragmentShader, /gl_PointCoord/);
@@ -95,6 +134,85 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
   ]) {
     assert.ok(stars.geometry.getAttribute(name), `missing ${name} star attribute`);
   }
+
+  disposeMushroomSky(sky);
+});
+
+test("the hidden lens stays fixed on the celestial sphere and has an exact off state", () => {
+  const sky = createMushroomSky({ starCount: 24, seed: 91 });
+  const backdrop = sky.userData.backdrop;
+  const stars = sky.userData.stars;
+  const originalPositions = [...stars.geometry.attributes.position.array];
+  const fixedDirection = new THREE.Vector3(3, 8, -5).normalize();
+
+  setMushroomSkyLens(sky, {
+    amount: 1,
+    direction: fixedDirection,
+    einsteinRadius: 0.11,
+    influenceRadius: 0.52,
+    horizonRadius: 0.035,
+    ringStrength: 1.4
+  });
+  assert.equal(sky.userData.lens.amount, 1);
+  assert.equal(backdrop.material.uniforms.uLensAmount.value, 1);
+  assert.equal(stars.material.uniforms.uLensAmount.value, 1);
+  assert.equal(backdrop.material.uniforms.uLensEinsteinRadius.value, 0.11);
+  assert.equal(stars.material.uniforms.uLensInfluenceRadius.value, 0.52);
+  assert.equal(backdrop.material.uniforms.uLensHorizonRadius.value, 0.035);
+  assert.equal(backdrop.material.uniforms.uLensRingStrength.value, 1.4);
+
+  const backdropParentDirection = backdrop.material.uniforms.uLensDirection.value
+    .clone()
+    .applyQuaternion(backdrop.quaternion);
+  const starParentDirection = stars.material.uniforms.uLensDirection.value
+    .clone()
+    .applyQuaternion(stars.quaternion);
+  assert.ok(backdropParentDirection.angleTo(fixedDirection) < 1e-7);
+  assert.ok(starParentDirection.angleTo(fixedDirection) < 1e-7);
+
+  sky.userData.textureReady = true;
+  const cameraPosition = new THREE.Vector3(
+    MUSHROOM_INTERIOR_CENTER.x,
+    MUSHROOM_INTERIOR_EYE_Y[2],
+    MUSHROOM_INTERIOR_CENTER.z
+  );
+  updateMushroomSky(sky, cameraPosition, 0.1, { reveal: 1 });
+  const directionAfterDrift = backdrop.material.uniforms.uLensDirection.value
+    .clone()
+    .applyQuaternion(backdrop.quaternion);
+  assert.ok(
+    directionAfterDrift.angleTo(fixedDirection) < 1e-7,
+    "independent panorama drift must not drag the event across the dome"
+  );
+  assert.deepEqual(
+    [...stars.geometry.attributes.position.array],
+    originalPositions,
+    "the hero-star lens belongs in the vertex shader, not mutable geometry"
+  );
+
+  setMushroomSkyLens(sky, 0);
+  assert.equal(backdrop.material.uniforms.uLensAmount.value, 0);
+  assert.equal(stars.material.uniforms.uLensAmount.value, 0);
+  assert.match(
+    backdrop.material.fragmentShader,
+    /if \(uLensAmount <= 0\.0\) return apparentDirection/,
+    "amount zero must retain the original panorama sampling path"
+  );
+  assert.match(
+    stars.material.vertexShader,
+    /if \(uLensAmount <= 0\.0\) return sourcePosition/,
+    "amount zero must retain every original hero-star position"
+  );
+  assert.match(
+    stars.material.vertexShader,
+    /vec3 apparentPosition = position;[\s\S]*?if \(uLensAmount > 0\.0\)/,
+    "the ordinary hero-star path must skip all magnification math"
+  );
+  assert.match(
+    backdrop.material.fragmentShader,
+    /atan\(length\(cross\(a, b\)\), clamp\(dot\(a, b\), -1\.0, 1\.0\)\)/,
+    "angular distance must remain finite at the event centre"
+  );
 
   disposeMushroomSky(sky);
 });

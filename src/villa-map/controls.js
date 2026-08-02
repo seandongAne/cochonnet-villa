@@ -3,7 +3,22 @@ import { collidesWithWorld, findFloorZone, findStairZone, findWaterZone, isOnUpp
 
 const HALF_PI = Math.PI / 2;
 
-export function createExplorerControls({ camera, canvas, world, onLockChange, onAction }) {
+// Hidden observatory shortcuts intentionally stay framework-agnostic. The
+// React bridge decides whether the player is close enough and actually aiming
+// at the physical switch before forwarding one of these semantic actions.
+export const EXPLORER_HIDDEN_ACTIONS = Object.freeze({
+  KeyR: "rift",
+  KeyF: "lens"
+});
+
+export function createExplorerControls({
+  camera,
+  canvas,
+  world,
+  onLockChange,
+  onAction,
+  onHiddenAction
+}) {
   const keys = new Set();
   const velocity = new THREE.Vector3();
   const candidate = new THREE.Vector3();
@@ -66,6 +81,21 @@ export function createExplorerControls({ camera, canvas, world, onLockChange, on
 
     if (event.code === "KeyE" && !event.repeat && (isLocked || hasStarted)) {
       onAction?.();
+      return;
+    }
+
+    const hiddenAction = EXPLORER_HIDDEN_ACTIONS[event.code];
+    if (
+      hiddenAction
+      && !event.repeat
+      && !event.ctrlKey
+      && !event.metaKey
+      && !event.altKey
+      && (isLocked || hasStarted)
+      && !isTypingTarget(event.target)
+    ) {
+      event.preventDefault?.();
+      onHiddenAction?.(hiddenAction);
       return;
     }
 
@@ -238,4 +268,18 @@ function isMovementKey(code) {
     "ArrowDown",
     "ArrowRight"
   ].includes(code);
+}
+
+// Do not steal R/F from inputs, textareas, selects, or editable UI mounted on
+// top of the Canvas. Duck typing keeps this helper node-testable without a DOM.
+export function isTypingTarget(target) {
+  if (!target) {
+    return false;
+  }
+
+  const tagName = String(target.tagName ?? "").toLowerCase();
+  return ["input", "textarea", "select"].includes(tagName)
+    || target.isContentEditable === true
+    || target.contentEditable === "true"
+    || target.getAttribute?.("role") === "textbox";
 }

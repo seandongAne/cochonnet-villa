@@ -69,6 +69,11 @@ export const MUSHROOM_FLOOR_LIGHTS = Object.freeze([
 
 export const MUSHROOM_OBSERVATORY_WALL_NAME = "mushroom-observatory-wall-lining";
 export const MUSHROOM_OBSERVATORY_FLOOR_NAME = "mushroom-observatory-floor-overlay";
+export const MUSHROOM_OBSERVATORY_OUTER_WALL_NAME =
+  "mushroom-observatory-upper-outer-wall";
+export const MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME =
+  "mushroom-observatory-upper-soil";
+export const MUSHROOM_OBSERVATORY_DOME_RIM_NAME = "mushroom-interior-dome-rim";
 export const MUSHROOM_OBSERVATORY_SWITCH_NAME = "mushroom-observatory-light-switch";
 export const MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME =
   "mushroom-observatory-light-switch-lever";
@@ -130,7 +135,10 @@ export function createMushroomInterior(materials) {
     color: wallMaterial.color,
     roughness: 0.98,
     metalness: 0.02,
-    side: THREE.BackSide
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false
   });
   observatoryWallMaterial.userData.lightsOnColor = `#${wallMaterial.color.getHexString()}`;
   observatoryWallMaterial.userData.lightsOffColor = "#01030a";
@@ -145,7 +153,10 @@ export function createMushroomInterior(materials) {
     color: "#02050c",
     roughness: 1,
     metalness: 0,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false
   });
   const buntingMaterials = ["#ce6d5b", "#e6a44c", "#7fa38a"].map(
     (color) => new THREE.MeshStandardMaterial({
@@ -160,13 +171,34 @@ export function createMushroomInterior(materials) {
   // open-ended earth cylinder means a corner-hugger sees soil, never the void.
   // It must stay open at the top so its back-facing cap cannot eclipse the
   // photographic star dome when a visitor looks straight up from the loft.
+  const soilBottom = -0.6;
+  const soilTop = WALL_HEIGHT + 2.4;
+  const observatoryFloorY = LEVEL_HEIGHT * 2;
+  const lowerSoilHeight = observatoryFloorY - soilBottom;
+  const upperSoilHeight = soilTop - observatoryFloorY;
   const soil = new THREE.Mesh(
-    new THREE.CylinderGeometry(7.2, 7.2, WALL_HEIGHT + 3, 24, 1, true),
+    new THREE.CylinderGeometry(7.2, 7.2, lowerSoilHeight, 24, 1, true),
     soilMaterial
   );
   soil.name = "mushroom-interior-soil";
-  soil.position.y = (WALL_HEIGHT + 3) / 2 - 0.6;
+  soil.position.y = soilBottom + lowerSoilHeight / 2;
   group.add(soil);
+
+  // R's hidden non-Euclidean event needs the entire L3 shell to disappear,
+  // not merely its decorative inner lining. Keep the lower storeys opaque and
+  // give the upper earth surround an independently fadeable material so L1/L2
+  // never become visible through the buried pocket.
+  const upperSoilMaterial = soilMaterial.clone();
+  upperSoilMaterial.transparent = true;
+  upperSoilMaterial.opacity = 1;
+  upperSoilMaterial.depthWrite = false;
+  const upperSoil = new THREE.Mesh(
+    new THREE.CylinderGeometry(7.2, 7.2, upperSoilHeight, 24, 1, true),
+    upperSoilMaterial
+  );
+  upperSoil.name = MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME;
+  upperSoil.position.y = observatoryFloorY + upperSoilHeight / 2;
+  group.add(upperSoil);
 
   const base = new THREE.Mesh(
     new THREE.CylinderGeometry(7.2, 7.2, 0.4, 32),
@@ -178,13 +210,27 @@ export function createMushroomInterior(materials) {
   group.add(base);
 
   const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(RADIUS, RADIUS, WALL_HEIGHT, 48, 1, true),
+    new THREE.CylinderGeometry(RADIUS, RADIUS, observatoryFloorY, 48, 1, true),
     wallMaterial
   );
   wall.name = "mushroom-interior-wall";
-  wall.position.y = WALL_HEIGHT / 2;
+  wall.position.y = observatoryFloorY / 2;
   wall.receiveShadow = true;
   group.add(wall);
+
+  const upperWallMaterial = wallMaterial.clone();
+  upperWallMaterial.transparent = true;
+  upperWallMaterial.opacity = 1;
+  upperWallMaterial.depthWrite = false;
+  const upperWallHeight = WALL_HEIGHT - observatoryFloorY;
+  const upperWall = new THREE.Mesh(
+    new THREE.CylinderGeometry(RADIUS, RADIUS, upperWallHeight, 48, 1, true),
+    upperWallMaterial
+  );
+  upperWall.name = MUSHROOM_OBSERVATORY_OUTER_WALL_NAME;
+  upperWall.position.y = observatoryFloorY + upperWallHeight / 2;
+  upperWall.receiveShadow = true;
+  group.add(upperWall);
 
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(RADIUS, 40, 18, 0, Math.PI * 2, 0, Math.PI / 2),
@@ -222,7 +268,7 @@ export function createMushroomInterior(materials) {
     new THREE.TorusGeometry(RADIUS - 0.08, 0.045, 8, 64),
     starDomeRimMaterial
   );
-  domeRim.name = "mushroom-interior-dome-rim";
+  domeRim.name = MUSHROOM_OBSERVATORY_DOME_RIM_NAME;
   domeRim.rotation.x = Math.PI / 2;
   domeRim.position.y = WALL_HEIGHT + 0.015;
   group.add(domeRim);

@@ -13,16 +13,47 @@ import {
   disposeObservatoryPortalComposite,
   disposeObservatoryPortalRenderTarget,
   getObservatoryPortalQuality,
+  OBSERVATORY_PORTAL_DEFAULT_EMISSION_STRENGTH,
+  OBSERVATORY_PORTAL_DEFAULT_EXTINCTION_STRENGTH,
+  OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS,
   OBSERVATORY_PORTAL_COMPOSITE_NAME,
   OBSERVATORY_PORTAL_DEFAULT_QUALITY,
   OBSERVATORY_PORTAL_QUALITY_PRESETS,
   OBSERVATORY_PORTAL_STENCIL_REF,
   OBSERVATORY_PORTAL_TARGET_MAX_HEIGHT,
   OBSERVATORY_PORTAL_TARGET_MAX_WIDTH,
+  projectObservatoryPortalLens,
   resizeObservatoryPortal,
   updateObservatoryPortalCamera,
   updateObservatoryPortalComposite
 } from "../src/villa-map/observatory-portal.js";
+
+test("finite Portal lens projection rejects the rear hemisphere and unstable extremes", () => {
+  const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 200);
+  camera.position.set(0, 0, 0);
+  camera.lookAt(0, 0, -1);
+  camera.updateMatrixWorld(true);
+  const target = new THREE.Vector2();
+
+  assert.equal(
+    projectObservatoryPortalLens(camera, new THREE.Vector3(0, 0, -42), target),
+    true
+  );
+  assert.deepEqual(target.toArray(), [0.5, 0.5]);
+
+  assert.equal(
+    projectObservatoryPortalLens(camera, new THREE.Vector3(0, 0, 42), target),
+    false,
+    "a point behind the camera must not create a mirrored screen-space lens"
+  );
+  assert.deepEqual(target.toArray(), [0.5, 0.5]);
+
+  assert.equal(
+    projectObservatoryPortalLens(camera, new THREE.Vector3(Number.NaN, 0, -1), target),
+    false
+  );
+  assert.ok(target.toArray().every(Number.isFinite));
+});
 
 test("portal quality tiers preserve aspect and hard-cap every FBO at 1280x720", () => {
   assert.equal(getObservatoryPortalQuality("unknown").id, OBSERVATORY_PORTAL_DEFAULT_QUALITY);
@@ -149,20 +180,62 @@ test("fullscreen portal composite reads the existing dome stencil", () => {
   assert.equal(composite.name, OBSERVATORY_PORTAL_COMPOSITE_NAME);
   assert.equal(composite.geometry.attributes.position.count, 3);
   assert.equal(composite.frustumCulled, false);
+  assert.ok(
+    composite.renderOrder > -900,
+    "the near dust composite must draw after the fixed Gaia/hero-star field"
+  );
   assert.equal(material.type, "ShaderMaterial");
   assert.equal(material.uniforms.uPortalTexture.value, texture);
   assert.equal(material.uniforms.uReveal.value, 0.25);
+  assert.equal(
+    material.uniforms.uEmissionStrength.value,
+    OBSERVATORY_PORTAL_DEFAULT_EMISSION_STRENGTH
+  );
+  assert.equal(
+    material.uniforms.uExtinctionStrength.value,
+    OBSERVATORY_PORTAL_DEFAULT_EXTINCTION_STRENGTH
+  );
+  assert.equal(material.uniforms.uLensAmount.value, 0);
+  assert.deepEqual(material.uniforms.uLensCenter.value.toArray(), [0.5, 0.5]);
+  assert.equal(material.uniforms.uLensRadius.value, OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS);
   assert.equal(material.transparent, true);
-  assert.equal(material.blending, THREE.AdditiveBlending);
+  assert.equal(material.blending, THREE.CustomBlending);
+  assert.equal(material.blendSrc, THREE.OneFactor);
+  assert.equal(material.blendDst, THREE.OneMinusSrcAlphaFactor);
   assert.equal(material.depthTest, false);
   assert.equal(material.depthWrite, false);
   assert.equal(material.stencilRef, OBSERVATORY_PORTAL_STENCIL_REF);
   assert.equal(material.stencilFunc, THREE.EqualStencilFunc);
   assert.match(material.fragmentShader, /uniform sampler2D uPortalTexture/);
+  assert.match(material.fragmentShader, /vec2 portalUv = vUv/);
+  assert.match(material.fragmentShader, /if \(uLensAmount > 0\.0\)/);
+  assert.match(
+    material.fragmentShader,
+    /radialDirection = lensMetric \/ max\(rawLensDistance, 0\.00001\)/,
+    "the centre pixel must never normalize a zero vector"
+  );
+  assert.match(material.fragmentShader, /lensDeflection/);
+  assert.match(material.fragmentShader, /lensOcclusion/);
+  assert.match(material.fragmentShader, /gl_FragColor = vec4\(emission, extinction\)/);
+  assert.match(material.fragmentShader, /existingSky \* \(1 - extinction\)/);
   assert.match(material.fragmentShader, /#include <colorspace_fragment>/);
 
   assert.equal(updateObservatoryPortalComposite(composite, { reveal: 3 }), true);
   assert.equal(material.uniforms.uReveal.value, 1);
+  updateObservatoryPortalComposite(composite, {
+    emissionStrength: 4,
+    extinctionStrength: -1,
+    lensAmount: 2,
+    lensCenter: [0.2, 0.8],
+    lensAspect: 8,
+    lensRadius: 0.5
+  });
+  assert.equal(material.uniforms.uEmissionStrength.value, 2);
+  assert.equal(material.uniforms.uExtinctionStrength.value, 0);
+  assert.equal(material.uniforms.uLensAmount.value, 1);
+  assert.deepEqual(material.uniforms.uLensCenter.value.toArray(), [0.2, 0.8]);
+  assert.equal(material.uniforms.uLensAspect.value, 4);
+  assert.equal(material.uniforms.uLensRadius.value, 0.3);
   disposeObservatoryPortalComposite(composite);
   texture.dispose();
 });

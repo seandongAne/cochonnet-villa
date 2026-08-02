@@ -17,6 +17,10 @@ const CLIP_MAX = 12.5;
 const CLIP_STEP = 1.5;
 const CLIP_DEFAULT = 6.0;
 const OBSERVATORY_LIGHT_ACTION = "toggle-observatory-lights";
+const CLOSED_OBSERVATORY_HIDDEN_EFFECTS = Object.freeze({
+  rift: false,
+  lens: false
+});
 
 // Snap a radian angle to a tidy multiple of π/2 when it's within ~1° of one, so
 // the copied record reads `Math.PI / 2` like the hand-authored data rather than
@@ -88,14 +92,44 @@ export default function VillaMap() {
   const [observatoryLightsOn, setObservatoryLightsOn] = useState(
     observatoryDiagnosticsMode ? observatoryInitialLightsOn : true
   );
+  const observatoryLightsOnRef = useRef(observatoryLightsOn);
+  observatoryLightsOnRef.current = observatoryLightsOn;
+  const [observatoryHiddenEffects, setObservatoryHiddenEffects] = useState(
+    CLOSED_OBSERVATORY_HIDDEN_EFFECTS
+  );
   const [observatoryDiagnosticsApi, setObservatoryDiagnosticsApi] = useState(null);
   const handleObservatoryDiagnosticsReady = useCallback((api) => {
     // Functions passed directly to a state setter are treated as updater
     // callbacks, so wrap the diagnostics object (which contains methods).
     setObservatoryDiagnosticsApi(() => api);
   }, []);
+  const resetObservatoryHiddenEffects = useCallback(() => {
+    setObservatoryHiddenEffects((current) => (
+      current.rift || current.lens
+        ? CLOSED_OBSERVATORY_HIDDEN_EFFECTS
+        : current
+    ));
+  }, []);
+  const setObservatoryLights = useCallback((value) => {
+    const nextLightsOn = Boolean(value);
+    observatoryLightsOnRef.current = nextLightsOn;
+    setObservatoryLightsOn(nextLightsOn);
+    if (nextLightsOn) resetObservatoryHiddenEffects();
+  }, [resetObservatoryHiddenEffects]);
   const toggleObservatoryLights = useCallback(() => {
-    setObservatoryLightsOn((lightsOn) => !lightsOn);
+    setObservatoryLights(!observatoryLightsOnRef.current);
+  }, [setObservatoryLights]);
+  const handleObservatoryHiddenAction = useCallback((action) => {
+    if (action !== "rift" && action !== "lens") return;
+    // The concealed controls are part of the same physical switch story. A
+    // successful R/F aim silently cuts the house lights before toggling its
+    // event; E/开灯 always returns the observatory to the safe base state.
+    observatoryLightsOnRef.current = false;
+    setObservatoryLightsOn(false);
+    setObservatoryHiddenEffects((current) => ({
+      ...current,
+      [action]: !current[action]
+    }));
   }, []);
 
   const displayedInteraction = useMemo(() => {
@@ -232,6 +266,9 @@ export default function VillaMap() {
           editMode={editMode}
           onSelectPiece={editMode ? selectPiece : undefined}
           observatoryLightsOn={observatoryLightsOn}
+          observatoryRiftOpen={observatoryHiddenEffects.rift}
+          observatoryLensActive={observatoryHiddenEffects.lens}
+          onObservatoryHiddenEffectsReset={resetObservatoryHiddenEffects}
         />
         {editMode ? (
           <EditControls
@@ -250,12 +287,15 @@ export default function VillaMap() {
                 onLockChange={setExploring}
                 onInteraction={setInteraction}
                 onToggleObservatoryLights={toggleObservatoryLights}
+                onObservatoryHiddenAction={handleObservatoryHiddenAction}
               />
             )}
             <ObservatoryDiagnostics
               mode={observatoryDiagnosticsMode}
               lightsOn={observatoryLightsOn}
-              setLightsOn={setObservatoryLightsOn}
+              setLightsOn={setObservatoryLights}
+              hiddenEffects={observatoryHiddenEffects}
+              onHiddenAction={handleObservatoryHiddenAction}
               initialView={observatoryDiagnosticsView}
               onReady={handleObservatoryDiagnosticsReady}
             />
@@ -268,6 +308,7 @@ export default function VillaMap() {
             onLockChange={setExploring}
             onInteraction={setInteraction}
             onToggleObservatoryLights={toggleObservatoryLights}
+            onObservatoryHiddenAction={handleObservatoryHiddenAction}
           />
         )}
       </Canvas>
@@ -308,6 +349,8 @@ export default function VillaMap() {
         <ObservatoryDiagnosticsPanel
           mode={observatoryDiagnosticsMode}
           api={observatoryDiagnosticsApi}
+          lightsOn={observatoryLightsOn}
+          hiddenEffects={observatoryHiddenEffects}
         />
       )}
 
@@ -333,9 +376,16 @@ export default function VillaMap() {
   );
 }
 
-function ObservatoryDiagnosticsPanel({ mode, api }) {
+function ObservatoryDiagnosticsPanel({ mode, api, lightsOn, hiddenEffects }) {
   const [collapsed, setCollapsed] = useState(false);
   const [snapshot, setSnapshot] = useState(null);
+  useEffect(() => {
+    if (!api) return;
+    // React state commits after the QA button handler returns. Refreshing here
+    // keeps the deterministic snapshot aligned with the newly committed light
+    // and hidden-event state instead of briefly reporting the prior frame.
+    setSnapshot(api.renderOnce());
+  }, [api, hiddenEffects?.lens, hiddenEffects?.rift, lightsOn]);
   const panelStyle = {
     position: "fixed",
     top: 22,
@@ -431,6 +481,54 @@ function ObservatoryDiagnosticsPanel({ mode, api }) {
           })}
         >
           关灯
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-rift={hiddenEffects?.rift ? "on" : "off"}
+          onClick={() => run(() => {
+            api.toggleHiddenEffect("rift");
+            return null;
+          })}
+        >
+          R Rift · {hiddenEffects?.rift ? "ON" : "OFF"}
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-lens={hiddenEffects?.lens ? "on" : "off"}
+          onClick={() => run(() => {
+            api.toggleHiddenEffect("lens");
+            return null;
+          })}
+        >
+          F Lens · {hiddenEffects?.lens ? "ON" : "OFF"}
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-sky="base"
+          onClick={() => run(() => {
+            api.setSkyMode("base");
+            return api.renderOnce();
+          })}
+        >
+          Base image
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-sky="impossible"
+          onClick={() => run(() => {
+            api.setSkyMode("impossible");
+            return api.renderOnce();
+          })}
+        >
+          Impossible
         </button>
         {mode === "test" && [0.5, 2, 10].map((seconds) => (
           <button

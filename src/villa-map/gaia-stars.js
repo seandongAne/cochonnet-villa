@@ -18,6 +18,18 @@ const LOD_NAMES = new Set(Object.keys(GAIA_STAR_LOD_COUNTS));
 const MILLIMAGNITUDE_SCALE = 1_000;
 const DEFAULT_RADIUS = 79;
 
+// Default direction on the same camera-centred celestial sphere as the
+// catalogue. Runtime can derive a slightly changing direction/angular scale
+// from a finite world anchor while the Gaia points themselves stay in the far
+// field. The shipped composition keeps the anchor high and away from stairs.
+export const GAIA_LENS_DEFAULT_DIRECTION = Object.freeze({
+  x: 0.31,
+  y: 0.79,
+  z: -0.53
+});
+export const GAIA_LENS_DEFAULT_EINSTEIN_RADIUS = 0.095;
+export const GAIA_LENS_DEFAULT_INFLUENCE_RADIUS = 0.42;
+
 // Coarse BP-RP colour anchors. They preserve Gaia's measured blue-to-red
 // ordering without pretending that a broad-band colour is a complete stellar
 // spectrum. THREE.Color converts the authored sRGB anchors to its linear
@@ -37,6 +49,10 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
   uniform float uReveal;
   uniform float uMagnitudeLimit;
   uniform float uMagnitudeFeather;
+  uniform float uLensAmount;
+  uniform vec3 uLensDirection;
+  uniform float uLensEinsteinRadius;
+  uniform float uLensInfluenceRadius;
 
   attribute float aMagnitude;
   attribute float aBpRp;
@@ -46,7 +62,52 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
 
   varying float vIntensity;
   varying float vMagnitudeVisibility;
+  varying float vLensMagnification;
   varying vec3 vStarColor;
+
+  float angularDistance(vec3 first, vec3 second) {
+    vec3 a = normalize(first);
+    vec3 b = normalize(second);
+    return atan(length(cross(a, b)), clamp(dot(a, b), -1.0, 1.0));
+  }
+
+  vec3 lensStarPosition(vec3 sourcePosition) {
+    // Preserve the original vertex path exactly while the hidden event is off.
+    if (uLensAmount <= 0.0) return sourcePosition;
+
+    float sphereRadius = length(sourcePosition);
+    vec3 sourceDirection = sourcePosition / max(sphereRadius, 0.0001);
+    vec3 lensDirection = normalize(uLensDirection);
+    float alignment = clamp(dot(sourceDirection, lensDirection), -1.0, 1.0);
+    float sourceAngle = angularDistance(sourceDirection, lensDirection);
+    if (sourceAngle >= uLensInfluenceRadius) return sourcePosition;
+
+    vec3 radialDirection = sourceDirection - lensDirection * alignment;
+    if (length(radialDirection) < 0.00001) {
+      vec3 fallbackAxis = abs(lensDirection.y) < 0.92
+        ? vec3(0.0, 1.0, 0.0)
+        : vec3(1.0, 0.0, 0.0);
+      radialDirection = cross(fallbackAxis, lensDirection);
+    }
+    radialDirection = normalize(radialDirection);
+
+    // Point-mass lens equation: a source close to the lens is pushed toward
+    // the Einstein radius. Fade it before the influence boundary so the fixed
+    // far field cannot develop a visible seam.
+    float lensSquared = uLensEinsteinRadius * uLensEinsteinRadius * uLensAmount;
+    float imageAngle = 0.5 * (
+      sourceAngle + sqrt(sourceAngle * sourceAngle + 4.0 * lensSquared)
+    );
+    float influence = 1.0 - smoothstep(
+      uLensEinsteinRadius * 1.35,
+      uLensInfluenceRadius,
+      sourceAngle
+    );
+    imageAngle = mix(sourceAngle, imageAngle, influence);
+    vec3 apparentDirection = lensDirection * cos(imageAngle)
+      + radialDirection * sin(imageAngle);
+    return normalize(apparentDirection) * sphereRadius;
+  }
 
   void main() {
     // Gaia G magnitude is logarithmic: smaller values are brighter. Dark
@@ -63,8 +124,22 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
     vIntensity = aIntensity + catalogSignal;
     vStarColor = aStarColor;
 
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = max(1.0, aSize * uPixelRatio * (0.82 + 0.18 * uReveal));
+    vec3 lensedPosition = position;
+    vLensMagnification = 1.0;
+    if (uLensAmount > 0.0) {
+      float sourceAngle = angularDistance(position, uLensDirection);
+      float lensInfluence = uLensAmount * (
+        1.0 - smoothstep(uLensEinsteinRadius, uLensInfluenceRadius, sourceAngle)
+      );
+      vLensMagnification += lensInfluence * 0.72;
+      lensedPosition = lensStarPosition(position);
+    }
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(lensedPosition, 1.0);
+    gl_PointSize = max(
+      1.0,
+      aSize * uPixelRatio * (0.82 + 0.18 * uReveal) * vLensMagnification
+    );
   }
 `;
 
@@ -73,6 +148,7 @@ const GAIA_STAR_FRAGMENT_SHADER = /* glsl */ `
 
   varying float vIntensity;
   varying float vMagnitudeVisibility;
+  varying float vLensMagnification;
   varying vec3 vStarColor;
 
   void main() {
@@ -82,7 +158,8 @@ const GAIA_STAR_FRAGMENT_SHADER = /* glsl */ `
     float alpha = (core * 0.88 + halo * 0.20)
       * vIntensity
       * uReveal
-      * vMagnitudeVisibility;
+      * vMagnitudeVisibility
+      * vLensMagnification;
     if (alpha < 0.012) discard;
 
     gl_FragColor = vec4(vStarColor * (0.82 + vIntensity * 0.62), alpha);
@@ -279,7 +356,10 @@ function createGaiaStarGeometry(catalog, radius) {
       1
     );
     sizes[index] = 1.0 + Math.pow(prominence, 1.8) * 4.5;
-    intensities[index] = 0.30 + Math.pow(prominence, 1.35) * 0.92;
+    // The catalogue supplies structure and measured colour, not a blanket of
+    // extra exposure. Keep it below the old additive level so depth comes from
+    // dust extinction rather than simply making every point brighter.
+    intensities[index] = 0.22 + Math.pow(prominence, 1.35) * 0.68;
 
     gaiaBpRpToColor(catalog.bpRp[index], scratchColor);
     colours[offset] = scratchColor.r;
@@ -296,6 +376,40 @@ function createGaiaStarGeometry(catalog, radius) {
   geometry.setAttribute("aStarColor", new THREE.BufferAttribute(colours, 3));
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+function copyGaiaLensDirection(target, direction) {
+  if (direction?.isVector3) {
+    target.copy(direction);
+  } else if (Array.isArray(direction) || ArrayBuffer.isView(direction)) {
+    target.set(
+      Number(direction[0]),
+      Number(direction[1]),
+      Number(direction[2])
+    );
+  } else if (direction && typeof direction === "object") {
+    target.set(Number(direction.x), Number(direction.y), Number(direction.z));
+  } else {
+    target.set(
+      GAIA_LENS_DEFAULT_DIRECTION.x,
+      GAIA_LENS_DEFAULT_DIRECTION.y,
+      GAIA_LENS_DEFAULT_DIRECTION.z
+    );
+  }
+
+  if (
+    !Number.isFinite(target.x)
+    || !Number.isFinite(target.y)
+    || !Number.isFinite(target.z)
+    || target.lengthSq() < 1e-8
+  ) {
+    target.set(
+      GAIA_LENS_DEFAULT_DIRECTION.x,
+      GAIA_LENS_DEFAULT_DIRECTION.y,
+      GAIA_LENS_DEFAULT_DIRECTION.z
+    );
+  }
+  return target.normalize();
 }
 
 export function createGaiaStarPoints(
@@ -350,7 +464,13 @@ export function createGaiaStarPoints(
         value: initialReveal
       },
       uMagnitudeLimit: { value: initialMagnitudeLimit },
-      uMagnitudeFeather: { value: 0.42 }
+      uMagnitudeFeather: { value: 0.42 },
+      uLensAmount: { value: 0 },
+      uLensDirection: {
+        value: copyGaiaLensDirection(new THREE.Vector3())
+      },
+      uLensEinsteinRadius: { value: GAIA_LENS_DEFAULT_EINSTEIN_RADIUS },
+      uLensInfluenceRadius: { value: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS }
     },
     vertexShader: GAIA_STAR_VERTEX_SHADER,
     fragmentShader: GAIA_STAR_FRAGMENT_SHADER,
@@ -373,6 +493,12 @@ export function createGaiaStarPoints(
   points.userData.maximumMagnitude = maximumMagnitude;
   points.userData.brightMagnitudeLimit = brightMagnitudeLimit;
   points.userData.sourceIds = catalog.sourceIds;
+  points.userData.lens = {
+    amount: 0,
+    direction: material.uniforms.uLensDirection.value.clone(),
+    einsteinRadius: GAIA_LENS_DEFAULT_EINSTEIN_RADIUS,
+    influenceRadius: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS
+  };
   points.userData.disposed = false;
   return points;
 }
@@ -404,6 +530,40 @@ export function setGaiaStarReveal(points, reveal) {
       safeReveal
     );
   }
+}
+
+export function setGaiaStarLens(points, lens = {}) {
+  const uniforms = points?.material?.uniforms;
+  const state = points?.userData?.lens;
+  if (!uniforms?.uLensAmount || !state) return;
+
+  const options = typeof lens === "number" ? { amount: lens } : (lens ?? {});
+  const amount = Number.isFinite(options.amount)
+    ? THREE.MathUtils.clamp(options.amount, 0, 1)
+    : state.amount;
+  const einsteinRadius = Number.isFinite(options.einsteinRadius)
+    ? THREE.MathUtils.clamp(options.einsteinRadius, 0.015, 0.22)
+    : state.einsteinRadius;
+  const requestedInfluence = Number.isFinite(options.influenceRadius)
+    ? options.influenceRadius
+    : state.influenceRadius;
+  const influenceRadius = THREE.MathUtils.clamp(
+    Math.max(requestedInfluence, einsteinRadius * 1.6),
+    0.08,
+    0.9
+  );
+
+  if (options.direction !== undefined) {
+    copyGaiaLensDirection(state.direction, options.direction);
+  }
+  state.amount = amount;
+  state.einsteinRadius = einsteinRadius;
+  state.influenceRadius = influenceRadius;
+
+  uniforms.uLensAmount.value = amount;
+  uniforms.uLensDirection.value.copy(state.direction);
+  uniforms.uLensEinsteinRadius.value = einsteinRadius;
+  uniforms.uLensInfluenceRadius.value = influenceRadius;
 }
 
 export async function loadGaiaStarCatalog(

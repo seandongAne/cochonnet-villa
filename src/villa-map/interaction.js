@@ -48,3 +48,51 @@ export function findNearestInteraction(interactions, position) {
 
   return nearest;
 }
+
+// Hidden interactions should feel attached to their physical control rather
+// than fire merely because the player wandered into a broad HUD radius. This
+// treats the view direction as a ray and requires it to pass through a small
+// world-space target around the interaction marker. A fixed radius tracks the
+// switch's real 0.4 x 0.6 m plate better than a cone that widens with distance.
+export function isInteractionTargeted(
+  interaction,
+  position,
+  direction,
+  aimRadius = 0.32
+) {
+  if (!interaction || !position || !direction || aimRadius <= 0) {
+    return false;
+  }
+
+  const markerY = interaction.position.y ?? 1.4;
+  const playerY = position.y ?? 1.6;
+  if (Math.abs(markerY - playerY) > 2.0) {
+    return false;
+  }
+
+  const dx = interaction.position.x - position.x;
+  const dy = markerY - playerY;
+  const dz = interaction.position.z - position.z;
+  if (Math.hypot(dx, dz) > interaction.radius) {
+    return false;
+  }
+
+  const directionLength = Math.hypot(direction.x, direction.y, direction.z);
+  const targetDistanceSquared = dx * dx + dy * dy + dz * dz;
+  if (directionLength === 0 || targetDistanceSquared === 0) {
+    return false;
+  }
+
+  const projection = (
+    dx * direction.x + dy * direction.y + dz * direction.z
+  ) / directionLength;
+  if (projection <= 0) {
+    return false;
+  }
+
+  const perpendicularDistanceSquared = Math.max(
+    0,
+    targetDistanceSquared - projection * projection
+  );
+  return perpendicularDistanceSquared <= aimRadius * aimRadius;
+}

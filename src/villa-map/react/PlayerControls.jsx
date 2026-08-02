@@ -1,8 +1,16 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { Vector3 } from "three";
 
 import { createExplorerControls } from "../controls.js";
-import { findNearestInteraction } from "../interaction.js";
+import {
+  findNearestInteraction,
+  isInteractionTargeted
+} from "../interaction.js";
+import { MUSHROOM_FLOOR_Y_RANGES } from "../mushroom-interior-config.js";
+import {
+  MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID
+} from "../mushroom-interior.js";
 
 // Bridges the framework-agnostic WASD/pointer-lock controls (controls.js) and
 // the proximity HUD logic (interaction.js) into the R3F render loop. Both
@@ -14,7 +22,8 @@ export function PlayerControls({
   wantLockRef,
   onLockChange,
   onInteraction,
-  onToggleObservatoryLights
+  onToggleObservatoryLights,
+  onObservatoryHiddenAction
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -22,6 +31,7 @@ export function PlayerControls({
   const activeId = useRef("");
   // The interaction currently in range — read by the E-key action handler.
   const nearestRef = useRef(null);
+  const aimDirectionRef = useRef(new Vector3());
 
   useEffect(() => {
     const controls = createExplorerControls({
@@ -46,6 +56,32 @@ export function PlayerControls({
         nearestRef.current = null;
         activeId.current = "";
         onInteraction(null);
+      },
+      // R/F are deliberately hidden: there is no proximity-only shortcut.
+      // They work exclusively on L3 when the camera ray passes through the
+      // small physical wall-switch target.
+      onHiddenAction: (action) => {
+        const l3Range = MUSHROOM_FLOOR_Y_RANGES[4];
+        if (
+          camera.position.y < l3Range.minY
+          || camera.position.y > l3Range.maxY
+        ) {
+          return;
+        }
+
+        const lightSwitch = world.interactions.find(
+          (interaction) => interaction.id === MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID
+        );
+        camera.getWorldDirection(aimDirectionRef.current);
+        if (!isInteractionTargeted(
+          lightSwitch,
+          camera.position,
+          aimDirectionRef.current
+        )) {
+          return;
+        }
+
+        onObservatoryHiddenAction?.(action);
       }
     });
     controlsRef.current = controls;
@@ -73,7 +109,8 @@ export function PlayerControls({
     wantLockRef,
     onLockChange,
     onInteraction,
-    onToggleObservatoryLights
+    onToggleObservatoryLights,
+    onObservatoryHiddenAction
   ]);
 
   // Run before visual frame followers such as the camera-centred observatory

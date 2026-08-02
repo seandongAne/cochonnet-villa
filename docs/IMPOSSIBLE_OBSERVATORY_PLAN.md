@@ -1,10 +1,10 @@
 # 三楼 Impossible Observatory 实施计划
 
-状态：**核心实现完成，可进入人工视觉与目标硬件 GPU 验收**
+状态：**核心与首个隐藏 Observatory Lab 实验完成，可进入人工视觉与目标硬件 GPU 验收**
 日期：2026-08-02  
 适用范围：`/villa-map/` 蘑菇房三楼观测室
 
-自动化证据（2026-08-02）：`npm test` **148/148 通过**；05:53 的 `npm run build` **通过**。这证明模块契约、数据、降级、资源清理与生产打包均已闭环，但不替代最终的人眼舒适度、wow factor 和目标硬件 GPU 帧时间验收。
+自动化证据（2026-08-02）：`npm test` **167/167 通过**；`npm run build` **通过**。这证明核心与隐藏 R/F 实验的模块契约、数据、降级、资源清理与生产打包均已闭环，但不替代最终的人眼舒适度、wow factor 和目标硬件 GPU 帧时间验收。
 
 ## 1. 项目目标
 
@@ -42,7 +42,7 @@
 - 纹理加载失败、React StrictMode 生命周期和 GPU 资源释放已经有 fallback/清理路径。
 - 起点 Node 测试共 95 项，全部通过。
 
-该起点已固化为可回退 checkpoint。当前核心实现增至 148 项 Node 测试，仍全部通过；05:53 生产构建通过。固定机位实施前截图保存在 `docs/observatory-baseline/`，六张实施后截图保存在 `docs/observatory-final/`。
+该起点已固化为可回退 checkpoint。当前核心与 Lab v1 增至 167 项 Node 测试，仍全部通过；生产构建通过。固定机位实施前截图保存在 `docs/observatory-baseline/`，八张实施后/验收截图保存在 `docs/observatory-final/`。
 
 ## 4. 核心架构决定
 
@@ -57,8 +57,8 @@ WebGPU/TSL 只在真实性能数据证明 WebGL 无法达到目标，或后续�
 已实现的生产路径：
 
 1. 独立 `portalScene` 只负责最昂贵、也最能接受半分辨率的体积星云。
-2. 由虚拟相机先把星云渲染到半分辨率 HDR FBO；该 FBO 不申请自己的 depth/stencil buffer。
-3. 主场景真实穹顶通过屏幕空间投影合成星云 FBO，并继续由现有穹顶/stencil 精确裁切。
+2. 由虚拟相机先把星云渲染到半分辨率 HDR FBO；RGB 保存发光量，A 保存沿光线累计的尘埃不透明度，该 FBO 不申请自己的 depth/stencil buffer。
+3. 主场景在远星之后合成星云 FBO，以 `emission + existingSky × (1 - extinction)` 同时完成发光与遮光，并继续由现有穹顶/stencil 精确裁切。
 4. 当前 4K 低频银河、Gaia 远星与少量 hero stars 都直接以 Canvas 原生分辨率绘制，避免再次经过低分辨率 FBO 后变糊。
 5. 墙壁、家具和透明物仍由主场景正常深度与排序系统处理。
 
@@ -67,7 +67,7 @@ flowchart LR
     A["玩家相机"] --> B["Portal 相机映射"]
     B --> C["独立 portalScene"]
     C --> D["半分辨率 HDR FBO"]
-    D --> E["穹顶屏幕投影材质"]
+    D --> E["发光 + 消光屏幕合成"]
     E --> F["现有 stencil aperture"]
     A --> G["全分辨率 Gaia / hero stars"]
     G --> F
@@ -112,12 +112,14 @@ Node-pure 暗适应状态函数已经落地，并统一输出：
 | 模块 | 职责 |
 |---|---|
 | `src/villa-map/observatory-adaptation.js` | 暗适应状态、曲线和纯数学测试 |
+| `src/villa-map/observatory-rift.js` | 隐藏 Rift 的可逆时序、遮罩/墙体交接、reduced-motion 与 fail-close 通道 |
+| `src/villa-map/observatory-rift-visual.js` | 扩张 stencil、三层有限距离星屑/空间碎片和独立展开的三道空间环 |
 | `src/villa-map/observatory-portal.js` | Portal 尺寸/相机映射、无 depth/stencil FBO、stencil 合成与幂等释放 |
 | `src/villa-map/mushroom-nebula.js` | Node-safe 体积星云 ray-march ShaderMaterial、质量步数与更新/释放 |
 | `src/villa-map/gaia-stars.js` | 紧凑星表解码、星等/颜色映射和 BufferGeometry 工厂 |
 | `src/villa-map/observatory-quality.js` | High/Medium/Low/Minimum 能力上限、p95 迟滞调档与 fallback 策略 |
 | `src/villa-map/observatory-diagnostics.js` | 固定相机书签、帧统计与 FBO 显存估算 |
-| `src/villa-map/react/MushroomObservatoryRuntime.jsx` | 统一暗适应导演、4K/Gaia 懒加载、FBO 预热/逐帧渲染、降级与资源生命周期 |
+| `src/villa-map/react/MushroomObservatoryRuntime.jsx` | 统一暗适应、4K/Gaia 懒加载、FBO 预热/逐帧渲染、隐藏 Rift/Lens、降级与资源生命周期 |
 | `src/villa-map/react/ObservatoryDiagnostics.jsx` | query-only 固定机位、手动时间推进、runtime provider 与性能快照 |
 | `scripts/build-gaia-star-catalog.mjs` | 离线裁剪并生成静态二进制星表，不在运行时访问网络 |
 | `public/data/gaia-bright-stars-v1.bin` | v1 紧凑运行时星表，80,000 条、1,920,032 bytes |
@@ -144,8 +146,8 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 - `observatory-diagnostics.js` 固化 `l2-stair`、`loft-center`、`loft-edge`、`loft-room` 四个相机书签、p50/p95/p99/1% low 统计和显存估算。
 - `?observatory=test` 使用 `frameloop="never"`，可确定性推进 0.5/2/10 秒；`?observatory=perf` 保留真实帧循环，并同时挂载正常 `PlayerControls`，可以实际走完验收路线。
-- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；六张实施后截图保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒与穹顶边缘。
-- 4K WebP 仍为原始 4096×1024；148/148 自动测试与 05:53 生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
+- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；八张实施后/验收截图保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层和隐藏 Rift+Lens。
+- 4K WebP 仍为原始 4096×1024；167/167 自动测试与生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
 
 工作内容：
 
@@ -157,7 +159,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 验收门槛：
 
-- 148 项当前测试继续全部通过，生产构建通过。
+- 167 项当前测试继续全部通过，生产构建通过。
 - 开灯颜色、关灯暗度、开关节奏、星点闪烁和 stencil 边缘均获得人工确认。
 - 同一设备三轮基线测试的 p95 波动不超过 10%；否则先修正测量方式。
 
@@ -249,7 +251,9 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 实际完成与证据：
 
 - `mushroom-nebula.js` 已实现最大 48 steps 的 Node-safe ray-march shader：High 48 steps、Medium 30 steps；Low/Minimum 在生产路径中不分配体积 FBO。
-- Portal 分辨率为 High 0.68（最大 1280×720）、Medium 0.55（最大 960×540）；受控视差系数分别为 0.22/0.16。
+- Portal 分辨率为 High 0.68（最大 1280×720）、Medium 0.55（最大 960×540）；人工调校后的受控视差系数分别为 0.26/0.20。
+- Ray Marching 的 FBO 不再输出纯加法颜色：RGB 为发光，A 为不透明度；主场景在 Gaia/hero stars 之后用 emission 0.04、extinction 0.90 合成，使近层尘埃真实压暗后方星光。
+- 4K 背景亮度从 0.46 降为 0.36，同时降低 Gaia/hero-star 的加法能量；高频细节来自原生分辨率星点，照片只承担低频银河结构。
 - reduced-motion 冻结天体漂移但保留 reveal；只在 L3 需要时渲染，并在开灯状态预热一次，避免首次关灯才编译。
 - **合理偏差：未加入 temporal accumulation。** 当前无 history 版本避免拖尾/鬼影和额外显存；Low 直接关闭体积 FBO，而不是维持低清 2D Portal。
 
@@ -294,7 +298,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - 灯光/墙地材质/HUD marker/曝光、4K 背景、hero stars、Gaia 和星云均消费同一 `adaptationRef`；关灯顺序与 10 秒暗适应、反复切灯连续性、离开 L3 复位均有测试。
 - 开灯并完成一次性预热后，主星空、Gaia 与 Portal 均停止，诊断记录为零持续 cosmos draw；连续切灯 20 次后 `renderer.info.memory.textures` 与 `.geometries` 均不增长。
 - reduced-motion 的两次定时截图 hash 完全相同，full-motion 对照 hash 不同，证明冻结确实生效且正常动态路径仍在运行。
-- **合理偏差：未加入 Bloom。** 当前 hero-star SDF flare 与加法星云合成已提供局部高光，避免墙壁洗灰、额外 pass 和显存；只有人工验收明确缺少高光时再考虑 Portal 内 selective bloom。
+- **合理偏差：未加入 Bloom。** 当前 hero-star SDF flare 与带消光的体积合成已提供局部高光和遮挡深度，避免墙壁洗灰、额外 pass 和显存；只有人工验收明确缺少高光时再考虑 Portal 内 selective bloom。
 
 工作内容：
 
@@ -331,7 +335,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - Gaia fetch 与 Portal/FBO allocation 都推迟到玩家到达 L2 观测室接近区；4K texture 解码后用 `requestIdleCallback`（或 timeout fallback）预上传。native sky/Gaia/composite 先在 default framebuffer 语义下调用 `gl.compile`，确保 Three 缓存真实主画布颜色空间的 Shader variant，再通过 1×1 render target 上传 geometry/uniform state。页面不可见时不以异常 delta 污染质量判断。
 - query-only QA 可强制机位、灯态、时间、质量和 motion；`observatory=perf` 同时挂载正常 `PlayerControls`，可走固定 20 秒路线；普通访问忽略 `quality`/`motion` override，并始终开灯进入。
 - runtime diagnostics provider 报告当前质量、p95、暗适应通道、FBO 类型/尺寸/帧数、Gaia LOD/数量、4K 纹理状态、shader/fallback 错误和 context loss/restore 计数。
-- 分类 shader fallback、context loss/restore、resize、连续切灯与资源稳定性已在浏览器通过；148/148 tests 与 05:53 production build 已通过。剩余是人工画面判断、20 秒路线视频及目标设备三轮 GPU p95 证据。
+- 分类 shader fallback、context loss/restore、resize、连续切灯与资源稳定性已在浏览器通过；167/167 tests 与 production build 已通过。剩余是人工画面判断、20 秒路线视频及目标设备三轮 GPU p95 证据。
 
 工作内容：
 
@@ -358,9 +362,26 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - 首次关灯无超过 100 ms 的可感知 shader 编译卡顿。
 - 全部测试、生产构建和固定机位验收通过。
 
-### Phase 6：可选 Observatory Lab（未实施，不阻塞核心验收）
+### Phase 6：可选 Observatory Lab（首个隐藏实验已实现，不阻塞核心验收）
 
-以下内容均未进入本次实现，不阻塞核心版本；未来若实施，必须分别通过实验开关启用：
+Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐藏按键进入，后续实验继续保持独立开关和可完整降级。
+
+#### 6A：隐藏空间事件 v1（已实现）
+
+- 玩家必须位于 L3、距离实体墙上开关不超过交互半径，并让相机射线穿过约 0.32 m 的开关目标；普通按键 `R`/`F` 才会生效。输入框、按键 repeat、Ctrl/Meta/Alt 组合不会被截获。
+- `R` 切换 **Non-Euclidean Rift**：第二个 stencil 球冠先从顶点展开到视线下方，确认远景遮罩完全覆盖后才溶解 L3 内衬、外墙、上层土壤和穹顶边缘，避免过渡时漏出普通草地底色。
+- Rift 不是另一张背景图：240 个 GPU 空间点和 54 个 instanced 四面体碎片分布在三条真实半径带上；三道 Torus 空间环分别移动、旋转和展开；Portal 近层星云获得额外但有上限的视差。玩家横移时，近/中/远层产生不同位移。
+- Rift 展开时 4K 银河背景主动降为低亮度辅助层；锐利 Gaia/hero stars、有限距离碎片/空间环和近层体积尘埃承担主体深度，避免照片重新压平画面。
+- `F` 切换 **Gaia Gravitational Lens**：4K panorama 使用反向 point-mass 采样，hero stars 与 Gaia 顶点使用同一球面透镜方程；native fragment 生成事件视界、抗锯齿 Einstein/photon ring，而不是把黑洞画进图片。
+- 透镜固定在距观测室中心 42 m 的世界锚点。走动不仅改变它相对无限远星场的方向，也以受限比例改变 Einstein ring、影响区、事件视界和 Portal warp 的角尺寸，提供单屏也能读出的有限距离感。
+- Portal 尘埃使用更强的艺术化 counter-warp 与中心遮光，故会从远星弯曲层上剪切过去；透镜在相机背后、投影非有限或远离屏幕时，Portal 透镜严格关闭，不产生镜像假象或 NaN。
+- R/F 触发时会静默关灯；E/开灯会清除两项隐藏效果。离开 L3、切到 QA `Base image`、stencil/context/native-sky 失败都会立即恢复墙体并 fail-close。reduced-motion 保留静态空间构图，但冻结碎片/空间环旅行。
+- 普通 HUD 不提示 R/F，保留“发现秘密”的感觉；`observatory=test/perf` 的 QA 面板提供显式 R/F 按钮和 runtime 状态。
+- 关闭态保留精确 shader 快速路径：Gaia/hero 顶点跳过透镜角距与放大计算，Portal 使用原始 UV；开灯稳态仍为零 cosmos draw。
+
+浏览器验收已确认 Medium/35k Gaia 下 Rift 到达 `open`、Lens amount 到达 1、HalfFloat Portal 保持 960×497；房间家具/楼梯可作为真实前景遮挡，开灯后两项请求归零且 cosmos draws 回到 0。截图为 `docs/observatory-final/08-hidden-rift-gaia-lens-acceptance.png`。目标 GPU 的三轮 p95 仍需按第 7 节补齐。
+
+以下 Lab 方向尚未实施：
 
 #### 头部追踪 / Fish-tank VR
 
@@ -385,7 +406,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 #### 稀有天文事件
 
-流星、极光或引力透镜可以作为低概率事件，但不能持续抢走宁静观测室的主题。事件必须可由 reduced-motion 关闭，并且不改变核心性能预算。
+引力透镜的**手动隐藏 v1** 已实现；自动低概率调度仍未实施。未来的流星、极光或自动透镜事件不能持续抢走宁静观测室的主题，必须可由 reduced-motion 关闭，并且不改变核心性能预算。
 
 ## 7. 性能与测量协议
 
@@ -410,6 +431,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - 浏览器 resize 到 1024×768 后，drawing buffer 为 977×658，Medium FBO 为 537×362；尺寸随 DPR/viewport 正确更新。
 - WebGL context loss/restore 已恢复成功；连续切灯 20 次后 textures/geometries 不增长；开灯稳态为零持续 cosmos draw。
 - reduced-motion 两次截图 hash 完全相同，full-motion 对照 hash 不同。
+- 隐藏 R/F 在 Medium/35k Gaia 与 960×497 HalfFloat Portal 下完成组合验收；Rift/Lens 状态、有限距离层、开灯复位和零稳态 cosmos draw 均由 runtime snapshot 核对。
 
 仍需人工提供的性能验收证据是：固定 20 秒路线视频，以及在目标 Iris Xe/M1 和 UHD 620 级设备上各预热 5 秒、连续三轮记录 GPU/CPU p95。它们不属于代码缺口。
 
@@ -426,12 +448,14 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 | 关灯后 8–10 秒 | 暗星与星云细节完整，房间仍足够暗 |
 | 房间中心直视穹顶 | 无图片贴脸感、极点接缝或近距离像素感 |
 | 沿房间横移约 2 m | 远星固定，近星云只有轻微视差 |
+| 瞄准墙上开关按 R | 遮罩先展开、墙后消失；三层碎片/环随横移产生明显但舒适的差速视差，无绿色漏底 |
+| 瞄准墙上开关按 F | Gaia/hero/银河沿同一方向弯曲，事件视界清晰；走动时位置与角尺寸变化，背对事件时无 Portal 假透镜 |
 | 贴墙看穹顶边缘 | 无 stencil 泄漏、木圈穿帮或透明排序错误 |
 | 快速环视/resize | 无 temporal 鬼影、闪屏或 FBO 拉伸 |
 | 连续切灯 20 次 | 状态、显存、纹理和材质数量不持续增长 |
 | reduced-motion | 漂移/闪烁冻结，切灯和可读性仍完整 |
 
-实施后六张固定截图已收集在 `docs/observatory-final/`。自动浏览器已经确认 resize 尺寸、20 次切灯资源稳定、context loss/restore 和 reduced-motion hash；这些是功能证据。星空距离感、两层视差舒适度、stencil 边缘、影院暗度、第一次关灯的 wow factor 仍必须由人眼在实际显示器上验收。
+实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash 与 R/F 复位；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
 
 ## 9. 主要风险与缓解
 
@@ -458,18 +482,18 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - 开灯时三楼恢复正常暖色，外部星空完全不可见；关灯时黑暗但保留安全轮廓。
 - 三楼之外没有可测量的持续性能退化。
 - 标准档与低端档达到各自预算，所有降级路径都保持剧情和遮罩正确。
-- 148/148 Node 测试、05:53 production build、浏览器 context/fallback/resize/资源检查均已通过，六张实施后固定机位截图已收集。
+- 167/167 Node 测试、production build、浏览器 context/fallback/resize/资源与隐藏 R/F 检查均已通过，八张实施后/验收截图已收集。
 - 最终效果经过用户人工验收。
 
 ## 11. 下一步
 
 进入人工验收，不再追加核心功能。建议从以下诊断 URL 开始：
 
-- 确定性视觉：`/villa-map/?observatory=test&view=loft-center&lights=off&quality=medium&motion=full`
+- 确定性视觉：`/villa-map/?observatory=test&view=loft-center&lights=off&quality=medium&motion=full&sky=impossible`
 - 真实帧循环诊断：`/villa-map/?observatory=perf&view=loft-center&lights=off&quality=medium`（同时挂载 `PlayerControls`，可直接走路线；自动化 p95 不是目标 GPU 结论）
-- `view` 可选 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`；`quality` 可选 `high`、`medium`、`low`、`minimum`；`motion` 可选 `full`、`reduce`。`lights=off` 用于直接进入关灯状态。
+- `view` 可选 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`；`quality` 可选 `high`、`medium`、`low`、`minimum`；`motion` 可选 `full`、`reduce`；`sky` 可选 `base`、`impossible`。诊断面板可实时点击 `Base image` / `Impossible` 做 A/B，对应的 `R Rift` / `F Lens` 按钮用于固定机位验收；生产路径则必须瞄准实体开关按键。`lights=off` 可直接进入关灯状态。
 
-按第 8 节矩阵人工检查开灯原色、0.5/2/10 秒 reveal、穹顶边缘、横移视差、快速环视和 wow factor，并录制固定 20 秒路线；再按第 7 节在目标 GPU 上各记录三轮 p95。resize、连续切灯、context loss/restore 和 reduced-motion 已有浏览器功能证据，但仍可随路线复核。若验收发现问题，优先调参数或降级策略，不在验收前引入 Bloom、temporal accumulation 或 Phase 6 技术。
+按第 8 节矩阵人工检查开灯原色、0.5/2/10 秒 reveal、穹顶边缘、R/F 横移视差、快速环视和 wow factor，并录制固定 20 秒路线；再按第 7 节在目标 GPU 上各记录三轮 p95。resize、连续切灯、context loss/restore、reduced-motion 和隐藏机制功能已有浏览器证据，但仍可随路线复核。若验收发现问题，优先调参数或降级策略，不在验收前引入 Bloom、temporal accumulation、头部追踪、WebXR 或 WebGPU 迁移。
 
 ## 12. 技术参考
 

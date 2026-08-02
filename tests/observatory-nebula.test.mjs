@@ -70,6 +70,8 @@ test("nebula shader has a compile-time march ceiling and bridge uniforms", () =>
     /colorspace_fragment/,
     "the FBO pass must keep its radiance linear for the final composite"
   );
+  assert.match(material.fragmentShader, /float opacity = 1\.0 - transmittance/);
+  assert.match(material.fragmentShader, /vec4\(radiance \* reveal, opacity \* reveal\)/);
   assert.doesNotMatch(material.fragmentShader, /gl_FragCoord\.xy[\s\S]*uTime\)/);
   material.dispose();
 });

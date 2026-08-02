@@ -10,6 +10,8 @@ import {
   decodeGaiaStarCatalog,
   disposeGaiaStarPoints,
   equatorialToUnitVector,
+  GAIA_LENS_DEFAULT_EINSTEIN_RADIUS,
+  GAIA_LENS_DEFAULT_INFLUENCE_RADIUS,
   GAIA_STAR_CATALOG_MAGIC,
   GAIA_STAR_CATALOG_VERSION,
   GAIA_STAR_HEADER_BYTES,
@@ -18,6 +20,7 @@ import {
   GAIA_STAR_RECORD_BYTES,
   loadGaiaStarCatalog,
   readGaiaStarCatalogHeader,
+  setGaiaStarLens,
   setGaiaStarPixelRatio,
   setGaiaStarReveal
 } from "../src/villa-map/gaia-stars.js";
@@ -164,6 +167,24 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
   assert.equal(stars.material.toneMapped, false);
   assert.equal(stars.material.uniforms.uPixelRatio.value, 1.8);
   assert.equal(stars.material.uniforms.uReveal.value, 0.4);
+  assert.equal(stars.material.uniforms.uLensAmount.value, 0);
+  assert.equal(
+    stars.material.uniforms.uLensEinsteinRadius.value,
+    GAIA_LENS_DEFAULT_EINSTEIN_RADIUS
+  );
+  assert.equal(
+    stars.material.uniforms.uLensInfluenceRadius.value,
+    GAIA_LENS_DEFAULT_INFLUENCE_RADIUS
+  );
+  const intensity = stars.geometry.getAttribute("aIntensity");
+  let minimumIntensity = Infinity;
+  let maximumIntensity = -Infinity;
+  for (let index = 0; index < intensity.count; index += 1) {
+    minimumIntensity = Math.min(minimumIntensity, intensity.getX(index));
+    maximumIntensity = Math.max(maximumIntensity, intensity.getX(index));
+  }
+  assert.ok(minimumIntensity >= 0.22 - 1e-6);
+  assert.ok(maximumIntensity <= 0.90 + 1e-6);
   const partialMagnitudeLimit = stars.material.uniforms.uMagnitudeLimit.value;
   assert.ok(partialMagnitudeLimit > stars.userData.brightMagnitudeLimit);
   assert.ok(partialMagnitudeLimit < stars.userData.maximumMagnitude + 0.35);
@@ -183,7 +204,39 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
     stars.userData.maximumMagnitude + 0.35
   ));
   assert.match(stars.material.vertexShader, /aMagnitude[\s\S]*uMagnitudeLimit/);
+  assert.match(stars.material.vertexShader, /vec3 lensStarPosition/);
+  assert.match(stars.material.vertexShader, /Point-mass lens equation/);
+  assert.match(
+    stars.material.vertexShader,
+    /vec3 lensedPosition = position;[\s\S]*?if \(uLensAmount > 0\.0\)/,
+    "80k Gaia vertices must bypass lens calculations while the event is off"
+  );
   assert.match(stars.material.fragmentShader, /vMagnitudeVisibility/);
+
+  const originalPositions = [...stars.geometry.getAttribute("position").array];
+  setGaiaStarLens(stars, {
+    amount: 1,
+    direction: [3, 4, 0],
+    einsteinRadius: 0.11,
+    influenceRadius: 0.5
+  });
+  assert.equal(stars.material.uniforms.uLensAmount.value, 1);
+  assert.ok(stars.material.uniforms.uLensDirection.value.distanceTo(
+    new THREE.Vector3(0.6, 0.8, 0)
+  ) < 1e-12);
+  assert.equal(stars.material.uniforms.uLensEinsteinRadius.value, 0.11);
+  assert.equal(stars.material.uniforms.uLensInfluenceRadius.value, 0.5);
+  assert.deepEqual(
+    [...stars.geometry.getAttribute("position").array],
+    originalPositions,
+    "lensing must bend the one catalogue draw in the GPU without rebuilding it"
+  );
+  setGaiaStarLens(stars, 0);
+  assert.equal(
+    stars.material.uniforms.uLensAmount.value,
+    0,
+    "the ordinary observatory must keep an exact opt-out path"
+  );
 
   let geometryDisposals = 0;
   let materialDisposals = 0;

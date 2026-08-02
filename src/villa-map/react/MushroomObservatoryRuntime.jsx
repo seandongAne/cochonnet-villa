@@ -15,6 +15,8 @@ import {
 import {
   createObservatoryPortal,
   disposeObservatoryPortal,
+  OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS,
+  projectObservatoryPortalLens,
   resizeObservatoryPortal,
   updateObservatoryPortalCamera,
   updateObservatoryPortalComposite
@@ -31,6 +33,7 @@ import {
   disposeGaiaStarPoints,
   GAIA_STAR_CATALOG_URL,
   setGaiaStarPixelRatio,
+  setGaiaStarLens,
   setGaiaStarReveal
 } from "../gaia-stars.js";
 import {
@@ -39,14 +42,30 @@ import {
   isMushroomObservatorySkyPosition,
   MUSHROOM_SKY_BACKDROP_NAME,
   MUSHROOM_SKY_IMAGE_BRIGHTNESS,
+  MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS,
+  MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS,
+  MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS,
   removeMushroomSkyAperture,
+  setMushroomSkyLens,
   setMushroomSkyPixelRatio,
   updateMushroomSky
 } from "../mushroom-sky.js";
 import {
+  MUSHROOM_OBSERVATORY_DOME_RIM_NAME,
+  MUSHROOM_OBSERVATORY_OUTER_WALL_NAME,
+  MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME,
+  MUSHROOM_OBSERVATORY_WALL_NAME,
   MUSHROOM_STAR_DOME_NAME,
   MUSHROOM_STAR_TEXTURE_URL
 } from "../mushroom-interior.js";
+import {
+  createObservatoryRiftState,
+  stepObservatoryRift
+} from "../observatory-rift.js";
+import {
+  disposeObservatoryRiftVisual,
+  updateObservatoryRiftVisual
+} from "../observatory-rift-visual.js";
 import { MUSHROOM_INTERIOR } from "../world.js";
 
 const CLOSED_CEILING_COLOR = new THREE.Color("#010208");
@@ -58,15 +77,34 @@ const PORTAL_ORIGIN = new THREE.Vector3(
 );
 const COSMOS_ORIGIN = new THREE.Vector3(0, 0, 0);
 const PORTAL_REVEAL_EPSILON = 0.001;
-// Additive volumetric light is deliberately a supporting layer. At full
-// scotopic adaptation it should tint and deepen the Milky Way, never turn the
-// entire aperture into a luminous lavender screen.
-const NEBULA_COMPOSITE_INTENSITY = 0.12;
+// The Portal now carries both emission and opacity. Extinction supplies the
+// unmistakable depth cue (near dust crossing fixed far stars) while restrained
+// emission prevents the aperture becoming a luminous lavender screen.
+const NEBULA_EMISSION_STRENGTH = 0.04;
+const NEBULA_EXTINCTION_STRENGTH = 0.9;
+const BASE_IMAGE_COMPARISON_BRIGHTNESS = 0.46;
+const LENS_REVEAL_DAMPING = 2.25;
+const LENS_HIDE_DAMPING = 4.8;
+const LENS_WORLD_DISTANCE = 42;
+const LENS_DISTANCE_SCALE_MIN = 0.78;
+const LENS_DISTANCE_SCALE_MAX = 1.28;
+// Unlike the far panorama, this hidden singularity occupies a finite point in
+// the impossible room. Walking therefore shifts it slightly against Gaia's
+// camera-centred catalogue, an honest binocular-like depth cue on a flat
+// monitor. The direction remains high and inside the centre QA view.
+const LENS_WORLD_POSITION = new THREE.Vector3(0.22, 0.91, -0.35)
+  .normalize()
+  .multiplyScalar(LENS_WORLD_DISTANCE)
+  .add(PORTAL_ORIGIN);
+const lensDirectionScratch = new THREE.Vector3();
+const lensScreenScratch = new THREE.Vector2();
 const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   [MUSHROOM_NEBULA_MATERIAL_NAME, "portal"],
   ["mushroom-observatory-portal-composite-material", "portal"],
   ["mushroom-distant-sky-material", "native-sky"],
   ["mushroom-twinkling-star-material", "native-sky"],
+  ["mushroom-observatory-rift-aperture-material", "native-sky"],
+  ["mushroom-observatory-rift-fragment-material", "native-sky"],
   ["mushroom-gaia-star-material", "gaia"]
 ]);
 
@@ -156,6 +194,42 @@ function detectRuntimeCapabilities(gl, reducedMotion, stencil = detectStencilBuf
   };
 }
 
+function updateRiftFadeSurfaces(resources, amount) {
+  const dissolve = THREE.MathUtils.clamp(
+    Number.isFinite(amount) ? amount : 0,
+    0,
+    1
+  );
+  for (const surface of resources?.riftFadeSurfaces ?? []) {
+    const opacity = surface.opacity * (1 - dissolve);
+    surface.material.opacity = opacity;
+    surface.object.visible = surface.visible && opacity > 0.001;
+  }
+}
+
+function resetHiddenEffectRendering(resources, sky, riftVisual) {
+  if (!resources) return;
+  resources.riftState = createObservatoryRiftState({
+    reducedMotion: resources.reducedMotion
+  });
+  updateRiftFadeSurfaces(resources, 0);
+  if (riftVisual) {
+    riftVisual.visible = false;
+    if (!riftVisual.userData.disposed) riftVisual.userData.elapsed = 0;
+  }
+  resources.lensAmount = 0;
+  resources.lensDistance = LENS_WORLD_DISTANCE;
+  resources.lensAngularScale = 1;
+  resources.portalLensVisible = false;
+  setMushroomSkyLens(sky, { amount: 0 });
+  if (resources.gaia) setGaiaStarLens(resources.gaia, { amount: 0 });
+  if (resources.portal) {
+    updateObservatoryPortalComposite(resources.portal.composite, {
+      lensAmount: 0
+    });
+  }
+}
+
 // Browser-only bridge for the Impossible Observatory. The 4K panorama, Gaia
 // catalogue and hero stars remain native-resolution main-scene layers. Only
 // the low-frequency volumetric nebula enters the bounded offscreen Portal.
@@ -163,7 +237,11 @@ export function MushroomObservatoryRuntime({
   interior,
   sky,
   lightsOn,
-  adaptationRef
+  adaptationRef,
+  riftVisual,
+  riftOpen = false,
+  lensActive = false,
+  onHiddenEffectsReset
 }) {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
@@ -189,6 +267,7 @@ export function MushroomObservatoryRuntime({
     const diagnosticsMode = ["test", "perf"].includes(search.get("observatory"));
     const motionOverride = diagnosticsMode ? search.get("motion") : null;
     const requestedQuality = diagnosticsMode ? search.get("quality") : null;
+    const requestedSkyMode = diagnosticsMode ? search.get("sky") : null;
     const qualityOverride = ["high", "medium", "low", "minimum"].includes(
       requestedQuality
     )
@@ -204,6 +283,7 @@ export function MushroomObservatoryRuntime({
     const stencilSupported = detectStencilBuffer(gl);
     const resources = {
       reducedMotion: readReducedMotion(),
+      comparisonMode: requestedSkyMode === "base" ? "base" : "impossible",
       requestedQuality: qualityOverride,
       qualityLocked: qualityOverride && stencilSupported ? qualityOverride : null,
       stencilSupported,
@@ -250,11 +330,22 @@ export function MushroomObservatoryRuntime({
       skyDisabled: false,
       gaiaDisabled: false,
       handledShaderFailures: new Set(),
-      nativePrewarmTarget: null
+      nativePrewarmTarget: null,
+      riftState: createObservatoryRiftState(),
+      riftFadeSurfaces: [],
+      lensAmount: 0,
+      lensDirection: new THREE.Vector3(0, 1, 0),
+      lensDistance: LENS_WORLD_DISTANCE,
+      lensAngularScale: 1,
+      portalLensVisible: false,
+      requestedRift: false,
+      requestedLens: false,
+      hiddenResetRequested: false
     };
     resources.portalScene.background = new THREE.Color("#000000");
     resourcesRef.current = resources;
     sky.userData.lifecycleToken = lifecycleToken;
+    if (riftVisual) riftVisual.userData.lifecycleToken = lifecycleToken;
 
     const cancelTexturePreupload = () => {
       if (textureIdleHandle === null) return;
@@ -314,6 +405,21 @@ export function MushroomObservatoryRuntime({
     const backdrop = sky.getObjectByName(MUSHROOM_SKY_BACKDROP_NAME);
     const backdropMaterial = backdrop?.material;
     const fallbackTexture = backdropMaterial?.uniforms?.uSkyTexture?.value ?? null;
+
+    resources.riftFadeSurfaces = [
+      MUSHROOM_OBSERVATORY_WALL_NAME,
+      MUSHROOM_OBSERVATORY_OUTER_WALL_NAME,
+      MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME,
+      MUSHROOM_OBSERVATORY_DOME_RIM_NAME
+    ]
+      .map((name) => interior.getObjectByName(name))
+      .filter((object) => object?.material?.isMaterial)
+      .map((object) => ({
+        object,
+        material: object.material,
+        opacity: object.material.opacity,
+        visible: object.visible
+      }));
 
     if (dome?.isMesh && backdropMaterial?.isShaderMaterial) {
       resources.dome = dome;
@@ -375,6 +481,7 @@ export function MushroomObservatoryRuntime({
       resources.portalPrewarmed = false;
       resources.compositePrewarmed = false;
       resources.portalRenderedThisFrame = false;
+      resources.portalLensVisible = false;
       resources.framebufferChecked = false;
       resources.lastTargetKey = "";
     }
@@ -546,6 +653,7 @@ export function MushroomObservatoryRuntime({
         if (resources.aperture) resources.aperture.visible = false;
         if (resources.gaia) resources.gaia.visible = false;
         if (resources.portal) resources.portal.composite.visible = false;
+        resetHiddenEffectRendering(resources, sky, riftVisual);
         disposePortalResources();
         if (resources.gaia) {
           disposeGaiaStarPoints(resources.gaia);
@@ -622,7 +730,11 @@ export function MushroomObservatoryRuntime({
           [
             sky.userData.backdrop,
             sky.userData.stars,
-            resources.aperture
+            resources.aperture,
+            riftVisual?.userData?.aperture,
+            riftVisual?.userData?.fragments,
+            riftVisual?.userData?.shards,
+            ...(riftVisual?.userData?.rings ?? [])
           ],
           () => { resources.nativeSkyPrewarmed = true; }
         );
@@ -710,6 +822,7 @@ export function MushroomObservatoryRuntime({
       if (resources.aperture) resources.aperture.visible = false;
       if (resources.gaia) resources.gaia.visible = false;
       if (resources.portal) resources.portal.composite.visible = false;
+      resetHiddenEffectRendering(resources, sky, riftVisual);
       if (resources.dome) resources.dome.visible = resources.domeWasVisible;
     };
     const handleContextRestored = () => {
@@ -776,6 +889,7 @@ export function MushroomObservatoryRuntime({
         maximumQuality: quality?.maximumQuality ?? "minimum",
         lockedQuality: resources.qualityLocked,
         requestedQuality: resources.requestedQuality,
+        skyMode: resources.comparisonMode,
         p95Ms: quality?.p95Ms ?? 0,
         adaptation: adaptation
           ? {
@@ -829,6 +943,18 @@ export function MushroomObservatoryRuntime({
             + (resources.aperture?.visible ? 1 : 0),
           error: resources.nativeSkyError
         },
+        hiddenEffects: {
+          requestedRift: resources.requestedRift,
+          requestedLens: resources.requestedLens,
+          riftMode: resources.riftState?.mode ?? "closed",
+          riftProgress: resources.riftState?.transitionProgress ?? 0,
+          riftChannels: resources.riftState?.channels ?? null,
+          lensAmount: resources.lensAmount,
+          lensDirection: resources.lensDirection.toArray(),
+          lensDistance: resources.lensDistance,
+          lensAngularScale: resources.lensAngularScale,
+          portalLensVisible: resources.portalLensVisible
+        },
         backdrop4k: {
           ready: resources.textureReady,
           error: resources.textureError
@@ -842,7 +968,14 @@ export function MushroomObservatoryRuntime({
         }
       };
     };
+    const setComparisonMode = (mode) => {
+      resources.comparisonMode = mode === "base" ? "base" : "impossible";
+      return resources.comparisonMode;
+    };
     window.__villaObservatoryRuntimeSnapshot = runtimeSnapshot;
+    if (diagnosticsMode) {
+      window.__villaObservatoryRuntimeSetSkyMode = setComparisonMode;
+    }
 
     return () => {
       mounted = false;
@@ -860,6 +993,9 @@ export function MushroomObservatoryRuntime({
       if (window.__villaObservatoryRuntimeSnapshot === runtimeSnapshot) {
         delete window.__villaObservatoryRuntimeSnapshot;
       }
+      if (window.__villaObservatoryRuntimeSetSkyMode === setComparisonMode) {
+        delete window.__villaObservatoryRuntimeSetSkyMode;
+      }
       disposePortalResources();
       if (resources.gaia) {
         disposeGaiaStarPoints(resources.gaia);
@@ -875,6 +1011,7 @@ export function MushroomObservatoryRuntime({
           resources.dome.material.color.copy(resources.domeFallbackColor);
         }
       }
+      resetHiddenEffectRendering(resources, sky, riftVisual);
       removeMushroomSkyAperture(resources.aperture);
       if (backdropMaterial?.uniforms?.uSkyTexture?.value === loadedTexture) {
         backdropMaterial.uniforms.uSkyTexture.value = fallbackTexture;
@@ -885,12 +1022,15 @@ export function MushroomObservatoryRuntime({
         if (sky.userData.lifecycleToken === lifecycleToken) {
           disposeMushroomSky(sky);
         }
+        if (riftVisual?.userData.lifecycleToken === lifecycleToken) {
+          disposeObservatoryRiftVisual(riftVisual);
+        }
       });
     };
     // `lightsOn` is intentionally consumed by the frame director, not this
     // resource-lifecycle effect. Toggling the physical switch must never tear
     // down and rebuild the FBO, 4K texture or Gaia buffers.
-  }, [adaptationRef, camera, getState, gl, interior, scene, sky]);
+  }, [adaptationRef, camera, getState, gl, interior, riftVisual, scene, sky]);
 
   useFrame((_, delta) => {
     const resources = resourcesRef.current;
@@ -907,6 +1047,84 @@ export function MushroomObservatoryRuntime({
     const adaptation = adaptationRef.current;
     const channels = adaptation.channels;
     const nearObservatory = isNearObservatoryPrewarmPosition(camera.position);
+    const baseImageComparison = resources.comparisonMode === "base";
+    resources.requestedRift = Boolean(riftOpen);
+    resources.requestedLens = Boolean(lensActive);
+
+    if (!inLoft && (riftOpen || lensActive)) {
+      if (!resources.hiddenResetRequested) {
+        resources.hiddenResetRequested = true;
+        onHiddenEffectsReset?.();
+      }
+    } else {
+      resources.hiddenResetRequested = false;
+    }
+
+    const hiddenSkyAvailable = resources.textureReady
+      || Boolean(resources.gaia)
+      || Boolean(resources.portal);
+    const hiddenEffectsRenderable = resources.stencilSupported
+      && !resources.contextLost
+      && !resources.skyDisabled
+      && !baseImageComparison
+      && hiddenSkyAvailable;
+    if (!hiddenEffectsRenderable) {
+      // Infrastructure failures and the QA base-image comparison fail closed
+      // immediately. A gradual close here could reveal an unstencilled void.
+      resetHiddenEffectRendering(resources, sky, riftVisual);
+    } else {
+      const riftVisualAvailable = riftVisual && !riftVisual.userData.disposed;
+      resources.riftState = riftVisualAvailable
+        ? stepObservatoryRift(resources.riftState, {
+            deltaSeconds: frameDelta,
+            targetOpen: !lightsOn && riftOpen,
+            inLoft,
+            reducedMotion: resources.reducedMotion
+          })
+        : createObservatoryRiftState({ reducedMotion: resources.reducedMotion });
+      const riftChannels = resources.riftState.channels;
+      updateRiftFadeSurfaces(resources, riftChannels.wallDissolve);
+      if (riftVisualAvailable) {
+        updateObservatoryRiftVisual(riftVisual, riftChannels, frameDelta, {
+          pixelRatio: gl.getPixelRatio()
+        });
+      }
+
+      const lensTarget = inLoft && !lightsOn && lensActive ? 1 : 0;
+      resources.lensAmount = THREE.MathUtils.damp(
+        resources.lensAmount,
+        lensTarget,
+        lensTarget > resources.lensAmount ? LENS_REVEAL_DAMPING : LENS_HIDE_DAMPING,
+        frameDelta
+      );
+      if (resources.lensAmount < 0.0005) resources.lensAmount = 0;
+      if (resources.lensAmount > 0.9995) resources.lensAmount = 1;
+
+      lensDirectionScratch.copy(LENS_WORLD_POSITION).sub(camera.position);
+      resources.lensDistance = Math.max(lensDirectionScratch.length(), 0.001);
+      resources.lensDirection.copy(lensDirectionScratch)
+        .multiplyScalar(1 / resources.lensDistance);
+      resources.lensAngularScale = THREE.MathUtils.clamp(
+        LENS_WORLD_DISTANCE / resources.lensDistance,
+        LENS_DISTANCE_SCALE_MIN,
+        LENS_DISTANCE_SCALE_MAX
+      );
+      const einsteinRadius = MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
+        * resources.lensAngularScale;
+      const influenceRadius = MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
+        * resources.lensAngularScale;
+      const horizonRadius = MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS
+        * resources.lensAngularScale;
+      setMushroomSkyLens(sky, {
+        amount: resources.lensAmount,
+        direction: resources.lensDirection,
+        einsteinRadius,
+        influenceRadius,
+        horizonRadius,
+        ringStrength: 1.55
+      });
+    }
+    const riftChannels = resources.riftState.channels;
 
     const visiblePage = typeof document === "undefined"
       || document.visibilityState === "visible";
@@ -960,6 +1178,7 @@ export function MushroomObservatoryRuntime({
       if (resources.aperture) resources.aperture.visible = false;
       if (resources.gaia) resources.gaia.visible = false;
       if (resources.portal) resources.portal.composite.visible = false;
+      resetHiddenEffectRendering(resources, sky, riftVisual);
       if (resources.dome) {
         resources.dome.visible = resources.domeWasVisible;
         if (resources.domeFallbackColor && resources.dome.material?.color) {
@@ -973,6 +1192,18 @@ export function MushroomObservatoryRuntime({
     }
 
     setMushroomSkyPixelRatio(sky, gl.getPixelRatio());
+    const skyBackdropMaterial = sky.userData.backdrop?.material;
+    if (skyBackdropMaterial?.uniforms?.uBrightness) {
+      const backgroundFactor = Math.max(
+        0.24,
+        1
+          - riftChannels.backdropSuppression * 0.62
+          - resources.lensAmount * 0.34
+      );
+      skyBackdropMaterial.uniforms.uBrightness.value = baseImageComparison
+        ? BASE_IMAGE_COMPARISON_BRIGHTNESS
+        : MUSHROOM_SKY_IMAGE_BRIGHTNESS * backgroundFactor;
+    }
     const forceActive = Boolean(resources.gaia || resources.portal);
     const celestialVisible = Math.max(
       channels.portalReveal,
@@ -984,10 +1215,11 @@ export function MushroomObservatoryRuntime({
       reducedMotion: adaptation.celestialMotionScale === 0,
       aperture: resources.aperture,
       backdropReveal: channels.portalReveal,
-      starReveal: channels.brightStarReveal,
+      starReveal: baseImageComparison ? 0 : channels.brightStarReveal,
       forceActive,
       activeEnabled: celestialVisible
     });
+    if (!skyIsActive && riftVisual) riftVisual.visible = false;
 
     if (resources.dome) {
       resources.dome.visible = skyIsActive ? false : resources.domeWasVisible;
@@ -1001,9 +1233,19 @@ export function MushroomObservatoryRuntime({
 
     if (resources.gaia) {
       resources.gaia.position.copy(camera.position);
-      resources.gaia.visible = skyIsActive && channels.faintStarReveal > 0.001;
+      resources.gaia.visible = !baseImageComparison
+        && skyIsActive
+        && channels.faintStarReveal > 0.001;
       setGaiaStarPixelRatio(resources.gaia, gl.getPixelRatio());
       setGaiaStarReveal(resources.gaia, channels.faintStarReveal);
+      setGaiaStarLens(resources.gaia, {
+        amount: resources.lensAmount,
+        direction: resources.lensDirection,
+        einsteinRadius: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
+          * resources.lensAngularScale,
+        influenceRadius: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
+          * resources.lensAngularScale
+      });
     }
 
     const portal = resources.portal;
@@ -1030,21 +1272,38 @@ export function MushroomObservatoryRuntime({
       portal.composite.visible = false;
     }
 
+    lensScreenScratch.set(0.5, 0.5);
+    resources.portalLensVisible = resources.lensAmount > 0
+      && projectObservatoryPortalLens(camera, LENS_WORLD_POSITION, lensScreenScratch);
     updateObservatoryPortalComposite(portal.composite, {
-      reveal: channels.nebulaReveal * NEBULA_COMPOSITE_INTENSITY
+      reveal: channels.nebulaReveal,
+      emissionStrength: NEBULA_EMISSION_STRENGTH,
+      extinctionStrength: NEBULA_EXTINCTION_STRENGTH,
+      lensAmount: resources.portalLensVisible ? resources.lensAmount : 0,
+      lensCenter: lensScreenScratch,
+      lensAspect: state.size.width / Math.max(1, state.size.height),
+      lensRadius: OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS
+        * resources.lensAngularScale
     });
     portal.composite.visible = skyIsActive
+      && !baseImageComparison
       && channels.nebulaReveal > PORTAL_REVEAL_EPSILON;
 
     const shouldPrewarm = nearObservatory && !resources.portalPrewarmed;
-    const shouldAnimate = inLoft
+    const shouldAnimate = !baseImageComparison
+      && inLoft
       && channels.nebulaReveal > PORTAL_REVEAL_EPSILON;
     if (!shouldPrewarm && !shouldAnimate) return;
 
     updateObservatoryPortalCamera(camera, portal.camera, {
       portalOrigin: PORTAL_ORIGIN,
       cosmosOrigin: COSMOS_ORIGIN,
-      parallaxScale: portal.parallaxScale
+      parallaxScale: Math.min(
+        0.58,
+        portal.parallaxScale * (
+          1 + riftChannels.foregroundParallax * 0.85
+        ) + riftChannels.foregroundParallax * 0.08
+      )
     });
     const parallax = portal.camera.userData.observatoryParallaxOffset;
     updateMushroomNebula(resources.nebula, frameDelta, {
