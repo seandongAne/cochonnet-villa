@@ -185,14 +185,17 @@ test("camera exposure darkens the loft without dimming the star material", () =>
     new URL("../src/villa-map/react/Scene.jsx", import.meta.url)
   );
   const source = readFileSync(scenePath, "utf8");
-  assert.match(source, /function MushroomObservatoryExposure\(\{ lightsOn \}\)/);
-  assert.match(source, /function MushroomObservatoryPalette\(\{ interior, lightsOn \}\)/);
-  assert.match(source, /gl\.toneMappingExposure = THREE\.MathUtils\.damp/);
+  const runtimeSource = readFileSync(fileURLToPath(
+    new URL("../src/villa-map/react/MushroomObservatoryRuntime.jsx", import.meta.url)
+  ), "utf8");
+  assert.match(source, /function MushroomObservatoryExposure\(\{ adaptationRef \}\)/);
+  assert.match(source, /function MushroomObservatoryPalette\(\{ interior, adaptationRef \}\)/);
+  assert.match(source, /gl\.toneMappingExposure = targetExposure/);
   assert.match(source, /THREE\.MathUtils\.smoothstep\(camera\.position\.y/);
   assert.match(source, /MUSHROOM_OBSERVATORY_EXPOSURE \* 0\.34/);
   assert.match(
-    source,
-    /material\.uniforms\.uBrightness\.value = MUSHROOM_SKY_IMAGE_BRIGHTNESS/
+    runtimeSource,
+    /backdropMaterial\.uniforms\.uBrightness\.value = MUSHROOM_SKY_IMAGE_BRIGHTNESS/
   );
 
   const dome = createMushroomInterior(createMaterials()).getObjectByName(

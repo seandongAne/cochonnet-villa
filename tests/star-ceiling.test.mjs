@@ -87,9 +87,9 @@ test("the star dome has a flush dark rim instead of protruding wooden ribs", () 
   );
 });
 
-test("the browser scene loads and disposes the sRGB dome texture", () => {
+test("the browser runtime loads and disposes the sRGB dome texture", () => {
   const scenePath = fileURLToPath(
-    new URL("../src/villa-map/react/Scene.jsx", import.meta.url)
+    new URL("../src/villa-map/react/MushroomObservatoryRuntime.jsx", import.meta.url)
   );
   const source = readFileSync(scenePath, "utf8");
 
@@ -99,5 +99,5 @@ test("the browser scene loads and disposes the sRGB dome texture", () => {
   assert.match(source, /texture\.colorSpace = THREE\.SRGBColorSpace/);
   assert.match(source, /gl\.capabilities\.getMaxAnisotropy\(\)/);
   assert.match(source, /loadedTexture\?\.dispose\(\)/);
-  assert.match(source, /deep-blue fallback on load failure/);
+  assert.match(source, /resources\.textureError = true/);
 });

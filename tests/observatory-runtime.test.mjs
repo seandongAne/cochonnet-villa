@@ -1,0 +1,323 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+
+import {
+  getObservatoryQualityPreset
+} from "../src/villa-map/observatory-quality.js";
+
+function readSource(relativePath) {
+  return readFileSync(
+    fileURLToPath(new URL(`../${relativePath}`, import.meta.url)),
+    "utf8"
+  );
+}
+
+function withoutWhitespace(source) {
+  return source.replace(/\s+/g, " ");
+}
+
+function matchCount(source, pattern) {
+  return [...source.matchAll(pattern)].length;
+}
+
+const runtime = readSource(
+  "src/villa-map/react/MushroomObservatoryRuntime.jsx"
+);
+const scene = readSource("src/villa-map/react/Scene.jsx");
+const diagnostics = readSource(
+  "src/villa-map/react/ObservatoryDiagnostics.jsx"
+);
+const gaia = readSource("src/villa-map/gaia-stars.js");
+
+test("the -1 frame director owns one shared adaptation state and maps every channel", () => {
+  assert.equal(
+    matchCount(runtime, /\buseFrame\s*\(/g),
+    1,
+    "the runtime should have one ordered frame director"
+  );
+  assert.match(
+    runtime,
+    /useFrame\s*\(\s*\([^)]*\)\s*=>\s*\{[\s\S]*?stepObservatoryAdaptation\([\s\S]*?\n\s*\},\s*-1\s*\);/,
+    "the observatory update must run after controls (-2) and before normal render"
+  );
+
+  for (const component of [
+    "MushroomObservatoryLights",
+    "MushroomObservatoryPalette",
+    "MushroomObservatoryExposure",
+    "MushroomObservatoryRuntime"
+  ]) {
+    assert.match(
+      scene,
+      new RegExp(
+        `<${component}\\b[\\s\\S]*?adaptationRef=\\{observatoryAdaptationRef\\}[\\s\\S]*?\\/>`
+      ),
+      `${component} must consume the same shared adaptation ref`
+    );
+  }
+
+  assert.ok(
+    matchCount(
+      scene,
+      /const houseLight = adaptationRef\.current\?\.channels\?\.houseLight \?\? 1;/g
+    ) >= 4,
+    "lighting, palette, exposure and markers should follow houseLight"
+  );
+  assert.match(runtime, /backdropReveal:\s*channels\.portalReveal/);
+  assert.match(runtime, /starReveal:\s*channels\.brightStarReveal/);
+  assert.match(
+    runtime,
+    /resources\.dome\.material\.color\.copy\([\s\S]*?channels\.roomDarkness/
+  );
+  assert.match(
+    runtime,
+    /setGaiaStarReveal\(resources\.gaia,\s*channels\.faintStarReveal\)/
+  );
+  assert.match(
+    runtime,
+    /updateObservatoryPortalComposite\([\s\S]*?channels\.nebulaReveal/
+  );
+  assert.ok(
+    matchCount(
+      runtime,
+      /reducedMotion:\s*adaptation\.celestialMotionScale === 0/g
+    ) >= 2,
+    "one motion channel must freeze both the native sky and nebula"
+  );
+});
+
+test("only the volumetric nebula enters the FBO portal", () => {
+  const portalAdds = [...runtime.matchAll(
+    /resources\.portalScene\.add\(\s*([^\n;)]+)\s*\)/g
+  )].map((match) => match[1].trim());
+
+  assert.deepEqual(
+    portalAdds,
+    ["resources.nebula"],
+    "the 4K panorama, hero stars and Gaia must not be downsampled into the FBO"
+  );
+  assert.match(
+    runtime,
+    /gl\.render\(resources\.portalScene,\s*portal\.camera\)/
+  );
+  assert.match(runtime, /scene\.add\(resources\.portal\.composite\)/);
+  assert.match(runtime, /updateMushroomSky\(sky,\s*camera\.position/);
+  assert.doesNotMatch(
+    runtime,
+    /portalScene\.add\([^)]*(?:gaia|sky|backdrop|stars)/i
+  );
+});
+
+test("Gaia stays one native-resolution main-scene Points draw behind the roof stencil", () => {
+  assert.equal(
+    matchCount(gaia, /new THREE\.Points\s*\(/g),
+    1,
+    "the catalogue factory must issue one Points draw"
+  );
+  assert.doesNotMatch(gaia, /new THREE\.(?:Group|Mesh)\s*\(/);
+  assert.match(runtime, /resources\.gaia = createGaiaStarPoints\(/);
+  assert.match(runtime, /scene\.add\(resources\.gaia\)/);
+  assert.match(runtime, /resources\.gaia\.position\.copy\(camera\.position\)/);
+  assert.match(runtime, /material\.stencilWrite = true/);
+  assert.match(runtime, /material\.stencilRef = 7/);
+  assert.match(runtime, /material\.stencilFunc = THREE\.EqualStencilFunc/);
+  assert.match(runtime, /points\.renderOrder = GAIA_RENDER_ORDER/);
+});
+
+test("Low and Minimum remove the volumetric FBO while preserving fallbacks", () => {
+  for (const quality of ["low", "minimum"]) {
+    const preset = getObservatoryQualityPreset(quality);
+    assert.equal(preset.volumetricFbo, false, `${quality} must allocate no FBO`);
+    assert.equal(preset.portalQuality, null);
+    assert.equal(preset.nebulaQuality, null);
+    assert.equal(preset.backdrop4k, true);
+    assert.equal(preset.proceduralStarsFallback, true);
+  }
+
+  const compact = withoutWhitespace(runtime);
+  assert.match(
+    compact,
+    /preset\.volumetricFbo && resources\.portalLoadRequested && resources\.stencilSupported[\s\S]*?createPortalResources\(preset\)/
+  );
+  assert.match(
+    compact,
+    /else if \(!preset\.volumetricFbo \|\| !resources\.stencilSupported\) \{ disposePortalResources\(\); \}/
+  );
+  assert.match(runtime, /if \(quality === "low"\) return "low"/);
+  assert.match(runtime, /return null;/);
+});
+
+test("catalogue fetch is abortable and all owned GPU/browser resources are cleaned", () => {
+  assert.match(runtime, /const abortController = new AbortController\(\)/);
+  assert.match(
+    runtime,
+    /fetch\(GAIA_STAR_CATALOG_URL,\s*\{\s*signal:\s*abortController\.signal\s*\}\)/
+  );
+  assert.match(runtime, /resources\.gaiaLoadStarted \|\| !mounted/);
+  assert.match(
+    runtime,
+    /if \(texture !== fallbackTexture\) \{[\s\S]*?uSkyTexture\.value = fallbackTexture;[\s\S]*?loadedTexture = null;[\s\S]*?texture\.dispose\(\);[\s\S]*?fallbackTexture\?\.isTexture/
+  );
+
+  for (const cleanup of [
+    /abortController\.abort\(\)/,
+    /removeEventListener\?\.\("change",\s*syncMotionPreference\)/,
+    /disposePortalResources\(\)/,
+    /disposeGaiaStarPoints\(resources\.gaia\)/,
+    /removeMushroomSkyAperture\(resources\.aperture\)/,
+    /loadedTexture\?\.dispose\(\)/,
+    /disposeMushroomSky\(sky\)/
+  ]) {
+    assert.match(runtime, cleanup);
+  }
+  assert.match(runtime, /resourcesRef\.current = null/);
+});
+
+test("the portal resizes on viewport, DPR or tier changes", () => {
+  assert.match(
+    runtime,
+    /const targetKey = \[[\s\S]*?state\.size\.width[\s\S]*?state\.size\.height[\s\S]*?gl\.getPixelRatio\(\)[\s\S]*?qualityRef\.current\.quality[\s\S]*?\]\.join\(":"\)/
+  );
+  assert.match(
+    runtime,
+    /resizeObservatoryPortal\(portal,\s*\{[\s\S]*?width:\s*state\.size\.width[\s\S]*?height:\s*state\.size\.height[\s\S]*?pixelRatio:\s*gl\.getPixelRatio\(\)[\s\S]*?quality:\s*qualityRef\.current\.preset\.portalQuality[\s\S]*?\}\)/
+  );
+  assert.match(
+    runtime,
+    /resources\.lastTargetKey = targetKey;\s*resources\.framebufferChecked = false;/
+  );
+});
+
+test("HalfFloat failure rebuilds as RGBA8 and a second failure falls back to Low", () => {
+  assert.match(
+    runtime,
+    /halfFloatSupported && !resources\.forceUnsignedByte\s*\? THREE\.HalfFloatType\s*:\s*THREE\.UnsignedByteType/
+  );
+  assert.match(runtime, /resources\.forceUnsignedByte = true/);
+  assert.match(
+    runtime,
+    /resources\.forceUnsignedByte = true;[\s\S]*?resources\.qualityApplied = null;[\s\S]*?applyQuality\(qualityRef\.current\?\.quality \?\? "medium"\)/
+  );
+  assert.match(
+    runtime,
+    /initialQuality:\s*"low",\s*maximumQuality:\s*"low"/
+  );
+  assert.match(
+    runtime,
+    /type:\s*!target[\s\S]*?\? "disabled"[\s\S]*?: target\.texture\.type === THREE\.HalfFloatType[\s\S]*?\? "half-float"[\s\S]*?: "rgba8"/
+  );
+  assert.match(runtime, /gl\.setRenderTarget\(previousTarget\)/);
+  assert.match(runtime, /gl\.xr\.enabled = previousXrEnabled/);
+});
+
+test("diagnostics expose runtime state and motion query overrides stay QA-only", () => {
+  assert.match(runtime, /window\.__villaObservatoryRuntimeSnapshot = runtimeSnapshot/);
+  for (const field of ["adaptation", "portal", "gaia", "backdrop4k"]) {
+    assert.match(runtime, new RegExp(`\\b${field}:`));
+  }
+  assert.match(
+    diagnostics,
+    /typeof window\.__villaObservatoryRuntimeSnapshot === "function"/
+  );
+  assert.match(
+    diagnostics,
+    /providers\.runtime = window\.__villaObservatoryRuntimeSnapshot\(\)/
+  );
+  assert.match(
+    runtime,
+    /if \(window\.__villaObservatoryRuntimeSnapshot === runtimeSnapshot\) \{\s*delete window\.__villaObservatoryRuntimeSnapshot;/
+  );
+
+  assert.match(
+    runtime,
+    /const diagnosticsMode = \["test", "perf"\]\.includes\(search\.get\("observatory"\)\)/
+  );
+  assert.match(
+    runtime,
+    /const motionOverride = diagnosticsMode \? search\.get\("motion"\) : null/
+  );
+  assert.match(
+    runtime,
+    /motionOverride === "full"[\s\S]*?motionOverride === "reduce"[\s\S]*?motionQuery\?\.matches === true/
+  );
+});
+
+test("stencil, context loss and shader failures all fail closed", () => {
+  assert.match(runtime, /getContextAttributes\?\.\(\)/);
+  assert.match(runtime, /getParameter\(context\.STENCIL_BITS\)/);
+  assert.match(runtime, /evaluateObservatoryStencilSupport\(/);
+  assert.match(
+    runtime,
+    /if \(\s*!resources\.stencilSupported\s*\|\| resources\.contextLost\s*\|\| resources\.skyDisabled\s*\) \{[\s\S]*?sky\.visible = false;[\s\S]*?resources\.portal\.composite\.visible = false;/
+  );
+  assert.match(runtime, /findObservatoryShaderFailure\(/);
+  assert.match(runtime, /program\.diagnostics\?\.runnable === false/);
+  assert.match(runtime, /addEventListener\("webglcontextlost", handleContextLost\)/);
+  assert.match(runtime, /addEventListener\("webglcontextrestored", handleContextRestored\)/);
+  assert.match(runtime, /removeEventListener\("webglcontextlost", handleContextLost\)/);
+  assert.match(runtime, /removeEventListener\("webglcontextrestored", handleContextRestored\)/);
+});
+
+test("L2 preloads once, open lights draw no cosmos, and QA tiers stay locked", () => {
+  assert.match(runtime, /isNearObservatoryPrewarmPosition\(camera\.position\)/);
+  assert.match(
+    runtime,
+    /nearObservatory[\s\S]*?resources\.portalLoadRequested = true;[\s\S]*?applyQualityRef\.current\?\.\(qualityRef\.current\.quality\)/
+  );
+  assert.match(
+    runtime,
+    /const shouldPrewarm = nearObservatory && !resources\.portalPrewarmed;/
+  );
+  assert.match(runtime, /activeEnabled:\s*celestialVisible/);
+  assert.match(runtime, /if \(!resources\.qualityLocked\) \{[\s\S]*?stepObservatoryQuality\(/);
+  assert.match(runtime, /deltaSeconds:\s*Math\.min\(Math\.max\(delta \|\| 0, 0\), 0\.25\)/);
+  assert.match(runtime, /lockedQuality:\s*resources\.qualityLocked/);
+});
+
+test("native layers precompile the main Canvas variant before offscreen upload", () => {
+  assert.match(
+    runtime,
+    /new THREE\.WebGLRenderTarget\(1, 1,[\s\S]*?depthBuffer:\s*false,[\s\S]*?stencilBuffer:\s*false/
+  );
+  assert.match(
+    runtime,
+    /renderWarmupObjects\(sources\)[\s\S]*?gl\.setRenderTarget\(null\);[\s\S]*?gl\.compile\(warmupScene, camera, scene\);[\s\S]*?gl\.setRenderTarget\(getNativePrewarmTarget\(\)\);[\s\S]*?gl\.render\(warmupScene, camera\)/
+  );
+  for (const source of [
+    "sky.userData.backdrop",
+    "sky.userData.stars",
+    "resources.aperture",
+    "resources.portal.composite",
+    "resources.gaia"
+  ]) {
+    assert.match(runtime, new RegExp(source.replaceAll(".", "\\.")));
+  }
+  assert.match(runtime, /if \(nearObservatory\) prewarmNativeRef\.current\?\.\(\)/);
+  assert.match(runtime, /resources\.nativePrewarmTarget\?\.dispose\(\)/);
+});
+
+test("shader failures are classified and per-frame draw metrics report actual work", () => {
+  for (const material of [
+    "mushroom-distant-sky-material",
+    "mushroom-twinkling-star-material",
+    "mushroom-gaia-star-material",
+    "mushroom-observatory-portal-composite-material"
+  ]) {
+    assert.match(runtime, new RegExp(material));
+  }
+  assert.match(runtime, /observatoryShaderFailure === "gaia"/);
+  assert.match(runtime, /observatoryShaderFailure === "native-sky"/);
+  assert.match(runtime, /resources\.portalRenderedThisFrame = false/);
+  assert.match(runtime, /resources\.portalRenderedThisFrame = true/);
+  assert.match(
+    runtime,
+    /addedDrawCalls:\s*\(resources\.portalRenderedThisFrame \? 1 : 0\)[\s\S]*?resources\.portal\?\.composite\.visible/
+  );
+  assert.match(runtime, /addedDrawCalls:\s*\(sky\.visible \? 2 : 0\)/);
+  assert.match(
+    runtime,
+    /const shouldAnimate = inLoft\s*&& channels\.nebulaReveal > PORTAL_REVEAL_EPSILON;/
+  );
+});

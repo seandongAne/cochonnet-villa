@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "gaia-bright-stars-v1",
+  "generatedAt": "2026-08-02T08:26:41.769Z",
+  "source": {
+    "organisation": "European Space Agency (ESA)",
+    "mission": "Gaia",
+    "dataRelease": "Gaia Data Release 3 (Gaia DR3)",
+    "archiveTable": "gaiadr3.gaia_source",
+    "tapEndpoint": "https://gea.esac.esa.int/tap-server/tap/sync",
+    "responseFormat": "CSV",
+    "adqlQuery": "SELECT TOP 80000\n  source_id,\n  ra,\n  dec,\n  phot_g_mean_mag,\n  bp_rp\nFROM gaiadr3.gaia_source\nWHERE ra IS NOT NULL\n  AND dec IS NOT NULL\n  AND phot_g_mean_mag IS NOT NULL\n  AND bp_rp IS NOT NULL\nORDER BY phot_g_mean_mag ASC, source_id ASC",
+    "adqlQuerySha256": "875d0941c49138e60ee55af79a90fdf98f928a7205ca33848050ba722994e066",
+    "fields": {
+      "source_id": "Gaia DR3 source identifier",
+      "ra": "ICRS right ascension in degrees at reference epoch J2016.0",
+      "dec": "ICRS declination in degrees at reference epoch J2016.0",
+      "phot_g_mean_mag": "Mean Gaia G-band magnitude on the Vega scale",
+      "bp_rp": "Gaia BP-RP colour in magnitudes"
+    },
+    "dataModelUrl": "https://gea.esac.esa.int/archive/documentation/GDR3/Gaia_archive/chap_datamodel/sec_dm_main_source_catalogue/ssec_dm_gaia_source.html",
+    "selection": "The first 80,000 Gaia DR3 sources with finite RA, Dec, mean G magnitude, and BP-RP colour after sorting by ascending G magnitude and then source_id.",
+    "completenessCaveat": "This is a rendering-oriented Gaia subset, not a complete traditional bright-star catalogue. Gaia DR3 omits or lacks complete BP/RP photometry for some of the brightest naked-eye stars, so familiar objects such as Sirius are not guaranteed to be present. No synthetic or random stars are stored in this file."
+  },
+  "catalogue": {
+    "sourceCount": 80000,
+    "ordering": "phot_g_mean_mag ascending, source_id ascending",
+    "coordinateFrame": "ICRS",
+    "referenceEpoch": "J2016.0",
+    "lodCounts": {
+      "low": 8000,
+      "medium": 35000,
+      "high": 80000
+    },
+    "magnitudeRange": [
+      1.731607,
+      8.227556
+    ],
+    "bpRpRange": [
+      -0.5008311,
+      7.3831034
+    ]
+  },
+  "binary": {
+    "filename": "gaia-bright-stars-v1.bin",
+    "magic": "GAIASTR1",
+    "formatVersion": 1,
+    "endianness": "little",
+    "headerBytes": 32,
+    "recordBytes": 24,
+    "byteLength": 1920032,
+    "sha256": "871521023194be15bca2c1e653d6700abfad47ad9b92a4d60351f59ef168e2b1",
+    "recordLayout": [
+      "source_id uint64",
+      "ICRS unit vector x float32",
+      "ICRS unit vector y float32",
+      "ICRS unit vector z float32",
+      "phot_g_mean_mag int16 millimagnitudes",
+      "bp_rp int16 millimagnitudes"
+    ]
+  },
+  "attribution": {
+    "credit": "ESA/Gaia/DPAC",
+    "usage": "Gaia data are open and free to use provided that ESA/Gaia/DPAC is credited; consult the official Gaia DR3 credit and citation instructions.",
+    "officialCreditUrl": "https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/",
+    "acknowledgement": "This work has made use of data from the European Space Agency (ESA) mission Gaia (https://www.cosmos.esa.int/gaia), processed by the Gaia Data Processing and Analysis Consortium (DPAC, https://www.cosmos.esa.int/web/gaia/dpac/consortium). Funding for the DPAC has been provided by national institutions, in particular the institutions participating in the Gaia Multilateral Agreement."
+  },
+  "regeneration": {
+    "script": "scripts/build-gaia-star-catalog.mjs",
+    "command": "node scripts/build-gaia-star-catalog.mjs",
+    "offlineCommand": "node scripts/build-gaia-star-catalog.mjs --input path/to/esa-tap-response.csv"
+  }
+}

@@ -213,6 +213,39 @@ test("the sky follows L3 camera translation exactly and pauses everywhere else",
   disposeMushroomSky(sky);
 });
 
+test("the runtime can suppress all celestial draws while keeping independent reveals", () => {
+  const sky = createMushroomSky();
+  const aperture = new THREE.Object3D();
+  sky.userData.textureReady = true;
+  const l3 = new THREE.Vector3(
+    MUSHROOM_INTERIOR_CENTER.x,
+    MUSHROOM_INTERIOR_EYE_Y[2],
+    MUSHROOM_INTERIOR_CENTER.z
+  );
+
+  assert.equal(updateMushroomSky(sky, l3, 0.1, {
+    aperture,
+    forceActive: true,
+    activeEnabled: false,
+    backdropReveal: 1,
+    starReveal: 1
+  }), false);
+  assert.equal(sky.visible, false);
+  assert.equal(aperture.visible, false);
+  assert.equal(sky.userData.elapsed, 0);
+
+  assert.equal(updateMushroomSky(sky, l3, 0.1, {
+    aperture,
+    activeEnabled: true,
+    backdropReveal: 0.25,
+    starReveal: 0.75
+  }), true);
+  assert.equal(sky.userData.backdrop.material.uniforms.uReveal.value, 0.25);
+  assert.equal(sky.userData.stars.material.uniforms.uReveal.value, 0.75);
+
+  disposeMushroomSky(sky);
+});
+
 test("the sky changes over at the shared L2/L3 eye-height handoff", () => {
   const handoff = MUSHROOM_FLOOR_Y_RANGES[4].minY;
   const position = new THREE.Vector3(
@@ -299,6 +332,9 @@ test("dynamic sky integration requests stencil, keeps fallback, and cleans resou
   const sceneSource = readFileSync(fileURLToPath(
     new URL("../src/villa-map/react/Scene.jsx", import.meta.url)
   ), "utf8");
+  const runtimeSource = readFileSync(fileURLToPath(
+    new URL("../src/villa-map/react/MushroomObservatoryRuntime.jsx", import.meta.url)
+  ), "utf8");
   const mapSource = readFileSync(fileURLToPath(
     new URL("../src/villa-map/react/VillaMap.jsx", import.meta.url)
   ), "utf8");
@@ -307,13 +343,15 @@ test("dynamic sky integration requests stencil, keeps fallback, and cleans resou
   ), "utf8");
 
   assert.match(mapSource, /gl=\{\{ antialias: true, stencil: true \}\}/);
-  assert.match(sceneSource, /window\.matchMedia\?\.\("\(prefers-reduced-motion: reduce\)"\)/);
-  assert.match(sceneSource, /material\.uniforms\.uSkyTexture\.value = texture/);
-  assert.match(sceneSource, /updateMushroomSky\(sky, camera\.position, delta/);
-  assert.match(sceneSource, /domeRef\.current\.visible = skyIsActive/);
-  assert.match(sceneSource, /removeMushroomSkyAperture\(aperture\)/);
-  assert.match(sceneSource, /loadedTexture\?\.dispose\(\)/);
-  assert.match(sceneSource, /disposeMushroomSky\(sky\)/);
+  assert.match(sceneSource, /<MushroomObservatoryRuntime/);
+  assert.match(runtimeSource, /window\.matchMedia\?\.\("\(prefers-reduced-motion: reduce\)"\)/);
+  assert.match(runtimeSource, /backdropMaterial\.uniforms\.uSkyTexture\.value = texture/);
+  assert.match(runtimeSource, /updateMushroomSky\(sky, camera\.position, frameDelta/);
+  assert.match(runtimeSource, /resources\.dome\.visible = skyIsActive/);
+  assert.match(runtimeSource, /removeMushroomSkyAperture\(resources\.aperture\)/);
+  assert.match(runtimeSource, /loadedTexture\?\.dispose\(\)/);
+  assert.match(runtimeSource, /disposeMushroomSky\(sky\)/);
+  assert.match(runtimeSource, /\}, -1\);/);
   assert.match(
     controlsSource,
     /useFrame\(\(_, delta\) => \{[\s\S]*?\}, -2\);/,

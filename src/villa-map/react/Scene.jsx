@@ -22,9 +22,7 @@ import {
   MUSHROOM_OBSERVATORY_FLOOR_NAME,
   MUSHROOM_OBSERVATORY_SWITCH_LED_NAME,
   MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME,
-  MUSHROOM_OBSERVATORY_WALL_NAME,
-  MUSHROOM_STAR_DOME_NAME,
-  MUSHROOM_STAR_TEXTURE_URL
+  MUSHROOM_OBSERVATORY_WALL_NAME
 } from "../mushroom-interior.js";
 import { MUSHROOM_INTERIOR } from "../world.js";
 import { createPorkyModel } from "../porky-models.js";
@@ -34,16 +32,9 @@ import { FURNITURE_PLACEMENTS } from "../furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "../exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "../architecture-placements.js";
 import { createShadowBlobs } from "../shadows.js";
-import {
-  createMushroomSky,
-  createMushroomSkyAperture,
-  disposeMushroomSky,
-  MUSHROOM_SKY_BACKDROP_NAME,
-  MUSHROOM_SKY_IMAGE_BRIGHTNESS,
-  removeMushroomSkyAperture,
-  setMushroomSkyPixelRatio,
-  updateMushroomSky
-} from "../mushroom-sky.js";
+import { createMushroomSky } from "../mushroom-sky.js";
+import { createObservatoryAdaptationState } from "../observatory-adaptation.js";
+import { MushroomObservatoryRuntime } from "./MushroomObservatoryRuntime.jsx";
 
 // Soft warm interior point lights, one cluster per villa room. Mirrors the
 // roomLights array from the old scene.js. None cast shadows (kept cheap; the
@@ -151,33 +142,26 @@ function StudioEnvironment() {
 // Two layers sell the cinema transition without leaving the player blind:
 // dim amber "house" lights fade all the way out, while very small red guides
 // remain at floor level to preserve silhouettes and the path to the stairs.
-function MushroomObservatoryLights({ lightsOn }) {
+function MushroomObservatoryLights({ adaptationRef }) {
   const houseRefs = useRef([]);
   const guideRefs = useRef([]);
 
-  useFrame((_, delta) => {
-    const frameDelta = Math.min(delta, 0.1);
-    const houseDamping = lightsOn ? 4.5 : 1.7;
+  useFrame(() => {
+    const houseLight = adaptationRef.current?.channels?.houseLight ?? 1;
 
     OBSERVATORY_HOUSE_LIGHTS.forEach((light, index) => {
       const object = houseRefs.current[index];
       if (!object) return;
-      object.intensity = THREE.MathUtils.damp(
-        object.intensity,
-        lightsOn ? light.intensity : 0,
-        houseDamping,
-        frameDelta
-      );
+      object.intensity = light.intensity * houseLight;
     });
 
     OBSERVATORY_GUIDE_LIGHTS.forEach((light, index) => {
       const object = guideRefs.current[index];
       if (!object) return;
-      object.intensity = THREE.MathUtils.damp(
-        object.intensity,
-        light.intensity * (lightsOn ? 0.7 : 0.12),
-        2.6,
-        frameDelta
+      object.intensity = light.intensity * THREE.MathUtils.lerp(
+        0.12,
+        0.7,
+        houseLight
       );
     });
   });
@@ -214,7 +198,7 @@ function MushroomObservatoryLights({ lightsOn }) {
 // When they are on, return the wall and floor to the same cream plaster and
 // warm timber used downstairs. The colours live on the node-pure materials so
 // this bridge can animate them without duplicating palette constants.
-function MushroomObservatoryPalette({ interior, lightsOn }) {
+function MushroomObservatoryPalette({ interior, adaptationRef }) {
   const surfacesRef = useRef([]);
 
   useEffect(() => {
@@ -234,12 +218,12 @@ function MushroomObservatoryPalette({ interior, lightsOn }) {
     };
   }, [interior]);
 
-  useFrame((_, delta) => {
-    const blend = 1 - Math.exp(-(lightsOn ? 5.5 : 2.4) * Math.min(delta, 0.1));
+  useFrame(() => {
+    const houseLight = adaptationRef.current?.channels?.houseLight ?? 1;
     for (const surface of surfacesRef.current) {
-      surface.material.color.lerp(
-        lightsOn ? surface.lightsOnColor : surface.lightsOffColor,
-        blend
+      surface.material.color.copy(surface.lightsOffColor).lerp(
+        surface.lightsOnColor,
+        houseLight
       );
     }
   });
@@ -250,17 +234,21 @@ function MushroomObservatoryPalette({ interior, lightsOn }) {
 // MeshBasic markers ignore renderer exposure, so an ordinary white waypoint
 // becomes the brightest object in the room after lights-out. Fade only the L3
 // markers; the switch's own red emissive LED remains the reliable locator.
-function MushroomObservatoryMarkerMaterial({ lightsOn, baseOpacity, darkOpacity }) {
+function MushroomObservatoryMarkerMaterial({
+  adaptationRef,
+  baseOpacity,
+  darkOpacity
+}) {
   const materialRef = useRef(null);
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     const material = materialRef.current;
     if (!material) return;
-    material.opacity = THREE.MathUtils.damp(
-      material.opacity,
-      lightsOn ? baseOpacity : darkOpacity,
-      lightsOn ? 6 : 3,
-      Math.min(delta, 0.1)
+    const houseLight = adaptationRef.current?.channels?.houseLight ?? 1;
+    material.opacity = THREE.MathUtils.lerp(
+      darkOpacity,
+      baseOpacity,
+      houseLight
     );
   });
 
@@ -338,7 +326,7 @@ function MushroomObservatorySwitchVisual({ interior, lightsOn }) {
 // Instead, gently lower renderer exposure only while the camera climbs into
 // the buried loft. MeshBasic star pixels are toneMapped:false, so they remain
 // bright while every physically lit surface falls into observatory darkness.
-function MushroomObservatoryExposure({ lightsOn }) {
+function MushroomObservatoryExposure({ adaptationRef }) {
   const gl = useThree((state) => state.gl);
   const camera = useThree((state) => state.camera);
   const normalExposure = useRef(null);
@@ -352,8 +340,9 @@ function MushroomObservatoryExposure({ lightsOn }) {
     };
   }, [gl]);
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     const baseExposure = normalExposure.current ?? 1;
+    const houseLight = adaptationRef.current?.channels?.houseLight ?? 1;
     const dx = camera.position.x - MUSHROOM_INTERIOR.center.x;
     const dz = camera.position.z - MUSHROOM_INTERIOR.center.z;
     const insidePocket = camera.position.y < -20 && Math.hypot(dx, dz) < 15;
@@ -366,21 +355,18 @@ function MushroomObservatoryExposure({ lightsOn }) {
     // furniture's original KayKit colours read normally. Lights-out mode drops
     // much lower than before; tiny red floor guides and the switch LED still
     // preserve safe silhouettes without washing out the star field.
-    const observatoryExposure = lightsOn
-      ? baseExposure
-      : MUSHROOM_OBSERVATORY_EXPOSURE * 0.34;
+    const observatoryExposure = THREE.MathUtils.lerp(
+      MUSHROOM_OBSERVATORY_EXPOSURE * 0.34,
+      baseExposure,
+      houseLight
+    );
     const targetExposure = THREE.MathUtils.lerp(
       baseExposure,
       observatoryExposure,
       loftBlend
     );
 
-    gl.toneMappingExposure = THREE.MathUtils.damp(
-      gl.toneMappingExposure,
-      targetExposure,
-      lightsOn ? 5.5 : 2.2,
-      Math.min(delta, 0.1)
-    );
+    gl.toneMappingExposure = targetExposure;
   });
 
   return null;
@@ -395,162 +381,18 @@ function MushroomObservatoryExposure({ lightsOn }) {
 // while mushroom-sky.js stays importable by the Node test suite. The distant
 // hemisphere is drawn through a stencil copy of the real roof, which lets the
 // room occlude it even though the pocket is buried beneath the meadow.
-const OBSERVATORY_CLOSED_CEILING_COLOR = new THREE.Color("#010208");
-
-function MushroomDynamicSky({ interior, sky, lightsOn }) {
-  const gl = useThree((state) => state.gl);
-  const camera = useThree((state) => state.camera);
-  const apertureRef = useRef(null);
-  const domeRef = useRef(null);
-  const domeWasVisibleRef = useRef(true);
-  const domeFallbackColorRef = useRef(null);
-  const reducedMotionRef = useRef(false);
-  const revealRef = useRef(lightsOn ? 0 : 1);
-  const revealDelayRef = useRef(0);
-
-  useEffect(() => {
-    const dome = interior.getObjectByName(MUSHROOM_STAR_DOME_NAME);
-    const backdrop = sky.getObjectByName(MUSHROOM_SKY_BACKDROP_NAME);
-    const material = backdrop?.material;
-    if (
-      !dome?.isMesh
-      || !material?.isShaderMaterial
-      || !material.uniforms?.uSkyTexture
-    ) return undefined;
-
-    let active = true;
-    let loadedTexture = null;
-    const lifecycleToken = {};
-    sky.userData.lifecycleToken = lifecycleToken;
-    const fallbackTexture = material.uniforms.uSkyTexture.value;
-    const aperture = createMushroomSkyAperture(dome);
-    const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    const syncMotionPreference = () => {
-      reducedMotionRef.current = motionQuery?.matches === true;
-    };
-    syncMotionPreference();
-    motionQuery?.addEventListener?.("change", syncMotionPreference);
-
-    domeRef.current = dome;
-    domeWasVisibleRef.current = dome?.visible ?? true;
-    domeFallbackColorRef.current = dome.material?.color?.clone?.() ?? null;
-    apertureRef.current = aperture;
-    setMushroomSkyPixelRatio(sky, gl.getPixelRatio());
-    const loader = new THREE.TextureLoader();
-
-    loader.load(
-      MUSHROOM_STAR_TEXTURE_URL,
-      (texture) => {
-        if (!active) {
-          texture.dispose();
-          return;
-        }
-
-        texture.name = "qwantani-night-puresky-dome-4k";
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.wrapS = THREE.RepeatWrapping;
-        // Directional UVs are derived in the shader; implicit mip derivatives
-        // can jump at sphere triangle edges near the zenith. Sampling the 4K
-        // base level directly keeps the angular filter smooth and seam-free.
-        texture.generateMipmaps = false;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.anisotropy = Math.max(
-          1,
-          Math.min(8, gl.capabilities.getMaxAnisotropy())
-        );
-
-        loadedTexture = texture;
-        material.uniforms.uSkyTexture.value = texture;
-        material.uniforms.uBrightness.value = MUSHROOM_SKY_IMAGE_BRIGHTNESS;
-        sky.userData.textureReady = true;
-      },
-      undefined,
-      () => {
-        // Keep the deliberately usable deep-blue fallback on load failure.
-      }
-    );
-
-    return () => {
-      active = false;
-      motionQuery?.removeEventListener?.("change", syncMotionPreference);
-      sky.userData.textureReady = false;
-      sky.visible = false;
-      if (dome) {
-        dome.visible = domeWasVisibleRef.current;
-        if (domeFallbackColorRef.current && dome.material?.color) {
-          dome.material.color.copy(domeFallbackColorRef.current);
-        }
-      }
-      removeMushroomSkyAperture(aperture);
-      apertureRef.current = null;
-      domeRef.current = null;
-      domeFallbackColorRef.current = null;
-      if (material.uniforms.uSkyTexture.value === loadedTexture) {
-        material.uniforms.uSkyTexture.value = fallbackTexture;
-      }
-      loadedTexture?.dispose();
-      // React development strict effects perform a setup-cleanup-setup cycle
-      // without replacing the memoized Three object. Defer final disposal one
-      // microtask so that a new setup can claim it; a real unmount cannot.
-      queueMicrotask(() => {
-        if (sky.userData.lifecycleToken === lifecycleToken) {
-          disposeMushroomSky(sky);
-        }
-      });
-    };
-  }, [gl, interior, sky]);
-
-  useFrame((_, delta) => {
-    const frameDelta = Math.min(delta, 0.1);
-    if (lightsOn || sky.userData.textureReady !== true) {
-      revealDelayRef.current = 0;
-    } else {
-      revealDelayRef.current += frameDelta;
-    }
-
-    // Let the amber house lights visibly fall first, then bloom the galaxy in
-    // over roughly one second. Turning the lights back on masks it faster.
-    const revealTarget = !lightsOn && revealDelayRef.current >= 0.38 ? 1 : 0;
-    revealRef.current = reducedMotionRef.current
-      ? revealTarget
-      : THREE.MathUtils.damp(
-          revealRef.current,
-          revealTarget,
-          lightsOn ? 7 : 3.2,
-          frameDelta
-        );
-
-    const skyIsActive = updateMushroomSky(sky, camera.position, delta, {
-      reducedMotion: reducedMotionRef.current,
-      aperture: apertureRef.current,
-      reveal: revealRef.current
-    });
-    if (domeRef.current) {
-      // The original close dome remains the physical, node-safe fallback. It
-      // is hidden only for frames where the loaded distant sky is active.
-      domeRef.current.visible = skyIsActive
-        ? false
-        : domeWasVisibleRef.current;
-      const fallbackColor = domeFallbackColorRef.current;
-      if (fallbackColor && domeRef.current.material?.color) {
-        domeRef.current.material.color.lerp(
-          lightsOn ? OBSERVATORY_CLOSED_CEILING_COLOR : fallbackColor,
-          1 - Math.exp(-(lightsOn ? 6 : 2.5) * frameDelta)
-        );
-      }
-    }
-  });
-
-  return null;
-}
-
 export function Scene({
   world,
   editMode = false,
   onSelectPiece,
   observatoryLightsOn = true
 }) {
+  const observatoryAdaptationRef = useRef(
+    createObservatoryAdaptationState({
+      lightsOn: observatoryLightsOn,
+      inLoft: false
+    })
+  );
   // Build every procedural mesh exactly once. The assets.js / porky-models.js
   // factories are reused verbatim from the vanilla-Three implementation; R3F
   // mounts the resulting Object3D instances through <primitive>.
@@ -650,25 +492,30 @@ export function Scene({
           position={[light.x, light.y, light.z]}
         />
       ))}
-      <MushroomObservatoryLights lightsOn={observatoryLightsOn} />
+      <MushroomObservatoryLights
+        adaptationRef={observatoryAdaptationRef}
+      />
       <MushroomObservatorySwitchVisual
         interior={built.mushroomInterior}
         lightsOn={observatoryLightsOn}
       />
       <MushroomObservatoryPalette
         interior={built.mushroomInterior}
-        lightsOn={observatoryLightsOn}
+        adaptationRef={observatoryAdaptationRef}
       />
 
       {/* Gentle image-based lighting — the Phase 1 polish. (Soft penumbra
           shadows are deferred: drei's PCSS SoftShadows patches a shadow shader
           that three r184 no longer ships, so it's incompatible here.) */}
       <StudioEnvironment />
-      <MushroomObservatoryExposure lightsOn={observatoryLightsOn} />
-      <MushroomDynamicSky
+      <MushroomObservatoryExposure
+        adaptationRef={observatoryAdaptationRef}
+      />
+      <MushroomObservatoryRuntime
         interior={built.mushroomInterior}
         sky={built.mushroomSky}
         lightsOn={observatoryLightsOn}
+        adaptationRef={observatoryAdaptationRef}
       />
 
       {/* ---- Terrain ---- */}
@@ -776,7 +623,7 @@ export function Scene({
             <ringGeometry args={[1.2, 1.32, 48]} />
             {room.id === "mushroom-loft" ? (
               <MushroomObservatoryMarkerMaterial
-                lightsOn={observatoryLightsOn}
+                adaptationRef={observatoryAdaptationRef}
                 baseOpacity={0.38}
                 darkOpacity={0.06}
               />
@@ -805,7 +652,7 @@ export function Scene({
           {interaction.id === "mushroom-loft"
           || interaction.action?.type === "toggle-observatory-lights" ? (
             <MushroomObservatoryMarkerMaterial
-              lightsOn={observatoryLightsOn}
+              adaptationRef={observatoryAdaptationRef}
               baseOpacity={1}
               darkOpacity={0.08}
             />

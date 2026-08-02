@@ -6,6 +6,7 @@ import { createVillaWorld } from "../world.js";
 import { Scene } from "./Scene.jsx";
 import { PlayerControls } from "./PlayerControls.jsx";
 import { EditControls } from "./EditControls.jsx";
+import { ObservatoryDiagnostics } from "./ObservatoryDiagnostics.jsx";
 
 const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Esc"];
 
@@ -66,13 +67,33 @@ export default function VillaMap() {
     () => new URLSearchParams(window.location.search).get("edit") === "1",
     []
   );
+  const observatoryDiagnosticsMode = useMemo(() => {
+    const requested = new URLSearchParams(window.location.search).get("observatory");
+    return requested === "test" || requested === "perf" ? requested : null;
+  }, []);
+  const observatoryDiagnosticsView = useMemo(
+    () => new URLSearchParams(window.location.search).get("view") ?? "loft-center",
+    []
+  );
+  const observatoryInitialLightsOn = useMemo(
+    () => new URLSearchParams(window.location.search).get("lights") !== "off",
+    []
+  );
 
   const [exploring, setExploring] = useState(false);
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState(null);
   // The observatory deliberately opens with its dim cinema-style house lights
   // on. The first star reveal therefore belongs to the visitor at the switch.
-  const [observatoryLightsOn, setObservatoryLightsOn] = useState(true);
+  const [observatoryLightsOn, setObservatoryLightsOn] = useState(
+    observatoryDiagnosticsMode ? observatoryInitialLightsOn : true
+  );
+  const [observatoryDiagnosticsApi, setObservatoryDiagnosticsApi] = useState(null);
+  const handleObservatoryDiagnosticsReady = useCallback((api) => {
+    // Functions passed directly to a state setter are treated as updater
+    // callbacks, so wrap the diagnostics object (which contains methods).
+    setObservatoryDiagnosticsApi(() => api);
+  }, []);
   const toggleObservatoryLights = useCallback(() => {
     setObservatoryLightsOn((lightsOn) => !lightsOn);
   }, []);
@@ -184,13 +205,16 @@ export default function VillaMap() {
 
   return (
     <main
-      className={`villa-map-root${exploring ? " is-exploring" : ""}`}
+      className={`villa-map-root${
+        exploring || observatoryDiagnosticsMode ? " is-exploring" : ""
+      }`}
       data-villa-map-root
     >
       {/* The buried observatory's distant sky is clipped through its real
           roof silhouette, so request a stencil buffer explicitly. */}
       <Canvas
         className="villa-map-canvas"
+        frameloop={observatoryDiagnosticsMode === "test" ? "never" : "always"}
         shadows={{ type: PCFShadowMap }}
         dpr={[1, 1.8]}
         gl={{ antialias: true, stencil: true }}
@@ -216,6 +240,26 @@ export default function VillaMap() {
             onTransform={setLive}
             clipY={clipY}
           />
+        ) : observatoryDiagnosticsMode ? (
+          <>
+            {observatoryDiagnosticsMode === "perf" && (
+              <PlayerControls
+                world={world}
+                lockRef={lockRef}
+                wantLockRef={wantLockRef}
+                onLockChange={setExploring}
+                onInteraction={setInteraction}
+                onToggleObservatoryLights={toggleObservatoryLights}
+              />
+            )}
+            <ObservatoryDiagnostics
+              mode={observatoryDiagnosticsMode}
+              lightsOn={observatoryLightsOn}
+              setLightsOn={setObservatoryLightsOn}
+              initialView={observatoryDiagnosticsView}
+              onReady={handleObservatoryDiagnosticsReady}
+            />
+          </>
         ) : (
           <PlayerControls
             world={world}
@@ -228,7 +272,7 @@ export default function VillaMap() {
         )}
       </Canvas>
 
-      {!editMode && !exploring && (
+      {!editMode && !observatoryDiagnosticsMode && !exploring && (
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>
@@ -260,6 +304,13 @@ export default function VillaMap() {
         onMode={setGizmoMode}
       />}
 
+      {observatoryDiagnosticsMode && (
+        <ObservatoryDiagnosticsPanel
+          mode={observatoryDiagnosticsMode}
+          api={observatoryDiagnosticsApi}
+        />
+      )}
+
       {loading && <div className="villa-map-loading">正在搭建猪猪山庄...</div>}
 
       {displayedInteraction && !editMode && (
@@ -279,6 +330,176 @@ export default function VillaMap() {
         当前版本桌面体验最佳。请在电脑上使用 WASD 和鼠标自由探索。
       </p>
     </main>
+  );
+}
+
+function ObservatoryDiagnosticsPanel({ mode, api }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [snapshot, setSnapshot] = useState(null);
+  const panelStyle = {
+    position: "fixed",
+    top: 22,
+    left: 300,
+    width: collapsed ? "auto" : 430,
+    maxWidth: "calc(100vw - 340px)",
+    padding: collapsed ? 0 : "10px 12px",
+    background: collapsed ? "transparent" : "rgba(6, 10, 24, 0.94)",
+    color: "#edf4ff",
+    borderRadius: 10,
+    boxShadow: collapsed ? "none" : "0 8px 24px rgba(0,0,0,0.32)",
+    zIndex: 60,
+    font: "12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace"
+  };
+  const buttonStyle = {
+    border: "1px solid rgba(237,244,255,0.42)",
+    background: "rgba(25, 45, 82, 0.9)",
+    color: "#edf4ff",
+    borderRadius: 6,
+    padding: "4px 7px",
+    cursor: api ? "pointer" : "wait",
+    font: "inherit"
+  };
+  const run = (operation) => {
+    if (!api) return;
+    const nextSnapshot = operation?.() ?? api.getSnapshot();
+    setSnapshot(nextSnapshot);
+  };
+
+  if (collapsed) {
+    return (
+      <aside style={panelStyle} data-observatory-diagnostics>
+        <button
+          type="button"
+          style={buttonStyle}
+          onClick={() => setCollapsed(false)}
+        >
+          Observatory QA
+        </button>
+      </aside>
+    );
+  }
+
+  return (
+    <aside style={panelStyle} data-observatory-diagnostics>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <strong>Impossible Observatory QA · {mode}</strong>
+        <span style={{ opacity: 0.7 }}>{api ? "ready" : "loading"}</span>
+        <button
+          type="button"
+          style={{ ...buttonStyle, marginLeft: "auto" }}
+          onClick={() => setCollapsed(true)}
+        >
+          收起
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 7 }}>
+        {["l2-stair", "loft-center", "loft-edge", "loft-room"].map((view) => (
+          <button
+            key={view}
+            type="button"
+            style={buttonStyle}
+            disabled={!api}
+            data-observatory-view={view}
+            onClick={() => run(() => {
+              api.setView(view);
+              return api.renderOnce();
+            })}
+          >
+            {view}
+          </button>
+        ))}
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-lights="on"
+          onClick={() => run(() => {
+            api.setLights(true);
+            return null;
+          })}
+        >
+          开灯
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-lights="off"
+          onClick={() => run(() => {
+            api.setLights(false);
+            return null;
+          })}
+        >
+          关灯
+        </button>
+        {mode === "test" && [0.5, 2, 10].map((seconds) => (
+          <button
+            key={seconds}
+            type="button"
+            style={buttonStyle}
+            disabled={!api}
+            data-observatory-advance={seconds}
+            onClick={() => run(() => api.advanceSeconds(seconds))}
+          >
+            +{seconds}s
+          </button>
+        ))}
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          data-observatory-reset-samples
+          onClick={() => run(() => {
+            api.resetSamples();
+            return api.getSnapshot();
+          })}
+        >
+          重置帧样本
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          aria-label="模拟 WebGL context 丢失"
+          data-observatory-context="lose"
+          onClick={() => run(() => api.loseContext())}
+        >
+          丢失 WebGL context
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          aria-label="恢复 WebGL context"
+          data-observatory-context="restore"
+          onClick={() => run(() => api.restoreContext())}
+        >
+          恢复 WebGL context
+        </button>
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={!api}
+          onClick={() => run(() => api.getSnapshot())}
+        >
+          刷新数据
+        </button>
+      </div>
+      {snapshot && (
+        <output
+          style={{
+            display: "block",
+            maxHeight: 62,
+            overflow: "auto",
+            marginTop: 7,
+            opacity: 0.8,
+            whiteSpace: "pre-wrap"
+          }}
+        >
+          {JSON.stringify(snapshot)}
+        </output>
+      )}
+    </aside>
   );
 }
 

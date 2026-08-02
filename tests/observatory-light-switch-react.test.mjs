@@ -16,7 +16,7 @@ test("the observatory starts with house lights on and E toggles them", () => {
 
   assert.match(
     villaMap,
-    /\[observatoryLightsOn, setObservatoryLightsOn\] = useState\(true\)/
+    /\[observatoryLightsOn, setObservatoryLightsOn\] = useState\(\s*observatoryDiagnosticsMode \? observatoryInitialLightsOn : true\s*\)/
   );
   assert.match(villaMap, /setObservatoryLightsOn\(\(lightsOn\) => !lightsOn\)/);
   assert.match(
@@ -37,19 +37,22 @@ test("the HUD explains both switch states", () => {
 
 test("lighting falls before a smooth sky reveal and keeps faint red guides", () => {
   const source = readReactSource("Scene.jsx");
+  const runtime = readReactSource("MushroomObservatoryRuntime.jsx");
 
-  assert.match(source, /function MushroomObservatoryLights\(\{ lightsOn \}\)/);
-  assert.match(source, /light\.intensity \* \(lightsOn \? 0\.7 : 0\.12\)/);
-  assert.match(source, /function MushroomObservatoryPalette\(\{ interior, lightsOn \}\)/);
+  assert.match(source, /function MushroomObservatoryLights\(\{ adaptationRef \}\)/);
+  assert.match(source, /light\.intensity \* houseLight/);
+  assert.match(source, /0\.12,[\s\S]*?0\.7,[\s\S]*?houseLight/);
+  assert.match(source, /function MushroomObservatoryPalette\(\{ interior, adaptationRef \}\)/);
   assert.match(source, /function MushroomObservatoryMarkerMaterial/);
   assert.match(source, /darkOpacity=\{0\.06\}/);
   assert.match(source, /darkOpacity=\{0\.08\}/);
   assert.match(source, /MUSHROOM_OBSERVATORY_WALL_NAME/);
   assert.match(source, /MUSHROOM_OBSERVATORY_FLOOR_NAME/);
   assert.match(source, /MUSHROOM_OBSERVATORY_EXPOSURE \* 0\.34/);
-  assert.match(source, /revealDelayRef\.current >= 0\.38/);
-  assert.match(source, /lightsOn \? 7 : 3\.2/);
-  assert.match(source, /reveal: revealRef\.current/);
+  assert.match(runtime, /stepObservatoryAdaptation/);
+  assert.match(runtime, /backdropReveal: channels\.portalReveal/);
+  assert.match(runtime, /starReveal: channels\.brightStarReveal/);
+  assert.match(runtime, /setGaiaStarReveal\(resources\.gaia, channels\.faintStarReveal\)/);
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME/);
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_LED_NAME/);
 

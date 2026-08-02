@@ -344,6 +344,8 @@ export function createMushroomSky({
   sky.userData.textureReady = false;
   sky.userData.elapsed = 0;
   sky.userData.reveal = 0;
+  sky.userData.backdropReveal = 0;
+  sky.userData.starReveal = 0;
   sky.userData.twinkleSample = 0;
   sky.userData.backdrop = backdrop;
   sky.userData.stars = stars;
@@ -412,11 +414,20 @@ export function updateMushroomSky(
   sky,
   cameraPosition,
   delta,
-  { reducedMotion = false, aperture = null, reveal = 1 } = {}
+  {
+    reducedMotion = false,
+    aperture = null,
+    reveal = 1,
+    backdropReveal = reveal,
+    starReveal = reveal,
+    forceActive = false,
+    activeEnabled = true
+  } = {}
 ) {
   if (!sky || !cameraPosition || sky.userData.disposed) return false;
 
-  const active = sky.userData.textureReady === true
+  const active = activeEnabled
+    && (sky.userData.textureReady === true || forceActive)
     && isMushroomObservatorySkyPosition(cameraPosition);
   sky.visible = active;
   if (aperture) aperture.visible = active;
@@ -434,16 +445,21 @@ export function updateMushroomSky(
   const elapsed = sky.userData.elapsed;
   const backdrop = sky.userData.backdrop;
   const stars = sky.userData.stars;
-  const revealAmount = THREE.MathUtils.clamp(
-    Number.isFinite(reveal) ? reveal : 0,
+  const backdropRevealAmount = THREE.MathUtils.clamp(
+    Number.isFinite(backdropReveal) ? backdropReveal : 0,
+    0,
+    1
+  );
+  const starRevealAmount = THREE.MathUtils.clamp(
+    Number.isFinite(starReveal) ? starReveal : 0,
     0,
     1
   );
   backdrop.rotation.y = SKY_START_ROTATION + elapsed * MUSHROOM_SKY_BACKDROP_DRIFT;
   stars.rotation.y = STAR_START_ROTATION + elapsed * MUSHROOM_SKY_STAR_DRIFT;
-  backdrop.material.uniforms.uReveal.value = revealAmount;
+  backdrop.material.uniforms.uReveal.value = backdropRevealAmount;
   stars.material.uniforms.uTime.value = elapsed;
-  stars.material.uniforms.uReveal.value = revealAmount;
+  stars.material.uniforms.uReveal.value = starRevealAmount;
   const phases = stars.geometry.attributes.aPhase;
   const speeds = stars.geometry.attributes.aTwinkleSpeed;
   const strengths = stars.geometry.attributes.aTwinkleStrength;
@@ -453,7 +469,11 @@ export function updateMushroomSky(
     phases.getX(0),
     strengths.getX(0)
   );
-  sky.userData.reveal = revealAmount;
+  // Keep the legacy aggregate for diagnostics while exposing the independent
+  // channels used by the unified observatory adaptation director.
+  sky.userData.reveal = Math.max(backdropRevealAmount, starRevealAmount);
+  sky.userData.backdropReveal = backdropRevealAmount;
+  sky.userData.starReveal = starRevealAmount;
   return true;
 }
 
