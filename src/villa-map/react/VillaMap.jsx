@@ -86,8 +86,8 @@ export default function VillaMap() {
       ...interaction,
       title: observatoryLightsOn ? "观星台灯光开关" : "星空模式已开启",
       body: observatoryLightsOn
-        ? "三楼保持着电影院般的微暗暖光。关掉室内灯，等眼前慢慢暗下来。"
-        : "房灯已经熄灭，只剩下微弱的红色引导灯和整片星空。",
+        ? "三楼灯光已经打开，墙壁、地板和摆设都恢复了温暖原色。关掉房灯，等眼睛慢慢适应黑暗。"
+        : "房灯已经熄灭，墙面和摆设隐入黑暗，只剩微弱的红色引导灯和整片星空。",
       action: {
         ...interaction.action,
         label: observatoryLightsOn ? "按 E 关灯看星空" : "按 E 重新开灯"

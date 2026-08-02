@@ -29,17 +29,24 @@ test("the observatory starts with house lights on and E toggles them", () => {
 test("the HUD explains both switch states", () => {
   const source = readReactSource("VillaMap.jsx");
 
-  assert.match(source, /三楼保持着电影院般的微暗暖光/);
-  assert.match(source, /房灯已经熄灭，只剩下微弱的红色引导灯和整片星空/);
+  assert.match(source, /墙壁、地板和摆设都恢复了温暖原色/);
+  assert.match(source, /墙面和摆设隐入黑暗，只剩微弱的红色引导灯和整片星空/);
   assert.match(source, /observatoryLightsOn \? "按 E 关灯看星空" : "按 E 重新开灯"/);
   assert.match(source, /displayedInteraction\.action\.label/);
 });
 
-test("lighting falls before a smooth sky reveal and keeps red guides", () => {
+test("lighting falls before a smooth sky reveal and keeps faint red guides", () => {
   const source = readReactSource("Scene.jsx");
 
   assert.match(source, /function MushroomObservatoryLights\(\{ lightsOn \}\)/);
-  assert.match(source, /light\.intensity \* \(lightsOn \? 0\.7 : 0\.34\)/);
+  assert.match(source, /light\.intensity \* \(lightsOn \? 0\.7 : 0\.12\)/);
+  assert.match(source, /function MushroomObservatoryPalette\(\{ interior, lightsOn \}\)/);
+  assert.match(source, /function MushroomObservatoryMarkerMaterial/);
+  assert.match(source, /darkOpacity=\{0\.06\}/);
+  assert.match(source, /darkOpacity=\{0\.08\}/);
+  assert.match(source, /MUSHROOM_OBSERVATORY_WALL_NAME/);
+  assert.match(source, /MUSHROOM_OBSERVATORY_FLOOR_NAME/);
+  assert.match(source, /MUSHROOM_OBSERVATORY_EXPOSURE \* 0\.34/);
   assert.match(source, /revealDelayRef\.current >= 0\.38/);
   assert.match(source, /lightsOn \? 7 : 3\.2/);
   assert.match(source, /reveal: revealRef\.current/);

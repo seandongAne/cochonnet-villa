@@ -28,6 +28,13 @@ export const MUSHROOM_SKY_IMAGE_BRIGHTNESS = 0.46;
 export const MUSHROOM_SKY_BACKDROP_DRIFT = 0.00012;
 export const MUSHROOM_SKY_STAR_DRIFT = -0.00028;
 
+// Most points breathe very gently while the larger stars get a deeper,
+// quicker pulse. The speed values are radians per second, so this range gives
+// the noticeable stars a roughly 2-5 second cycle without making the whole
+// ceiling flash in sync.
+export const MUSHROOM_SKY_TWINKLE_SPEED_MIN = 1.15;
+export const MUSHROOM_SKY_TWINKLE_SPEED_MAX = 2.9;
+
 const SKY_STENCIL_REF = 7;
 const APERTURE_RENDER_ORDER = 900;
 const BACKDROP_RENDER_ORDER = 901;
@@ -108,23 +115,36 @@ const STAR_VERTEX_SHADER = /* glsl */ `
 
   attribute float aPhase;
   attribute float aTwinkleSpeed;
+  attribute float aTwinkleStrength;
   attribute float aSize;
   attribute vec3 aColor;
 
   varying float vBrightness;
+  varying float vTwinkleStrength;
   varying vec3 vColor;
 
   void main() {
     float wave = sin(uTime * aTwinkleSpeed + aPhase);
-    float secondWave = sin(uTime * (aTwinkleSpeed * 0.37) + aPhase * 1.73);
-    vBrightness = 0.78 + 0.14 * wave + 0.08 * secondWave;
+    float secondWave = sin(uTime * (aTwinkleSpeed * 0.61) + aPhase * 1.73);
+    float shimmer = 0.5 + 0.5 * (wave * 0.72 + secondWave * 0.28);
+    // A narrow crest gives a few prominent points a recognisable sparkle,
+    // while the slower shimmer keeps the transition organic between peaks.
+    float sparkle = pow(max(0.0, 0.5 + 0.5 * wave), 10.0);
+    float fullTwinkle = 0.28 + 0.58 * shimmer + 0.52 * sparkle;
+    vBrightness = mix(0.84, fullTwinkle, aTwinkleStrength);
+    vTwinkleStrength = aTwinkleStrength;
     vColor = aColor;
 
     vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * viewPosition;
     // Screen-space sizes avoid the "near particles" cue caused by perspective
     // attenuation. These are celestial points, not dust floating in the room.
-    gl_PointSize = aSize * uPixelRatio;
+    float sizePulse = mix(
+      1.0,
+      0.78 + 0.30 * shimmer + 0.28 * sparkle,
+      aTwinkleStrength
+    );
+    gl_PointSize = aSize * uPixelRatio * sizePulse;
   }
 `;
 
@@ -132,15 +152,28 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
   uniform float uReveal;
 
   varying float vBrightness;
+  varying float vTwinkleStrength;
   varying vec3 vColor;
 
   void main() {
     float distanceFromCentre = length(gl_PointCoord - vec2(0.5));
     float core = 1.0 - smoothstep(0.05, 0.48, distanceFromCentre);
     float halo = 1.0 - smoothstep(0.18, 0.5, distanceFromCentre);
-    float alpha = (core * 0.90 + halo * 0.28) * vBrightness * uReveal;
+    vec2 fromCentre = abs(gl_PointCoord - vec2(0.5));
+    float verticalRay = (1.0 - smoothstep(0.035, 0.11, fromCentre.x))
+      * (1.0 - smoothstep(0.18, 0.5, fromCentre.y));
+    float horizontalRay = (1.0 - smoothstep(0.035, 0.11, fromCentre.y))
+      * (1.0 - smoothstep(0.18, 0.5, fromCentre.x));
+    float heroStar = smoothstep(0.72, 0.96, vTwinkleStrength);
+    float brightCrest = smoothstep(0.88, 1.18, vBrightness);
+    float flare = (verticalRay + horizontalRay) * heroStar * brightCrest;
+    float alpha = (core * 0.90 + halo * 0.28 + flare * 0.74)
+      * vBrightness * uReveal;
     if (alpha < 0.015) discard;
-    gl_FragColor = vec4(vColor * (1.05 + vBrightness * 0.40), alpha);
+    gl_FragColor = vec4(
+      vColor * (1.05 + vBrightness * 0.40 + flare * 0.55),
+      alpha
+    );
     #include <colorspace_fragment>
   }
 `;
@@ -154,6 +187,32 @@ function seededRandom(seed) {
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+// Mirrors the vertex-shader curve so node tests can verify that elapsed real
+// time produces a perceptible (not merely non-zero) change in star output.
+export function calculateMushroomStarTwinkle(
+  time,
+  speed,
+  phase,
+  strength = 1
+) {
+  const safeTime = Number.isFinite(time) ? time : 0;
+  const safeSpeed = Number.isFinite(speed) ? speed : MUSHROOM_SKY_TWINKLE_SPEED_MIN;
+  const safePhase = Number.isFinite(phase) ? phase : 0;
+  const safeStrength = THREE.MathUtils.clamp(
+    Number.isFinite(strength) ? strength : 1,
+    0,
+    1
+  );
+  const wave = Math.sin(safeTime * safeSpeed + safePhase);
+  const secondWave = Math.sin(
+    safeTime * (safeSpeed * 0.61) + safePhase * 1.73
+  );
+  const shimmer = 0.5 + 0.5 * (wave * 0.72 + secondWave * 0.28);
+  const sparkle = Math.max(0, 0.5 + 0.5 * wave) ** 10;
+  const fullTwinkle = 0.28 + 0.58 * shimmer + 0.52 * sparkle;
+  return THREE.MathUtils.lerp(0.84, fullTwinkle, safeStrength);
 }
 
 function configureSkyStencil(material) {
@@ -171,6 +230,7 @@ function createStarGeometry(starCount, radius, seed) {
   const positions = new Float32Array(starCount * 3);
   const phases = new Float32Array(starCount);
   const speeds = new Float32Array(starCount);
+  const strengths = new Float32Array(starCount);
   const sizes = new Float32Array(starCount);
   const colors = new Float32Array(starCount * 3);
   const palette = [
@@ -192,8 +252,15 @@ function createStarGeometry(starCount, radius, seed) {
     positions[offset + 1] = y * starRadius;
     positions[offset + 2] = Math.sin(azimuth) * horizontal * starRadius;
     phases[index] = random() * Math.PI * 2;
-    speeds[index] = 0.38 + random() * 0.72;
-    sizes[index] = 1.0 + Math.pow(random(), 4) * 3.4;
+    speeds[index] = MUSHROOM_SKY_TWINKLE_SPEED_MIN
+      + random() * (
+        MUSHROOM_SKY_TWINKLE_SPEED_MAX - MUSHROOM_SKY_TWINKLE_SPEED_MIN
+      );
+    const prominence = random();
+    sizes[index] = 1.4 + Math.pow(prominence, 2.6) * 4.2;
+    // Tiny background points stay calm; the sparse larger stars visibly
+    // breathe. Correlating strength with size avoids a noisy TV-static look.
+    strengths[index] = 0.28 + Math.pow(prominence, 1.1) * 0.72;
 
     const color = palette[Math.floor(random() * palette.length)];
     colors[offset] = color.r;
@@ -205,6 +272,7 @@ function createStarGeometry(starCount, radius, seed) {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
   geometry.setAttribute("aTwinkleSpeed", new THREE.BufferAttribute(speeds, 1));
+  geometry.setAttribute("aTwinkleStrength", new THREE.BufferAttribute(strengths, 1));
   geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
   geometry.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
   geometry.computeBoundingSphere();
@@ -276,6 +344,7 @@ export function createMushroomSky({
   sky.userData.textureReady = false;
   sky.userData.elapsed = 0;
   sky.userData.reveal = 0;
+  sky.userData.twinkleSample = 0;
   sky.userData.backdrop = backdrop;
   sky.userData.stars = stars;
   sky.userData.disposed = false;
@@ -375,6 +444,15 @@ export function updateMushroomSky(
   backdrop.material.uniforms.uReveal.value = revealAmount;
   stars.material.uniforms.uTime.value = elapsed;
   stars.material.uniforms.uReveal.value = revealAmount;
+  const phases = stars.geometry.attributes.aPhase;
+  const speeds = stars.geometry.attributes.aTwinkleSpeed;
+  const strengths = stars.geometry.attributes.aTwinkleStrength;
+  sky.userData.twinkleSample = calculateMushroomStarTwinkle(
+    elapsed,
+    speeds.getX(0),
+    phases.getX(0),
+    strengths.getX(0)
+  );
   sky.userData.reveal = revealAmount;
   return true;
 }

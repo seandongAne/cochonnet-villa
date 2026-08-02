@@ -32,22 +32,27 @@ import { findNearestInteraction } from "../src/villa-map/interaction.js";
 const nearlyEqual = (actual, expected, epsilon = 1e-9) =>
   Math.abs(actual - expected) <= epsilon;
 
-test("the loft uses an isolated near-black observatory lining", () => {
-  const interior = createMushroomInterior(createMaterials());
+test("the loft lining carries warm house-light and near-black stargazing palettes", () => {
+  const materials = createMaterials();
+  const interior = createMushroomInterior(materials);
   const wall = interior.getObjectByName(MUSHROOM_OBSERVATORY_WALL_NAME);
   const floor = interior.getObjectByName(MUSHROOM_OBSERVATORY_FLOOR_NAME);
 
   assert.ok(wall, "observatory wall lining missing");
   assert.ok(floor, "observatory floor overlay missing");
   assert.equal(wall.material.side, THREE.BackSide);
-  assert.ok(Math.max(...wall.material.color.toArray()) < 0.004);
-  assert.ok(Math.max(...floor.material.color.toArray()) < 0.004);
+  assert.equal(wall.material.color.getHex(), materials.mushroomStem.color.getHex());
+  assert.equal(floor.material.color.getHex(), materials.floorPlank.color.getHex());
+  assert.equal(wall.material.userData.lightsOnColor, "#f2d4aa");
+  assert.equal(wall.material.userData.lightsOffColor, "#01030a");
+  assert.equal(floor.material.userData.lightsOnColor, "#a87148");
+  assert.equal(floor.material.userData.lightsOffColor, "#02040b");
   assert.ok(wall.geometry.parameters.height > 4.3, "lining must reach the dome seam");
   assert.equal(floor.geometry.type, "ShapeGeometry");
   assert.equal(
     floor.geometry.parameters.shapes.holes.length,
     1,
-    "the dark overlay must preserve the stairwell opening"
+    "the palette overlay must preserve the stairwell opening"
   );
 });
 
@@ -181,8 +186,10 @@ test("camera exposure darkens the loft without dimming the star material", () =>
   );
   const source = readFileSync(scenePath, "utf8");
   assert.match(source, /function MushroomObservatoryExposure\(\{ lightsOn \}\)/);
+  assert.match(source, /function MushroomObservatoryPalette\(\{ interior, lightsOn \}\)/);
   assert.match(source, /gl\.toneMappingExposure = THREE\.MathUtils\.damp/);
   assert.match(source, /THREE\.MathUtils\.smoothstep\(camera\.position\.y/);
+  assert.match(source, /MUSHROOM_OBSERVATORY_EXPOSURE \* 0\.34/);
   assert.match(
     source,
     /material\.uniforms\.uBrightness\.value = MUSHROOM_SKY_IMAGE_BRIGHTNESS/

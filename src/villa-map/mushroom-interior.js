@@ -122,17 +122,25 @@ export function createMushroomInterior(materials) {
     emissiveIntensity: 0.28,
     roughness: 0.9
   });
+  // The observatory lining is a real day/night surface rather than a
+  // permanently black skin. It is authored in the warm L1/L2 palette because
+  // the room starts with its house lights on; Scene.jsx eases these named
+  // materials toward their dark targets when the physical switch is flipped.
   const observatoryWallMaterial = new THREE.MeshStandardMaterial({
-    color: "#01030a",
+    color: wallMaterial.color,
     roughness: 0.98,
     metalness: 0.02,
     side: THREE.BackSide
   });
+  observatoryWallMaterial.userData.lightsOnColor = `#${wallMaterial.color.getHexString()}`;
+  observatoryWallMaterial.userData.lightsOffColor = "#01030a";
   const observatoryFloorMaterial = new THREE.MeshStandardMaterial({
-    color: "#02040b",
+    color: materials.floorPlank.color,
     roughness: 1,
     metalness: 0
   });
+  observatoryFloorMaterial.userData.lightsOnColor = `#${materials.floorPlank.color.getHexString()}`;
+  observatoryFloorMaterial.userData.lightsOffColor = "#02040b";
   const starDomeRimMaterial = new THREE.MeshStandardMaterial({
     color: "#02050c",
     roughness: 1,

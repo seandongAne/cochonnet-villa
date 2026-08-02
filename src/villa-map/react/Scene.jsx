@@ -19,8 +19,10 @@ import {
   createMushroomInterior,
   MUSHROOM_FLOOR_LIGHTS,
   MUSHROOM_OBSERVATORY_EXPOSURE,
+  MUSHROOM_OBSERVATORY_FLOOR_NAME,
   MUSHROOM_OBSERVATORY_SWITCH_LED_NAME,
   MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME,
+  MUSHROOM_OBSERVATORY_WALL_NAME,
   MUSHROOM_STAR_DOME_NAME,
   MUSHROOM_STAR_TEXTURE_URL
 } from "../mushroom-interior.js";
@@ -107,15 +109,15 @@ const OBSERVATORY_HOUSE_LIGHTS = [
     x: MUSHROOM_INTERIOR.center.x - 2.7,
     y: MUSHROOM_INTERIOR.floorY[2] + 2.55,
     z: MUSHROOM_INTERIOR.center.z - 2.0,
-    intensity: 19,
-    distance: 8.5
+    intensity: 52,
+    distance: 10
   },
   {
     x: MUSHROOM_INTERIOR.center.x + 2.7,
     y: MUSHROOM_INTERIOR.floorY[2] + 2.55,
     z: MUSHROOM_INTERIOR.center.z + 2.0,
-    intensity: 15,
-    distance: 7.5
+    intensity: 46,
+    distance: 9
   }
 ];
 
@@ -173,7 +175,7 @@ function MushroomObservatoryLights({ lightsOn }) {
       if (!object) return;
       object.intensity = THREE.MathUtils.damp(
         object.intensity,
-        light.intensity * (lightsOn ? 0.7 : 0.34),
+        light.intensity * (lightsOn ? 0.7 : 0.12),
         2.6,
         frameDelta
       );
@@ -205,6 +207,72 @@ function MushroomObservatoryLights({ lightsOn }) {
         />
       ))}
     </>
+  );
+}
+
+// The black observatory lining is useful only after the house lights go out.
+// When they are on, return the wall and floor to the same cream plaster and
+// warm timber used downstairs. The colours live on the node-pure materials so
+// this bridge can animate them without duplicating palette constants.
+function MushroomObservatoryPalette({ interior, lightsOn }) {
+  const surfacesRef = useRef([]);
+
+  useEffect(() => {
+    surfacesRef.current = [
+      interior.getObjectByName(MUSHROOM_OBSERVATORY_WALL_NAME)?.material,
+      interior.getObjectByName(MUSHROOM_OBSERVATORY_FLOOR_NAME)?.material
+    ]
+      .filter((material) => material?.color)
+      .map((material) => ({
+        material,
+        lightsOnColor: new THREE.Color(material.userData.lightsOnColor),
+        lightsOffColor: new THREE.Color(material.userData.lightsOffColor)
+      }));
+
+    return () => {
+      surfacesRef.current = [];
+    };
+  }, [interior]);
+
+  useFrame((_, delta) => {
+    const blend = 1 - Math.exp(-(lightsOn ? 5.5 : 2.4) * Math.min(delta, 0.1));
+    for (const surface of surfacesRef.current) {
+      surface.material.color.lerp(
+        lightsOn ? surface.lightsOnColor : surface.lightsOffColor,
+        blend
+      );
+    }
+  });
+
+  return null;
+}
+
+// MeshBasic markers ignore renderer exposure, so an ordinary white waypoint
+// becomes the brightest object in the room after lights-out. Fade only the L3
+// markers; the switch's own red emissive LED remains the reliable locator.
+function MushroomObservatoryMarkerMaterial({ lightsOn, baseOpacity, darkOpacity }) {
+  const materialRef = useRef(null);
+
+  useFrame((_, delta) => {
+    const material = materialRef.current;
+    if (!material) return;
+    material.opacity = THREE.MathUtils.damp(
+      material.opacity,
+      lightsOn ? baseOpacity : darkOpacity,
+      lightsOn ? 6 : 3,
+      Math.min(delta, 0.1)
+    );
+  });
+
+  return (
+    <meshBasicMaterial
+      ref={materialRef}
+      color="#ffffff"
+      transparent
+      opacity={baseOpacity}
+      depthWrite={false}
+      side={THREE.DoubleSide}
+    />
   );
 }
 
@@ -294,10 +362,13 @@ function MushroomObservatoryExposure({ lightsOn }) {
     const loftBlend = insidePocket
       ? THREE.MathUtils.smoothstep(camera.position.y, fadeStart, fadeEnd)
       : 0;
-    // Even with the house lights on the loft stays cinema-dark. Turning them
-    // off lowers the global contribution further, but never to absolute black.
-    const observatoryExposure = MUSHROOM_OBSERVATORY_EXPOSURE
-      * (lightsOn ? 0.88 : 0.58);
+    // House-light mode restores the same renderer exposure as L1/L2 so the
+    // furniture's original KayKit colours read normally. Lights-out mode drops
+    // much lower than before; tiny red floor guides and the switch LED still
+    // preserve safe silhouettes without washing out the star field.
+    const observatoryExposure = lightsOn
+      ? baseExposure
+      : MUSHROOM_OBSERVATORY_EXPOSURE * 0.34;
     const targetExposure = THREE.MathUtils.lerp(
       baseExposure,
       observatoryExposure,
@@ -584,6 +655,10 @@ export function Scene({
         interior={built.mushroomInterior}
         lightsOn={observatoryLightsOn}
       />
+      <MushroomObservatoryPalette
+        interior={built.mushroomInterior}
+        lightsOn={observatoryLightsOn}
+      />
 
       {/* Gentle image-based lighting — the Phase 1 polish. (Soft penumbra
           shadows are deferred: drei's PCSS SoftShadows patches a shadow shader
@@ -699,12 +774,20 @@ export function Scene({
             position={[room.center.x, (room.floorY ?? 0) + 0.04, room.center.z]}
           >
             <ringGeometry args={[1.2, 1.32, 48]} />
-            <meshBasicMaterial
-              color="#ffffff"
-              transparent
-              opacity={0.38}
-              side={THREE.DoubleSide}
-            />
+            {room.id === "mushroom-loft" ? (
+              <MushroomObservatoryMarkerMaterial
+                lightsOn={observatoryLightsOn}
+                baseOpacity={0.38}
+                darkOpacity={0.06}
+              />
+            ) : (
+              <meshBasicMaterial
+                color="#ffffff"
+                transparent
+                opacity={0.38}
+                side={THREE.DoubleSide}
+              />
+            )}
           </mesh>
         ))}
 
@@ -719,7 +802,16 @@ export function Scene({
           ]}
         >
           <sphereGeometry args={[0.13, 18, 12]} />
-          <meshBasicMaterial color="#ffffff" />
+          {interaction.id === "mushroom-loft"
+          || interaction.action?.type === "toggle-observatory-lights" ? (
+            <MushroomObservatoryMarkerMaterial
+              lightsOn={observatoryLightsOn}
+              baseOpacity={1}
+              darkOpacity={0.08}
+            />
+          ) : (
+            <meshBasicMaterial color="#ffffff" />
+          )}
         </mesh>
       ))}
     </>

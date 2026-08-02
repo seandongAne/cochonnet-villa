@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 
 import {
+  calculateMushroomStarTwinkle,
   createMushroomSky,
   createMushroomSkyAperture,
   disposeMushroomSky,
@@ -15,6 +16,8 @@ import {
   MUSHROOM_SKY_NAME,
   MUSHROOM_SKY_RADIUS,
   MUSHROOM_SKY_STAR_COUNT,
+  MUSHROOM_SKY_TWINKLE_SPEED_MAX,
+  MUSHROOM_SKY_TWINKLE_SPEED_MIN,
   MUSHROOM_SKY_STARS_NAME,
   removeMushroomSkyAperture,
   setMushroomSkyPixelRatio,
@@ -71,14 +74,25 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
     "transparent room details must remain able to draw in front of the stars"
   );
   assert.match(stars.material.vertexShader, /uTime \* aTwinkleSpeed \+ aPhase/);
+  assert.match(stars.material.vertexShader, /float sparkle = pow/);
+  assert.match(stars.material.vertexShader, /mix\(0\.84, fullTwinkle, aTwinkleStrength\)/);
+  assert.match(stars.material.vertexShader, /uPixelRatio \* sizePulse/);
   assert.match(stars.material.fragmentShader, /gl_PointCoord/);
+  assert.match(stars.material.fragmentShader, /float flare = \(verticalRay \+ horizontalRay\)/);
+  assert.match(stars.material.fragmentShader, /smoothstep\(0\.72, 0\.96, vTwinkleStrength\)/);
   assert.match(
     stars.material.fragmentShader,
     /#include <colorspace_fragment>/,
     "custom star colours must be converted into the renderer output colour space"
   );
 
-  for (const name of ["aPhase", "aTwinkleSpeed", "aSize", "aColor"]) {
+  for (const name of [
+    "aPhase",
+    "aTwinkleSpeed",
+    "aTwinkleStrength",
+    "aSize",
+    "aColor"
+  ]) {
     assert.ok(stars.geometry.getAttribute(name), `missing ${name} star attribute`);
   }
 
@@ -98,6 +112,62 @@ test("seeded sparse stars are deterministic and remain on the upper sky", () => 
 
   disposeMushroomSky(first);
   disposeMushroomSky(second);
+});
+
+test("real-time progression produces a visible, asynchronous twinkle", () => {
+  const sky = createMushroomSky({ starCount: 48, seed: 24680 });
+  const stars = sky.userData.stars;
+  const speeds = stars.geometry.getAttribute("aTwinkleSpeed");
+  const strengths = stars.geometry.getAttribute("aTwinkleStrength");
+  const phases = stars.geometry.getAttribute("aPhase");
+
+  for (let index = 0; index < speeds.count; index += 1) {
+    assert.ok(speeds.getX(index) >= MUSHROOM_SKY_TWINKLE_SPEED_MIN);
+    assert.ok(speeds.getX(index) <= MUSHROOM_SKY_TWINKLE_SPEED_MAX);
+    assert.ok(strengths.getX(index) >= 0.28);
+    assert.ok(strengths.getX(index) <= 1);
+  }
+
+  // Sample the strongest generated point over normal frame-sized steps. Its
+  // brightness must cover a meaningful range within a few real-time seconds.
+  let strongestIndex = 0;
+  for (let index = 1; index < strengths.count; index += 1) {
+    if (strengths.getX(index) > strengths.getX(strongestIndex)) {
+      strongestIndex = index;
+    }
+  }
+  const samples = [];
+  for (let frame = 0; frame <= 180; frame += 1) {
+    samples.push(calculateMushroomStarTwinkle(
+      frame / 60,
+      speeds.getX(strongestIndex),
+      phases.getX(strongestIndex),
+      strengths.getX(strongestIndex)
+    ));
+  }
+  assert.ok(
+    Math.max(...samples) - Math.min(...samples) > 0.5,
+    "a prominent star should visibly brighten and dim within three seconds"
+  );
+
+  // The production update path advances the exact uniform and diagnostic
+  // sample that feed the shader; reduced-motion keeps both frozen elsewhere.
+  sky.userData.textureReady = true;
+  const cameraPosition = new THREE.Vector3(
+    MUSHROOM_INTERIOR_CENTER.x,
+    MUSHROOM_INTERIOR_EYE_Y[2],
+    MUSHROOM_INTERIOR_CENTER.z
+  );
+  updateMushroomSky(sky, cameraPosition, 1 / 60, { reveal: 1 });
+  const firstTime = stars.material.uniforms.uTime.value;
+  const firstSample = sky.userData.twinkleSample;
+  for (let frame = 0; frame < 90; frame += 1) {
+    updateMushroomSky(sky, cameraPosition, 1 / 60, { reveal: 1 });
+  }
+  assert.ok(stars.material.uniforms.uTime.value > firstTime + 1.4);
+  assert.notEqual(sky.userData.twinkleSample, firstSample);
+
+  disposeMushroomSky(sky);
 });
 
 test("the sky follows L3 camera translation exactly and pauses everywhere else", () => {
