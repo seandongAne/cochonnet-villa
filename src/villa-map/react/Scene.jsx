@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
@@ -15,7 +15,14 @@ import {
   createTieredHotSprings,
   createTree
 } from "../assets.js";
-import { createMushroomInterior } from "../mushroom-interior.js";
+import {
+  createMushroomInterior,
+  MUSHROOM_FLOOR_LIGHTS,
+  MUSHROOM_OBSERVATORY_EXPOSURE,
+  MUSHROOM_STAR_BRIGHTNESS,
+  MUSHROOM_STAR_DOME_NAME,
+  MUSHROOM_STAR_TEXTURE_URL
+} from "../mushroom-interior.js";
 import { MUSHROOM_INTERIOR } from "../world.js";
 import { createPorkyModel } from "../porky-models.js";
 import { PORKY_PLACEMENTS } from "../placements.js";
@@ -41,25 +48,26 @@ const ROOM_LIGHTS = [
   // Mushroom-house pocket interior (buried; sunlight barely reaches it).
   // Two low warm pools per floor sit inside the fairy-light canopies. Keeping
   // them close to furniture creates cosy contrast instead of one flat giant
-  // ceiling light washing the whole magical pocket.
+  // ceiling light washing the whole magical pocket. The loft deliberately
+  // switches to short-range red guide lights for observatory night vision.
   ...MUSHROOM_INTERIOR.floorY.flatMap((floorY, level) => {
-    const colors = ["#ffb96f", "#ffab78", "#ffd08c"];
+    const lighting = MUSHROOM_FLOOR_LIGHTS[level];
     return [
       {
         x: MUSHROOM_INTERIOR.center.x - 3.1,
-        y: floorY + 3.0,
+        y: floorY + (level === 2 ? 2.4 : 3.0),
         z: MUSHROOM_INTERIOR.center.z - 2.5,
-        color: colors[level],
-        intensity: 52,
-        distance: 10
+        color: lighting.color,
+        intensity: lighting.primary,
+        distance: lighting.primaryDistance
       },
       {
         x: MUSHROOM_INTERIOR.center.x + 3.1,
-        y: floorY + 3.0,
+        y: floorY + (level === 2 ? 2.4 : 3.0),
         z: MUSHROOM_INTERIOR.center.z + 2.5,
-        color: colors[level],
-        intensity: 46,
-        distance: 9
+        color: lighting.color,
+        intensity: lighting.secondary,
+        distance: lighting.secondaryDistance
       }
     ];
   })
@@ -88,6 +96,108 @@ function StudioEnvironment() {
       pmrem.dispose();
     };
   }, [gl, scene]);
+
+  return null;
+}
+
+// The global sun, hemisphere light and IBL cannot be scoped to one storey.
+// Instead, gently lower renderer exposure only while the camera climbs into
+// the buried loft. MeshBasic star pixels are toneMapped:false, so they remain
+// bright while every physically lit surface falls into observatory darkness.
+function MushroomObservatoryExposure() {
+  const gl = useThree((state) => state.gl);
+  const camera = useThree((state) => state.camera);
+  const normalExposure = useRef(null);
+
+  useEffect(() => {
+    normalExposure.current = gl.toneMappingExposure;
+    return () => {
+      if (normalExposure.current !== null) {
+        gl.toneMappingExposure = normalExposure.current;
+      }
+    };
+  }, [gl]);
+
+  useFrame((_, delta) => {
+    const baseExposure = normalExposure.current ?? 1;
+    const dx = camera.position.x - MUSHROOM_INTERIOR.center.x;
+    const dz = camera.position.z - MUSHROOM_INTERIOR.center.z;
+    const insidePocket = camera.position.y < -20 && Math.hypot(dx, dz) < 15;
+    const fadeStart = MUSHROOM_INTERIOR.eyeY[1] + 2.2;
+    const fadeEnd = MUSHROOM_INTERIOR.eyeY[2] - 0.45;
+    const loftBlend = insidePocket
+      ? THREE.MathUtils.smoothstep(camera.position.y, fadeStart, fadeEnd)
+      : 0;
+    const targetExposure = THREE.MathUtils.lerp(
+      baseExposure,
+      MUSHROOM_OBSERVATORY_EXPOSURE,
+      loftBlend
+    );
+
+    gl.toneMappingExposure = THREE.MathUtils.damp(
+      gl.toneMappingExposure,
+      targetExposure,
+      6,
+      Math.min(delta, 0.1)
+    );
+  });
+
+  return null;
+}
+
+// Texture loading belongs in the browser-only React layer so the procedural
+// mushroom factory remains safe to import in Node tests. Until this finishes
+// (or if it fails), the dome keeps its deep-blue MeshBasic fallback.
+function MushroomStarCeilingTexture({ interior }) {
+  const gl = useThree((state) => state.gl);
+
+  useEffect(() => {
+    const dome = interior.getObjectByName(MUSHROOM_STAR_DOME_NAME);
+    const material = dome?.material;
+    if (!material?.isMeshBasicMaterial) return undefined;
+
+    let active = true;
+    let loadedTexture = null;
+    const fallbackColor = material.color.clone();
+    const fallbackMap = material.map;
+    const loader = new THREE.TextureLoader();
+
+    loader.load(
+      MUSHROOM_STAR_TEXTURE_URL,
+      (texture) => {
+        if (!active) {
+          texture.dispose();
+          return;
+        }
+
+        texture.name = "qwantani-night-puresky-dome-4k";
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.max(
+          1,
+          Math.min(8, gl.capabilities.getMaxAnisotropy())
+        );
+
+        loadedTexture = texture;
+        material.map = texture;
+        material.color.setScalar(MUSHROOM_STAR_BRIGHTNESS);
+        material.needsUpdate = true;
+      },
+      undefined,
+      () => {
+        // Keep the deliberately usable deep-blue fallback on load failure.
+      }
+    );
+
+    return () => {
+      active = false;
+      if (material.map === loadedTexture) {
+        material.map = fallbackMap;
+        material.color.copy(fallbackColor);
+        material.needsUpdate = true;
+      }
+      loadedTexture?.dispose();
+    };
+  }, [gl, interior]);
 
   return null;
 }
@@ -196,6 +306,8 @@ export function Scene({ world, editMode = false, onSelectPiece }) {
           shadows are deferred: drei's PCSS SoftShadows patches a shadow shader
           that three r184 no longer ships, so it's incompatible here.) */}
       <StudioEnvironment />
+      <MushroomObservatoryExposure />
+      <MushroomStarCeilingTexture interior={built.mushroomInterior} />
 
       {/* ---- Terrain ---- */}
       {built.grounds.map(([object, position], index) => (

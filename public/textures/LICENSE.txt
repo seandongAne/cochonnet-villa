@@ -1,0 +1,17 @@
+Qwantani Night (Pure Sky)
+==========================
+
+Source asset: Qwantani Night (Pure Sky)
+Photography: Greg Zaal
+Processing: Jarod Guest
+Publisher: Poly Haven
+Asset page: https://polyhaven.com/a/qwantani_night_puresky
+License: CC0 1.0 Universal (Public Domain Dedication)
+License text: https://creativecommons.org/publicdomain/zero/1.0/
+
+Local derivative:
+qwantani-night-puresky-dome-4k.webp
+
+For this site, the source sky image was cropped to its upper hemisphere,
+resized to 4096 x 1024 pixels, given a dark-sky contrast grade with a shaded
+horizon, and encoded as WebP for the third-floor mushroom-house star ceiling.

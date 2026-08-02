@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import * as THREE from "three";
 
 import {
   MUSHROOM_INTERIOR,
@@ -185,6 +186,33 @@ test("stair flights stay enterable and guarded (rails, under-stair, rims)", () =
     "rim guard follows the narrow stairwell"
   );
 
+  // Collision must begin at the visible south rail, not nearly a metre in
+  // front of it as an invisible wall. Compare both stacked well guards against
+  // the factory meshes after the interior's 2x root scale is applied.
+  const interior = createMushroomInterior(createMaterials());
+  interior.updateMatrixWorld(true);
+  for (const [rimId, railName] of [
+    ["mushroom-stair-a-rim", "mushroom-interior-well-a-rail-south"],
+    ["mushroom-stair-b-rim", "mushroom-interior-well-b-rail-south"]
+  ]) {
+    const rim = byCollider(rimId);
+    const visibleRail = interior.getObjectByName(railName);
+    assert.ok(rim && visibleRail, `${rimId} must match a visible south rail`);
+
+    const visibleBox = new THREE.Box3().setFromObject(visibleRail);
+    const visibleCenterZ = MUSHROOM_INTERIOR.center.z
+      + (visibleBox.min.z + visibleBox.max.z) / 2;
+    const colliderCenterZ = (rim.minZ + rim.maxZ) / 2;
+    assert.ok(
+      nearlyEqual(colliderCenterZ, visibleCenterZ, 1e-6),
+      `${rimId} centre drifts away from its visible rail`
+    );
+    assert.ok(
+      nearlyEqual(rim.maxZ - rim.minZ, visibleBox.max.z - visibleBox.min.z, 1e-6),
+      `${rimId} is thicker than its visible rail`
+    );
+  }
+
   // Bottom entry of flight A (south end) is open to an L1 player…
   assert.equal(collidesWithWorld({
     x: stairCenter(stairA).x,
@@ -224,10 +252,18 @@ test("furnished floors preserve a player-width route through all three levels", 
       goal: { x: stairX(stairA), z: stairA.maxZ + 0.8 }
     },
     {
-      name: "stair A landing to stair B",
+      name: "stair A landing to den centre",
       y: MUSHROOM_INTERIOR.eyeY[1],
       start: { x: stairX(stairA), z: stairA.minZ - 0.8 },
-      goal: { x: stairX(stairB), z: stairB.maxZ + 0.8 }
+      goal: MUSHROOM_INTERIOR.center,
+      bounds: { minX: -8, maxX: -0.4, minZ: 9.2, maxZ: 19.5 }
+    },
+    {
+      name: "den centre to stair B",
+      y: MUSHROOM_INTERIOR.eyeY[1],
+      start: MUSHROOM_INTERIOR.center,
+      goal: { x: stairX(stairB), z: stairB.maxZ + 0.8 },
+      bounds: { minX: -12, maxX: -4, minZ: 17, maxZ: 26.2 }
     },
     {
       name: "stair B landing to loft centre",
@@ -246,6 +282,7 @@ test("furnished floors preserve a player-width route through all three levels", 
   const key = (point) => `${Math.round(point.x / step)},${Math.round(point.z / step)}`;
 
   for (const route of routes) {
+    const routeBounds = route.bounds ?? fp;
     const start = snap(route.start);
     const goal = snap(route.goal);
     const queue = [start];
@@ -261,7 +298,12 @@ test("furnished floors preserve a player-width route through all three levels", 
       }
       for (const [dx, dz] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
         const next = { x: current.x + dx, z: current.z + dz };
-        if (next.x < fp.minX || next.x > fp.maxX || next.z < fp.minZ || next.z > fp.maxZ) continue;
+        if (
+          next.x < routeBounds.minX ||
+          next.x > routeBounds.maxX ||
+          next.z < routeBounds.minZ ||
+          next.z > routeBounds.maxZ
+        ) continue;
         const nextKey = key(next);
         if (seen.has(nextKey)) continue;
         if (collidesWithWorld({ ...next, y: route.y }, world)) continue;
@@ -358,6 +400,10 @@ test("all three interior levels are densely furnished from the vendored KayKit p
 
   const allPieces = [...hearth, ...den, ...loft];
   allPieces.forEach((piece) => {
+    // Curved-wall decor follows a dedicated exact-corner regression: its back
+    // corners intentionally sit 4 cm from the shell, while grounded furniture
+    // keeps this roomier 15 cm circulation buffer.
+    if (piece.wallMounted || piece.onWallShelfId) return;
     const box = rotatedAabb(piece);
     for (const x of [box.minX, box.maxX]) {
       for (const z of [box.minZ, box.maxZ]) {

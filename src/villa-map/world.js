@@ -272,17 +272,17 @@ function mushroomInteriorColliders() {
     normalBoxAtScaledZ(
       "mushroom-stair-a-rim",
       MUSHROOM_STAIR_A_CENTER_X,
-      21.15,
+      21.5,
       MUSHROOM_STAIR_WIDTH + MUSHROOM_STAIR_OPENING_MARGIN * 2,
-      0.4,
+      0.08,
       MUSH_L2_Y
     ),
     normalBoxAtScaledZ(
       "mushroom-stair-b-rim",
       MUSHROOM_STAIR_B_CENTER_X,
-      21.15,
+      21.5,
       MUSHROOM_STAIR_WIDTH + MUSHROOM_STAIR_OPENING_MARGIN * 2,
-      0.4,
+      0.08,
       MUSH_L3_Y
     )
   ];

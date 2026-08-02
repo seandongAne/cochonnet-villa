@@ -50,6 +50,27 @@ const STAIR_OPENING = {
 const STAIR_A_X = 2.0; // source-space x=-4, world x=-2 at 2x
 const STAIR_B_X = -2.0; // source-space x=-8, world x=-10 at 2x
 
+// The factory stays Node-pure: it only advertises the public asset URL and
+// builds a dark fallback material. Scene.jsx owns browser-only TextureLoader
+// work and applies the photograph to this named mesh after it has loaded.
+export const MUSHROOM_STAR_DOME_NAME = "mushroom-interior-dome";
+export const MUSHROOM_STAR_TEXTURE_URL =
+  "/textures/qwantani-night-puresky-dome-4k.webp";
+export const MUSHROOM_STAR_BRIGHTNESS = 1.35;
+export const MUSHROOM_OBSERVATORY_EXPOSURE = 0.5;
+
+// L1/L2 stay storybook-warm. L3 deliberately switches to dim, short-range
+// red guide lights so visitors keep their night vision and the star dome owns
+// the room, like a small observatory after the main lamps have gone out.
+export const MUSHROOM_FLOOR_LIGHTS = Object.freeze([
+  Object.freeze({ color: "#ffb96f", primary: 52, secondary: 46, primaryDistance: 10, secondaryDistance: 9 }),
+  Object.freeze({ color: "#ffab78", primary: 52, secondary: 46, primaryDistance: 10, secondaryDistance: 9 }),
+  Object.freeze({ color: "#ff3b2f", primary: 4.5, secondary: 3.2, primaryDistance: 5.5, secondaryDistance: 4.8 })
+]);
+
+export const MUSHROOM_OBSERVATORY_WALL_NAME = "mushroom-observatory-wall-lining";
+export const MUSHROOM_OBSERVATORY_FLOOR_NAME = "mushroom-observatory-floor-overlay";
+
 export function createMushroomInterior(materials) {
   const group = new THREE.Group();
   group.name = "mushroom-interior";
@@ -60,8 +81,13 @@ export function createMushroomInterior(materials) {
   // wall) still sees the wall instead of x-raying the room.
   const wallMaterial = materials.mushroomStem.clone();
   wallMaterial.side = THREE.DoubleSide;
-  const domeMaterial = materials.mushroomSpot.clone();
-  domeMaterial.side = THREE.DoubleSide;
+  const domeMaterial = new THREE.MeshBasicMaterial({
+    color: "#07142c",
+    side: THREE.BackSide,
+    toneMapped: false,
+    fog: false
+  });
+  domeMaterial.name = "mushroom-star-ceiling-fallback";
   const soilMaterial = new THREE.MeshStandardMaterial({
     color: "#4a3628",
     roughness: 1,
@@ -82,6 +108,31 @@ export function createMushroomInterior(materials) {
       roughness: 0.48
     })
   );
+  const observatoryGlowMaterial = new THREE.MeshStandardMaterial({
+    color: "#240605",
+    emissive: "#ff2418",
+    emissiveIntensity: 0.28,
+    roughness: 0.9
+  });
+  const observatoryBulbMaterials = ["#3a0806", "#4b0b08", "#2d0605"].map(
+    (color) => new THREE.MeshStandardMaterial({
+      color,
+      emissive: "#ff2a1c",
+      emissiveIntensity: 0.24,
+      roughness: 0.9
+    })
+  );
+  const observatoryWallMaterial = new THREE.MeshStandardMaterial({
+    color: "#01030a",
+    roughness: 0.98,
+    metalness: 0.02,
+    side: THREE.BackSide
+  });
+  const observatoryFloorMaterial = new THREE.MeshStandardMaterial({
+    color: "#02040b",
+    roughness: 1,
+    metalness: 0
+  });
   const buntingMaterials = ["#ce6d5b", "#e6a44c", "#7fa38a"].map(
     (color) => new THREE.MeshStandardMaterial({
       color,
@@ -92,9 +143,11 @@ export function createMushroomInterior(materials) {
 
   // ---- Shell: soil surround, base slab, round wall, glowing gill dome ------
   // The walkable square's diagonals overshoot the round wall a little; a dark
-  // earth cylinder + lid means a corner-hugger sees soil, never the void.
+  // open-ended earth cylinder means a corner-hugger sees soil, never the void.
+  // It must stay open at the top so its back-facing cap cannot eclipse the
+  // photographic star dome when a visitor looks straight up from the loft.
   const soil = new THREE.Mesh(
-    new THREE.CylinderGeometry(7.2, 7.2, WALL_HEIGHT + 3, 24, 1, false),
+    new THREE.CylinderGeometry(7.2, 7.2, WALL_HEIGHT + 3, 24, 1, true),
     soilMaterial
   );
   soil.name = "mushroom-interior-soil";
@@ -123,9 +176,30 @@ export function createMushroomInterior(materials) {
     new THREE.SphereGeometry(RADIUS, 40, 18, 0, Math.PI * 2, 0, Math.PI / 2),
     domeMaterial
   );
-  dome.name = "mushroom-interior-dome";
+  dome.name = MUSHROOM_STAR_DOME_NAME;
+  dome.userData.textureUrl = MUSHROOM_STAR_TEXTURE_URL;
   dome.position.y = WALL_HEIGHT;
   group.add(dome);
+
+  // L3 gets its own nearly-black inner skin. It sits just in front of the
+  // shared pale wall and over the TOP face of the L3 slab only, so L1/L2 keep
+  // their warm palette and the L2 ceiling does not unexpectedly turn black.
+  const observatoryWallHeight = WALL_HEIGHT - LEVEL_HEIGHT * 2 - 0.02;
+  const observatoryWall = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      RADIUS - 0.025,
+      RADIUS - 0.025,
+      observatoryWallHeight,
+      48,
+      1,
+      true
+    ),
+    observatoryWallMaterial
+  );
+  observatoryWall.name = MUSHROOM_OBSERVATORY_WALL_NAME;
+  observatoryWall.position.y = LEVEL_HEIGHT * 2 + 0.01 + observatoryWallHeight / 2;
+  observatoryWall.receiveShadow = true;
+  group.add(observatoryWall);
 
   // Radial "gill" ribs under the dome rim — echoes the cap underside outside.
   for (let i = 0; i < 18; i += 1) {
@@ -139,6 +213,12 @@ export function createMushroomInterior(materials) {
   // ---- Upper slabs (round, with a stairwell hole each) ---------------------
   group.add(buildSlab("mushroom-interior-slab-l2", LEVEL_HEIGHT, STAIR_A_X, materials));
   group.add(buildSlab("mushroom-interior-slab-l3", LEVEL_HEIGHT * 2, STAIR_B_X, materials));
+  group.add(buildFloorOverlay(
+    MUSHROOM_OBSERVATORY_FLOOR_NAME,
+    LEVEL_HEIGHT * 2,
+    STAIR_B_X,
+    observatoryFloorMaterial
+  ));
 
   // Warm baseboard ring where each floor meets the curved wall.
   for (const levelY of [0, LEVEL_HEIGHT, LEVEL_HEIGHT * 2]) {
@@ -164,7 +244,10 @@ export function createMushroomInterior(materials) {
   ];
   windowSpecs.forEach((spec, level) => {
     spec.angles.forEach((angle, index) => {
-      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), glowMaterial);
+      const disc = new THREE.Mesh(
+        new THREE.CircleGeometry(0.42, 20),
+        level === 2 ? observatoryGlowMaterial : glowMaterial
+      );
       disc.name = `mushroom-interior-window-${level + 1}-${index}`;
       disc.position.set(Math.sin(angle) * (RADIUS - 0.12), spec.y, Math.cos(angle) * (RADIUS - 0.12));
       disc.rotation.y = angle + Math.PI;
@@ -200,15 +283,18 @@ export function createMushroomInterior(materials) {
   group.add(knob);
 
   // ---- Hanging pendant lamps, one per storey -------------------------------
-  for (const [lampY, cordTop] of [
-    [3.1, LEVEL_HEIGHT - SLAB_THICKNESS],
-    [7.1, LEVEL_HEIGHT * 2 - SLAB_THICKNESS],
-    [10.9, WALL_HEIGHT + 0.6]
+  for (const [level, lampY, cordTop] of [
+    [0, 3.1, LEVEL_HEIGHT - SLAB_THICKNESS],
+    [1, 7.1, LEVEL_HEIGHT * 2 - SLAB_THICKNESS],
+    [2, 10.9, WALL_HEIGHT + 0.6]
   ]) {
     const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, cordTop - lampY, 8), materials.fascia);
     cord.position.set(0.6, (cordTop + lampY) / 2, -0.6);
     group.add(cord);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 12), glowMaterial);
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 14, 12),
+      level === 2 ? observatoryGlowMaterial : glowMaterial
+    );
     bulb.name = `mushroom-interior-pendant-${lampY}`;
     bulb.position.set(0.6, lampY, -0.6);
     group.add(bulb);
@@ -225,7 +311,7 @@ export function createMushroomInterior(materials) {
       `mushroom-interior-fairy-canopy-${level + 1}`,
       levelY,
       materials,
-      fairyBulbMaterials,
+      level === 2 ? observatoryBulbMaterials : fairyBulbMaterials,
       buntingMaterials
     ));
   }
@@ -316,7 +402,7 @@ function buildFairyLightCanopy(
 // Round slab with a rectangular stairwell hole centred on `stairX`. Extruded
 // from a 2D shape so the hole is a true cut-out (the camera rides the stairs
 // straight through it).
-function buildSlab(name, topY, stairX, materials) {
+function buildFloorShape(stairX) {
   // Slab rim tucks just inside the wall radius so no gap ring shows.
   const shape = new THREE.Shape();
   shape.absarc(0, 0, RADIUS - 0.03, 0, Math.PI * 2, false);
@@ -335,6 +421,22 @@ function buildSlab(name, topY, stairX, materials) {
   hole.lineTo(hx0, -STAIR_OPENING.topZ);
   hole.closePath();
   shape.holes.push(hole);
+
+  return { shape, hx0, hx1 };
+}
+
+function buildFloorOverlay(name, topY, stairX, material) {
+  const { shape } = buildFloorShape(stairX);
+  const overlay = new THREE.Mesh(new THREE.ShapeGeometry(shape, 48), material);
+  overlay.name = name;
+  overlay.rotation.x = -Math.PI / 2;
+  overlay.position.y = topY + 0.008;
+  overlay.receiveShadow = true;
+  return overlay;
+}
+
+function buildSlab(name, topY, stairX, materials) {
+  const { shape, hx0, hx1 } = buildFloorShape(stairX);
 
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth: SLAB_THICKNESS,
