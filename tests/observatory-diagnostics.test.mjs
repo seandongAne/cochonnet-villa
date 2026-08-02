@@ -15,6 +15,7 @@ test("observatory diagnostics expose stable finite camera bookmarks", () => {
     "l2-stair",
     "loft-center",
     "loft-edge",
+    "black-hole-edge",
     "loft-room"
   ]);
   for (const view of Object.values(OBSERVATORY_DIAGNOSTIC_VIEWS)) {

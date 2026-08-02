@@ -115,6 +115,46 @@ test("only the volumetric nebula enters the FBO portal", () => {
   );
 });
 
+test("F owns a finite depth-tested black-hole pass and one world-anchored star-volume draw", () => {
+  for (const factory of [
+    "createObservatoryBlackHole",
+    "createObservatoryBlackHolePass",
+    "createObservatoryStarVolume"
+  ]) {
+    assert.match(runtime, new RegExp(`${factory}\\(`));
+  }
+  assert.match(
+    runtime,
+    /resources\.blackHolePass\.scene\.add\(resources\.blackHole\)/,
+    "the self-occluding 3D object must render in its own depth buffer"
+  );
+  assert.match(
+    runtime,
+    /scene\.add\(resources\.starVolume\)/,
+    "finite stars stay native-resolution in the stencil-clipped main scene"
+  );
+  assert.match(runtime, /updateObservatoryBlackHolePassCamera\(camera, pass\)/);
+  assert.match(runtime, /gl\.setClearColor\(0x000000, 0\)/);
+  assert.match(runtime, /gl\.clear\(true, true, false\)/);
+  assert.match(runtime, /gl\.render\(pass\.scene, pass\.camera\)/);
+  assert.match(
+    runtime,
+    /updateObservatoryStarVolume\([\s\S]*?motionScale:\s*adaptation\.celestialMotionScale[\s\S]*?quality:\s*hiddenQuality/
+  );
+  assert.match(
+    runtime,
+    /resources\.lensAmount \* Math\.max\([\s\S]*?channels\.portalReveal,[\s\S]*?channels\.brightStarReveal/,
+    "the existing F director must remain the only reveal clock"
+  );
+  assert.match(runtime, /hiddenQuality !== "minimum"/);
+  assert.match(runtime, /createObservatoryBlackHole\(\{[\s\S]*?scale:\s*1,/);
+  assert.match(
+    runtime,
+    /else if \(quality === "minimum"\)[\s\S]*?disposeBlackHolePassResources\(\)/,
+    "Minimum must release the finite black-hole FBO and keep the legacy lens"
+  );
+});
+
 test("Gaia stays one native-resolution main-scene Points draw behind the roof stencil", () => {
   assert.equal(
     matchCount(gaia, /new THREE\.Points\s*\(/g),
@@ -170,6 +210,10 @@ test("catalogue fetch is abortable and all owned GPU/browser resources are clean
     /abortController\.abort\(\)/,
     /removeEventListener\?\.\("change",\s*syncMotionPreference\)/,
     /disposePortalResources\(\)/,
+    /disposeHiddenCosmosResources\(\)/,
+    /disposeObservatoryBlackHolePass\(resources\.blackHolePass\)/,
+    /disposeObservatoryBlackHole\(resources\.blackHole\)/,
+    /disposeObservatoryStarVolume\(resources\.starVolume\)/,
     /disposeGaiaStarPoints\(resources\.gaia\)/,
     /removeMushroomSkyAperture\(resources\.aperture\)/,
     /loadedTexture\?\.dispose\(\)/,
@@ -219,7 +263,14 @@ test("HalfFloat failure rebuilds as RGBA8 and a second failure falls back to Low
 
 test("diagnostics expose runtime state and motion query overrides stay QA-only", () => {
   assert.match(runtime, /window\.__villaObservatoryRuntimeSnapshot = runtimeSnapshot/);
-  for (const field of ["adaptation", "portal", "gaia", "backdrop4k"]) {
+  for (const field of [
+    "adaptation",
+    "portal",
+    "blackHole",
+    "starVolume",
+    "gaia",
+    "backdrop4k"
+  ]) {
     assert.match(runtime, new RegExp(`\\b${field}:`));
   }
   assert.match(
@@ -313,11 +364,15 @@ test("shader failures are classified and per-frame draw metrics report actual wo
     "mushroom-distant-sky-material",
     "mushroom-twinkling-star-material",
     "mushroom-gaia-star-material",
-    "mushroom-observatory-portal-composite-material"
+    "mushroom-observatory-portal-composite-material",
+    "OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME",
+    "OBSERVATORY_STAR_VOLUME_MATERIAL_NAME"
   ]) {
     assert.match(runtime, new RegExp(material));
   }
   assert.match(runtime, /observatoryShaderFailure === "gaia"/);
+  assert.match(runtime, /observatoryShaderFailure === "black-hole"/);
+  assert.match(runtime, /observatoryShaderFailure === "star-volume"/);
   assert.match(runtime, /observatoryShaderFailure === "native-sky"/);
   assert.match(runtime, /resources\.portalRenderedThisFrame = false/);
   assert.match(runtime, /resources\.portalRenderedThisFrame = true/);
@@ -346,10 +401,16 @@ test("hidden Rift/Lens events fail closed and preserve finite-distance depth cue
   assert.match(runtime, /LENS_WORLD_POSITION[\s\S]*?resources\.lensDistance/);
   assert.match(runtime, /LENS_WORLD_DISTANCE \/ resources\.lensDistance/);
   assert.match(runtime, /projectObservatoryPortalLens\(camera, LENS_WORLD_POSITION/);
+  assert.match(runtime, /setObservatoryBlackHoleVisible\(/);
+  assert.match(runtime, /updateObservatoryBlackHole\(/);
+  assert.match(runtime, /setObservatoryStarVolumeVisible\(/);
+  assert.match(runtime, /updateObservatoryStarVolume\(/);
+  assert.match(runtime, /disposeHiddenCosmosResources\(\)/);
   assert.match(
     runtime,
     /lensAmount:\s*resources\.portalLensVisible \? resources\.lensAmount : 0/,
     "the FBO distortion must disappear when the finite lens is behind the camera"
   );
   assert.match(runtime, /backdropSuppression \* 0\.62/);
+  assert.match(runtime, /resources\.lensAmount \* 0\.12/);
 });

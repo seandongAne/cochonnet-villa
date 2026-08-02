@@ -22,6 +22,32 @@ import {
   updateObservatoryPortalComposite
 } from "../observatory-portal.js";
 import {
+  createObservatoryBlackHole,
+  disposeObservatoryBlackHole,
+  OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR,
+  OBSERVATORY_BLACK_HOLE_WORLD_DISTANCE,
+  prewarmObservatoryBlackHole,
+  setObservatoryBlackHoleVisible,
+  updateObservatoryBlackHole
+} from "../observatory-black-hole.js";
+import {
+  createObservatoryBlackHolePass,
+  disposeObservatoryBlackHolePass,
+  OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME,
+  resizeObservatoryBlackHolePass,
+  updateObservatoryBlackHolePassCamera,
+  updateObservatoryBlackHolePassComposite
+} from "../observatory-black-hole-pass.js";
+import {
+  createObservatoryStarVolume,
+  disposeObservatoryStarVolume,
+  getObservatoryStarVolumeCounts,
+  OBSERVATORY_STAR_VOLUME_MATERIAL_NAME,
+  prewarmObservatoryStarVolume,
+  setObservatoryStarVolumeVisible,
+  updateObservatoryStarVolume
+} from "../observatory-star-volume.js";
+import {
   createMushroomNebula,
   disposeMushroomNebula,
   MUSHROOM_NEBULA_MATERIAL_NAME,
@@ -85,19 +111,21 @@ const NEBULA_EXTINCTION_STRENGTH = 0.9;
 const BASE_IMAGE_COMPARISON_BRIGHTNESS = 0.46;
 const LENS_REVEAL_DAMPING = 2.25;
 const LENS_HIDE_DAMPING = 4.8;
-const LENS_WORLD_DISTANCE = 42;
+const LENS_WORLD_DISTANCE = OBSERVATORY_BLACK_HOLE_WORLD_DISTANCE;
 const LENS_DISTANCE_SCALE_MIN = 0.78;
 const LENS_DISTANCE_SCALE_MAX = 1.28;
 // Unlike the far panorama, this hidden singularity occupies a finite point in
 // the impossible room. Walking therefore shifts it slightly against Gaia's
 // camera-centred catalogue, an honest binocular-like depth cue on a flat
 // monitor. The direction remains high and inside the centre QA view.
-const LENS_WORLD_POSITION = new THREE.Vector3(0.22, 0.91, -0.35)
-  .normalize()
-  .multiplyScalar(LENS_WORLD_DISTANCE)
-  .add(PORTAL_ORIGIN);
+const LENS_WORLD_POSITION = new THREE.Vector3(
+  OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR.x,
+  OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR.y,
+  OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR.z
+);
 const lensDirectionScratch = new THREE.Vector3();
 const lensScreenScratch = new THREE.Vector2();
+const blackHoleClearColorScratch = new THREE.Color();
 const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   [MUSHROOM_NEBULA_MATERIAL_NAME, "portal"],
   ["mushroom-observatory-portal-composite-material", "portal"],
@@ -105,7 +133,17 @@ const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   ["mushroom-twinkling-star-material", "native-sky"],
   ["mushroom-observatory-rift-aperture-material", "native-sky"],
   ["mushroom-observatory-rift-fragment-material", "native-sky"],
-  ["mushroom-gaia-star-material", "gaia"]
+  ["mushroom-gaia-star-material", "gaia"],
+  [OBSERVATORY_STAR_VOLUME_MATERIAL_NAME, "star-volume"],
+  [OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME, "black-hole"],
+  ["mushroom-observatory-black-hole-horizon-material", "black-hole"],
+  ["mushroom-observatory-black-hole-scale-moon-material", "black-hole"],
+  ["mushroom-observatory-black-hole-debris-material", "black-hole"],
+  ["mushroom-observatory-black-hole-photon-ring-material-1", "black-hole"],
+  ["mushroom-observatory-black-hole-photon-ring-material-2", "black-hole"],
+  ["mushroom-observatory-black-hole-disk-material-1", "black-hole"],
+  ["mushroom-observatory-black-hole-disk-material-2", "black-hole"],
+  ["mushroom-observatory-black-hole-disk-material-3", "black-hole"]
 ]);
 
 function isInsideMushroomPocket(position) {
@@ -207,6 +245,20 @@ function updateRiftFadeSurfaces(resources, amount) {
   }
 }
 
+function countVisibleDrawables(root) {
+  if (!root?.visible) return 0;
+  let count = 0;
+  root.traverse((object) => {
+    if (
+      object.visible
+      && (object.isMesh || object.isPoints || object.isInstancedMesh)
+    ) {
+      count += 1;
+    }
+  });
+  return count;
+}
+
 function resetHiddenEffectRendering(resources, sky, riftVisual) {
   if (!resources) return;
   resources.riftState = createObservatoryRiftState({
@@ -227,6 +279,36 @@ function resetHiddenEffectRendering(resources, sky, riftVisual) {
     updateObservatoryPortalComposite(resources.portal.composite, {
       lensAmount: 0
     });
+  }
+  if (resources.blackHole) {
+    setObservatoryBlackHoleVisible(resources.blackHole, false);
+    updateObservatoryBlackHole(
+      resources.blackHole,
+      null,
+      resources.blackHole.userData.timeSeconds,
+      0,
+      resources.blackHole.userData.quality
+    );
+  }
+  if (resources.blackHolePass) {
+    updateObservatoryBlackHolePassComposite(resources.blackHolePass.composite, {
+      reveal: 0,
+      visible: false
+    });
+  }
+  if (resources.starVolume) {
+    setObservatoryStarVolumeVisible(resources.starVolume, false);
+    updateObservatoryStarVolume(
+      resources.starVolume,
+      null,
+      resources.starVolume.userData.lastInputTime ?? 0,
+      0,
+      {
+        motionScale: 0,
+        quality: resources.starVolume.userData.quality,
+        pixelRatio: 1
+      }
+    );
   }
 }
 
@@ -254,6 +336,8 @@ export function MushroomObservatoryRuntime({
   const handlePortalFailureRef = useRef(null);
   const prewarmNativeRef = useRef(null);
   const handleShaderFailureRef = useRef(null);
+  const ensureHiddenCosmosRef = useRef(null);
+  const renderBlackHolePassRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -312,6 +396,24 @@ export function MushroomObservatoryRuntime({
       portalRenderedThisFrame: false,
       framebufferChecked: false,
       forceUnsignedByte: false,
+      hiddenCosmosLoadRequested: false,
+      blackHole: null,
+      blackHolePass: null,
+      blackHoleDisabled: false,
+      blackHoleError: null,
+      blackHoleFrames: 0,
+      blackHoleRenderedThisFrame: false,
+      blackHoleFramebufferChecked: false,
+      blackHolePrewarmed: false,
+      blackHoleCompositePrewarmed: false,
+      blackHolePrewarmStartedAt: 0,
+      blackHolePrewarmMs: 0,
+      blackHoleLastTargetKey: "",
+      starVolume: null,
+      starVolumeDisabled: false,
+      starVolumeError: null,
+      starVolumePrewarmed: false,
+      starVolumePrewarmMs: 0,
       qualityApplied: null,
       lastTargetKey: "",
       aperture: null,
@@ -515,6 +617,158 @@ export function MushroomObservatoryRuntime({
       scene.add(resources.portal.composite);
     }
 
+    function disposeBlackHolePassResources({ disposeCore = false } = {}) {
+      if (resources.blackHolePass) {
+        disposeObservatoryBlackHolePass(resources.blackHolePass);
+        resources.blackHolePass = null;
+      }
+      resources.blackHoleRenderedThisFrame = false;
+      resources.blackHoleFramebufferChecked = false;
+      resources.blackHoleCompositePrewarmed = false;
+      resources.blackHoleLastTargetKey = "";
+      if (disposeCore && resources.blackHole) {
+        disposeObservatoryBlackHole(resources.blackHole);
+        resources.blackHole = null;
+        resources.blackHolePrewarmed = false;
+      }
+    }
+
+    function disposeHiddenCosmosResources() {
+      disposeBlackHolePassResources({ disposeCore: true });
+      if (resources.starVolume) {
+        resources.starVolume.removeFromParent();
+        disposeObservatoryStarVolume(resources.starVolume);
+        resources.starVolume = null;
+      }
+      resources.starVolumePrewarmed = false;
+    }
+
+    function ensureHiddenCosmosResources(
+      quality = qualityRef.current?.quality ?? "medium"
+    ) {
+      if (
+        !mounted
+        || resources.contextLost
+        || !resources.stencilSupported
+        || quality === "minimum"
+      ) return false;
+
+      if (!resources.starVolume && !resources.starVolumeDisabled) {
+        resources.starVolume = createObservatoryStarVolume();
+        setObservatoryStarVolumeVisible(resources.starVolume, false);
+        scene.add(resources.starVolume);
+      }
+
+      if (!resources.blackHole && !resources.blackHoleDisabled) {
+        resources.blackHole = createObservatoryBlackHole({
+          anchor: LENS_WORLD_POSITION,
+          // The factory's 14.4 m disc already matches the agreed 12–15 m
+          // physical composition. Keep runtime scale honest so parallax and
+          // diagnostics report the same finite object the tests describe.
+          scale: 1,
+          quality,
+          visible: false
+        });
+      }
+
+      if (
+        resources.blackHole
+        && !resources.blackHolePass
+        && !resources.blackHoleDisabled
+      ) {
+        const state = getState();
+        resources.blackHolePass = createObservatoryBlackHolePass({
+          sourceCamera: state.camera,
+          width: state.size.width,
+          height: state.size.height,
+          pixelRatio: gl.getPixelRatio(),
+          quality,
+          type: THREE.UnsignedByteType
+        });
+        resources.blackHolePass.scene.add(resources.blackHole);
+        scene.add(resources.blackHolePass.composite);
+        resources.blackHolePrewarmStartedAt = performance.now();
+      }
+      return Boolean(resources.blackHolePass || resources.starVolume);
+    }
+
+    function handleBlackHoleFailure(error) {
+      resources.blackHoleError = error instanceof Error
+        ? error.message
+        : String(error);
+      resources.blackHoleDisabled = true;
+      resources.blackHolePrewarmed = false;
+      if (resources.blackHole) {
+        setObservatoryBlackHoleVisible(resources.blackHole, false);
+      }
+      if (resources.blackHolePass) {
+        updateObservatoryBlackHolePassComposite(
+          resources.blackHolePass.composite,
+          { reveal: 0, visible: false }
+        );
+      }
+    }
+
+    function renderBlackHolePass({ prewarm = false } = {}) {
+      const pass = resources.blackHolePass;
+      if (
+        !pass
+        || !resources.blackHole
+        || resources.blackHoleDisabled
+        || resources.contextLost
+      ) return false;
+
+      updateObservatoryBlackHolePassCamera(camera, pass);
+      const previousTarget = gl.getRenderTarget();
+      const previousXrEnabled = gl.xr.enabled;
+      const previousAutoClear = gl.autoClear;
+      const previousClearAlpha = gl.getClearAlpha();
+      gl.getClearColor(blackHoleClearColorScratch);
+      try {
+        gl.xr.enabled = false;
+        gl.autoClear = false;
+        gl.setRenderTarget(pass.renderTarget);
+        gl.setClearColor(0x000000, 0);
+        gl.clear(true, true, false);
+        if (!resources.blackHoleFramebufferChecked) {
+          const context = gl.getContext();
+          const status = context.checkFramebufferStatus(context.FRAMEBUFFER);
+          if (status !== context.FRAMEBUFFER_COMPLETE) {
+            throw new Error(`Black-hole framebuffer incomplete (${status})`);
+          }
+          resources.blackHoleFramebufferChecked = true;
+        }
+        gl.render(pass.scene, pass.camera);
+        const shaderFailure = findObservatoryShaderFailure(
+          gl,
+          resources.handledShaderFailures
+        );
+        if (shaderFailure) throw shaderFailure;
+        if (!prewarm) {
+          resources.blackHoleFrames += 1;
+          resources.blackHoleRenderedThisFrame = true;
+        }
+        resources.blackHoleError = null;
+        return true;
+      } catch (error) {
+        if (!resources.contextLost) {
+          if (error?.observatoryShaderFailure) {
+            handleShaderFailureRef.current?.(error);
+          } else {
+            handleBlackHoleFailure(error);
+          }
+        }
+        return false;
+      } finally {
+        gl.setRenderTarget(previousTarget);
+        gl.setClearColor(blackHoleClearColorScratch, previousClearAlpha);
+        gl.autoClear = previousAutoClear;
+        gl.xr.enabled = previousXrEnabled;
+      }
+    }
+    ensureHiddenCosmosRef.current = ensureHiddenCosmosResources;
+    renderBlackHolePassRef.current = renderBlackHolePass;
+
     function getNativePrewarmTarget() {
       if (resources.nativePrewarmTarget) return resources.nativePrewarmTarget;
       resources.nativePrewarmTarget = new THREE.WebGLRenderTarget(1, 1, {
@@ -645,6 +899,19 @@ export function MushroomObservatoryRuntime({
         }
         return;
       }
+      if (error?.observatoryShaderFailure === "star-volume") {
+        resources.starVolumeDisabled = true;
+        resources.starVolumeError = message;
+        resources.starVolumePrewarmed = false;
+        if (resources.starVolume) {
+          setObservatoryStarVolumeVisible(resources.starVolume, false);
+        }
+        return;
+      }
+      if (error?.observatoryShaderFailure === "black-hole") {
+        handleBlackHoleFailure(error);
+        return;
+      }
       if (error?.observatoryShaderFailure === "native-sky") {
         resources.skyDisabled = true;
         resources.nativeSkyError = message;
@@ -686,6 +953,21 @@ export function MushroomObservatoryRuntime({
         handlePortalFailure(error, { forceLow: true });
         return;
       }
+      if (resources.hiddenCosmosLoadRequested && quality !== "minimum") {
+        ensureHiddenCosmosResources(quality);
+        resources.blackHoleLastTargetKey = "";
+      } else if (quality === "minimum") {
+        if (resources.blackHole) {
+          setObservatoryBlackHoleVisible(resources.blackHole, false);
+        }
+        // Minimum is the allocation-free legacy-Lens fallback. Release the
+        // finite black-hole target immediately; an adjacent-tier upgrade will
+        // rebuild and re-prewarm it through ensureHiddenCosmosResources().
+        disposeBlackHolePassResources();
+        if (resources.starVolume) {
+          setObservatoryStarVolumeVisible(resources.starVolume, false);
+        }
+      }
       if (resources.gaiaBinary) replaceGaia(quality);
       resources.qualityApplied = quality;
     }
@@ -723,6 +1005,67 @@ export function MushroomObservatoryRuntime({
         );
       }
       const startedAt = performance.now();
+      if (
+        resources.blackHolePass
+        && resources.blackHole
+        && !resources.blackHoleDisabled
+        && !resources.blackHolePrewarmed
+      ) {
+        didWork = true;
+        const blackHoleStartedAt = performance.now();
+        const restore = prewarmObservatoryBlackHole(
+          resources.blackHole,
+          qualityRef.current?.quality ?? "medium"
+        );
+        try {
+          resources.blackHolePrewarmed = renderBlackHolePass({ prewarm: true });
+        } finally {
+          if (typeof restore === "function") restore();
+          if (resources.blackHolePrewarmed) {
+            resources.blackHolePrewarmMs += performance.now()
+              - blackHoleStartedAt;
+          }
+        }
+      }
+      if (
+        resources.blackHolePass
+        && !resources.blackHoleDisabled
+        && !resources.blackHoleCompositePrewarmed
+      ) {
+        prewarmLayer(
+          "black-hole",
+          OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME,
+          [resources.blackHolePass.composite],
+          () => { resources.blackHoleCompositePrewarmed = true; }
+        );
+      }
+      if (
+        resources.starVolume
+        && !resources.starVolumeDisabled
+        && !resources.starVolumePrewarmed
+      ) {
+        didWork = true;
+        const starStartedAt = performance.now();
+        try {
+          prewarmObservatoryStarVolume(
+            resources.starVolume,
+            (_volume, points) => renderWarmupObjects([points]),
+            {
+              quality: qualityRef.current?.quality ?? "medium",
+              pixelRatio: gl.getPixelRatio()
+            }
+          );
+          resources.starVolumePrewarmed = true;
+          resources.starVolumePrewarmMs += performance.now() - starStartedAt;
+        } catch (error) {
+          const typedError = error instanceof Error
+            ? error
+            : new Error(String(error));
+          typedError.observatoryShaderFailure = "star-volume";
+          typedError.observatoryMaterialName = OBSERVATORY_STAR_VOLUME_MATERIAL_NAME;
+          handleShaderFailure(typedError);
+        }
+      }
       if (!resources.nativeSkyPrewarmed && resources.textureReady) {
         prewarmLayer(
           "native-sky",
@@ -822,6 +1165,15 @@ export function MushroomObservatoryRuntime({
       if (resources.aperture) resources.aperture.visible = false;
       if (resources.gaia) resources.gaia.visible = false;
       if (resources.portal) resources.portal.composite.visible = false;
+      if (resources.blackHolePass) {
+        resources.blackHolePass.composite.visible = false;
+      }
+      if (resources.blackHole) {
+        setObservatoryBlackHoleVisible(resources.blackHole, false);
+      }
+      if (resources.starVolume) {
+        setObservatoryStarVolumeVisible(resources.starVolume, false);
+      }
       resetHiddenEffectRendering(resources, sky, riftVisual);
       if (resources.dome) resources.dome.visible = resources.domeWasVisible;
     };
@@ -839,11 +1191,20 @@ export function MushroomObservatoryRuntime({
         resources.handledShaderFailures.clear();
         resources.skyDisabled = false;
         resources.gaiaDisabled = false;
+        resources.blackHoleDisabled = false;
+        resources.starVolumeDisabled = false;
         resources.nativeSkyError = null;
         resources.gaiaShaderError = null;
+        resources.blackHoleError = null;
+        resources.starVolumeError = null;
         resources.nativeSkyPrewarmed = false;
         resources.gaiaPrewarmed = false;
+        resources.blackHolePrewarmed = false;
+        resources.blackHoleCompositePrewarmed = false;
+        resources.starVolumePrewarmed = false;
         resources.nativePrewarmMs = 0;
+        resources.blackHolePrewarmMs = 0;
+        resources.starVolumePrewarmMs = 0;
         resources.textureUploadMs = 0;
         resources.portalRenderedThisFrame = false;
         scheduleTexturePreupload(
@@ -857,6 +1218,7 @@ export function MushroomObservatoryRuntime({
         }
         resources.forceUnsignedByte = false;
         disposePortalResources();
+        disposeBlackHolePassResources();
         if (resources.gaia) {
           disposeGaiaStarPoints(resources.gaia);
           resources.gaia = null;
@@ -873,6 +1235,9 @@ export function MushroomObservatoryRuntime({
         });
         resources.qualityApplied = null;
         applyQuality(qualityRef.current.quality);
+        if (resources.hiddenCosmosLoadRequested) {
+          ensureHiddenCosmosResources(qualityRef.current.quality);
+        }
         resources.portalError = null;
       });
     };
@@ -883,6 +1248,10 @@ export function MushroomObservatoryRuntime({
       const quality = qualityRef.current;
       const adaptation = adaptationRef.current;
       const target = resources.portal?.renderTarget;
+      const blackHoleTarget = resources.blackHolePass?.renderTarget;
+      const starCounts = getObservatoryStarVolumeCounts(
+        resources.starVolume?.userData?.quality ?? quality?.quality ?? "minimum"
+      );
       return {
         active: adaptation?.inLoft === true,
         quality: quality?.quality ?? "minimum",
@@ -922,6 +1291,42 @@ export function MushroomObservatoryRuntime({
           prewarmMs: resources.portalPrewarmMs,
           error: resources.portalError
         },
+        blackHole: {
+          ready: Boolean(resources.blackHole && resources.blackHolePass),
+          visible: resources.blackHolePass?.composite.visible === true,
+          quality: resources.blackHole?.userData?.quality ?? "minimum",
+          width: blackHoleTarget?.width ?? 0,
+          height: blackHoleTarget?.height ?? 0,
+          estimatedTargetBytes: blackHoleTarget
+            ? blackHoleTarget.width * blackHoleTarget.height * 8
+            : 0,
+          cameraDistance: resources.blackHole?.userData?.cameraDistance ?? null,
+          angularRadius: resources.blackHole?.userData?.angularRadius ?? 0,
+          reveal: resources.blackHole?.userData?.reveal ?? 0,
+          addedDrawCalls: resources.blackHoleRenderedThisFrame
+            ? countVisibleDrawables(resources.blackHolePass?.scene)
+              + (resources.blackHolePass?.composite.visible ? 1 : 0)
+            : 0,
+          fboPassActive: resources.blackHoleRenderedThisFrame,
+          frames: resources.blackHoleFrames,
+          prewarmed: resources.blackHolePrewarmed
+            && resources.blackHoleCompositePrewarmed,
+          prewarmMs: resources.blackHolePrewarmMs,
+          error: resources.blackHoleError
+        },
+        starVolume: {
+          ready: Boolean(resources.starVolume),
+          visible: resources.starVolume?.visible === true,
+          quality: resources.starVolume?.userData?.quality ?? "minimum",
+          count: starCounts.total,
+          shells: 3,
+          addedDrawCalls: resources.starVolume?.visible ? 1 : 0,
+          reveal: resources.starVolume?.userData?.reveal ?? 0,
+          motionFrozen: adaptation?.celestialMotionScale === 0,
+          prewarmed: resources.starVolumePrewarmed,
+          prewarmMs: resources.starVolumePrewarmMs,
+          error: resources.starVolumeError
+        },
         gaia: {
           loading: resources.gaiaLoadStarted && !resources.gaiaBinary && !resources.gaiaError,
           ready: Boolean(resources.gaia),
@@ -953,7 +1358,9 @@ export function MushroomObservatoryRuntime({
           lensDirection: resources.lensDirection.toArray(),
           lensDistance: resources.lensDistance,
           lensAngularScale: resources.lensAngularScale,
-          portalLensVisible: resources.portalLensVisible
+          portalLensVisible: resources.portalLensVisible,
+          blackHoleVisible: resources.blackHolePass?.composite.visible === true,
+          starVolumeVisible: resources.starVolume?.visible === true
         },
         backdrop4k: {
           ready: resources.textureReady,
@@ -990,6 +1397,8 @@ export function MushroomObservatoryRuntime({
       handlePortalFailureRef.current = null;
       prewarmNativeRef.current = null;
       handleShaderFailureRef.current = null;
+      ensureHiddenCosmosRef.current = null;
+      renderBlackHolePassRef.current = null;
       if (window.__villaObservatoryRuntimeSnapshot === runtimeSnapshot) {
         delete window.__villaObservatoryRuntimeSnapshot;
       }
@@ -997,6 +1406,7 @@ export function MushroomObservatoryRuntime({
         delete window.__villaObservatoryRuntimeSetSkyMode;
       }
       disposePortalResources();
+      disposeHiddenCosmosResources();
       if (resources.gaia) {
         disposeGaiaStarPoints(resources.gaia);
         resources.gaia = null;
@@ -1036,6 +1446,7 @@ export function MushroomObservatoryRuntime({
     const resources = resourcesRef.current;
     if (!resources) return;
     resources.portalRenderedThisFrame = false;
+    resources.blackHoleRenderedThisFrame = false;
     const frameDelta = Math.min(Math.max(delta || 0, 0), 0.1);
     const inLoft = isMushroomObservatorySkyPosition(camera.position);
     adaptationRef.current = stepObservatoryAdaptation(adaptationRef.current, {
@@ -1056,6 +1467,7 @@ export function MushroomObservatoryRuntime({
         resources.hiddenResetRequested = true;
         onHiddenEffectsReset?.();
       }
+      resetHiddenEffectRendering(resources, sky, riftVisual);
     } else {
       resources.hiddenResetRequested = false;
     }
@@ -1121,7 +1533,11 @@ export function MushroomObservatoryRuntime({
         einsteinRadius,
         influenceRadius,
         horizonRadius,
-        ringStrength: 1.55
+        // The native ring remains a fail-soft fallback. The finite 3D pass
+        // supplies the dominant photon shells whenever it is available.
+        ringStrength: resources.blackHolePass && !resources.blackHoleDisabled
+          ? 0.2
+          : 1.55
       });
     }
     const riftChannels = resources.riftState.channels;
@@ -1152,6 +1568,10 @@ export function MushroomObservatoryRuntime({
       && qualityRef.current?.maximumQuality !== "minimum"
     ) {
       startGaiaLoadRef.current?.();
+      if (!resources.hiddenCosmosLoadRequested) {
+        resources.hiddenCosmosLoadRequested = true;
+      }
+      ensureHiddenCosmosRef.current?.(qualityRef.current.quality);
       if (
         qualityRef.current.preset.volumetricFbo
         && !resources.portalLoadRequested
@@ -1198,7 +1618,7 @@ export function MushroomObservatoryRuntime({
         0.24,
         1
           - riftChannels.backdropSuppression * 0.62
-          - resources.lensAmount * 0.34
+          - resources.lensAmount * 0.12
       );
       skyBackdropMaterial.uniforms.uBrightness.value = baseImageComparison
         ? BASE_IMAGE_COMPARISON_BRIGHTNESS
@@ -1248,10 +1668,96 @@ export function MushroomObservatoryRuntime({
       });
     }
 
+    const state = getState();
+    const hiddenQuality = qualityRef.current?.quality ?? "minimum";
+    const celestialTime = sky.userData.elapsed ?? 0;
+    const finiteCosmosGate = skyIsActive
+      && !baseImageComparison
+      && inLoft
+      && resources.lensAmount > PORTAL_REVEAL_EPSILON;
+
+    if (resources.starVolume) {
+      const starVolumeReveal = finiteCosmosGate
+        ? resources.lensAmount * Math.max(
+            channels.brightStarReveal,
+            channels.faintStarReveal
+          )
+        : 0;
+      setObservatoryStarVolumeVisible(
+        resources.starVolume,
+        finiteCosmosGate && !resources.starVolumeDisabled
+      );
+      updateObservatoryStarVolume(
+        resources.starVolume,
+        camera,
+        celestialTime,
+        starVolumeReveal,
+        {
+          motionScale: adaptation.celestialMotionScale,
+          quality: hiddenQuality,
+          pixelRatio: gl.getPixelRatio()
+        }
+      );
+    }
+
+    const blackHoleReveal = finiteCosmosGate
+      ? resources.lensAmount * Math.max(
+          channels.portalReveal,
+          channels.brightStarReveal
+        )
+      : 0;
+    let blackHoleActive = false;
+    if (resources.blackHole) {
+      setObservatoryBlackHoleVisible(
+        resources.blackHole,
+        finiteCosmosGate
+          && hiddenQuality !== "minimum"
+          && !resources.blackHoleDisabled
+      );
+      blackHoleActive = updateObservatoryBlackHole(
+        resources.blackHole,
+        camera,
+        celestialTime,
+        blackHoleReveal,
+        hiddenQuality
+      );
+    }
+
+    if (resources.blackHolePass) {
+      const blackHoleTargetKey = [
+        Math.round(state.size.width),
+        Math.round(state.size.height),
+        gl.getPixelRatio().toFixed(2),
+        hiddenQuality
+      ].join(":");
+      if (
+        hiddenQuality !== "minimum"
+        && blackHoleTargetKey !== resources.blackHoleLastTargetKey
+      ) {
+        resizeObservatoryBlackHolePass(resources.blackHolePass, {
+          width: state.size.width,
+          height: state.size.height,
+          pixelRatio: gl.getPixelRatio(),
+          quality: hiddenQuality
+        });
+        resources.blackHoleLastTargetKey = blackHoleTargetKey;
+        resources.blackHoleFramebufferChecked = false;
+      }
+      updateObservatoryBlackHolePassComposite(
+        resources.blackHolePass.composite,
+        { reveal: 1, visible: false }
+      );
+      const blackHoleRendered = blackHoleActive
+        && renderBlackHolePassRef.current?.() === true;
+      updateObservatoryBlackHolePassComposite(
+        resources.blackHolePass.composite,
+        { visible: blackHoleRendered }
+      );
+    }
+
     const portal = resources.portal;
     if (!portal || !resources.nebula) return;
 
-    const state = getState();
     const targetKey = [
       Math.round(state.size.width),
       Math.round(state.size.height),

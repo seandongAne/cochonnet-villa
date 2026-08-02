@@ -21,6 +21,13 @@ const CLOSED_OBSERVATORY_HIDDEN_EFFECTS = Object.freeze({
   rift: false,
   lens: false
 });
+const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze([
+  "l2-stair",
+  "loft-center",
+  "loft-edge",
+  "black-hole-edge",
+  "loft-room"
+]);
 
 // Snap a radian angle to a tidy multiple of π/2 when it's within ~1° of one, so
 // the copied record reads `Math.PI / 2` like the hand-authored data rather than
@@ -443,7 +450,7 @@ function ObservatoryDiagnosticsPanel({ mode, api, lightsOn, hiddenEffects }) {
         </button>
       </div>
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 7 }}>
-        {["l2-stair", "loft-center", "loft-edge", "loft-room"].map((view) => (
+        {OBSERVATORY_DIAGNOSTIC_VIEW_ORDER.map((view) => (
           <button
             key={view}
             type="button"

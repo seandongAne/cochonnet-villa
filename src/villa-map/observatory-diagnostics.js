@@ -1,4 +1,5 @@
 import { MUSHROOM_INTERIOR } from "./world.js";
+import { OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR } from "./observatory-black-hole.js";
 
 // Stable camera bookmarks used by the browser visual-regression workflow.
 // They deliberately live outside React so Node tests can guard accidental
@@ -18,6 +19,16 @@ export const OBSERVATORY_DIAGNOSTIC_VIEWS = Object.freeze({
   "loft-edge": Object.freeze({
     position: Object.freeze([center.x + 7.4, eyeY[2], center.z + 0.4]),
     target: Object.freeze([center.x, domeTargetY - 0.6, center.z])
+  }),
+  "black-hole-edge": Object.freeze({
+    // Offset enough to expose finite-distance parallax while staying clear of
+    // the dome aperture rim, so this remains a useful visual QA bookmark.
+    position: Object.freeze([center.x + 4.4, eyeY[2], center.z + 1.2]),
+    target: Object.freeze([
+      OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR.x,
+      OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR.y,
+      OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR.z
+    ])
   }),
   "loft-room": Object.freeze({
     position: Object.freeze([center.x, eyeY[2], center.z + 5.8]),
@@ -65,4 +76,3 @@ export function estimateObservatoryRenderTargetBytes(
   const safeBuffers = Math.max(0, Math.floor(Number.isFinite(buffers) ? buffers : 0));
   return safeWidth * safeHeight * safeBytes * safeBuffers;
 }
-

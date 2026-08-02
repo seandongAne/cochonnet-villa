@@ -4,7 +4,7 @@
 日期：2026-08-02  
 适用范围：`/villa-map/` 蘑菇房三楼观测室
 
-自动化证据（2026-08-02）：`npm test` **167/167 通过**；`npm run build` **通过**。这证明核心与隐藏 R/F 实验的模块契约、数据、降级、资源清理与生产打包均已闭环，但不替代最终的人眼舒适度、wow factor 和目标硬件 GPU 帧时间验收。
+自动化证据（2026-08-02）：`npm test` **186/186 通过**；`npm run build` **通过**。这证明核心与隐藏 R/F 实验的模块契约、数据、降级、资源清理与生产打包均已闭环，但不替代最终的人眼舒适度、wow factor 和目标硬件 GPU 帧时间验收。
 
 ## 1. 项目目标
 
@@ -42,7 +42,7 @@
 - 纹理加载失败、React StrictMode 生命周期和 GPU 资源释放已经有 fallback/清理路径。
 - 起点 Node 测试共 95 项，全部通过。
 
-该起点已固化为可回退 checkpoint。当前核心与 Lab v1 增至 167 项 Node 测试，仍全部通过；生产构建通过。固定机位实施前截图保存在 `docs/observatory-baseline/`，八张实施后/验收截图保存在 `docs/observatory-final/`。
+该起点已固化为可回退 checkpoint。当前核心与 Lab v1 增至 186 项 Node 测试，仍全部通过；生产构建通过。固定机位实施前截图保存在 `docs/observatory-baseline/`，十三张实施后/验收截图已保存在 `docs/observatory-final/`；编号 13 是黑金奇点与真实星点调校后的无面板浏览器验收画面，最终 wow factor 仍待用户在实际显示器上确认。
 
 ## 4. 核心架构决定
 
@@ -144,10 +144,10 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 实际完成与证据：
 
-- `observatory-diagnostics.js` 固化 `l2-stair`、`loft-center`、`loft-edge`、`loft-room` 四个相机书签、p50/p95/p99/1% low 统计和显存估算。
+- `observatory-diagnostics.js` 固化 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`、`black-hole-edge` 五个相机书签、p50/p95/p99/1% low 统计和显存估算。
 - `?observatory=test` 使用 `frameloop="never"`，可确定性推进 0.5/2/10 秒；`?observatory=perf` 保留真实帧循环，并同时挂载正常 `PlayerControls`，可以实际走完验收路线。
-- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；八张实施后/验收截图保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层和隐藏 Rift+Lens。
-- 4K WebP 仍为原始 4096×1024；167/167 自动测试与生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
+- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；十三张实施后/验收截图已保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层、隐藏 Rift+Lens，以及 3D 黑洞的预检/中心/边缘视差、黑金/真实星点调校与无面板验收画面。
+- 4K WebP 仍为原始 4096×1024；186/186 自动测试与生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
 
 工作内容：
 
@@ -159,7 +159,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 验收门槛：
 
-- 167 项当前测试继续全部通过，生产构建通过。
+- 186 项当前测试继续全部通过，生产构建通过。
 - 开灯颜色、关灯暗度、开关节奏、星点闪烁和 stencil 边缘均获得人工确认。
 - 同一设备三轮基线测试的 p95 波动不超过 10%；否则先修正测量方式。
 
@@ -335,7 +335,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - Gaia fetch 与 Portal/FBO allocation 都推迟到玩家到达 L2 观测室接近区；4K texture 解码后用 `requestIdleCallback`（或 timeout fallback）预上传。native sky/Gaia/composite 先在 default framebuffer 语义下调用 `gl.compile`，确保 Three 缓存真实主画布颜色空间的 Shader variant，再通过 1×1 render target 上传 geometry/uniform state。页面不可见时不以异常 delta 污染质量判断。
 - query-only QA 可强制机位、灯态、时间、质量和 motion；`observatory=perf` 同时挂载正常 `PlayerControls`，可走固定 20 秒路线；普通访问忽略 `quality`/`motion` override，并始终开灯进入。
 - runtime diagnostics provider 报告当前质量、p95、暗适应通道、FBO 类型/尺寸/帧数、Gaia LOD/数量、4K 纹理状态、shader/fallback 错误和 context loss/restore 计数。
-- 分类 shader fallback、context loss/restore、resize、连续切灯与资源稳定性已在浏览器通过；167/167 tests 与 production build 已通过。剩余是人工画面判断、20 秒路线视频及目标设备三轮 GPU p95 证据。
+- 分类 shader fallback、context loss/restore、resize、连续切灯与资源稳定性已在浏览器通过；186/186 tests 与 production build 已通过。剩余是人工画面判断、20 秒路线视频及目标设备三轮 GPU p95 证据。
 
 工作内容：
 
@@ -380,6 +380,20 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - 关闭态保留精确 shader 快速路径：Gaia/hero 顶点跳过透镜角距与放大计算，Portal 使用原始 UV；开灯稳态仍为零 cosmos draw。
 
 浏览器验收已确认 Medium/35k Gaia 下 Rift 到达 `open`、Lens amount 到达 1、HalfFloat Portal 保持 960×497；房间家具/楼梯可作为真实前景遮挡，开灯后两项请求归零且 cosmos draws 回到 0。截图为 `docs/observatory-final/08-hidden-rift-gaia-lens-acceptance.png`。目标 GPU 的三轮 p95 仍需按第 7 节补齐。
+
+#### 6B：有限距离 3D 奇点与真实星群 v1（已实现）
+
+- `F` 沿用 6A 的隐藏 Lens 请求和同一个 `lensAmount` reveal，不增加第二套开关或独立计时器；旧的 panorama/Gaia/hero/Portal 弯曲与新的有限距离黑洞、星群会同步显隐，E/开灯和离开 L3 仍统一复位。
+- 黑洞主体不再只是远景球上的角向畸变。它固定在距观测室中心约 42 m 的世界锚点，由直径 14.4 m、带明显厚度的倾斜吸积盘、事件视界、球形光子壳/环、轨道碎屑和一颗偏置的新月比例参照组成；走动会改变其屏幕方向、角尺寸和盘面遮挡关系，单屏也能读出有限距离。
+- 黑洞使用独立 Scene/Camera 和**带 depth buffer 的独立 FBO**。吸积盘、事件视界、光子壳、碎屑与月球先在该 pass 内进行真实深度遮挡，再通过穹顶 stencil aperture 合成回主画面；这条路径不依赖把黑洞画进 4K 背景图片。
+- 新的有限深度星群固定在世界空间，近、中、远三层分别位于约 12.8–18 m、21–30 m、34–49 m 半径带；所有星点与稀疏尘埃共用一个确定性的 GPU `THREE.Points` draw。它不跟随相机重新居中，因此横移时会与无限远 Gaia/hero/4K 背景产生明显的差速视差。
+- 吸积盘采用太阳式黑/金温度叙事：背离观察者的一侧压到近黑，外盘保留深金与琥珀，只有靠近事件视界的窄带进入白热；RGBA8 独立 FBO 内先做局部辐射压缩，避免整圈削顶成灰白，同时不引入会洗亮墙面的全屏 Bloom。
+- 有限星群不再用随景深放大的软圆片。shader 使用固定屏幕支持区和 DPR 感知的解析 Gaussian PSF，加上极弱 Airy 翼；亮度采用连续长尾并写入 RGB，稀疏尘埃降到辅助层，因此近处仍有真实视差，但画面读成细锐恒星而不是风格化灯泡。
+- High/Medium/Low 按档位减少吸积盘层数、光子壳、碎屑、有限星群数量和黑洞 FBO 分辨率；Minimum 不分配新黑洞 FBO/星群。新 pass 创建、预热、framebuffer 或 shader 失败时只禁用 3D 奇点层，继续保留 6A 的旧 point-mass Lens 作为 fail-soft fallback，不会变成空白穹顶。
+- 本版全部使用项目内 Three.js 程序化几何与 shader，**尚未引入 Sketchfab 外部黑洞模型，也尚未实现 Bruneton 风格的预计算引力弯曲 LUT**；两者仍是后续可评估方向，不能写成当前依赖或已交付能力。
+- 验收图 `09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png`、`12-black-hole-3d-acceptance-clean.png`，以及最终黑金/真实星点调校图 `13-black-gold-real-stars-acceptance.png` 已保存在 `docs/observatory-final/`。这些图是浏览器功能证据；目标显示器上的人眼 wow factor 仍由用户最终确认。
+
+自动测试和浏览器固定机位只能证明通道接线、降级、深度层与横移画面可运行；黑洞的立体强度、遮挡可读性、视差舒适度、最终 wow factor，以及 Iris Xe/M1 与 UHD 620 级目标设备上的三轮 GPU p95，仍待人工/目标硬件验收。
 
 以下 Lab 方向尚未实施：
 
@@ -432,6 +446,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - WebGL context loss/restore 已恢复成功；连续切灯 20 次后 textures/geometries 不增长；开灯稳态为零持续 cosmos draw。
 - reduced-motion 两次截图 hash 完全相同，full-motion 对照 hash 不同。
 - 隐藏 R/F 在 Medium/35k Gaia 与 960×497 HalfFloat Portal 下完成组合验收；Rift/Lens 状态、有限距离层、开灯复位和零稳态 cosmos draw 均由 runtime snapshot 核对。
+- 黑金/真实星点调校在同一 Medium 路径下完成浏览器复验；连续两帧截图 hash 不同，证明吸积盘与星点动态仍在运行，开灯后黑洞、有限星群、Gaia、Portal 与 native sky 的持续 draw 均回到 0。
 
 仍需人工提供的性能验收证据是：固定 20 秒路线视频，以及在目标 Iris Xe/M1 和 UHD 620 级设备上各预热 5 秒、连续三轮记录 GPU/CPU p95。它们不属于代码缺口。
 
@@ -455,7 +470,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 | 连续切灯 20 次 | 状态、显存、纹理和材质数量不持续增长 |
 | reduced-motion | 漂移/闪烁冻结，切灯和可读性仍完整 |
 
-实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash 与 R/F 复位；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
+实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面，`09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png` 记录有限距离黑洞的预检、中心与边缘视差，`12-black-hole-3d-acceptance-clean.png` 是首版无面板画面，`13-black-gold-real-stars-acceptance.png` 是黑金高温盘与解析真实星点的最终浏览器验收画面。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash、full-motion 动态与 R/F 复位；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
 
 ## 9. 主要风险与缓解
 
@@ -482,7 +497,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - 开灯时三楼恢复正常暖色，外部星空完全不可见；关灯时黑暗但保留安全轮廓。
 - 三楼之外没有可测量的持续性能退化。
 - 标准档与低端档达到各自预算，所有降级路径都保持剧情和遮罩正确。
-- 167/167 Node 测试、production build、浏览器 context/fallback/resize/资源与隐藏 R/F 检查均已通过，八张实施后/验收截图已收集。
+- 186/186 Node 测试、production build、浏览器 context/fallback/resize/资源与隐藏 R/F 检查均已通过，十三张实施后/验收截图已收集；目标设备性能与最终 wow factor 仍待人工验收。
 - 最终效果经过用户人工验收。
 
 ## 11. 下一步
@@ -491,7 +506,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 
 - 确定性视觉：`/villa-map/?observatory=test&view=loft-center&lights=off&quality=medium&motion=full&sky=impossible`
 - 真实帧循环诊断：`/villa-map/?observatory=perf&view=loft-center&lights=off&quality=medium`（同时挂载 `PlayerControls`，可直接走路线；自动化 p95 不是目标 GPU 结论）
-- `view` 可选 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`；`quality` 可选 `high`、`medium`、`low`、`minimum`；`motion` 可选 `full`、`reduce`；`sky` 可选 `base`、`impossible`。诊断面板可实时点击 `Base image` / `Impossible` 做 A/B，对应的 `R Rift` / `F Lens` 按钮用于固定机位验收；生产路径则必须瞄准实体开关按键。`lights=off` 可直接进入关灯状态。
+- `view` 可选 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`、`black-hole-edge`；`quality` 可选 `high`、`medium`、`low`、`minimum`；`motion` 可选 `full`、`reduce`；`sky` 可选 `base`、`impossible`。诊断面板可实时点击 `Base image` / `Impossible` 做 A/B，对应的 `R Rift` / `F Lens` 按钮用于固定机位验收；生产路径则必须瞄准实体开关按键。`lights=off` 可直接进入关灯状态。
 
 按第 8 节矩阵人工检查开灯原色、0.5/2/10 秒 reveal、穹顶边缘、R/F 横移视差、快速环视和 wow factor，并录制固定 20 秒路线；再按第 7 节在目标 GPU 上各记录三轮 p95。resize、连续切灯、context loss/restore、reduced-motion 和隐藏机制功能已有浏览器证据，但仍可随路线复核。若验收发现问题，优先调参数或降级策略，不在验收前引入 Bloom、temporal accumulation、头部追踪、WebXR 或 WebGPU 迁移。
 
