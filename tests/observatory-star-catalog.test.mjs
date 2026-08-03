@@ -150,7 +150,6 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
   for (const attribute of [
     "aMagnitude",
     "aBpRp",
-    "aSize",
     "aIntensity",
     "aStarColor"
   ]) {
@@ -160,6 +159,11 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
       `missing or truncated ${attribute}`
     );
   }
+  assert.equal(
+    stars.geometry.getAttribute("aSize"),
+    undefined,
+    "Gaia magnitude must change radiance, not apparent point diameter"
+  );
   assert.equal(stars.material.type, "ShaderMaterial");
   assert.equal(stars.material.blending, THREE.AdditiveBlending);
   assert.equal(stars.material.depthTest, false);
@@ -177,23 +181,20 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
     GAIA_LENS_DEFAULT_INFLUENCE_RADIUS
   );
   const intensity = stars.geometry.getAttribute("aIntensity");
-  const psfScale = stars.geometry.getAttribute("aSize");
   let minimumIntensity = Infinity;
   let maximumIntensity = -Infinity;
   let spikeCandidateCount = 0;
   for (let index = 0; index < intensity.count; index += 1) {
     minimumIntensity = Math.min(minimumIntensity, intensity.getX(index));
     maximumIntensity = Math.max(maximumIntensity, intensity.getX(index));
-    if (intensity.getX(index) > 2.4) spikeCandidateCount += 1;
-    assert.ok(psfScale.getX(index) >= 0.25);
-    assert.ok(psfScale.getX(index) <= 1);
+    if (intensity.getX(index) > 3.15) spikeCandidateCount += 1;
   }
   assert.ok(minimumIntensity < 0.13, "most catalogue stars should remain faint");
   assert.ok(maximumIntensity > 3.5, "measured brightness needs a sparse long tail");
   assert.ok(maximumIntensity < 4.7);
   assert.ok(spikeCandidateCount > 0);
   assert.ok(
-    spikeCandidateCount <= 8,
+    spikeCandidateCount <= 2,
     "diffraction spikes belong only to the exceptionally bright catalogue tail"
   );
   const partialMagnitudeLimit = stars.material.uniforms.uMagnitudeLimit.value;
@@ -225,14 +226,19 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
   assert.match(stars.material.fragmentShader, /vMagnitudeVisibility/);
   assert.match(stars.material.vertexShader, /gl_PointSize = 6\.0 \* uPixelRatio/);
   assert.doesNotMatch(stars.material.vertexShader, /sizePulse/);
+  assert.doesNotMatch(stars.material.vertexShader, /aSize|vPsfScale/);
   assert.match(stars.material.fragmentShader, /pixelPositionCss/);
-  assert.match(stars.material.fragmentShader, /float sigmaCss = mix\(0\.38, 0\.46/);
-  assert.match(stars.material.fragmentShader, /float coreNormalization/);
-  assert.match(stars.material.fragmentShader, /float airyWing/);
-  assert.match(stars.material.fragmentShader, /float diffractionGate = smoothstep\(2\.4, 3\.25/);
+  assert.match(stars.material.fragmentShader, /STAR_SIGMA_CSS = 0\.40/);
+  assert.match(stars.material.fragmentShader, /float diffractionGate = smoothstep\(3\.15, 3\.55/);
+  assert.match(stars.material.fragmentShader, /diffractionGate \* 0\.03/);
+  assert.doesNotMatch(
+    stars.material.fragmentShader,
+    /float\s+(?:airyWing|starHalo|coreNormalization)|vPsfScale/,
+    "Gaia PSFs must not rebuild a broad glow around their crisp centres"
+  );
   assert.match(
     stars.material.fragmentShader,
-    /float alpha = coverage \* uReveal \* vMagnitudeVisibility;/,
+    /float alpha = coverage[\s\S]*?\* uReveal[\s\S]*?\* vMagnitudeVisibility[\s\S]*?\* vLensSourceVisibility;/,
     "alpha must remain PSF coverage rather than catalogue brightness"
   );
   assert.match(
@@ -247,7 +253,9 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
     amount: 1,
     direction: [3, 4, 0],
     einsteinRadius: 0.11,
-    influenceRadius: 0.5
+    influenceRadius: 0.5,
+    sourceMaskAmount: 0.75,
+    sourceMaskRadius: 0.28
   });
   assert.equal(stars.material.uniforms.uLensAmount.value, 1);
   assert.ok(stars.material.uniforms.uLensDirection.value.distanceTo(
@@ -255,6 +263,8 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
   ) < 1e-12);
   assert.equal(stars.material.uniforms.uLensEinsteinRadius.value, 0.11);
   assert.equal(stars.material.uniforms.uLensInfluenceRadius.value, 0.5);
+  assert.equal(stars.material.uniforms.uLensSourceMaskAmount.value, 0.75);
+  assert.equal(stars.material.uniforms.uLensSourceMaskRadius.value, 0.28);
   assert.deepEqual(
     [...stars.geometry.getAttribute("position").array],
     originalPositions,
@@ -266,6 +276,7 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
     0,
     "the ordinary observatory must keep an exact opt-out path"
   );
+  assert.equal(stars.material.uniforms.uLensSourceMaskAmount.value, 0);
 
   let geometryDisposals = 0;
   let materialDisposals = 0;

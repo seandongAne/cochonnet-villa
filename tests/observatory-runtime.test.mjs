@@ -155,7 +155,7 @@ test("F owns a finite depth-tested black-hole pass and one world-anchored star-v
   );
 });
 
-test("the Bruneton Schwarzschild layer owns the primary F path and the procedural mesh remains fallback", () => {
+test("the Bruneton Schwarzschild layer stays hot beneath the physical Kerr path", () => {
   for (const api of [
     "loadObservatoryRelativisticLensLuts",
     "createObservatoryRelativisticLens",
@@ -179,19 +179,65 @@ test("the Bruneton Schwarzschild layer owns the primary F path and the procedura
   );
   assert.match(runtime, /const relativisticPrimary = isRelativisticLensPrimary\(resources\)/);
   assert.match(runtime, /&& !relativisticPrimary;/);
-  assert.match(runtime, /nativeLensAmount = isRelativisticLensPrimary\(resources\)[\s\S]*?\? 0[\s\S]*?: resources\.lensAmount/);
+  assert.match(
+    runtime,
+    /nativeLensAmount = \(kerrPrimary \|\| isRelativisticLensPrimary\(resources\)\)[\s\S]*?\? 0[\s\S]*?: resources\.lensAmount/
+  );
   assert.match(
     runtime,
     /updateObservatoryRelativisticLens\([\s\S]*?skyTexture:\s*skyBackdropMaterial\?\.uniforms\?\.uSkyTexture[\s\S]*?skyRotation:\s*getRelativisticSkyRotation\(sky\)[\s\S]*?hdrOutput:/
   );
   assert.match(runtime, /blackHoleRadius:\s*1\.35/);
   assert.match(runtime, /discOuterRadius:\s*7\.6/);
+  assert.match(runtime, /discOpacity:\s*kerrPrimary \? 0 : 0\.94/);
   assert.match(
     runtime,
     /RELATIVISTIC_DISC_NORMAL = new THREE\.Vector3\(0\.62, 0\.52, 0\.59\)\.normalize\(\)/
   );
   assert.match(runtime, /observatoryShaderFailure === "relativistic-lens"/);
-  assert.match(runtime, /mode:\s*isRelativisticLensPrimary\(resources\)[\s\S]*?"schwarzschild-lut"/);
+  assert.match(
+    runtime,
+    /mode:\s*isKerrLensPrimary\(resources, quality\?\.quality\)[\s\S]*?"schwarzschild-lut"/
+  );
+});
+
+test("High and Medium use one offline Kerr exit ray for photo, Gaia and hero stars", () => {
+  for (const api of [
+    "loadObservatoryKerrLensAtlases",
+    "createObservatoryKerrLens",
+    "updateObservatoryKerrLens",
+    "prewarmObservatoryKerrLens",
+    "createObservatoryGaiaSourceMap"
+  ]) {
+    assert.match(runtime, new RegExp(`${api}\\(`));
+  }
+  assert.match(
+    runtime,
+    /createObservatoryGaiaSourceMap\([\s\S]*?resources\.gaia,[\s\S]*?heroStars:\s*sky\.userData\.stars/
+  );
+  assert.match(
+    runtime,
+    /resources\.blackHolePass\.scene\.add\(resources\.relativisticLens\)[\s\S]*?resources\.blackHolePass\.scene\.add\(resources\.kerrLens\)/,
+    "Schwarzschild must render first as the already-hot per-pixel underlay"
+  );
+  assert.match(
+    runtime,
+    /loadObservatoryKerrLensAtlases\(\{[\s\S]*?fetchImpl:\s*fetch,[\s\S]*?signal:\s*abortController\.signal/
+  );
+  assert.match(
+    runtime,
+    /function isKerrLensPrimary\(resources, quality\)[\s\S]*?quality === "high"[\s\S]*?quality === "medium"[\s\S]*?resources\.gaiaSourceMapPrewarmed === true[\s\S]*?isRelativisticLensPrimary\(resources\)/
+  );
+  assert.match(
+    runtime,
+    /updateObservatoryKerrLens\(resources\.kerrLens,[\s\S]*?skyTexture:[\s\S]*?starSourceTexture:\s*resources\.gaiaSourceMap\?\.texture[\s\S]*?kerrToWorld:[\s\S]*?skyRotation:[\s\S]*?starSourceRotation:/
+  );
+  assert.match(runtime, /sourceMaskAmount:\s*isKerrLensPrimary\(/);
+  assert.match(runtime, /observatoryShaderFailure === "kerr-lens"/);
+  assert.match(
+    runtime,
+    /mode:\s*isKerrLensPrimary\(resources, quality\?\.quality\)[\s\S]*?"kerr-atlas"/
+  );
 });
 
 test("Gaia stays one native-resolution main-scene Points draw behind the roof stencil", () => {
@@ -254,6 +300,9 @@ test("catalogue fetch is abortable and all owned GPU/browser resources are clean
     /disposeObservatoryBlackHole\(resources\.blackHole\)/,
     /disposeObservatoryRelativisticLens\(resources\.relativisticLens\)/,
     /disposeObservatoryRelativisticLensLuts\(resources\.relativisticLuts\)/,
+    /disposeObservatoryKerrLens\(resources\.kerrLens\)/,
+    /disposeObservatoryKerrLensAtlases\(resources\.kerrAtlases\)/,
+    /disposeObservatoryGaiaSourceMap\(resources\.gaiaSourceMap\)/,
     /disposeObservatoryStarVolume\(resources\.starVolume\)/,
     /disposeGaiaStarPoints\(resources\.gaia\)/,
     /removeMushroomSkyAperture\(resources\.aperture\)/,
@@ -321,6 +370,7 @@ test("diagnostics expose runtime state and motion query overrides stay QA-only",
     "portal",
     "blackHole",
     "relativisticLens",
+    "kerrLens",
     "starVolume",
     "gaia",
     "backdrop4k"
@@ -421,6 +471,8 @@ test("shader failures are classified and per-frame draw metrics report actual wo
     "mushroom-observatory-portal-composite-material",
     "OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME",
     "OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME",
+    "OBSERVATORY_KERR_LENS_MATERIAL_NAME",
+    "OBSERVATORY_GAIA_SOURCE_MAP_MATERIAL_NAME",
     "OBSERVATORY_STAR_VOLUME_MATERIAL_NAME"
   ]) {
     assert.match(runtime, new RegExp(material));
@@ -428,6 +480,7 @@ test("shader failures are classified and per-frame draw metrics report actual wo
   assert.match(runtime, /observatoryShaderFailure === "gaia"/);
   assert.match(runtime, /observatoryShaderFailure === "black-hole"/);
   assert.match(runtime, /observatoryShaderFailure === "relativistic-lens"/);
+  assert.match(runtime, /observatoryShaderFailure === "kerr-lens"/);
   assert.match(runtime, /observatoryShaderFailure === "star-volume"/);
   assert.match(runtime, /observatoryShaderFailure === "native-sky"/);
   assert.match(runtime, /resources\.portalRenderedThisFrame = false/);

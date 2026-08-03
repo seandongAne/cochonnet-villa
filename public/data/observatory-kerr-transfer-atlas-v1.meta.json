@@ -1,0 +1,181 @@
+{
+  "schema": "cochonnet-observatory-kerr-transfer-atlas",
+  "version": 1,
+  "description": "Offline physical Kerr null-geodesic transfer atlas. Runtime shading samples the real photographic sky and dynamic accretion disc through these maps; the atlas is not a baked black-hole image or an artistic warp.",
+  "fixedPhysicalParameters": {
+    "units": "G=c=M=1",
+    "dimensionlessSpin": 0.94,
+    "observerInclinationDegrees": 59.99999999999999,
+    "observerBoyerLindquistRadiusM": 1000,
+    "sourceSphereBoyerLindquistRadiusM": 1000,
+    "outerHorizonRadiusM": 1.3411744421846397,
+    "progradeIscoRadiusM": 2.023593104700402
+  },
+  "imagePlane": {
+    "convention": "Bardeen screen coordinates at a distant observer; alpha increases left-to-right, beta-positive initializes increasing Boyer-Lindquist theta",
+    "alphaMinM": -12,
+    "alphaMaxM": 12,
+    "betaMinM": -12,
+    "betaMaxM": 12,
+    "texelCenters": true,
+    "rowOrder": "top-to-bottom; betaMax to betaMin",
+    "constantsOfMotion": {
+      "lambda": "-alpha*sin(thetaObserver)",
+      "eta": "beta^2 + (alpha^2-a^2)*cos(thetaObserver)^2"
+    }
+  },
+  "integration": {
+    "method": "adaptive classical RK4 in Mino parameter using the exact separated Kerr radial and polar potentials; second-order potential form crosses turning points without changing branch by hand",
+    "radialPotential": "R=[r^2+a^2-a*lambda]^2-Delta*[eta+(lambda-a)^2]",
+    "polarPotential": "Theta=eta+a^2*cos(theta)^2-lambda^2*cot(theta)^2",
+    "maxSteps": 12000,
+    "maxMinoTime": 80,
+    "horizonEpsilonM": 0.0002,
+    "maximumStep": 0.025,
+    "minimumStep": 2e-8,
+    "targetPolarStepRadians": 0.004,
+    "targetAzimuthStepRadians": 0.008,
+    "note": "Finite r=1000M endpoints avoid infinity singularities. The Bardeen constants are their asymptotic values; residual endpoint error is O(M/r)=about 0.1%. Critical rays that fail the bounded convergence policy are marked unresolved, never silently replaced by an artistic approximation."
+  },
+  "discModel": {
+    "crossings": "first two backward-ray intersections with theta=pi/2, in traversal order; a zero radius means no crossing",
+    "imageOrders": [
+      0,
+      1
+    ],
+    "redshift": "g=1/[u^t*(1-Omega*lambda)] for prograde circular equatorial geodesics at r>=ISCO; g=0 below ISCO leaves enough r,lambda data for a future plunging-flow prescription",
+    "omega": "1/(r^(3/2)+a)",
+    "intensityInvariant": "runtime must apply I_nu/nu^3 invariance (g^3 for specific intensity)"
+  },
+  "skyModel": {
+    "sourceDirectionFrame": "unit asymptotic outgoing tangent evaluated at the r=1000M source sphere; +Y is the Kerr spin axis, observer azimuth is zero",
+    "statusValues": {
+      "escaped": 0,
+      "captured": 1,
+      "unresolved": 2,
+      "invalid": 3
+    },
+    "captureMask": "sky.status==1",
+    "unresolvedPolicy": "sky.status==2 must fall back to the bundled Schwarzschild/analytic renderer"
+  },
+  "pathModel": {
+    "backgroundTimeDelay": "Boyer-Lindquist coordinate travel time minus the flat-space chord travel time, in M",
+    "backgroundImageOrder": "floor(accumulated central angular travel/(2*pi)); 0 is direct background, larger values include additional lensed loops"
+  },
+  "binaryLayout": {
+    "endianness": "little",
+    "headerBytes": 8,
+    "header": [
+      "uint32 width",
+      "uint32 height"
+    ],
+    "payload": "row-major interleaved float32"
+  },
+  "generator": {
+    "path": "scripts/build-kerr-transfer-atlas.mjs",
+    "sha256": "f7fe62266b2a5354d35fc29272667f6915c093fad0fb09686085dd6ebefe51a3",
+    "workersDoNotAffectResults": true,
+    "command": "node scripts/build-kerr-transfer-atlas.mjs"
+  },
+  "references": [
+    {
+      "title": "The Null Geodesics of the Kerr Exterior",
+      "authors": "Samuel E. Gralla and Alexandru Lupsasca",
+      "journal": "Physical Review D 101, 044032 (2020)",
+      "doi": "10.1103/PhysRevD.101.044032",
+      "arxiv": "https://arxiv.org/abs/1910.12881",
+      "role": "complete separated Kerr null-geodesic potentials and solution classification"
+    },
+    {
+      "title": "Adaptive Analytical Ray Tracing of Black Hole Photon Rings",
+      "authors": "Alejandro Cardenas-Avendano, Alexandru Lupsasca, and Hengrui Zhu",
+      "journal": "Physical Review D 107, 043030 (2023)",
+      "doi": "10.1103/PhysRevD.107.043030",
+      "arxiv": "https://arxiv.org/abs/2211.07469",
+      "code": "https://github.com/iAART/aart",
+      "role": "transfer-function/lensing-band architecture, image-order and time-delay conventions; no upstream source code copied"
+    }
+  ],
+  "licence": {
+    "spdx": "CC0-1.0",
+    "file": "observatory-kerr-transfer-atlas-LICENSE.txt",
+    "note": "The binary values are original generated numerical data. Equations and physical facts are cited above; no AART code or data is redistributed."
+  },
+  "statistics": {
+    "pixelCount": 147456,
+    "escaped": 127588,
+    "captured": 19868,
+    "unresolved": 0,
+    "invalid": 0,
+    "primaryDiscIntersections": 142616,
+    "secondaryDiscIntersections": 26457,
+    "raysWithPositiveCircularDiscRedshift": 140152,
+    "maximumBackgroundImageOrder": 4
+  },
+  "files": [
+    {
+      "key": "sky",
+      "path": "observatory-kerr-sky-v1.bin",
+      "width": 384,
+      "height": 384,
+      "channels": 4,
+      "channelNames": [
+        "sourceDirectionX",
+        "sourceDirectionY",
+        "sourceDirectionZ",
+        "status"
+      ],
+      "scalarType": "float32",
+      "byteLength": 2359304,
+      "sha256": "ffd617c58f5d456673597f27abc2d7661ed7198354611f7a93b5fbfa5cf10c89"
+    },
+    {
+      "key": "discPrimary",
+      "path": "observatory-kerr-disc-primary-v1.bin",
+      "width": 384,
+      "height": 384,
+      "channels": 4,
+      "channelNames": [
+        "radiusM",
+        "azimuthRadians",
+        "redshiftG",
+        "coordinateTimeM"
+      ],
+      "imageOrder": 0,
+      "scalarType": "float32",
+      "byteLength": 2359304,
+      "sha256": "0871f99794fae2dbf61c8640fce2421adcd7e07d2b691ed0714a447e180566fe"
+    },
+    {
+      "key": "discSecondary",
+      "path": "observatory-kerr-disc-secondary-v1.bin",
+      "width": 384,
+      "height": 384,
+      "channels": 4,
+      "channelNames": [
+        "radiusM",
+        "azimuthRadians",
+        "redshiftG",
+        "coordinateTimeM"
+      ],
+      "imageOrder": 1,
+      "scalarType": "float32",
+      "byteLength": 2359304,
+      "sha256": "99a0fc3b646efd84a83da76801e559299177e4da2bed4cd8b2e18e12c0f493f9"
+    },
+    {
+      "key": "path",
+      "path": "observatory-kerr-path-v1.bin",
+      "width": 384,
+      "height": 384,
+      "channels": 2,
+      "channelNames": [
+        "backgroundTimeDelayM",
+        "backgroundImageOrder"
+      ],
+      "scalarType": "float32",
+      "byteLength": 1179656,
+      "sha256": "7293266fe356aa85ed7fd5fb739827e6250c7d7cac4cb971c9e0d7c54da4d4e7"
+    }
+  ]
+}

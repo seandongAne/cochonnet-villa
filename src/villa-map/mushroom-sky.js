@@ -234,6 +234,8 @@ const STAR_VERTEX_SHADER = /* glsl */ `
   uniform vec3 uLensDirection;
   uniform float uLensEinsteinRadius;
   uniform float uLensInfluenceRadius;
+  uniform float uLensSourceMaskAmount;
+  uniform float uLensSourceMaskRadius;
 
   attribute float aPhase;
   attribute float aTwinkleSpeed;
@@ -244,6 +246,7 @@ const STAR_VERTEX_SHADER = /* glsl */ `
 
   varying float vBrightness;
   varying float vLensMagnification;
+  varying float vLensSourceVisibility;
   varying float vPsfScale;
   varying float vRadiance;
   varying float vSpriteSizePx;
@@ -299,8 +302,15 @@ const STAR_VERTEX_SHADER = /* glsl */ `
     );
     vec3 apparentPosition = position;
     vLensMagnification = 1.0;
+    float sourceAngle = angularDistance(position, uLensDirection);
+    float sourceMask = 1.0 - smoothstep(
+      uLensSourceMaskRadius * 0.88,
+      uLensSourceMaskRadius,
+      sourceAngle
+    );
+    vLensSourceVisibility = 1.0
+      - clamp(uLensSourceMaskAmount, 0.0, 1.0) * sourceMask;
     if (uLensAmount > 0.0) {
-      float sourceAngle = angularDistance(position, uLensDirection);
       float lensInfluence = uLensAmount * (
         1.0 - smoothstep(uLensEinsteinRadius, uLensInfluenceRadius, sourceAngle)
       );
@@ -326,6 +336,7 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
 
   varying float vBrightness;
   varying float vLensMagnification;
+  varying float vLensSourceVisibility;
   varying float vPsfScale;
   varying float vRadiance;
   varying float vSpriteSizePx;
@@ -368,7 +379,7 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
       0.0,
       1.0
     );
-    float alpha = coverage * uReveal;
+    float alpha = coverage * uReveal * vLensSourceVisibility;
     if (alpha < 1.0 / 2048.0) discard;
 
     // Brightness, scintillation and gravitational magnification are radiance,
@@ -541,6 +552,12 @@ function applyMushroomSkyLensUniforms(sky) {
     uniforms.uLensAmount.value = state.amount;
     uniforms.uLensEinsteinRadius.value = state.einsteinRadius;
     uniforms.uLensInfluenceRadius.value = state.influenceRadius;
+    if (uniforms.uLensSourceMaskAmount) {
+      uniforms.uLensSourceMaskAmount.value = state.sourceMaskAmount;
+    }
+    if (uniforms.uLensSourceMaskRadius) {
+      uniforms.uLensSourceMaskRadius.value = state.sourceMaskRadius;
+    }
     if (uniforms.uLensHorizonRadius) {
       uniforms.uLensHorizonRadius.value = state.horizonRadius;
     }
@@ -619,6 +636,10 @@ export function createMushroomSky({
       },
       uLensInfluenceRadius: {
         value: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
+      },
+      uLensSourceMaskAmount: { value: 0 },
+      uLensSourceMaskRadius: {
+        value: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
       }
     },
     vertexShader: STAR_VERTEX_SHADER,
@@ -656,7 +677,9 @@ export function createMushroomSky({
     einsteinRadius: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS,
     influenceRadius: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS,
     horizonRadius: MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS,
-    ringStrength: MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH
+    ringStrength: MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH,
+    sourceMaskAmount: 0,
+    sourceMaskRadius: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
   };
   sky.userData.disposed = false;
   applyMushroomSkyLensUniforms(sky);
@@ -827,6 +850,14 @@ export function setMushroomSkyLens(sky, lens = {}) {
   state.ringStrength = Number.isFinite(options.ringStrength)
     ? THREE.MathUtils.clamp(options.ringStrength, 0, 2)
     : state.ringStrength;
+  state.sourceMaskAmount = Number.isFinite(options.sourceMaskAmount)
+    ? THREE.MathUtils.clamp(options.sourceMaskAmount, 0, 1)
+    : state.amount <= 0
+      ? 0
+      : state.sourceMaskAmount;
+  state.sourceMaskRadius = Number.isFinite(options.sourceMaskRadius)
+    ? THREE.MathUtils.clamp(options.sourceMaskRadius, 0.08, 0.9)
+    : state.sourceMaskRadius;
   if (options.direction !== undefined) {
     copyMushroomLensDirection(state.direction, options.direction);
   }

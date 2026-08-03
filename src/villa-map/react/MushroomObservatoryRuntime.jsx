@@ -75,6 +75,28 @@ import {
   setGaiaStarReveal
 } from "../gaia-stars.js";
 import {
+  createObservatoryGaiaSourceMap,
+  disposeObservatoryGaiaSourceMap,
+  OBSERVATORY_GAIA_SOURCE_MAP_MATERIAL_NAME,
+  OBSERVATORY_HERO_SOURCE_MAP_MATERIAL_NAME,
+  prewarmObservatoryGaiaSourceMap
+} from "../observatory-gaia-source-map.js";
+import {
+  createObservatoryKerrLens,
+  disposeObservatoryKerrLens,
+  disposeObservatoryKerrLensAtlases,
+  getObservatoryKerrLensSupport,
+  isObservatoryKerrLensAtlasReady,
+  loadObservatoryKerrLensAtlases,
+  OBSERVATORY_KERR_LENS_ALPHA_EXTENT,
+  OBSERVATORY_KERR_LENS_INCLINATION_DEGREES,
+  OBSERVATORY_KERR_LENS_MATERIAL_NAME,
+  prewarmObservatoryKerrLens,
+  setObservatoryKerrLensAtlases,
+  setObservatoryKerrLensVisible,
+  updateObservatoryKerrLens
+} from "../observatory-kerr-lens.js";
+import {
   createMushroomSkyAperture,
   disposeMushroomSky,
   isMushroomObservatorySkyPosition,
@@ -145,9 +167,36 @@ const relativisticSkyRotation4Scratch = new THREE.Matrix4();
 // primary/secondary arcs without compressing the receding image into a dark
 // leaf that reads as a shader seam.
 const RELATIVISTIC_DISC_NORMAL = new THREE.Vector3(0.62, 0.52, 0.59).normalize();
+const KERR_TARGET_SPIN_AXIS = RELATIVISTIC_DISC_NORMAL.clone().negate();
+const KERR_INCLINATION_RADIANS = THREE.MathUtils.degToRad(
+  OBSERVATORY_KERR_LENS_INCLINATION_DEGREES
+);
+const KERR_INCLINATION_SIN = Math.sin(KERR_INCLINATION_RADIANS);
+const KERR_INCLINATION_COS = Math.cos(KERR_INCLINATION_RADIANS);
+// The shipped Schwarzschild calibration has a 2 m optical Schwarzschild
+// radius, hence one geometric mass unit M is one world metre here too.
+const KERR_MASS_WORLD_SCALE = 1;
+// Keep the luminous thin disc inside the strongly lensed field. A wider disc
+// is physically valid, but on a room-scale display its direct image dominates
+// as two hard-edged wedges and hides the photon-ring structure we want people
+// to notice first.
+const KERR_DISC_OUTER_RADIUS = 5.6;
+const KERR_DISC_OPACITY = 0.72;
+const KERR_STAR_SOURCE_BRIGHTNESS = 0.82;
+const kerrObserverOutScratch = new THREE.Vector3();
+const kerrImageRightScratch = new THREE.Vector3();
+const kerrImageUpScratch = new THREE.Vector3();
+const kerrWorldXScratch = new THREE.Vector3();
+const kerrWorldYScratch = new THREE.Vector3();
+const kerrWorldZScratch = new THREE.Vector3();
+const kerrToWorldScratch = new THREE.Matrix3();
+const kerrStarSourceRotationScratch = new THREE.Matrix3();
 const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   [MUSHROOM_NEBULA_MATERIAL_NAME, "portal"],
   [OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME, "relativistic-lens"],
+  [OBSERVATORY_KERR_LENS_MATERIAL_NAME, "kerr-lens"],
+  [OBSERVATORY_GAIA_SOURCE_MAP_MATERIAL_NAME, "kerr-lens"],
+  [OBSERVATORY_HERO_SOURCE_MAP_MATERIAL_NAME, "kerr-lens"],
   ["mushroom-observatory-portal-composite-material", "portal"],
   ["mushroom-distant-sky-material", "native-sky"],
   ["mushroom-twinkling-star-material", "native-sky"],
@@ -180,6 +229,62 @@ function isRelativisticLensPrimary(resources) {
   return hasRelativisticLensLuts(resources)
     && resources.relativisticPrewarmed === true
     && resources.blackHolePass?.disposed === false;
+}
+
+function hasKerrLensAtlases(resources) {
+  return Boolean(
+    resources?.kerrLens
+    && isObservatoryKerrLensAtlasReady(resources.kerrAtlases)
+    && !resources.kerrDisabled
+    && !resources.blackHoleDisabled
+  );
+}
+
+function isKerrLensPrimary(resources, quality) {
+  return (quality === "high" || quality === "medium")
+    && hasKerrLensAtlases(resources)
+    && resources.kerrPrewarmed === true
+    && resources.gaiaSourceMapPrewarmed === true
+    && resources.gaiaSourceMap?.texture?.isTexture === true
+    && isRelativisticLensPrimary(resources)
+    && resources.blackHolePass?.disposed === false;
+}
+
+function updateKerrFrame(lensDirection) {
+  // The transfer atlas is baked for a fixed 60-degree observer. Preserve the
+  // finite world-space disc orientation as closely as that contract allows,
+  // then rebuild the exact orthonormal atlas frame around the current lens
+  // direction so walking changes position/scale without shearing the shadow.
+  kerrObserverOutScratch.copy(lensDirection).negate().normalize();
+  kerrImageUpScratch.copy(kerrObserverOutScratch)
+    .multiplyScalar(KERR_INCLINATION_COS)
+    .sub(KERR_TARGET_SPIN_AXIS);
+  if (kerrImageUpScratch.lengthSq() < 1e-8) {
+    kerrImageUpScratch.set(0, 1, 0)
+      .addScaledVector(kerrObserverOutScratch, -kerrObserverOutScratch.y);
+  }
+  kerrImageUpScratch.normalize();
+  kerrImageRightScratch.crossVectors(lensDirection, kerrImageUpScratch)
+    .normalize();
+  kerrWorldXScratch.copy(kerrObserverOutScratch)
+    .multiplyScalar(KERR_INCLINATION_SIN)
+    .addScaledVector(kerrImageUpScratch, KERR_INCLINATION_COS)
+    .normalize();
+  kerrWorldYScratch.copy(kerrObserverOutScratch)
+    .multiplyScalar(KERR_INCLINATION_COS)
+    .addScaledVector(kerrImageUpScratch, -KERR_INCLINATION_SIN)
+    .normalize();
+  kerrWorldZScratch.copy(kerrImageRightScratch);
+  kerrToWorldScratch.set(
+    kerrWorldXScratch.x, kerrWorldYScratch.x, kerrWorldZScratch.x,
+    kerrWorldXScratch.y, kerrWorldYScratch.y, kerrWorldZScratch.y,
+    kerrWorldXScratch.z, kerrWorldYScratch.z, kerrWorldZScratch.z
+  );
+  return {
+    imageRight: kerrImageRightScratch,
+    imageUp: kerrImageUpScratch,
+    kerrToWorld: kerrToWorldScratch
+  };
 }
 
 function getRelativisticSkyRotation(sky) {
@@ -337,6 +442,9 @@ function resetHiddenEffectRendering(resources, sky, riftVisual) {
   if (resources.relativisticLens) {
     setObservatoryRelativisticLensVisible(resources.relativisticLens, false);
   }
+  if (resources.kerrLens) {
+    setObservatoryKerrLensVisible(resources.kerrLens, false);
+  }
   if (resources.blackHolePass) {
     updateObservatoryBlackHolePassComposite(resources.blackHolePass.composite, {
       reveal: 0,
@@ -387,6 +495,8 @@ export function MushroomObservatoryRuntime({
   const renderBlackHolePassRef = useRef(null);
   const requestHighSkyTextureRef = useRef(null);
   const startRelativisticLoadRef = useRef(null);
+  const startKerrLoadRef = useRef(null);
+  const updateKerrLensRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -416,6 +526,7 @@ export function MushroomObservatoryRuntime({
     );
     const stencilSupported = detectStencilBuffer(gl);
     const relativisticSupport = getObservatoryRelativisticLensSupport(gl);
+    const kerrSupport = getObservatoryKerrLensSupport(gl);
     const resources = {
       reducedMotion: readReducedMotion(),
       comparisonMode: requestedSkyMode === "base" ? "base" : "impossible",
@@ -431,6 +542,10 @@ export function MushroomObservatoryRuntime({
       portal: null,
       nebula: null,
       gaia: null,
+      gaiaSourceMap: null,
+      gaiaSourceMapError: null,
+      gaiaSourceMapPrewarmed: false,
+      gaiaSourceMapPrewarmMs: 0,
       gaiaBinary: null,
       gaiaLoadStarted: false,
       gaiaError: null,
@@ -474,6 +589,17 @@ export function MushroomObservatoryRuntime({
         : "WebGL2 unavailable",
       relativisticPrewarmed: false,
       relativisticPrewarmMs: 0,
+      kerrSupport,
+      kerrLens: null,
+      kerrAtlases: null,
+      kerrLoadStarted: false,
+      kerrLoadPending: false,
+      kerrFetchStartedAt: 0,
+      kerrFetchMs: 0,
+      kerrDisabled: !kerrSupport.supported,
+      kerrError: kerrSupport.supported ? null : kerrSupport.fallback,
+      kerrPrewarmed: false,
+      kerrPrewarmMs: 0,
       starVolume: null,
       starVolumeDisabled: false,
       starVolumeError: null,
@@ -797,8 +923,21 @@ export function MushroomObservatoryRuntime({
       }
     }
 
+    function disposeKerrResources({ disposeAtlases = false } = {}) {
+      if (resources.kerrLens) {
+        disposeObservatoryKerrLens(resources.kerrLens);
+        resources.kerrLens = null;
+      }
+      resources.kerrPrewarmed = false;
+      if (disposeAtlases && resources.kerrAtlases) {
+        disposeObservatoryKerrLensAtlases(resources.kerrAtlases);
+        resources.kerrAtlases = null;
+      }
+    }
+
     function disposeHiddenCosmosResources() {
       disposeBlackHolePassResources({ disposeCore: true });
+      disposeKerrResources({ disposeAtlases: true });
       disposeRelativisticResources({ disposeLuts: true });
       if (resources.starVolume) {
         resources.starVolume.removeFromParent();
@@ -806,6 +945,15 @@ export function MushroomObservatoryRuntime({
         resources.starVolume = null;
       }
       resources.starVolumePrewarmed = false;
+    }
+
+    function disposeGaiaSourceMapResources() {
+      if (resources.gaiaSourceMap) {
+        disposeObservatoryGaiaSourceMap(resources.gaiaSourceMap);
+        resources.gaiaSourceMap = null;
+      }
+      resources.gaiaSourceMapPrewarmed = false;
+      resources.kerrPrewarmed = false;
     }
 
     function ensureHiddenCosmosResources(
@@ -817,6 +965,7 @@ export function MushroomObservatoryRuntime({
         || !resources.stencilSupported
         || quality === "minimum"
       ) return false;
+      const state = getState();
 
       if (!resources.starVolume && !resources.starVolumeDisabled) {
         resources.starVolume = createObservatoryStarVolume();
@@ -858,11 +1007,37 @@ export function MushroomObservatoryRuntime({
       }
 
       if (
+        resources.kerrSupport.supported
+        && !resources.kerrDisabled
+        && !resources.kerrLens
+      ) {
+        lensDirectionScratch.copy(LENS_WORLD_POSITION)
+          .sub(state.camera.position)
+          .normalize();
+        const kerrFrame = updateKerrFrame(lensDirectionScratch);
+        resources.kerrLens = createObservatoryKerrLens({
+          skyTexture: backdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+          starSourceTexture: resources.gaiaSourceMap?.texture ?? null,
+          atlases: resources.kerrAtlases,
+          quality,
+          visible: false,
+          reveal: 0,
+          lensPosition: LENS_WORLD_POSITION,
+          imageRight: kerrFrame.imageRight,
+          imageUp: kerrFrame.imageUp,
+          kerrToWorld: kerrFrame.kerrToWorld,
+          skyRotation: getRelativisticSkyRotation(sky),
+          starSourceRotation: kerrStarSourceRotationScratch.identity(),
+          massWorldScale: KERR_MASS_WORLD_SCALE,
+          hdrOutput: blackHoleTargetType === THREE.HalfFloatType
+        });
+      }
+
+      if (
         resources.blackHole
         && !resources.blackHolePass
         && !resources.blackHoleDisabled
       ) {
-        const state = getState();
         resources.blackHolePass = createObservatoryBlackHolePass({
           sourceCamera: state.camera,
           width: state.size.width,
@@ -888,6 +1063,30 @@ export function MushroomObservatoryRuntime({
             }
           );
         }
+        if (resources.kerrLens) {
+          resources.blackHolePass.scene.add(resources.kerrLens);
+          const kerrFrame = updateKerrFrame(lensDirectionScratch
+            .copy(LENS_WORLD_POSITION)
+            .sub(state.camera.position)
+            .normalize());
+          updateObservatoryKerrLens(resources.kerrLens, state.camera, {
+            reveal: 0,
+            quality,
+            skyTexture: backdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+            starSourceTexture: resources.gaiaSourceMap?.texture ?? null,
+            atlases: resources.kerrAtlases,
+            lensPosition: LENS_WORLD_POSITION,
+            imageRight: kerrFrame.imageRight,
+            imageUp: kerrFrame.imageUp,
+            kerrToWorld: kerrFrame.kerrToWorld,
+            skyRotation: getRelativisticSkyRotation(sky),
+            starSourceRotation: kerrStarSourceRotationScratch.identity(),
+            massWorldScale: KERR_MASS_WORLD_SCALE,
+            discOuterRadius: KERR_DISC_OUTER_RADIUS,
+            discOpacity: KERR_DISC_OPACITY,
+            hdrOutput: blackHoleTargetType === THREE.HalfFloatType
+          });
+        }
         scene.add(resources.blackHolePass.composite);
         resources.blackHolePrewarmStartedAt = performance.now();
       }
@@ -895,6 +1094,7 @@ export function MushroomObservatoryRuntime({
         resources.blackHolePass
         || resources.starVolume
         || resources.relativisticLens
+        || resources.kerrLens
       );
     }
 
@@ -921,6 +1121,7 @@ export function MushroomObservatoryRuntime({
       resources.blackHoleDisabled = true;
       resources.blackHolePrewarmed = false;
       resources.relativisticPrewarmed = false;
+      resources.kerrPrewarmed = false;
       if (resources.blackHole) {
         setObservatoryBlackHoleVisible(resources.blackHole, false);
       }
@@ -929,6 +1130,9 @@ export function MushroomObservatoryRuntime({
           resources.relativisticLens,
           false
         );
+      }
+      if (resources.kerrLens) {
+        setObservatoryKerrLensVisible(resources.kerrLens, false);
       }
       if (resources.blackHolePass) {
         updateObservatoryBlackHolePassComposite(
@@ -1003,6 +1207,45 @@ export function MushroomObservatoryRuntime({
     ensureHiddenCosmosRef.current = ensureHiddenCosmosResources;
     renderBlackHolePassRef.current = renderBlackHolePass;
 
+    function updateKerrLensRuntime(
+      activeCamera,
+      {
+        reveal = 0,
+        quality = qualityRef.current?.quality ?? "medium",
+        timeSeconds = sky.userData.elapsed ?? 0,
+        starSourceBrightness = KERR_STAR_SOURCE_BRIGHTNESS
+      } = {}
+    ) {
+      if (!resources.kerrLens || !activeCamera) return false;
+      const direction = lensDirectionScratch.copy(LENS_WORLD_POSITION)
+        .sub(activeCamera.position)
+        .normalize();
+      const kerrFrame = updateKerrFrame(direction);
+      return updateObservatoryKerrLens(resources.kerrLens, activeCamera, {
+        timeSeconds,
+        reveal,
+        quality,
+        skyTexture: backdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+        starSourceTexture: resources.gaiaSourceMap?.texture ?? null,
+        atlases: resources.kerrAtlases,
+        lensPosition: LENS_WORLD_POSITION,
+        imageRight: kerrFrame.imageRight,
+        imageUp: kerrFrame.imageUp,
+        kerrToWorld: kerrFrame.kerrToWorld,
+        skyRotation: getRelativisticSkyRotation(sky),
+        starSourceRotation: kerrStarSourceRotationScratch.identity(),
+        massWorldScale: KERR_MASS_WORLD_SCALE,
+        skyBrightness: backdropMaterial?.uniforms?.uBrightness?.value
+          ?? MUSHROOM_SKY_IMAGE_BRIGHTNESS,
+        starSourceBrightness,
+        discOuterRadius: KERR_DISC_OUTER_RADIUS,
+        discOpacity: KERR_DISC_OPACITY,
+        hdrOutput: resources.blackHolePass?.renderTarget?.texture?.type
+          === THREE.HalfFloatType
+      });
+    }
+    updateKerrLensRef.current = updateKerrLensRuntime;
+
     function getNativePrewarmTarget() {
       if (resources.nativePrewarmTarget) return resources.nativePrewarmTarget;
       resources.nativePrewarmTarget = new THREE.WebGLRenderTarget(1, 1, {
@@ -1062,6 +1305,9 @@ export function MushroomObservatoryRuntime({
 
     function replaceGaia(quality) {
       const lod = gaiaLodForQuality(quality);
+      // The source map borrows Gaia's geometry, so it must release that
+      // reference before the owning Points object disposes the old buffer.
+      disposeGaiaSourceMapResources();
       if (resources.gaia) {
         disposeGaiaStarPoints(resources.gaia);
         resources.gaia = null;
@@ -1085,6 +1331,24 @@ export function MushroomObservatoryRuntime({
         resources.gaia.visible = false;
         resources.gaiaPrewarmed = false;
         scene.add(resources.gaia);
+        if (quality === "high" || quality === "medium") {
+          try {
+            resources.gaiaSourceMap = createObservatoryGaiaSourceMap(
+              resources.gaia,
+              {
+                quality,
+                heroStars: sky.userData.stars
+              }
+            );
+            resources.gaiaSourceMapError = null;
+            resources.gaiaSourceMapPrewarmed = false;
+          } catch (sourceMapError) {
+            resources.gaiaSourceMapError = sourceMapError instanceof Error
+              ? sourceMapError.message
+              : String(sourceMapError);
+            disposeGaiaSourceMapResources();
+          }
+        }
         resources.gaiaBuildMs = performance.now() - buildStartedAt;
       } catch (error) {
         resources.gaiaError = error instanceof Error ? error.message : String(error);
@@ -1127,6 +1391,7 @@ export function MushroomObservatoryRuntime({
         resources.gaiaDisabled = true;
         resources.gaiaShaderError = message;
         resources.gaiaPrewarmed = false;
+        disposeGaiaSourceMapResources();
         if (resources.gaia) {
           disposeGaiaStarPoints(resources.gaia);
           resources.gaia = null;
@@ -1155,6 +1420,17 @@ export function MushroomObservatoryRuntime({
         }
         return;
       }
+      if (error?.observatoryShaderFailure === "kerr-lens") {
+        resources.kerrDisabled = true;
+        resources.kerrError = message;
+        resources.kerrPrewarmed = false;
+        resources.gaiaSourceMapError ??= message;
+        if (resources.kerrLens) {
+          setObservatoryKerrLensVisible(resources.kerrLens, false);
+          disposeKerrResources();
+        }
+        return;
+      }
       if (error?.observatoryShaderFailure === "black-hole") {
         handleBlackHoleFailure(error, { allowRgba8Retry: false });
         return;
@@ -1169,6 +1445,7 @@ export function MushroomObservatoryRuntime({
         if (resources.portal) resources.portal.composite.visible = false;
         resetHiddenEffectRendering(resources, sky, riftVisual);
         disposePortalResources();
+        disposeGaiaSourceMapResources();
         if (resources.gaia) {
           disposeGaiaStarPoints(resources.gaia);
           resources.gaia = null;
@@ -1217,6 +1494,9 @@ export function MushroomObservatoryRuntime({
             resources.relativisticLens,
             false
           );
+        }
+        if (resources.kerrLens) {
+          setObservatoryKerrLensVisible(resources.kerrLens, false);
         }
         // Minimum is the allocation-free legacy-Lens fallback. Release the
         // finite black-hole target immediately; an adjacent-tier upgrade will
@@ -1286,6 +1566,27 @@ export function MushroomObservatoryRuntime({
         }
       }
       if (
+        resources.gaiaSourceMap
+        && !resources.gaiaSourceMapPrewarmed
+      ) {
+        didWork = true;
+        const sourceMapStartedAt = performance.now();
+        try {
+          prewarmObservatoryGaiaSourceMap(resources.gaiaSourceMap, gl);
+          resources.gaiaSourceMapPrewarmed =
+            resources.gaiaSourceMap.prewarmed === true;
+          if (resources.gaiaSourceMapPrewarmed) {
+            resources.gaiaSourceMapPrewarmMs += performance.now()
+              - sourceMapStartedAt;
+          }
+        } catch (error) {
+          resources.gaiaSourceMapError = error instanceof Error
+            ? error.message
+            : String(error);
+          disposeGaiaSourceMapResources();
+        }
+      }
+      if (
         resources.blackHolePass
         && hasRelativisticLensLuts(resources)
         && !resources.relativisticPrewarmed
@@ -1322,6 +1623,36 @@ export function MushroomObservatoryRuntime({
           if (resources.relativisticPrewarmed) {
             resources.relativisticPrewarmMs += performance.now()
               - relativisticStartedAt;
+          }
+        }
+      }
+      if (
+        resources.blackHolePass
+        && hasKerrLensAtlases(resources)
+        && resources.gaiaSourceMapPrewarmed
+        && resources.relativisticPrewarmed
+        && !resources.kerrPrewarmed
+        && (
+          qualityRef.current?.quality === "high"
+          || qualityRef.current?.quality === "medium"
+        )
+      ) {
+        didWork = true;
+        const kerrStartedAt = performance.now();
+        updateKerrLensRuntime(camera, {
+          reveal: 0,
+          quality: qualityRef.current?.quality ?? "medium"
+        });
+        const restore = prewarmObservatoryKerrLens(
+          resources.kerrLens,
+          qualityRef.current?.quality ?? "medium"
+        );
+        try {
+          resources.kerrPrewarmed = renderBlackHolePass({ prewarm: true });
+        } finally {
+          if (typeof restore === "function") restore();
+          if (resources.kerrPrewarmed) {
+            resources.kerrPrewarmMs += performance.now() - kerrStartedAt;
           }
         }
       }
@@ -1475,6 +1806,50 @@ export function MushroomObservatoryRuntime({
       }
     };
 
+    startKerrLoadRef.current = async () => {
+      if (
+        resources.kerrLoadPending
+        || resources.kerrAtlases
+        || resources.kerrError
+        || resources.kerrDisabled
+        || !resources.kerrSupport.supported
+        || !mounted
+      ) return;
+      resources.kerrLoadStarted = true;
+      resources.kerrLoadPending = true;
+      resources.kerrFetchStartedAt = performance.now();
+      try {
+        const atlases = await loadObservatoryKerrLensAtlases({
+          fetchImpl: fetch,
+          signal: abortController.signal
+        });
+        if (!mounted) {
+          disposeObservatoryKerrLensAtlases(atlases);
+          return;
+        }
+        resources.kerrFetchMs = performance.now()
+          - resources.kerrFetchStartedAt;
+        resources.kerrAtlases = atlases;
+        resources.kerrError = null;
+        resources.kerrPrewarmed = false;
+        if (resources.kerrLens) {
+          setObservatoryKerrLensAtlases(
+            resources.kerrLens,
+            atlases,
+            { ownsAtlases: false }
+          );
+        }
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          resources.kerrError = error instanceof Error
+            ? error.message
+            : String(error);
+        }
+      } finally {
+        resources.kerrLoadPending = false;
+      }
+    };
+
     qualityRef.current = createObservatoryQualityState({
       capabilities: detectRuntimeCapabilities(
         gl,
@@ -1537,6 +1912,8 @@ export function MushroomObservatoryRuntime({
         resources.blackHoleDisabled = false;
         resources.relativisticSupport = getObservatoryRelativisticLensSupport(gl);
         resources.relativisticDisabled = !resources.relativisticSupport.supported;
+        resources.kerrSupport = getObservatoryKerrLensSupport(gl);
+        resources.kerrDisabled = !resources.kerrSupport.supported;
         resources.starVolumeDisabled = false;
         resources.nativeSkyError = null;
         resources.gaiaShaderError = null;
@@ -1544,16 +1921,23 @@ export function MushroomObservatoryRuntime({
         resources.relativisticError = resources.relativisticSupport.supported
           ? null
           : "WebGL2 unavailable";
+        resources.kerrError = resources.kerrSupport.supported
+          ? null
+          : resources.kerrSupport.fallback;
         resources.starVolumeError = null;
         resources.nativeSkyPrewarmed = false;
         resources.gaiaPrewarmed = false;
+        resources.gaiaSourceMapPrewarmed = false;
         resources.blackHolePrewarmed = false;
         resources.blackHoleCompositePrewarmed = false;
         resources.relativisticPrewarmed = false;
+        resources.kerrPrewarmed = false;
         resources.starVolumePrewarmed = false;
         resources.nativePrewarmMs = 0;
+        resources.gaiaSourceMapPrewarmMs = 0;
         resources.blackHolePrewarmMs = 0;
         resources.relativisticPrewarmMs = 0;
+        resources.kerrPrewarmMs = 0;
         resources.starVolumePrewarmMs = 0;
         resources.textureUploadMs = 0;
         resources.portalRenderedThisFrame = false;
@@ -1570,6 +1954,10 @@ export function MushroomObservatoryRuntime({
         resources.blackHoleForceUnsignedByte = false;
         disposePortalResources();
         disposeBlackHolePassResources();
+        for (const texture of Object.values(resources.kerrAtlases ?? {})) {
+          if (texture?.isTexture) texture.needsUpdate = true;
+        }
+        disposeGaiaSourceMapResources();
         if (resources.gaia) {
           disposeGaiaStarPoints(resources.gaia);
           resources.gaia = null;
@@ -1645,12 +2033,18 @@ export function MushroomObservatoryRuntime({
         blackHole: {
           ready: Boolean(
             resources.blackHolePass
-            && (resources.blackHole || resources.relativisticLens)
+            && (
+              resources.blackHole
+              || resources.relativisticLens
+              || resources.kerrLens
+            )
           ),
           visible: resources.blackHolePass?.composite.visible === true,
-          mode: isRelativisticLensPrimary(resources)
-            ? "schwarzschild-lut"
-            : "procedural-fallback",
+          mode: isKerrLensPrimary(resources, quality?.quality)
+            ? "kerr-atlas"
+            : isRelativisticLensPrimary(resources)
+              ? "schwarzschild-lut"
+              : "procedural-fallback",
           type: !blackHoleTarget
             ? "disabled"
             : blackHoleTarget.texture.type === THREE.HalfFloatType
@@ -1668,7 +2062,8 @@ export function MushroomObservatoryRuntime({
           angularRadius: resources.blackHole?.userData?.angularRadius ?? 0,
           reveal: Math.max(
             resources.blackHole?.userData?.reveal ?? 0,
-            resources.relativisticLens?.userData?.reveal ?? 0
+            resources.relativisticLens?.userData?.reveal ?? 0,
+            resources.kerrLens?.userData?.reveal ?? 0
           ),
           addedDrawCalls: resources.blackHoleRenderedThisFrame
             ? countVisibleDrawables(resources.blackHolePass?.scene)
@@ -1682,8 +2077,10 @@ export function MushroomObservatoryRuntime({
               !hasRelativisticLensLuts(resources)
               || resources.relativisticPrewarmed
             ),
+          kerrPrewarmed: resources.kerrPrewarmed,
           prewarmMs: resources.blackHolePrewarmMs
-            + resources.relativisticPrewarmMs,
+            + resources.relativisticPrewarmMs
+            + resources.kerrPrewarmMs,
           error: resources.blackHoleError
         },
         relativisticLens: {
@@ -1697,6 +2094,24 @@ export function MushroomObservatoryRuntime({
           prewarmed: resources.relativisticPrewarmed,
           prewarmMs: resources.relativisticPrewarmMs,
           error: resources.relativisticError
+        },
+        kerrLens: {
+          supported: resources.kerrSupport.supported,
+          fallback: resources.kerrSupport.fallback,
+          loading: resources.kerrLoadPending,
+          ready: isKerrLensPrimary(resources, quality?.quality),
+          atlasReady: isObservatoryKerrLensAtlasReady(resources.kerrAtlases),
+          sourceMapReady: resources.gaiaSourceMapPrewarmed,
+          sourceStarsReady: resources.kerrLens?.userData?.sourceStarsReady
+            ?? false,
+          quality: resources.kerrLens?.userData?.quality ?? null,
+          spin: 0.94,
+          inclinationDegrees: OBSERVATORY_KERR_LENS_INCLINATION_DEGREES,
+          fetchMs: resources.kerrFetchMs,
+          prewarmed: resources.kerrPrewarmed,
+          prewarmMs: resources.kerrPrewarmMs,
+          fallbackReason: resources.kerrLens?.userData?.fallbackReason ?? null,
+          error: resources.kerrError ?? resources.gaiaSourceMapError
         },
         starVolume: {
           ready: Boolean(resources.starVolume),
@@ -1720,6 +2135,16 @@ export function MushroomObservatoryRuntime({
           fetchMs: resources.gaiaFetchMs,
           buildMs: resources.gaiaBuildMs,
           prewarmed: resources.gaiaPrewarmed,
+          sourceMap: {
+            ready: Boolean(resources.gaiaSourceMap?.rendered),
+            prewarmed: resources.gaiaSourceMapPrewarmed,
+            quality: resources.gaiaSourceMap?.quality ?? null,
+            width: resources.gaiaSourceMap?.width ?? 0,
+            height: resources.gaiaSourceMap?.height ?? 0,
+            includesHeroStars: Boolean(resources.gaiaSourceMap?.heroPoints),
+            prewarmMs: resources.gaiaSourceMapPrewarmMs,
+            error: resources.gaiaSourceMapError
+          },
           error: resources.gaiaError ?? resources.gaiaShaderError
         },
         nativeSky: {
@@ -1792,6 +2217,8 @@ export function MushroomObservatoryRuntime({
       renderBlackHolePassRef.current = null;
       requestHighSkyTextureRef.current = null;
       startRelativisticLoadRef.current = null;
+      startKerrLoadRef.current = null;
+      updateKerrLensRef.current = null;
       if (window.__villaObservatoryRuntimeSnapshot === runtimeSnapshot) {
         delete window.__villaObservatoryRuntimeSnapshot;
       }
@@ -1800,6 +2227,7 @@ export function MushroomObservatoryRuntime({
       }
       disposePortalResources();
       disposeHiddenCosmosResources();
+      disposeGaiaSourceMapResources();
       if (resources.gaia) {
         disposeGaiaStarPoints(resources.gaia);
         resources.gaia = null;
@@ -1925,7 +2353,20 @@ export function MushroomObservatoryRuntime({
         * resources.lensAngularScale;
       const horizonRadius = MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS
         * resources.lensAngularScale;
-      nativeLensAmount = isRelativisticLensPrimary(resources)
+      const activeLensQuality = qualityRef.current?.quality ?? "minimum";
+      const kerrPrimary = isKerrLensPrimary(resources, activeLensQuality);
+      const sourceMaskAmount = kerrPrimary
+        ? resources.lensAmount * Math.max(
+            channels.portalReveal,
+            channels.brightStarReveal
+          )
+        : 0;
+      const sourceMaskRadius = Math.atan(
+        OBSERVATORY_KERR_LENS_ALPHA_EXTENT
+          * KERR_MASS_WORLD_SCALE
+          / Math.max(resources.lensDistance, 0.001)
+      );
+      nativeLensAmount = (kerrPrimary || isRelativisticLensPrimary(resources))
         ? 0
         : resources.lensAmount;
       setMushroomSkyLens(sky, {
@@ -1938,7 +2379,9 @@ export function MushroomObservatoryRuntime({
         // supplies the dominant photon shells whenever it is available.
         ringStrength: resources.blackHolePass && !resources.blackHoleDisabled
           ? 0.2
-          : 1.55
+          : 1.55,
+        sourceMaskAmount,
+        sourceMaskRadius
       });
     }
     const riftChannels = resources.riftState.channels;
@@ -1972,6 +2415,12 @@ export function MushroomObservatoryRuntime({
         requestHighSkyTextureRef.current?.();
       }
       startRelativisticLoadRef.current?.();
+      if (
+        qualityRef.current?.quality === "high"
+        || qualityRef.current?.quality === "medium"
+      ) {
+        startKerrLoadRef.current?.();
+      }
       startGaiaLoadRef.current?.();
       if (!resources.hiddenCosmosLoadRequested) {
         resources.hiddenCosmosLoadRequested = true;
@@ -2069,7 +2518,21 @@ export function MushroomObservatoryRuntime({
         einsteinRadius: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
           * resources.lensAngularScale,
         influenceRadius: MUSHROOM_SKY_LENS_DEFAULT_INFLUENCE_RADIUS
-          * resources.lensAngularScale
+          * resources.lensAngularScale,
+        sourceMaskAmount: isKerrLensPrimary(
+          resources,
+          qualityRef.current?.quality ?? "minimum"
+        )
+          ? resources.lensAmount * Math.max(
+              channels.portalReveal,
+              channels.brightStarReveal
+            )
+          : 0,
+        sourceMaskRadius: Math.atan(
+          OBSERVATORY_KERR_LENS_ALPHA_EXTENT
+            * KERR_MASS_WORLD_SCALE
+            / Math.max(resources.lensDistance, 0.001)
+        )
       });
     }
 
@@ -2113,6 +2576,7 @@ export function MushroomObservatoryRuntime({
       : 0;
     const relativisticPrimary = isRelativisticLensPrimary(resources)
       && hiddenQuality !== "minimum";
+    const kerrPrimary = isKerrLensPrimary(resources, hiddenQuality);
     const fallbackBlackHoleVisible = finiteCosmosGate
       && hiddenQuality !== "minimum"
       && !resources.blackHoleDisabled
@@ -2156,14 +2620,34 @@ export function MushroomObservatoryRuntime({
           blackHoleRadius: 1.35,
           discInnerRadius: 3.08,
           discOuterRadius: 7.6,
-          discOpacity: 0.94,
+          // Kerr owns the visible disc in High/Medium. Keep the Schwarzschild
+          // ray warp and shadow hot as the per-pixel underlay, but suppress its
+          // larger analytic disc so it cannot protrude beyond the square Kerr
+          // atlas as two bright fallback wedges. Low still gets the full disc.
+          discOpacity: kerrPrimary ? 0 : 0.94,
           influenceRadius: 0.58 * resources.lensAngularScale,
           hdrOutput: resources.blackHolePass?.renderTarget?.texture?.type
             === THREE.HalfFloatType
         }
       );
     }
-    const blackHoleActive = relativisticActive || fallbackBlackHoleActive;
+    let kerrActive = false;
+    if (resources.kerrLens) {
+      const kerrVisible = finiteCosmosGate && kerrPrimary;
+      setObservatoryKerrLensVisible(resources.kerrLens, kerrVisible);
+      kerrActive = updateKerrLensRef.current?.(camera, {
+        timeSeconds: celestialTime,
+        reveal: kerrVisible ? blackHoleReveal : 0,
+        quality: hiddenQuality,
+        starSourceBrightness: KERR_STAR_SOURCE_BRIGHTNESS * Math.max(
+          channels.brightStarReveal * 0.52,
+          channels.faintStarReveal
+        )
+      }) === true;
+    }
+    const blackHoleActive = kerrActive
+      || relativisticActive
+      || fallbackBlackHoleActive;
 
     if (resources.blackHolePass) {
       const blackHoleTargetKey = [

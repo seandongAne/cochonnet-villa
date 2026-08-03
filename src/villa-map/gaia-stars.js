@@ -53,17 +53,18 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
   uniform vec3 uLensDirection;
   uniform float uLensEinsteinRadius;
   uniform float uLensInfluenceRadius;
+  uniform float uLensSourceMaskAmount;
+  uniform float uLensSourceMaskRadius;
 
   attribute float aMagnitude;
   attribute float aBpRp;
-  attribute float aSize;
   attribute float aIntensity;
   attribute vec3 aStarColor;
 
   varying float vIntensity;
   varying float vMagnitudeVisibility;
   varying float vLensMagnification;
-  varying float vPsfScale;
+  varying float vLensSourceVisibility;
   varying float vSpriteSizePx;
   varying vec3 vStarColor;
 
@@ -124,13 +125,20 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
     // live in the shader interface without perturbing the radiometric value.
     float catalogSignal = aBpRp * 0.0;
     vIntensity = aIntensity + catalogSignal;
-    vPsfScale = aSize;
     vStarColor = aStarColor;
 
     vec3 lensedPosition = position;
     vLensMagnification = 1.0;
+    float sourceAngle = angularDistance(position, uLensDirection);
+    float sourceMaskFeatherStart = uLensSourceMaskRadius * 0.88;
+    float sourceMask = 1.0 - smoothstep(
+      sourceMaskFeatherStart,
+      uLensSourceMaskRadius,
+      sourceAngle
+    );
+    vLensSourceVisibility = 1.0
+      - clamp(uLensSourceMaskAmount, 0.0, 1.0) * sourceMask;
     if (uLensAmount > 0.0) {
-      float sourceAngle = angularDistance(position, uLensDirection);
       float lensInfluence = uLensAmount * (
         1.0 - smoothstep(uLensEinsteinRadius, uLensInfluenceRadius, sourceAngle)
       );
@@ -154,7 +162,7 @@ const GAIA_STAR_FRAGMENT_SHADER = /* glsl */ `
   varying float vIntensity;
   varying float vMagnitudeVisibility;
   varying float vLensMagnification;
-  varying float vPsfScale;
+  varying float vLensSourceVisibility;
   varying float vSpriteSizePx;
   varying vec3 vStarColor;
 
@@ -165,37 +173,37 @@ const GAIA_STAR_FRAGMENT_SHADER = /* glsl */ `
     float pixelRadiusCss = length(pixelPositionCss);
     float prominence = smoothstep(0.45, 3.6, vIntensity);
 
-    // Analytic, energy-balanced point-spread function. Its 0.38-0.46 CSS-px
-    // sigma gives a roughly one-pixel FWHM at every DPR. The normalization
-    // prevents the rare slightly wider bright cores from gaining fake energy.
-    float sigmaCss = mix(0.38, 0.46, clamp(vPsfScale, 0.0, 1.0));
-    float coreNormalization = pow(0.42 / sigmaCss, 2.0);
+    // Gaia sources remain unresolved regardless of magnitude. A fixed
+    // 0.40-CSS-pixel sigma keeps the useful bright centre at roughly one-pixel
+    // FWHM on every DPR without turning bright measurements into larger bulbs.
+    const float STAR_SIGMA_CSS = 0.40;
     float stellarCore = exp(
-      -0.5 * pow(pixelRadiusCss / sigmaCss, 2.0)
-    ) * coreNormalization;
-    float airyWing = exp(
-      -0.5 * pow((pixelRadiusCss - 1.42) / 0.26, 2.0)
-    ) * mix(0.008, 0.028, prominence);
+      -0.5 * pow(pixelRadiusCss / STAR_SIGMA_CSS, 2.0)
+    );
 
-    // Only the exceptionally bright catalogue tail receives a narrow camera
-    // diffraction cross. It is a PSF feature, not a size/opacity pulse.
-    float diffractionGate = smoothstep(2.4, 3.25, vIntensity);
-    float verticalSpike = exp(-0.5 * pow(pixelPositionCss.x / 0.24, 2.0))
-      * exp(-0.5 * pow(pixelPositionCss.y / 2.05, 2.0));
-    float horizontalSpike = exp(-0.5 * pow(pixelPositionCss.y / 0.24, 2.0))
-      * exp(-0.5 * pow(pixelPositionCss.x / 2.05, 2.0));
+    // Only the two brightest measurements in the shipped catalogue reach this
+    // gate. Their sub-pixel, low-energy spikes read as restrained optics rather
+    // than a repeated cross icon or a soft halo.
+    float diffractionGate = smoothstep(3.15, 3.55, vIntensity);
+    float verticalSpike = exp(-0.5 * pow(pixelPositionCss.x / 0.15, 2.0))
+      * exp(-0.5 * pow(pixelPositionCss.y / 1.7, 2.0));
+    float horizontalSpike = exp(-0.5 * pow(pixelPositionCss.y / 0.15, 2.0))
+      * exp(-0.5 * pow(pixelPositionCss.x / 1.7, 2.0));
     float diffractionSpike = (verticalSpike + horizontalSpike)
-      * diffractionGate * 0.075;
+      * diffractionGate * 0.03;
 
     float edge = max(abs(centred.x), abs(centred.y));
     float edgeAA = max(fwidth(edge), 0.001);
     float spriteSupport = 1.0 - smoothstep(0.5 - edgeAA, 0.5, edge);
     float coverage = clamp(
-      (stellarCore + airyWing + diffractionSpike) * spriteSupport,
+      (stellarCore + diffractionSpike) * spriteSupport,
       0.0,
       1.0
     );
-    float alpha = coverage * uReveal * vMagnitudeVisibility;
+    float alpha = coverage
+      * uReveal
+      * vMagnitudeVisibility
+      * vLensSourceVisibility;
     if (alpha < 1.0 / 2048.0) discard;
 
     // AdditiveBlending applies alpha once, so radiometric brightness belongs
@@ -376,7 +384,6 @@ export function gaiaBpRpToColor(bpRp, target = new THREE.Color()) {
 
 function createGaiaStarGeometry(catalog, radius) {
   const positions = new Float32Array(catalog.count * 3);
-  const sizes = new Float32Array(catalog.count);
   const intensities = new Float32Array(catalog.count);
   const colours = new Float32Array(catalog.count * 3);
   const scratchColor = new THREE.Color();
@@ -388,14 +395,12 @@ function createGaiaStarGeometry(catalog, radius) {
     positions[offset + 1] = catalog.positions[offset + 1] * safeRadius;
     positions[offset + 2] = catalog.positions[offset + 2] * safeRadius;
 
-    // Gaia G magnitude is logarithmic: lower values are brighter. aSize now
-    // modulates only the sub-pixel PSF sigma; point-sprite support stays fixed.
+    // Gaia G magnitude is logarithmic: lower values are brighter.
     const prominence = THREE.MathUtils.clamp(
       (10.2 - catalog.magnitudes[index]) / 8.6,
       0,
       1
     );
-    sizes[index] = 0.25 + Math.pow(prominence, 1.6) * 0.75;
     // Put measured-like flux into a continuous long tail instead of encoding
     // brightness as a larger disc. Almost all points stay faint; only the
     // sparse brightest measurements can reach the diffraction-spike gate.
@@ -413,7 +418,6 @@ function createGaiaStarGeometry(catalog, radius) {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("aMagnitude", new THREE.BufferAttribute(catalog.magnitudes, 1));
   geometry.setAttribute("aBpRp", new THREE.BufferAttribute(catalog.bpRp, 1));
-  geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
   geometry.setAttribute("aIntensity", new THREE.BufferAttribute(intensities, 1));
   geometry.setAttribute("aStarColor", new THREE.BufferAttribute(colours, 3));
   geometry.computeBoundingSphere();
@@ -512,7 +516,9 @@ export function createGaiaStarPoints(
         value: copyGaiaLensDirection(new THREE.Vector3())
       },
       uLensEinsteinRadius: { value: GAIA_LENS_DEFAULT_EINSTEIN_RADIUS },
-      uLensInfluenceRadius: { value: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS }
+      uLensInfluenceRadius: { value: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS },
+      uLensSourceMaskAmount: { value: 0 },
+      uLensSourceMaskRadius: { value: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS }
     },
     vertexShader: GAIA_STAR_VERTEX_SHADER,
     fragmentShader: GAIA_STAR_FRAGMENT_SHADER,
@@ -539,7 +545,9 @@ export function createGaiaStarPoints(
     amount: 0,
     direction: material.uniforms.uLensDirection.value.clone(),
     einsteinRadius: GAIA_LENS_DEFAULT_EINSTEIN_RADIUS,
-    influenceRadius: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS
+    influenceRadius: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS,
+    sourceMaskAmount: 0,
+    sourceMaskRadius: GAIA_LENS_DEFAULT_INFLUENCE_RADIUS
   };
   points.userData.disposed = false;
   return points;
@@ -594,6 +602,14 @@ export function setGaiaStarLens(points, lens = {}) {
     0.08,
     0.9
   );
+  const sourceMaskAmount = Number.isFinite(options.sourceMaskAmount)
+    ? THREE.MathUtils.clamp(options.sourceMaskAmount, 0, 1)
+    : amount <= 0
+      ? 0
+      : state.sourceMaskAmount;
+  const sourceMaskRadius = Number.isFinite(options.sourceMaskRadius)
+    ? THREE.MathUtils.clamp(options.sourceMaskRadius, 0.08, 0.9)
+    : state.sourceMaskRadius;
 
   if (options.direction !== undefined) {
     copyGaiaLensDirection(state.direction, options.direction);
@@ -601,11 +617,15 @@ export function setGaiaStarLens(points, lens = {}) {
   state.amount = amount;
   state.einsteinRadius = einsteinRadius;
   state.influenceRadius = influenceRadius;
+  state.sourceMaskAmount = sourceMaskAmount;
+  state.sourceMaskRadius = sourceMaskRadius;
 
   uniforms.uLensAmount.value = amount;
   uniforms.uLensDirection.value.copy(state.direction);
   uniforms.uLensEinsteinRadius.value = einsteinRadius;
   uniforms.uLensInfluenceRadius.value = influenceRadius;
+  uniforms.uLensSourceMaskAmount.value = sourceMaskAmount;
+  uniforms.uLensSourceMaskRadius.value = sourceMaskRadius;
 }
 
 export async function loadGaiaStarCatalog(

@@ -121,7 +121,11 @@ test("the distant Milky Way shell is camera-scale, unlit, and stencil-clipped", 
   assert.match(stars.material.fragmentShader, /float coreNormalization/);
   assert.match(stars.material.fragmentShader, /float airyWing/);
   assert.match(stars.material.fragmentShader, /float diffractionGate = smoothstep\(4\.7, 5\.5/);
-  assert.match(stars.material.fragmentShader, /float alpha = coverage \* uReveal;/);
+  assert.match(
+    stars.material.fragmentShader,
+    /float alpha = coverage \* uReveal \* vLensSourceVisibility;/
+  );
+  assert.match(stars.material.vertexShader, /uLensSourceMaskAmount/);
   assert.match(stars.material.fragmentShader, /vec3 sourceRadiance = stellarColour/);
   assert.doesNotMatch(stars.material.fragmentShader, /float halo/);
   assert.match(
@@ -157,7 +161,9 @@ test("the hidden lens stays fixed on the celestial sphere and has an exact off s
     einsteinRadius: 0.11,
     influenceRadius: 0.52,
     horizonRadius: 0.035,
-    ringStrength: 1.4
+    ringStrength: 1.4,
+    sourceMaskAmount: 0.8,
+    sourceMaskRadius: 0.29
   });
   assert.equal(sky.userData.lens.amount, 1);
   assert.equal(backdrop.material.uniforms.uLensAmount.value, 1);
@@ -166,6 +172,8 @@ test("the hidden lens stays fixed on the celestial sphere and has an exact off s
   assert.equal(stars.material.uniforms.uLensInfluenceRadius.value, 0.52);
   assert.equal(backdrop.material.uniforms.uLensHorizonRadius.value, 0.035);
   assert.equal(backdrop.material.uniforms.uLensRingStrength.value, 1.4);
+  assert.equal(stars.material.uniforms.uLensSourceMaskAmount.value, 0.8);
+  assert.equal(stars.material.uniforms.uLensSourceMaskRadius.value, 0.29);
 
   const backdropParentDirection = backdrop.material.uniforms.uLensDirection.value
     .clone()
@@ -199,6 +207,7 @@ test("the hidden lens stays fixed on the celestial sphere and has an exact off s
   setMushroomSkyLens(sky, 0);
   assert.equal(backdrop.material.uniforms.uLensAmount.value, 0);
   assert.equal(stars.material.uniforms.uLensAmount.value, 0);
+  assert.equal(stars.material.uniforms.uLensSourceMaskAmount.value, 0);
   assert.match(
     backdrop.material.fragmentShader,
     /if \(uLensAmount <= 0\.0\) return apparentDirection/,
