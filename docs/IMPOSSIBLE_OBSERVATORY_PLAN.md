@@ -4,7 +4,7 @@
 日期：2026-08-03
 适用范围：`/villa-map/` 蘑菇房三楼观测室
 
-自动化证据（2026-08-03）：`npm test` **235/235 通过**；`npm run build` **通过**。这证明核心、玩家画质面板、隐藏 R/F 与离线 Kerr 实验的模块契约、数据、降级、资源清理与生产打包均已闭环，但不替代最终的人眼舒适度、wow factor 和目标硬件 GPU 帧时间验收。
+自动化证据（2026-08-03）：`npm test` **257/257 通过**；`npm run build` **通过**。这证明核心、玩家画质面板、隐藏 R/F、离线 Kerr 与程序化空间音频的模块契约、数据、降级、资源清理与生产打包均已闭环，但不替代最终的人眼/耳机舒适度、wow factor 和目标硬件 GPU 帧时间验收。
 
 ## 1. 项目目标
 
@@ -42,7 +42,7 @@
 - 纹理加载失败、React StrictMode 生命周期和 GPU 资源释放已经有 fallback/清理路径。
 - 起点 Node 测试共 95 项，全部通过。
 
-该起点已固化为可回退 checkpoint。当前核心与 Lab v1 增至 235 项 Node 测试，仍全部通过；生产构建通过。固定机位实施前截图保存在 `docs/observatory-baseline/`，二十张实施后/验收截图已保存在 `docs/observatory-final/`；编号 15–20 依次补充离线 Kerr、R-only 远景、玩家画质面板、金色气流 7 秒位移对照与 R 环完全退场证据，最终 wow factor 仍待用户在实际显示器上确认。
+该起点已固化为可回退 checkpoint。当前核心与 Lab v1 增至 257 项 Node 测试，仍全部通过；生产构建通过。固定机位实施前截图保存在 `docs/observatory-baseline/`，二十六张实施后/验收截图已保存在 `docs/observatory-final/`；编号 15–20 依次补充离线 Kerr、R-only 远景、玩家画质面板、金色气流 7 秒位移对照与 R 环完全退场证据，编号 21–26 补充局部 HDR、15 秒 hero tracer、参考图同屏与 t0/t2/t4 旋转序列，最终 wow factor 与空间音色仍待用户在实际显示器/耳机上确认。
 
 ## 4. 核心架构决定
 
@@ -146,8 +146,8 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 - `observatory-diagnostics.js` 固化 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`、`black-hole-edge` 五个相机书签、p50/p95/p99/1% low 统计和显存估算。
 - `?observatory=test` 使用 `frameloop="never"`，可确定性推进 0.5/2/10 秒；`?observatory=perf` 保留真实帧循环，并同时挂载正常 `PlayerControls`，可以实际走完验收路线。
-- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；二十张实施后/验收截图已保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层、隐藏 Rift+Lens、R-only 远景星场、玩家画质面板、R 环退场，以及 3D 黑洞的预检/中心/边缘视差、黑金/真实星点调校、Schwarzschild 8K、离线 Kerr 光线弯曲与七秒气流对照画面。
-- 4K WebP 仍为原始 4096×1024；235/235 自动测试与生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
+- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；二十六张实施后/验收截图已保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层、隐藏 Rift+Lens、R-only 远景星场、玩家画质面板、R 环退场，以及 3D 黑洞的预检/中心/边缘视差、黑金/真实星点调校、Schwarzschild 8K、离线 Kerr 光线弯曲、七秒气流与最终局部 HDR/旋转对照画面。
+- 4K WebP 仍为原始 4096×1024；257/257 自动测试与生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
 
 工作内容：
 
@@ -337,7 +337,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 - Gaia fetch 与 Portal/FBO allocation 都推迟到玩家到达 L2 观测室接近区；4K texture 解码后用 `requestIdleCallback`（或 timeout fallback）预上传。native sky/Gaia/composite 先在 default framebuffer 语义下调用 `gl.compile`，确保 Three 缓存真实主画布颜色空间的 Shader variant，再通过 1×1 render target 上传 geometry/uniform state。页面不可见时不以异常 delta 污染质量判断。
 - query-only QA 可强制机位、灯态、时间、质量和 motion；`observatory=perf` 同时挂载正常 `PlayerControls`，可走固定 20 秒路线；普通访问忽略 `quality`/`motion` override，并始终开灯进入。
 - runtime diagnostics provider 报告当前质量、p95、暗适应通道、FBO 类型/尺寸/帧数、Gaia LOD/数量、4K 纹理状态、shader/fallback 错误和 context loss/restore 计数。
-- 分类 shader fallback、context loss/restore、resize、连续切灯、玩家画质持久化与资源稳定性已在浏览器通过；235/235 tests 与 production build 已通过。剩余是人工画面判断、20 秒路线视频及目标设备三轮 GPU p95 证据。
+- 分类 shader fallback、context loss/restore、resize、连续切灯、玩家画质持久化与资源稳定性已在浏览器通过；257/257 tests 与 production build 已通过。剩余是人工画面/耳机判断、20 秒路线视频及目标设备三轮 GPU p95 证据。
 
 工作内容：
 
@@ -414,11 +414,21 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - F 继续沿用同一隐藏入口和 reveal 时钟。8K 摄影星空、Gaia 与 hero stars 会先合成为各自的 source-space 天球，再由同一个 Kerr 出射方向取样，避免背景已经弯曲、锐星却仍悬浮在屏幕空间的破绽。
 - Gaia 保留清晰高亮的中心核，移除宽软光晕与灯泡式尺寸变化；只有极少数最亮星允许很窄、很弱的衍射尖峰，Kerr 临界曲线附近仍以源纹理 footprint 过滤控制摩尔纹。
 - 事件视界、盘面法线与固定 `i=60°` Kerr 坐标系保持静止；只推进气体辐射结构。程序化、Schwarzschild 与 Kerr 三条路径统一使用内/中/外约 10/15/25 秒**载波参考周期**，保持原来的 2:3:5 差速比例，并叠加长弧金色气流、细丝和稀疏热点。程序化/Kerr 的新增结构按未加权环向积分保持单位均值；Schwarzschild 与原 FBM 密度相乘后会有约几个百分点内的轻微波动。目标是把平均亮度变化限制在视觉不可突兀的范围，而非声称 tone mapping 后逐帧严格守恒；reduced-motion 继续冻结共享时间。
+- 为解决“周期已加速但肉眼仍像静止”的可读性问题，最终 Kerr 路径增加一个与 15 秒相位一致的 coherent hero tracer：单一 Gaussian 径向带承载长条琥珀/金色 carrier，窄前缘热点进入近白热 HDR；secondary image 仅保留 4% 权重。它不制造闭合线圈，不用多条 spaghetti 弧线，也不依赖整圈同步变亮。
+- High/Medium 的黑洞局部合成使用真实世界黑洞锚点和角半径生成连续暖色 aureole，并以近中性白、局部亮度脊和暖盘邻域共同约束白热峰；静态灰白 crescent 被压低。Low 继续使用旧单采样路径。该手法不是全屏 Bloom，事件视界与黑洞外摄影星空/Gaia 细节保持不变。
 - High/Medium 使用 Kerr 传递图；Low 使用已验证的 Schwarzschild LUT；Minimum 保留程序化/解析 point-mass 路径。Schwarzschild 始终提前加载并预热为热备份，Kerr atlas 边缘、未收敛或无效 texel 可逐像素露出 Schwarzschild underlay，而不是整帧闪黑或等待临时编译。
 - Kerr atlas、Gaia/hero source map 和 shader 只在接近 L2/L3 时懒加载，并沿用 default-framebuffer 编译、1×1 上传预热、context restore 重传、离开/开灯零持续 draw 与幂等 disposal 契约；Kerr 失败只关闭该层，不影响 Schwarzschild、原生星空或房间照明。
 - `scripts/` 中保存可重复生成脚本，`public/data/` 中保存二进制 atlas、参数/坐标约定、SHA-256、来源与许可元数据；自动测试覆盖头部/尺寸、有限值、单位出射方向、非空捕获区、Kerr 阴影偏心/非对称、盘交点、未收敛比例、文件哈希与分档/fallback 接线。
 
-6D 已完成浏览器固定机位与分档验收：High 为 80k Gaia、4096×1024 Gaia/hero source map 和 1920×993 HalfFloat Kerr pass；Medium 为 35k、2048×512 和 1280×662，仍使用 `kerr-atlas`；Low 不分配 Kerr/source map，自动使用 8k Gaia 与 `schwarzschild-lut`。浏览器 context loss/restore 后 Kerr atlas、source map 与 shader 均成功重传和预热，截图为 `docs/observatory-final/15-kerr-transfer-atlas-acceptance.png`。`18-kerr-gold-flow-start.jpg` / `19-kerr-gold-flow-7s.jpg` 记录原 40/60/100 秒版：7 秒内金色热流位置清晰改变，黑洞局部 285×250 像素采样的平均亮度只变化约 -1.77%，同时平均绝对亮度差约 2.03/255。2026-08-03 的可读性复验将共享载波统一加速为 10/15/25 秒；High/Kerr 的 `black-hole-edge` 固定机位以两次 2 秒步进确认气流结构发生明显位移，诊断帧从 600→720→840，期间 `kerr-atlas`、`reveal=1` 与零控制台错误保持稳定，仍符合“增强流动对比但不把整圈点亮”的目标。目标 Iris Xe/M1、UHD 620 级设备的固定 20 秒路线与三轮 GPU p95 仍待人工补齐，因此性能验收仍不以桌面浏览器观察值代替。
+6D 已完成浏览器固定机位与分档验收：High 为 80k Gaia、4096×1024 Gaia/hero source map 和 1920×993 HalfFloat Kerr pass；Medium 为 35k、2048×512 和 1280×662，仍使用 `kerr-atlas`；Low 不分配 Kerr/source map，自动使用 8k Gaia 与 `schwarzschild-lut`。浏览器 context loss/restore 后 Kerr atlas、source map 与 shader 均成功重传和预热，截图为 `docs/observatory-final/15-kerr-transfer-atlas-acceptance.png`。`18-kerr-gold-flow-start.jpg` / `19-kerr-gold-flow-7s.jpg` 记录原 40/60/100 秒版：7 秒内金色热流位置清晰改变，黑洞局部 285×250 像素采样的平均亮度只变化约 -1.77%，同时平均绝对亮度差约 2.03/255。2026-08-03 的可读性复验将共享载波统一加速为 10/15/25 秒，并加入 15 秒 coherent hero tracer；High/Kerr 的 `black-hole-edge` 固定机位以 t0/t2/t4 序列确认白热 knot 从右下沿盘面移动至右上、再到上方偏左。局部采样 t0/t2 峰值约为 0.937/0.957，而同一 ROI 的平均亮度约为 0.184/0.183/0.181，说明感知亮度来自小面积 HDR 对比，不是把整圈或星空整体抬亮；由于热点刻意保持狭窄，不把早期针对大 ROI 的严格 MAD 门槛冒充为已通过。期间 `kerr-atlas`、`reveal=1` 与零控制台错误保持稳定，仍符合“增强流动对比但不把整圈点亮”的目标。最终证据为 `21-kerr-hdr-f-off.png` 至 `26-kerr-hdr-rotation-sequence.png`。目标 Iris Xe/M1、UHD 620 级设备的固定 20 秒路线与三轮 GPU p95 仍待人工补齐，因此性能验收仍不以桌面浏览器观察值代替。
+
+#### 6E：程序化空间音效与事件时序联动（已实现，待耳机人工听感验收）
+
+- 不引入外部音频文件、CDN 或新依赖；浏览器首次收到可信鼠标/键盘手势后才懒创建原生 Web Audio 图。程序化噪声、振荡器、滤波、HRTF Panner、短混响与压限器共同生成低调的房间、穹顶、Rift 与黑洞声层。
+- 音频没有独立动画时钟。`MushroomObservatoryRuntime` 仍先计算真实 `adaptationRef`、Rift channels、`lensAmount` 与 `blackHoleReveal`，再把同一帧结果交给音频桥；关灯 0.9 秒、星空 0.38 秒后出现、R 的 3.6 秒展开/1 秒尾音、F 的有限距离黑洞与 10/15/25 秒差速流动都直接跟随画面。
+- 墙上开关、穹顶 Rift 和黑洞分别使用真实世界坐标。Listener 每帧跟随玩家相机的位置、前向和上方向；转身或横移会改变 HRTF 方位，而不是把声音固定在耳机左右声道。reduced-motion 保留淡入淡出，但冻结绕行声源。
+- `M` 是玩家可见的即时静音控制。页面隐藏、离开 L3、WebGL context loss、stencil/星空 fail-close 或组件卸载都会快速拉低总线并安全停止/释放；AudioContext、HRTF 或混响不受支持时逐级降级，视觉体验不受影响。
+- 自动化只验证时序映射、空间坐标、节点生命周期、无重复 AudioContext 与诊断状态。最终左右/前后定位、低频平衡、循环感、爆音和 wow factor 必须使用耳机在 `observatory=perf` 的真实时间循环中人工验收；确定性 `observatory=test` 只适合检查目标增益，不用于判断实际听觉节奏。
 
 以下 Lab 方向尚未实施：
 
@@ -476,6 +486,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - R 环退场已在 `observatory=test` 的确定性 60fps 路径复验：展开中 `ringIntensity=0.922`，5.05 秒后 `ringFadeProgress=1` 且 `ringIntensity=0`，主 Rift、照片星空和墙体遮罩仍保持正确。
 - 黑金/真实星点调校在同一 Medium 路径下完成浏览器复验；连续两帧截图 hash 不同，证明吸积盘与星点动态仍在运行，开灯后黑洞、有限星群、Gaia、Portal 与 native sky 的持续 draw 均回到 0。
 - Kerr 金色气流在 High/80k Gaia/8K 背景/1920×993 HalfFloat 路径完成 7 秒真实帧循环对照；气流与热点位置可读，黑洞局部平均亮度漂移约 -1.77%，没有回到均匀发光圆环。
+- 最终 HDR 可读性复验在同一 High/Kerr/HalfFloat 路径完成：连续暖色 aureole 不产生多重采样环，窄白热热点在 t0/t2/t4 明显换位，外部摄影星空与 Gaia 仍可辨；对照与序列分别见 `25-kerr-hdr-reference-comparison.png`、`26-kerr-hdr-rotation-sequence.png`。
 - Schwarzschild 8K 路径已在真实 WebGL2 浏览器中确认：High 激活 8192×2048 星空、80k Gaia、1920×993 HalfFloat 黑洞 FBO，LUT 完成加载/预热且 diagnostics 报告 `mode: schwarzschild-lut`；浏览器无 shader/framebuffer 错误。目标设备 GPU p95 仍按下段单独验收。
 
 仍需人工提供的性能验收证据是：固定 20 秒路线视频，以及在目标 Iris Xe/M1 和 UHD 620 级设备上各预热 5 秒、连续三轮记录 GPU/CPU p95。它们不属于代码缺口。
@@ -500,7 +511,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 | 连续切灯 20 次 | 状态、显存、纹理和材质数量不持续增长 |
 | reduced-motion | 漂移/闪烁冻结，切灯和可读性仍完整 |
 
-实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面，`09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png` 记录有限距离黑洞的预检、中心与边缘视差，`12-black-hole-3d-acceptance-clean.png` 是首版无面板画面，`13-black-gold-real-stars-acceptance.png` 是黑金高温盘与解析真实星点调校，`14-schwarzschild-8k-acceptance.png` 是 8K 摄影星空与预计算 Schwarzschild 光线弯曲画面，`15-kerr-transfer-atlas-acceptance.png` 是离线 Kerr 传递图验收，`16-rift-far-starfield-acceptance.png` 是 R-only 远景星场的阁楼房间机位验收，`17-quality-panel.jpg` 是玩家 Auto 画质面板，`18-kerr-gold-flow-start.jpg` / `19-kerr-gold-flow-7s.jpg` 是金色热流七秒位移对照，`20-rift-rings-settled.jpg` 是 R 环完成退场后的稳定星空。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash、full-motion 动态、Q 手动画质、R/F 复位与三机位远景距离；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
+实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面，`09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png` 记录有限距离黑洞的预检、中心与边缘视差，`12-black-hole-3d-acceptance-clean.png` 是首版无面板画面，`13-black-gold-real-stars-acceptance.png` 是黑金高温盘与解析真实星点调校，`14-schwarzschild-8k-acceptance.png` 是 8K 摄影星空与预计算 Schwarzschild 光线弯曲画面，`15-kerr-transfer-atlas-acceptance.png` 是离线 Kerr 传递图验收，`16-rift-far-starfield-acceptance.png` 是 R-only 远景星场的阁楼房间机位验收，`17-quality-panel.jpg` 是玩家 Auto 画质面板，`18-kerr-gold-flow-start.jpg` / `19-kerr-gold-flow-7s.jpg` 是金色热流七秒位移对照，`20-rift-rings-settled.jpg` 是 R 环完成退场后的稳定星空，`21-kerr-hdr-f-off.png` 是 HDR 路径关闭基线，`22-kerr-hdr-t0.png` / `23-kerr-hdr-t2.png` / `24-kerr-hdr-t4.png` 是最终 15 秒 tracer 的三帧位移，`25-kerr-hdr-reference-comparison.png` 是用户参考与实现的同屏对照，`26-kerr-hdr-rotation-sequence.png` 是聚焦旋转序列。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash、full-motion 动态、Q 手动画质、R/F 复位与三机位远景距离；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
 
 ## 9. 主要风险与缓解
 
@@ -527,7 +538,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - 开灯时三楼恢复正常暖色，外部星空完全不可见；关灯时黑暗但保留安全轮廓。
 - 三楼之外没有可测量的持续性能退化。
 - 标准档与低端档达到各自预算，所有降级路径都保持剧情和遮罩正确。
-- 235/235 Node 测试、production build、浏览器 context/fallback/resize/资源、玩家 Q 画质与隐藏 R/F 检查均已通过，二十张实施后/验收截图已收集；目标设备性能与最终 wow factor 仍待人工验收。
+- 257/257 Node 测试、production build、浏览器 context/fallback/resize/资源、玩家 Q 画质、隐藏 R/F 与空间音频检查均已通过，二十六张实施后/验收截图已收集；目标设备性能与最终画面/耳机 wow factor 仍待人工验收。
 - 最终效果经过用户人工验收。
 
 ## 11. 下一步

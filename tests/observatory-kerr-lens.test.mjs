@@ -199,11 +199,167 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /float longStream = sin\(flowPhase \* 2\.0/);
   assert.match(shader, /float hotspotShape = pow/);
   assert.match(shader, /hotspotShape - FLOW_HOTSPOT_MEAN/);
-  assert.match(shader, /\* flowStructure \* 1\.35/);
+  assert.match(shader, /const float FLOW_ROTATION_ARC_MEAN = 0\.2734375/);
+  assert.match(shader, /const float FLOW_LEADING_HOTSPOT_MEAN = 0\.17619705200195312/);
+  assert.match(shader, /float tracerPhase = azimuth/);
+  assert.match(shader, /2\.0 \* PI \/ FLOW_MIDDLE_PERIOD/);
+  assert.match(shader, /float rotationArc = pow/);
+  assert.match(shader, /float leadingHotspot = pow/);
+  assert.match(shader, /\(rotationArc - FLOW_ROTATION_ARC_MEAN\) \* 1\.10/);
+  assert.match(shader, /\(leadingHotspot - FLOW_LEADING_HOTSPOT_MEAN\) \* 1\.50/);
+  assert.match(shader, /float innerHeat = exp\(-pow/);
+  assert.match(shader, /float ribbonRadialWindow = exp\(-pow/);
+  assert.match(shader, /\(radius - \(KERR_ISCO \+ 1\.55\)\) \/ 0\.72/);
+  assert.match(shader, /float tracerImageWeight = mix/);
+  assert.match(shader, /0\.04,[\s\S]*?step\(0\.5, imageWeight\)/);
+  assert.match(shader, /float platinumRibbon = ribbonRadialWindow/);
+  assert.match(shader, /vec3 hotCore = vec3\(11\.0, 4\.2, 0\.55\)/);
+  assert.match(shader, /0\.02 \+ tracerImageWeight/);
+  assert.match(shader, /rotationArc \* 0\.035 \+ leadingHotspot \* 0\.16/);
+  assert.match(shader, /platinumRibbon \* \(0\.04 \+ leadingHotspot \* 0\.08\)/);
+  assert.match(shader, /vec3 whiteGold = vec3\(18\.0, 11\.0, 4\.5\)/);
+  assert.match(shader, /clamp\(movingWhiteHeat, 0\.0, 0\.48\)/);
+  assert.match(shader, /float carrierRelativisticBoost = pow/);
+  assert.match(shader, /clamp\(redshift, 0\.50, 2\.20\)/);
+  assert.match(shader, /vec3 platinumRibbonColour = mix/);
+  assert.match(shader, /radiance \+= platinumRibbonColour/);
+  assert.match(shader, /float hotShoulder = uHdrOutput > 0\.5 \? 0\.05 : 0\.28/);
+  assert.match(shader, /float shoulderStrength = mix/);
+  assert.match(shader, /\* flowStructure \* 0\.88/);
+  assert.match(shader, /float displayTracer = ribbonCarrier \* mix/);
+  assert.match(shader, /vec3 goldTracerColour = mix/);
+  assert.match(shader, /vec3\(2\.8, 0\.62, 0\.025\)/);
+  assert.match(shader, /vec3\(12\.0, 9\.0, 4\.8\)/);
+  assert.match(shader, /radiance \+= goldTracerColour \* displayTracer/);
+  assert.ok(
+    shader.indexOf("radiance += goldTracerColour * displayTracer")
+      > shader.indexOf("radiance /= 1.0 + discLuminance * shoulderStrength"),
+    "gold motion tracer must survive the HDR shoulder"
+  );
   assert.doesNotMatch(shader, /quietStructure|emissionTime \* 0\.045/);
+  assert.doesNotMatch(shader, /UnrealBloomPass|EffectComposer|uBloom/);
   assert.match(shader, /Captured rays intentionally contribute opaque black/);
   assert.match(shader, /0\.72 - edgeAa,[\s\S]*?edgeDistance/);
   assert.doesNotMatch(shader, /texture\(uKerrSkyAtlas/);
+});
+
+test("single-sided Kerr carriers make rotation readable in 2-4 seconds without raising mean flux", () => {
+  const isco = OBSERVATORY_KERR_LENS_ISCO_RADIUS;
+  const outer = 7.6;
+  const hotspotMean = 0.196380615234375;
+  const rotationArcMean = 0.2734375;
+  const leadingHotspotMean = 0.17619705200195312;
+  const smoothstep = (edge0, edge1, value) => {
+    const amount = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+    return amount * amount * (3 - 2 * amount);
+  };
+  const orbitalPeriodAt = (radius) => {
+    const normalizedRadius = Math.max(
+      0,
+      Math.min(1, (radius - isco) / (outer - isco))
+    );
+    let period = OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner
+      + (OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle
+        - OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner)
+        * smoothstep(0, 0.5, normalizedRadius);
+    period += (OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer - period)
+      * smoothstep(0.5, 1, normalizedRadius);
+    return period;
+  };
+  const flowStructureAt = (azimuth, radius, timeSeconds) => {
+    const flowPhase = azimuth
+      - timeSeconds * (2 * Math.PI / orbitalPeriodAt(radius));
+    const longStream = Math.sin(flowPhase * 2 - radius * 1.42);
+    const filamentStream = Math.sin(
+      flowPhase * 5 - radius * 2.85 + Math.sin(radius * 1.7) * 0.62
+    );
+    const hotspotShape = Math.pow(
+      0.5 + 0.5 * Math.sin(
+        flowPhase * 3 - radius * 1.16 + Math.sin(radius * 2.1) * 0.48
+      ),
+      8
+    );
+    const tracerPhase = azimuth
+      - timeSeconds * (2 * Math.PI / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle);
+    const rotationArc = Math.pow(
+      0.5 + 0.5 * Math.cos(tracerPhase - radius * 0.18),
+      4
+    );
+    const leadingHotspot = Math.pow(
+      0.5 + 0.5 * Math.cos(tracerPhase - radius * 0.18 - 0.52),
+      10
+    );
+    const ribbonRadialWindow = Math.exp(-Math.pow(
+      (radius - (isco + 1.55)) / 0.72,
+      2
+    ));
+    return 1
+      + longStream * 0.10
+      + filamentStream * 0.04
+      + (hotspotShape - hotspotMean) * 0.20
+      + ribbonRadialWindow * (
+        (rotationArc - rotationArcMean) * 1.10
+        + (leadingHotspot - leadingHotspotMean) * 1.50
+      );
+  };
+  const sampleCount = 8_192;
+  const middleRadius = isco + 1.55;
+  const profileAt = (timeSeconds) => Array.from(
+    { length: sampleCount },
+    (_, index) => flowStructureAt(
+      index / sampleCount * Math.PI * 2,
+      middleRadius,
+      timeSeconds
+    )
+  );
+  const base = profileAt(0);
+  const afterTwoSeconds = profileAt(2);
+  const afterFourSeconds = profileAt(4);
+  const mean = base.reduce((sum, value) => sum + value, 0) / base.length;
+  const minimum = Math.min(...base);
+  const maximum = Math.max(...base);
+  assert.ok(Math.abs(mean - 1) < 1e-12, `mean flux drifted to ${mean}`);
+  assert.ok(maximum / minimum > 8, "the moving arc needs strong spatial contrast");
+
+  const peakDegrees = (profile) => (
+    profile.indexOf(Math.max(...profile)) / sampleCount * 360
+  );
+  const circularAdvance = (from, to) => ((to - from + 540) % 360) - 180;
+  const twoSecondAdvance = circularAdvance(
+    peakDegrees(base),
+    peakDegrees(afterTwoSeconds)
+  );
+  const fourSecondAdvance = circularAdvance(
+    peakDegrees(base),
+    peakDegrees(afterFourSeconds)
+  );
+  assert.ok(
+    Math.abs(twoSecondAdvance - 48) < 1.2,
+    `15-second carrier should move 48 degrees in 2 seconds, got ${twoSecondAdvance}`
+  );
+  assert.ok(
+    Math.abs(fourSecondAdvance - 96) < 1.2,
+    `15-second carrier should move 96 degrees in 4 seconds, got ${fourSecondAdvance}`
+  );
+
+  const innerAdvance = 2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner;
+  const outerAdvance = 2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer;
+  assert.equal(innerAdvance, 72);
+  assert.equal(outerAdvance, 28.8);
+  assert.ok(innerAdvance > twoSecondAdvance && twoSecondAdvance > outerAdvance);
+
+  // The narrow tracer remains visible on the receding side without changing
+  // the broad physical g^3 Doppler term. This prevents a tracked feature from
+  // disappearing halfway through its orbit.
+  const recedingRedshift = 0.28;
+  const physicalBoost = Math.pow(recedingRedshift, 3);
+  const carrierBoost = Math.pow(Math.max(0.5, recedingRedshift), 1.4);
+  assert.ok(carrierBoost / physicalBoost > 17);
+  assert.equal(1 / 0.05, 20, "HalfFloat tracer should retain intrinsic HDR headroom");
+  assert.ok(
+    0.04 * 0.26 < 0.011,
+    "secondary image tracer should remain only a faint lensed echo"
+  );
 });
 
 test("factory and update expose runtime state, frames and strict tier activation", async () => {

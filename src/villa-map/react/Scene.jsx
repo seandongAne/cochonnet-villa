@@ -35,6 +35,7 @@ import { createShadowBlobs } from "../shadows.js";
 import { createMushroomSky } from "../mushroom-sky.js";
 import { createObservatoryRiftVisual } from "../observatory-rift-visual.js";
 import { createObservatoryAdaptationState } from "../observatory-adaptation.js";
+import { MushroomObservatoryAudio } from "./MushroomObservatoryAudio.jsx";
 import { MushroomObservatoryRuntime } from "./MushroomObservatoryRuntime.jsx";
 
 // Soft warm interior point lights, one cluster per villa room. Mirrors the
@@ -389,6 +390,7 @@ export function Scene({
   observatoryLightsOn = true,
   observatoryRiftOpen = false,
   observatoryLensActive = false,
+  observatoryAudioMuted = false,
   onObservatoryHiddenEffectsReset,
   observatoryQualityPreference = "auto",
   onObservatoryQualityStatusChange
@@ -399,6 +401,10 @@ export function Scene({
       inLoft: false
     })
   );
+  // Runtime remains the only timing owner. It writes the visual values that
+  // were actually rendered into this transient ref; the Web Audio bridge reads
+  // them later in the same frame, so sound can never outrun R/F or the switch.
+  const observatoryAudioFrameRef = useRef({ audio: null });
   // Build every procedural mesh exactly once. The assets.js / porky-models.js
   // factories are reused verbatim from the vanilla-Three implementation; R3F
   // mounts the resulting Object3D instances through <primitive>.
@@ -526,9 +532,14 @@ export function Scene({
         riftVisual={built.observatoryRift}
         riftOpen={observatoryRiftOpen}
         lensActive={observatoryLensActive}
+        audioFrameRef={observatoryAudioFrameRef}
         onHiddenEffectsReset={onObservatoryHiddenEffectsReset}
         qualityPreference={observatoryQualityPreference}
         onQualityStatusChange={onObservatoryQualityStatusChange}
+      />
+      <MushroomObservatoryAudio
+        audioFrameRef={observatoryAudioFrameRef}
+        muted={observatoryAudioMuted}
       />
 
       {/* ---- Terrain ---- */}

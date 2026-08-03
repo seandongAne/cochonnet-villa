@@ -42,6 +42,9 @@ test("the HUD explains both switch states", () => {
   assert.match(source, /墙面和摆设隐入黑暗，只剩微弱的红色引导灯和整片星空/);
   assert.match(source, /observatoryLightsOn \? "按 E 关灯看星空" : "按 E 重新开灯"/);
   assert.match(source, /displayedInteraction\.action\.label/);
+  assert.match(source, /event\.code !== "KeyM"/);
+  assert.match(source, /setObservatoryAudioMuted\(\(current\) => !current\)/);
+  assert.match(source, /observatoryAudioMuted \? "开启音效" : "静音"/);
 });
 
 test("lighting falls before a smooth sky reveal and keeps faint red guides", () => {

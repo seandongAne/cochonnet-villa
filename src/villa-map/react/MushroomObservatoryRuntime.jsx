@@ -116,6 +116,7 @@ import {
 import {
   MUSHROOM_OBSERVATORY_DOME_RIM_NAME,
   MUSHROOM_OBSERVATORY_OUTER_WALL_NAME,
+  MUSHROOM_OBSERVATORY_SWITCH_NAME,
   MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME,
   MUSHROOM_OBSERVATORY_WALL_NAME,
   MUSHROOM_STAR_DOME_NAME,
@@ -484,6 +485,7 @@ export function MushroomObservatoryRuntime({
   riftVisual,
   riftOpen = false,
   lensActive = false,
+  audioFrameRef,
   onHiddenEffectsReset,
   qualityPreference = "auto",
   onQualityStatusChange
@@ -534,6 +536,29 @@ export function MushroomObservatoryRuntime({
           ? true
           : motionQuery?.matches === true
     );
+    // Resolve the physical switch once from the mounted pocket-space object.
+    // The other two sources reuse the same finite world anchors as the visual
+    // Rift and black hole, so HRTF direction changes honestly as the player
+    // walks or turns instead of following the camera like a stereo overlay.
+    const switchWorldPosition = new THREE.Vector3();
+    interior.updateWorldMatrix(true, true);
+    const switchObject = interior.getObjectByName(
+      MUSHROOM_OBSERVATORY_SWITCH_NAME
+    );
+    if (switchObject) {
+      switchObject.getWorldPosition(switchWorldPosition);
+    } else {
+      switchWorldPosition.copy(PORTAL_ORIGIN);
+    }
+    const audioSourcePositions = Object.freeze({
+      switch: Object.freeze(switchWorldPosition.toArray()),
+      rift: Object.freeze([
+        PORTAL_ORIGIN.x,
+        PORTAL_ORIGIN.y + 6,
+        PORTAL_ORIGIN.z
+      ]),
+      lens: Object.freeze(LENS_WORLD_POSITION.toArray())
+    });
     const stencilSupported = detectStencilBuffer(gl);
     const relativisticSupport = getObservatoryRelativisticLensSupport(gl);
     const kerrSupport = getObservatoryKerrLensSupport(gl);
@@ -649,8 +674,16 @@ export function MushroomObservatoryRuntime({
       portalLensVisible: false,
       requestedRift: false,
       requestedLens: false,
-      hiddenResetRequested: false
+      hiddenResetRequested: false,
+      audioSourcePositions
     };
+    if (audioFrameRef?.current) {
+      audioFrameRef.current.sourcePositions = audioSourcePositions;
+      // Fail closed until the ordered frame director has published the first
+      // complete adaptation/Rift/Lens snapshot.
+      audioFrameRef.current.runtimeAvailable = false;
+      audioFrameRef.current.visualAvailable = false;
+    }
     resources.reportQualityStatus = () => {
       const qualityState = qualityRef.current;
       onQualityStatusChangeRef.current?.({
@@ -2211,6 +2244,12 @@ export function MushroomObservatoryRuntime({
           blackHoleVisible: resources.blackHolePass?.composite.visible === true,
           starVolumeVisible: resources.starVolume?.visible === true
         },
+        audio: audioFrameRef?.current?.audio ?? {
+          supported: false,
+          unlocked: false,
+          contextState: "uninitialized",
+          active: false
+        },
         backdrop4k: {
           ready: resources.textureReady,
           error: resources.textureError,
@@ -2292,6 +2331,12 @@ export function MushroomObservatoryRuntime({
       }
       loadedTexture?.dispose();
       loadedHighTexture?.dispose();
+      if (audioFrameRef?.current) {
+        audioFrameRef.current.inLoft = false;
+        audioFrameRef.current.nearObservatory = false;
+        audioFrameRef.current.visualAvailable = false;
+        audioFrameRef.current.runtimeAvailable = false;
+      }
       resourcesRef.current = null;
       queueMicrotask(() => {
         if (sky.userData.lifecycleToken === lifecycleToken) {
@@ -2305,7 +2350,17 @@ export function MushroomObservatoryRuntime({
     // `lightsOn` is intentionally consumed by the frame director, not this
     // resource-lifecycle effect. Toggling the physical switch must never tear
     // down and rebuild the FBO, 4K texture or Gaia buffers.
-  }, [adaptationRef, camera, getState, gl, interior, riftVisual, scene, sky]);
+  }, [
+    adaptationRef,
+    audioFrameRef,
+    camera,
+    getState,
+    gl,
+    interior,
+    riftVisual,
+    scene,
+    sky
+  ]);
 
   // Player-facing quality changes update the live allocation/LOD policy in
   // place. They must never tear down the long-lived texture/FBO lifecycle
@@ -2347,6 +2402,14 @@ export function MushroomObservatoryRuntime({
   useFrame((_, delta) => {
     const resources = resourcesRef.current;
     if (!resources) return;
+    // Publish a fail-closed baseline before any branch can return early. This
+    // is especially important during stencil/shader/context failures: the
+    // later audio bridge must never keep playing last frame's valid cosmos.
+    const audioFrame = audioFrameRef?.current;
+    if (audioFrame) {
+      audioFrame.runtimeAvailable = false;
+      audioFrame.visualAvailable = false;
+    }
     resources.portalRenderedThisFrame = false;
     resources.blackHoleRenderedThisFrame = false;
     const frameDelta = Math.min(Math.max(delta || 0, 0), 0.1);
@@ -2360,6 +2423,10 @@ export function MushroomObservatoryRuntime({
     const adaptation = adaptationRef.current;
     const channels = adaptation.channels;
     const nearObservatory = isNearObservatoryPrewarmPosition(camera.position);
+    if (audioFrame) {
+      audioFrame.inLoft = inLoft;
+      audioFrame.nearObservatory = nearObservatory;
+    }
     const baseImageComparison = resources.comparisonMode === "base";
     resources.requestedRift = Boolean(riftOpen);
     resources.requestedLens = Boolean(lensActive);
@@ -2764,6 +2831,32 @@ export function MushroomObservatoryRuntime({
         resources.blackHolePass.composite,
         { visible: blackHoleRendered }
       );
+    }
+
+    // Publish the values that actually reached the renderer. The audio bridge
+    // runs at priority -0.5 after this -1 director, so it consumes the exact
+    // same light adaptation, Rift transition and lens reveal without owning a
+    // second timer or trusting the earlier React request booleans.
+    if (audioFrame) {
+      audioFrame.deltaSeconds = frameDelta;
+      audioFrame.celestialTime = celestialTime;
+      audioFrame.inLoft = inLoft;
+      audioFrame.nearObservatory = nearObservatory;
+      audioFrame.runtimeAvailable = !resources.contextLost
+        && resources.stencilSupported;
+      audioFrame.visualAvailable = hiddenEffectsRenderable
+        && skyIsActive
+        && !baseImageComparison;
+      audioFrame.adaptationMode = adaptation.mode;
+      audioFrame.adaptationChannels = channels;
+      audioFrame.riftState = resources.riftState;
+      audioFrame.lensAmount = resources.lensAmount;
+      audioFrame.blackHoleReveal = blackHoleReveal;
+      audioFrame.lensAngularScale = resources.lensAngularScale;
+      audioFrame.quality = hiddenQuality;
+      audioFrame.reducedMotion = resources.reducedMotion;
+      audioFrame.sourcePositions = resources.audioSourcePositions
+        ?? audioFrame.sourcePositions;
     }
 
     const portal = resources.portal;
