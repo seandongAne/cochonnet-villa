@@ -413,12 +413,12 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - 首版固定无量纲自旋 `a*=0.94`、观察倾角 `i=60°`，以离线 Kerr null-geodesic 积分生成 384×384 的物理传递层：远场出射方向/状态、primary/secondary 赤道盘交点，以及传播延迟/背景像阶数；浏览器只重采样这些确定性结果，不逐像素实时积分测地线。
 - F 继续沿用同一隐藏入口和 reveal 时钟。8K 摄影星空、Gaia 与 hero stars 会先合成为各自的 source-space 天球，再由同一个 Kerr 出射方向取样，避免背景已经弯曲、锐星却仍悬浮在屏幕空间的破绽。
 - Gaia 保留清晰高亮的中心核，移除宽软光晕与灯泡式尺寸变化；只有极少数最亮星允许很窄、很弱的衍射尖峰，Kerr 临界曲线附近仍以源纹理 footprint 过滤控制摩尔纹。
-- 事件视界、盘面法线与固定 `i=60°` Kerr 坐标系保持静止；只推进气体辐射结构。程序化、Schwarzschild 与 Kerr 三条路径统一使用内/中/外约 40/60/100 秒**载波参考周期**，并叠加长弧金色气流、细丝和稀疏热点。程序化/Kerr 的新增结构按未加权环向积分保持单位均值；Schwarzschild 与原 FBM 密度相乘后会有约几个百分点内的轻微波动。目标是把平均亮度变化限制在视觉不可突兀的范围，而非声称 tone mapping 后逐帧严格守恒；reduced-motion 继续冻结共享时间。
+- 事件视界、盘面法线与固定 `i=60°` Kerr 坐标系保持静止；只推进气体辐射结构。程序化、Schwarzschild 与 Kerr 三条路径统一使用内/中/外约 10/15/25 秒**载波参考周期**，保持原来的 2:3:5 差速比例，并叠加长弧金色气流、细丝和稀疏热点。程序化/Kerr 的新增结构按未加权环向积分保持单位均值；Schwarzschild 与原 FBM 密度相乘后会有约几个百分点内的轻微波动。目标是把平均亮度变化限制在视觉不可突兀的范围，而非声称 tone mapping 后逐帧严格守恒；reduced-motion 继续冻结共享时间。
 - High/Medium 使用 Kerr 传递图；Low 使用已验证的 Schwarzschild LUT；Minimum 保留程序化/解析 point-mass 路径。Schwarzschild 始终提前加载并预热为热备份，Kerr atlas 边缘、未收敛或无效 texel 可逐像素露出 Schwarzschild underlay，而不是整帧闪黑或等待临时编译。
 - Kerr atlas、Gaia/hero source map 和 shader 只在接近 L2/L3 时懒加载，并沿用 default-framebuffer 编译、1×1 上传预热、context restore 重传、离开/开灯零持续 draw 与幂等 disposal 契约；Kerr 失败只关闭该层，不影响 Schwarzschild、原生星空或房间照明。
 - `scripts/` 中保存可重复生成脚本，`public/data/` 中保存二进制 atlas、参数/坐标约定、SHA-256、来源与许可元数据；自动测试覆盖头部/尺寸、有限值、单位出射方向、非空捕获区、Kerr 阴影偏心/非对称、盘交点、未收敛比例、文件哈希与分档/fallback 接线。
 
-6D 已完成浏览器固定机位与分档验收：High 为 80k Gaia、4096×1024 Gaia/hero source map 和 1920×993 HalfFloat Kerr pass；Medium 为 35k、2048×512 和 1280×662，仍使用 `kerr-atlas`；Low 不分配 Kerr/source map，自动使用 8k Gaia 与 `schwarzschild-lut`。浏览器 context loss/restore 后 Kerr atlas、source map 与 shader 均成功重传和预热，截图为 `docs/observatory-final/15-kerr-transfer-atlas-acceptance.png`。本轮真实帧循环用 `18-kerr-gold-flow-start.jpg` / `19-kerr-gold-flow-7s.jpg` 对照确认 7 秒内金色热流位置清晰改变；黑洞局部 285×250 像素采样的平均亮度只变化约 -1.77%，同时平均绝对亮度差约 2.03/255，符合“增强流动对比但不把整圈点亮”的目标。目标 Iris Xe/M1、UHD 620 级设备的固定 20 秒路线与三轮 GPU p95 仍待人工补齐，因此性能验收仍不以桌面浏览器观察值代替。
+6D 已完成浏览器固定机位与分档验收：High 为 80k Gaia、4096×1024 Gaia/hero source map 和 1920×993 HalfFloat Kerr pass；Medium 为 35k、2048×512 和 1280×662，仍使用 `kerr-atlas`；Low 不分配 Kerr/source map，自动使用 8k Gaia 与 `schwarzschild-lut`。浏览器 context loss/restore 后 Kerr atlas、source map 与 shader 均成功重传和预热，截图为 `docs/observatory-final/15-kerr-transfer-atlas-acceptance.png`。`18-kerr-gold-flow-start.jpg` / `19-kerr-gold-flow-7s.jpg` 记录原 40/60/100 秒版：7 秒内金色热流位置清晰改变，黑洞局部 285×250 像素采样的平均亮度只变化约 -1.77%，同时平均绝对亮度差约 2.03/255。2026-08-03 的可读性复验将共享载波统一加速为 10/15/25 秒；High/Kerr 的 `black-hole-edge` 固定机位以两次 2 秒步进确认气流结构发生明显位移，诊断帧从 600→720→840，期间 `kerr-atlas`、`reveal=1` 与零控制台错误保持稳定，仍符合“增强流动对比但不把整圈点亮”的目标。目标 Iris Xe/M1、UHD 620 级设备的固定 20 秒路线与三轮 GPU p95 仍待人工补齐，因此性能验收仍不以桌面浏览器观察值代替。
 
 以下 Lab 方向尚未实施：
 
@@ -494,7 +494,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 | 房间中心直视穹顶 | 无图片贴脸感、极点接缝或近距离像素感 |
 | 沿房间横移约 2 m | 远星固定，近星云只有轻微视差 |
 | 瞄准墙上开关按 R | 遮罩先展开、墙后消失；三层碎片/环在 3.6 秒过程内产生明显但舒适的差速视差，随后环约 1 秒退至零，稳定观星时无半透明圆环或绿色漏底 |
-| 瞄准墙上开关按 F | 摄影银河、Gaia 与真实星点沿同一 Kerr/Schwarzschild 光路弯曲；Einstein ring、多重背景像、primary/secondary 盘像和事件视界清晰；观察 5–10 秒可读出长条金色气流与热点移动，但整圈平均亮度不抬升；走动时位置与角尺寸变化，背对事件时无 Portal 假透镜 |
+| 瞄准墙上开关按 F | 摄影银河、Gaia 与真实星点沿同一 Kerr/Schwarzschild 光路弯曲；Einstein ring、多重背景像、primary/secondary 盘像和事件视界清晰；观察 2–4 秒即可读出长条金色气流与热点移动，但整圈平均亮度不抬升；走动时位置与角尺寸变化，背对事件时无 Portal 假透镜 |
 | 贴墙看穹顶边缘 | 无 stencil 泄漏、木圈穿帮或透明排序错误 |
 | 快速环视/resize | 无 temporal 鬼影、闪屏或 FBO 拉伸 |
 | 连续切灯 20 次 | 状态、显存、纹理和材质数量不持续增长 |

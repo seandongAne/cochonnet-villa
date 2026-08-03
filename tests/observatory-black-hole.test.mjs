@@ -162,9 +162,9 @@ test("the singularity uses a locally compressed solar black-and-gold palette", (
 
 test("enhanced gas lanes keep unit mean energy while adding long-stream contrast", () => {
   assert.deepEqual(OBSERVATORY_BLACK_HOLE_FLOW_PERIODS, {
-    inner: 40,
-    middle: 60,
-    outer: 100
+    inner: 10,
+    middle: 15,
+    outer: 25
   });
 
   const hotspotMean = 0.196380615234375;
@@ -182,16 +182,16 @@ test("enhanced gas lanes keep unit mean energy while adding long-stream contrast
       + filamentStream * 0.14
       + (hotspotShape - hotspotMean) * 0.58;
   };
-  const fiveSecondAdvance = 5 * Math.PI * 2
+  const twoSecondAdvance = 2 * Math.PI * 2
     / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle;
-  let fiveSecondDifference = 0;
+  let twoSecondDifference = 0;
   for (let index = 0; index < samples; index += 1) {
     const phase = index / samples * Math.PI * 2;
     const radius = 4.82;
     const value = flowStructureAt(phase, radius);
     values.push(value);
-    fiveSecondDifference += Math.abs(
-      flowStructureAt(phase + fiveSecondAdvance, radius) - value
+    twoSecondDifference += Math.abs(
+      flowStructureAt(phase + twoSecondAdvance, radius) - value
     );
   }
   const mean = values.reduce((sum, value) => sum + value, 0) / samples;
@@ -201,8 +201,8 @@ test("enhanced gas lanes keep unit mean energy while adding long-stream contrast
     "long lanes and sparse knots must remain visibly non-uniform"
   );
   assert.ok(
-    fiveSecondDifference / samples > 0.2,
-    "the one-minute middle flow must read within a five-second observation"
+    twoSecondDifference / samples > 0.2,
+    "the 15-second middle flow must read within a two-second observation"
   );
 
   const blackHole = createObservatoryBlackHole();
@@ -273,9 +273,9 @@ test("update preserves the anchor and animates differential flow and multi-radiu
   ));
   assert.ok(flowSpeeds[0] > flowSpeeds[1] && flowSpeeds[1] > flowSpeeds[2]);
   const flowPeriods = flowSpeeds.map((speed) => Math.PI * 2 / speed);
-  assert.ok(Math.abs(flowPeriods[0] - 40) < 1e-12);
-  assert.ok(Math.abs(flowPeriods[1] - 60) < 1e-12);
-  assert.ok(Math.abs(flowPeriods[2] - 100) < 1e-12);
+  assert.ok(Math.abs(flowPeriods[0] - 10) < 1e-12);
+  assert.ok(Math.abs(flowPeriods[1] - 15) < 1e-12);
+  assert.ok(Math.abs(flowPeriods[2] - 25) < 1e-12);
   assert.deepEqual(
     resources.diskLayers.map((layer) => (
       layer.material.uniforms.uReferenceRadius.value

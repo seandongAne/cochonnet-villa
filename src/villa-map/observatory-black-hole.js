@@ -23,12 +23,13 @@ export const OBSERVATORY_BLACK_HOLE_WORLD_DISTANCE = 42;
 // These are reference orbital periods for the moving gas pattern, not a
 // rotation of the event horizon or the disc mesh. The three render paths
 // (Kerr atlas, Schwarzschild LUT and procedural fallback) share this cadence:
-// a visitor can read the motion within 5-10 seconds without seeing a portal-
-// like rigidly spinning ring.
+// a visitor can read the motion within a few seconds without seeing a portal-
+// like rigidly spinning ring. The middle flow is the authored 15 s reference;
+// inner and outer flows preserve the original 2:3:5 differential ratio.
 export const OBSERVATORY_BLACK_HOLE_FLOW_PERIODS = Object.freeze({
-  inner: 40,
-  middle: 60,
-  outer: 100
+  inner: 10,
+  middle: 15,
+  outer: 25
 });
 
 const LOFT_ORIGIN = new THREE.Vector3(
@@ -270,7 +271,7 @@ const DISK_VERTEX_SHADER = /* glsl */ `
     vDoppler = dot(worldTangent, eyeDirection);
     vRadius = aRadius;
     vSurface = aSurface;
-    // The authored layers establish the 40/60/100 s Kepler-like progression.
+    // The authored layers establish the 10/15/25 s Kepler-like progression.
     // A gentle intra-layer differential keeps filaments shearing naturally
     // without making the inner edge race around like a rigid VFX ring.
     float differentialSpeed = uFlowSpeed * pow(

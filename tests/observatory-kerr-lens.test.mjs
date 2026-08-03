@@ -172,9 +172,9 @@ test("loader fetches the four exact assets with one abort signal", async () => {
 test("shader keeps topology nearest, composes photo and source stars through one exit ray, and preserves hot fallback pixels", () => {
   const shader = OBSERVATORY_KERR_LENS_FRAGMENT_SHADER;
   assert.deepEqual(OBSERVATORY_BLACK_HOLE_FLOW_PERIODS, {
-    inner: 40,
-    middle: 60,
-    outer: 100
+    inner: 10,
+    middle: 15,
+    outer: 25
   });
   assert.match(shader, /texelFetch\(uKerrSkyAtlas, texel, 0\)/);
   assert.match(shader, /float status = floor\(skyTransfer\.a \+ 0\.5\)/);
@@ -192,9 +192,9 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /pow\(clamp\(redshift, 0\.0, 3\.5\), 3\.0\)/);
   assert.match(shader, /uKerrDiscSecondaryAtlas/);
   assert.match(shader, /uKerrDiscPrimaryAtlas/);
-  assert.match(shader, /const float FLOW_INNER_PERIOD = 40\.0/);
-  assert.match(shader, /const float FLOW_MIDDLE_PERIOD = 60\.0/);
-  assert.match(shader, /const float FLOW_OUTER_PERIOD = 100\.0/);
+  assert.match(shader, /const float FLOW_INNER_PERIOD = 10\.0/);
+  assert.match(shader, /const float FLOW_MIDDLE_PERIOD = 15\.0/);
+  assert.match(shader, /const float FLOW_OUTER_PERIOD = 25\.0/);
   assert.match(shader, /azimuth - emissionTime \* \(2\.0 \* PI \/ orbitalPeriod\)/);
   assert.match(shader, /float longStream = sin\(flowPhase \* 2\.0/);
   assert.match(shader, /float hotspotShape = pow/);

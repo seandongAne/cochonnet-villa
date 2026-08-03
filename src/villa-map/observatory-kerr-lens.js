@@ -153,7 +153,7 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   const float STATUS_CAPTURED = 1.0;
   // Gas-pattern periods only: the event horizon, 60-degree Kerr frame and
   // transfer atlas remain fixed. The middle reference completes one orbit in
-  // about a minute, with physically legible differential flow either side.
+  // 15 seconds, with physically legible differential flow either side.
   const float FLOW_INNER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner.toFixed(1)};
   const float FLOW_MIDDLE_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle.toFixed(1)};
   const float FLOW_OUTER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer.toFixed(1)};
@@ -374,7 +374,7 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     float flowPhase = azimuth - emissionTime * (2.0 * PI / orbitalPeriod);
     // Low-frequency spiral lanes remain coherent over long arcs. Higher-
     // frequency filaments and sparse hot knots ride inside them, making a
-    // 5-10 second observation visibly dynamic without a rigid disc rotation.
+    // brief observation visibly dynamic without a rigid disc rotation.
     float longStream = sin(flowPhase * 2.0 - radius * 1.42);
     float filamentStream = sin(
       flowPhase * 5.0 - radius * 2.85 + sin(radius * 1.7) * 0.62
