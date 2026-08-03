@@ -39,6 +39,18 @@ import {
   updateObservatoryBlackHolePassComposite
 } from "../observatory-black-hole-pass.js";
 import {
+  createObservatoryRelativisticLens,
+  disposeObservatoryRelativisticLens,
+  disposeObservatoryRelativisticLensLuts,
+  getObservatoryRelativisticLensSupport,
+  loadObservatoryRelativisticLensLuts,
+  OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME,
+  prewarmObservatoryRelativisticLens,
+  setObservatoryRelativisticLensLuts,
+  setObservatoryRelativisticLensVisible,
+  updateObservatoryRelativisticLens
+} from "../observatory-relativistic-lens.js";
+import {
   createObservatoryStarVolume,
   disposeObservatoryStarVolume,
   getObservatoryStarVolumeCounts,
@@ -82,6 +94,7 @@ import {
   MUSHROOM_OBSERVATORY_UPPER_SOIL_NAME,
   MUSHROOM_OBSERVATORY_WALL_NAME,
   MUSHROOM_STAR_DOME_NAME,
+  MUSHROOM_STAR_TEXTURE_HIGH_URL,
   MUSHROOM_STAR_TEXTURE_URL
 } from "../mushroom-interior.js";
 import {
@@ -126,8 +139,15 @@ const LENS_WORLD_POSITION = new THREE.Vector3(
 const lensDirectionScratch = new THREE.Vector3();
 const lensScreenScratch = new THREE.Vector2();
 const blackHoleClearColorScratch = new THREE.Color();
+const relativisticSkyRotationScratch = new THREE.Matrix3();
+const relativisticSkyRotation4Scratch = new THREE.Matrix4();
+// Roughly 60 degrees to the centre view: inclined enough to expose distinct
+// primary/secondary arcs without compressing the receding image into a dark
+// leaf that reads as a shader seam.
+const RELATIVISTIC_DISC_NORMAL = new THREE.Vector3(0.62, 0.52, 0.59).normalize();
 const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   [MUSHROOM_NEBULA_MATERIAL_NAME, "portal"],
+  [OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME, "relativistic-lens"],
   ["mushroom-observatory-portal-composite-material", "portal"],
   ["mushroom-distant-sky-material", "native-sky"],
   ["mushroom-twinkling-star-material", "native-sky"],
@@ -145,6 +165,30 @@ const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   ["mushroom-observatory-black-hole-disk-material-2", "black-hole"],
   ["mushroom-observatory-black-hole-disk-material-3", "black-hole"]
 ]);
+
+function hasRelativisticLensLuts(resources) {
+  return Boolean(
+    resources?.relativisticLens
+    && resources.relativisticLuts
+    && !resources.relativisticLuts.disposed
+    && !resources.relativisticDisabled
+    && !resources.blackHoleDisabled
+  );
+}
+
+function isRelativisticLensPrimary(resources) {
+  return hasRelativisticLensLuts(resources)
+    && resources.relativisticPrewarmed === true
+    && resources.blackHolePass?.disposed === false;
+}
+
+function getRelativisticSkyRotation(sky) {
+  const rotationY = sky?.userData?.backdrop?.rotation?.y ?? 0;
+  relativisticSkyRotation4Scratch.makeRotationY(-rotationY);
+  return relativisticSkyRotationScratch.setFromMatrix4(
+    relativisticSkyRotation4Scratch
+  );
+}
 
 function isInsideMushroomPocket(position) {
   const dx = position.x - MUSHROOM_INTERIOR.center.x;
@@ -290,6 +334,9 @@ function resetHiddenEffectRendering(resources, sky, riftVisual) {
       resources.blackHole.userData.quality
     );
   }
+  if (resources.relativisticLens) {
+    setObservatoryRelativisticLensVisible(resources.relativisticLens, false);
+  }
   if (resources.blackHolePass) {
     updateObservatoryBlackHolePassComposite(resources.blackHolePass.composite, {
       reveal: 0,
@@ -338,10 +385,13 @@ export function MushroomObservatoryRuntime({
   const handleShaderFailureRef = useRef(null);
   const ensureHiddenCosmosRef = useRef(null);
   const renderBlackHolePassRef = useRef(null);
+  const requestHighSkyTextureRef = useRef(null);
+  const startRelativisticLoadRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
     let loadedTexture = null;
+    let loadedHighTexture = null;
     let textureIdleHandle = null;
     let textureIdleUsesRequest = false;
     const lifecycleToken = {};
@@ -365,6 +415,7 @@ export function MushroomObservatoryRuntime({
           : motionQuery?.matches === true
     );
     const stencilSupported = detectStencilBuffer(gl);
+    const relativisticSupport = getObservatoryRelativisticLensSupport(gl);
     const resources = {
       reducedMotion: readReducedMotion(),
       comparisonMode: requestedSkyMode === "base" ? "base" : "impossible",
@@ -399,6 +450,7 @@ export function MushroomObservatoryRuntime({
       hiddenCosmosLoadRequested: false,
       blackHole: null,
       blackHolePass: null,
+      blackHoleForceUnsignedByte: false,
       blackHoleDisabled: false,
       blackHoleError: null,
       blackHoleFrames: 0,
@@ -409,6 +461,19 @@ export function MushroomObservatoryRuntime({
       blackHolePrewarmStartedAt: 0,
       blackHolePrewarmMs: 0,
       blackHoleLastTargetKey: "",
+      relativisticSupport,
+      relativisticLens: null,
+      relativisticLuts: null,
+      relativisticLoadStarted: false,
+      relativisticLoadPending: false,
+      relativisticFetchStartedAt: 0,
+      relativisticFetchMs: 0,
+      relativisticDisabled: !relativisticSupport.supported,
+      relativisticError: relativisticSupport.supported
+        ? null
+        : "WebGL2 unavailable",
+      relativisticPrewarmed: false,
+      relativisticPrewarmMs: 0,
       starVolume: null,
       starVolumeDisabled: false,
       starVolumeError: null,
@@ -422,6 +487,10 @@ export function MushroomObservatoryRuntime({
       domeFallbackColor: null,
       textureReady: false,
       textureError: false,
+      highTextureLoadStarted: false,
+      highTextureReady: false,
+      highTextureError: false,
+      activeSkyTextureTier: "fallback",
       textureGpuReady: false,
       textureUploadMs: 0,
       nativeSkyPrewarmed: false,
@@ -465,17 +534,33 @@ export function MushroomObservatoryRuntime({
       const startedAt = performance.now();
       try {
         gl.initTexture(texture);
-        resources.textureGpuReady = true;
+        if (backdropMaterial?.uniforms?.uSkyTexture?.value === texture) {
+          resources.textureGpuReady = true;
+        }
         resources.textureUploadMs += performance.now() - startedAt;
       } catch {
-        resources.textureError = true;
+        const isHighTexture = texture === loadedHighTexture;
+        if (isHighTexture) {
+          resources.highTextureError = true;
+          resources.highTextureReady = false;
+        } else {
+          resources.textureError = true;
+        }
         if (texture !== fallbackTexture) {
           if (backdropMaterial?.uniforms?.uSkyTexture) {
-            backdropMaterial.uniforms.uSkyTexture.value = fallbackTexture;
+            const replacement = isHighTexture && loadedTexture?.isTexture
+              ? loadedTexture
+              : fallbackTexture;
+            backdropMaterial.uniforms.uSkyTexture.value = replacement;
+            resources.activeSkyTextureTier = replacement === loadedTexture
+              ? "4k"
+              : "fallback";
           }
           if (loadedTexture === texture) loadedTexture = null;
+          if (loadedHighTexture === texture) loadedHighTexture = null;
           texture.dispose();
-          if (fallbackTexture?.isTexture) preuploadSkyTexture(fallbackTexture);
+          const replacement = backdropMaterial?.uniforms?.uSkyTexture?.value;
+          if (replacement?.isTexture) preuploadSkyTexture(replacement);
         }
       }
     };
@@ -508,6 +593,38 @@ export function MushroomObservatoryRuntime({
     const backdropMaterial = backdrop?.material;
     const fallbackTexture = backdropMaterial?.uniforms?.uSkyTexture?.value ?? null;
 
+    const configureSkyTexture = (texture, name) => {
+      texture.name = name;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      // The Schwarzschild pass can compress thousands of source texels into
+      // one photon-ring pixel. Trilinear mip selection keeps that footprint
+      // energy-stable instead of turning the photographic stars into moire.
+      // Magnified regions still resolve from the original 4K/8K base level.
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.anisotropy = Math.max(
+        1,
+        Math.min(8, gl.capabilities.getMaxAnisotropy())
+      );
+      return texture;
+    };
+
+    const activateSkyTexture = (texture, tier) => {
+      if (!texture?.isTexture || !backdropMaterial?.uniforms?.uSkyTexture) {
+        return false;
+      }
+      backdropMaterial.uniforms.uSkyTexture.value = texture;
+      backdropMaterial.uniforms.uBrightness.value = MUSHROOM_SKY_IMAGE_BRIGHTNESS;
+      resources.activeSkyTextureTier = tier;
+      resources.textureReady = true;
+      sky.userData.textureReady = true;
+      resources.textureGpuReady = false;
+      scheduleTexturePreupload(texture);
+      return true;
+    };
+
     resources.riftFadeSurfaces = [
       MUSHROOM_OBSERVATORY_WALL_NAME,
       MUSHROOM_OBSERVATORY_OUTER_WALL_NAME,
@@ -533,6 +650,42 @@ export function MushroomObservatoryRuntime({
       setMushroomSkyPixelRatio(sky, gl.getPixelRatio());
 
       const loader = new THREE.TextureLoader();
+      const requestHighSkyTexture = () => {
+        if (
+          !mounted
+          || resources.contextLost
+          || resources.highTextureLoadStarted
+          || resources.highTextureReady
+          || resources.highTextureError
+          || gl.capabilities.maxTextureSize < 8192
+        ) return false;
+        resources.highTextureLoadStarted = true;
+        loader.load(
+          MUSHROOM_STAR_TEXTURE_HIGH_URL,
+          (texture) => {
+            if (!mounted) {
+              texture.dispose();
+              return;
+            }
+            loadedHighTexture = configureSkyTexture(
+              texture,
+              "qwantani-night-puresky-dome-8k"
+            );
+            resources.highTextureReady = true;
+            resources.highTextureError = false;
+            if (qualityRef.current?.quality === "high") {
+              activateSkyTexture(loadedHighTexture, "8k");
+            }
+          },
+          undefined,
+          () => {
+            if (!mounted || sky.userData.lifecycleToken !== lifecycleToken) return;
+            resources.highTextureError = true;
+          }
+        );
+        return true;
+      };
+      requestHighSkyTextureRef.current = requestHighSkyTexture;
       loader.load(
         MUSHROOM_STAR_TEXTURE_URL,
         (texture) => {
@@ -540,31 +693,30 @@ export function MushroomObservatoryRuntime({
             texture.dispose();
             return;
           }
-          texture.name = "qwantani-night-puresky-dome-4k";
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.wrapS = THREE.RepeatWrapping;
-          texture.generateMipmaps = false;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.anisotropy = Math.max(
-            1,
-            Math.min(8, gl.capabilities.getMaxAnisotropy())
+          loadedTexture = configureSkyTexture(
+            texture,
+            "qwantani-night-puresky-dome-4k"
           );
-          loadedTexture = texture;
-          backdropMaterial.uniforms.uSkyTexture.value = texture;
-          backdropMaterial.uniforms.uBrightness.value = MUSHROOM_SKY_IMAGE_BRIGHTNESS;
+          if (
+            qualityRef.current?.quality !== "high"
+            || !loadedHighTexture?.isTexture
+          ) {
+            activateSkyTexture(loadedTexture, "4k");
+          }
           resources.textureReady = true;
           sky.userData.textureReady = true;
-          scheduleTexturePreupload(texture);
         },
         undefined,
         () => {
+          if (!mounted || sky.userData.lifecycleToken !== lifecycleToken) return;
           resources.textureError = true;
           // Keep the procedural fallback and hero stars available even when
           // the 4K photograph cannot be decoded.
           resources.textureReady = true;
           sky.userData.textureReady = true;
-          scheduleTexturePreupload(fallbackTexture);
+          scheduleTexturePreupload(
+            backdropMaterial?.uniforms?.uSkyTexture?.value ?? fallbackTexture
+          );
         }
       );
     }
@@ -633,8 +785,21 @@ export function MushroomObservatoryRuntime({
       }
     }
 
+    function disposeRelativisticResources({ disposeLuts = false } = {}) {
+      if (resources.relativisticLens) {
+        disposeObservatoryRelativisticLens(resources.relativisticLens);
+        resources.relativisticLens = null;
+      }
+      resources.relativisticPrewarmed = false;
+      if (disposeLuts && resources.relativisticLuts) {
+        disposeObservatoryRelativisticLensLuts(resources.relativisticLuts);
+        resources.relativisticLuts = null;
+      }
+    }
+
     function disposeHiddenCosmosResources() {
       disposeBlackHolePassResources({ disposeCore: true });
+      disposeRelativisticResources({ disposeLuts: true });
       if (resources.starVolume) {
         resources.starVolume.removeFromParent();
         disposeObservatoryStarVolume(resources.starVolume);
@@ -671,6 +836,27 @@ export function MushroomObservatoryRuntime({
         });
       }
 
+      const blackHoleTargetType = resources.halfFloatSupported
+        && !resources.blackHoleForceUnsignedByte
+        ? THREE.HalfFloatType
+        : THREE.UnsignedByteType;
+      if (
+        resources.relativisticSupport.supported
+        && !resources.relativisticDisabled
+        && !resources.relativisticLens
+      ) {
+        resources.relativisticLens = createObservatoryRelativisticLens({
+          skyTexture: backdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+          luts: resources.relativisticLuts,
+          quality,
+          visible: false,
+          reveal: 0,
+          lensPosition: LENS_WORLD_POSITION,
+          discNormal: RELATIVISTIC_DISC_NORMAL,
+          hdrOutput: blackHoleTargetType === THREE.HalfFloatType
+        });
+      }
+
       if (
         resources.blackHole
         && !resources.blackHolePass
@@ -683,23 +869,66 @@ export function MushroomObservatoryRuntime({
           height: state.size.height,
           pixelRatio: gl.getPixelRatio(),
           quality,
-          type: THREE.UnsignedByteType
+          type: blackHoleTargetType
         });
         resources.blackHolePass.scene.add(resources.blackHole);
+        if (resources.relativisticLens) {
+          resources.blackHolePass.scene.add(resources.relativisticLens);
+          updateObservatoryRelativisticLens(
+            resources.relativisticLens,
+            state.camera,
+            {
+              reveal: 0,
+              quality,
+              skyTexture: backdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+              luts: resources.relativisticLuts,
+              lensPosition: LENS_WORLD_POSITION,
+              discNormal: RELATIVISTIC_DISC_NORMAL,
+              hdrOutput: blackHoleTargetType === THREE.HalfFloatType
+            }
+          );
+        }
         scene.add(resources.blackHolePass.composite);
         resources.blackHolePrewarmStartedAt = performance.now();
       }
-      return Boolean(resources.blackHolePass || resources.starVolume);
+      return Boolean(
+        resources.blackHolePass
+        || resources.starVolume
+        || resources.relativisticLens
+      );
     }
 
-    function handleBlackHoleFailure(error) {
+    function handleBlackHoleFailure(
+      error,
+      { allowRgba8Retry = true } = {}
+    ) {
       resources.blackHoleError = error instanceof Error
         ? error.message
         : String(error);
+      const failedTargetWasHalfFloat = resources.blackHolePass
+        ?.renderTarget?.texture?.type === THREE.HalfFloatType;
+      if (
+        failedTargetWasHalfFloat
+        && !resources.blackHoleForceUnsignedByte
+        && allowRgba8Retry
+      ) {
+        resources.blackHoleForceUnsignedByte = true;
+        resources.blackHolePrewarmed = false;
+        disposeBlackHolePassResources();
+        ensureHiddenCosmosResources(qualityRef.current?.quality ?? "medium");
+        return;
+      }
       resources.blackHoleDisabled = true;
       resources.blackHolePrewarmed = false;
+      resources.relativisticPrewarmed = false;
       if (resources.blackHole) {
         setObservatoryBlackHoleVisible(resources.blackHole, false);
+      }
+      if (resources.relativisticLens) {
+        setObservatoryRelativisticLensVisible(
+          resources.relativisticLens,
+          false
+        );
       }
       if (resources.blackHolePass) {
         updateObservatoryBlackHolePassComposite(
@@ -727,9 +956,11 @@ export function MushroomObservatoryRuntime({
       try {
         gl.xr.enabled = false;
         gl.autoClear = false;
+        // Allocate and validate the real HDR target during prewarm, but do the
+        // otherwise invisible shader/geometry upload on the shared 1x1 target.
+        // A full-resolution warmup frame made the High Schwarzschild path pay
+        // almost the complete render cost before the visitor pressed F.
         gl.setRenderTarget(pass.renderTarget);
-        gl.setClearColor(0x000000, 0);
-        gl.clear(true, true, false);
         if (!resources.blackHoleFramebufferChecked) {
           const context = gl.getContext();
           const status = context.checkFramebufferStatus(context.FRAMEBUFFER);
@@ -738,6 +969,9 @@ export function MushroomObservatoryRuntime({
           }
           resources.blackHoleFramebufferChecked = true;
         }
+        if (prewarm) gl.setRenderTarget(getNativePrewarmTarget());
+        gl.setClearColor(0x000000, 0);
+        gl.clear(true, true, false);
         gl.render(pass.scene, pass.camera);
         const shaderFailure = findObservatoryShaderFailure(
           gl,
@@ -908,8 +1142,21 @@ export function MushroomObservatoryRuntime({
         }
         return;
       }
+      if (error?.observatoryShaderFailure === "relativistic-lens") {
+        resources.relativisticDisabled = true;
+        resources.relativisticError = message;
+        resources.relativisticPrewarmed = false;
+        if (resources.relativisticLens) {
+          setObservatoryRelativisticLensVisible(
+            resources.relativisticLens,
+            false
+          );
+          disposeRelativisticResources();
+        }
+        return;
+      }
       if (error?.observatoryShaderFailure === "black-hole") {
-        handleBlackHoleFailure(error);
+        handleBlackHoleFailure(error, { allowRgba8Retry: false });
         return;
       }
       if (error?.observatoryShaderFailure === "native-sky") {
@@ -934,6 +1181,11 @@ export function MushroomObservatoryRuntime({
 
     function applyQuality(quality) {
       const preset = getObservatoryQualityPreset(quality);
+      if (quality === "high" && loadedHighTexture?.isTexture) {
+        activateSkyTexture(loadedHighTexture, "8k");
+      } else if (quality !== "high" && loadedTexture?.isTexture) {
+        activateSkyTexture(loadedTexture, "4k");
+      }
       try {
         if (
           preset.volumetricFbo
@@ -959,6 +1211,12 @@ export function MushroomObservatoryRuntime({
       } else if (quality === "minimum") {
         if (resources.blackHole) {
           setObservatoryBlackHoleVisible(resources.blackHole, false);
+        }
+        if (resources.relativisticLens) {
+          setObservatoryRelativisticLensVisible(
+            resources.relativisticLens,
+            false
+          );
         }
         // Minimum is the allocation-free legacy-Lens fallback. Release the
         // finite black-hole target immediately; an adjacent-tier upgrade will
@@ -1024,6 +1282,46 @@ export function MushroomObservatoryRuntime({
           if (resources.blackHolePrewarmed) {
             resources.blackHolePrewarmMs += performance.now()
               - blackHoleStartedAt;
+          }
+        }
+      }
+      if (
+        resources.blackHolePass
+        && hasRelativisticLensLuts(resources)
+        && !resources.relativisticPrewarmed
+      ) {
+        didWork = true;
+        const relativisticStartedAt = performance.now();
+        const passUsesHdr = resources.blackHolePass.renderTarget.texture.type
+          === THREE.HalfFloatType;
+        updateObservatoryRelativisticLens(
+          resources.relativisticLens,
+          camera,
+          {
+            reveal: 0,
+            quality: qualityRef.current?.quality ?? "medium",
+            skyTexture: backdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+            luts: resources.relativisticLuts,
+            lensPosition: LENS_WORLD_POSITION,
+            discNormal: RELATIVISTIC_DISC_NORMAL,
+            skyRotation: getRelativisticSkyRotation(sky),
+            skyBrightness: MUSHROOM_SKY_IMAGE_BRIGHTNESS,
+            hdrOutput: passUsesHdr
+          }
+        );
+        const restore = prewarmObservatoryRelativisticLens(
+          resources.relativisticLens,
+          qualityRef.current?.quality ?? "medium"
+        );
+        try {
+          resources.relativisticPrewarmed = renderBlackHolePass({
+            prewarm: true
+          });
+        } finally {
+          if (typeof restore === "function") restore();
+          if (resources.relativisticPrewarmed) {
+            resources.relativisticPrewarmMs += performance.now()
+              - relativisticStartedAt;
           }
         }
       }
@@ -1132,6 +1430,51 @@ export function MushroomObservatoryRuntime({
       }
     };
 
+    startRelativisticLoadRef.current = async () => {
+      if (
+        resources.relativisticLoadPending
+        || resources.relativisticLuts
+        || resources.relativisticError
+        || resources.relativisticDisabled
+        || !resources.relativisticSupport.supported
+        || !mounted
+      ) return;
+      resources.relativisticLoadStarted = true;
+      resources.relativisticLoadPending = true;
+      resources.relativisticFetchStartedAt = performance.now();
+      try {
+        const luts = await loadObservatoryRelativisticLensLuts({
+          fetchImpl: fetch,
+          linear: resources.relativisticSupport.floatLinear,
+          signal: abortController.signal
+        });
+        if (!mounted) {
+          disposeObservatoryRelativisticLensLuts(luts);
+          return;
+        }
+        resources.relativisticFetchMs = performance.now()
+          - resources.relativisticFetchStartedAt;
+        resources.relativisticLuts = luts;
+        resources.relativisticError = null;
+        resources.relativisticPrewarmed = false;
+        if (resources.relativisticLens) {
+          setObservatoryRelativisticLensLuts(
+            resources.relativisticLens,
+            luts,
+            { ownsLuts: false }
+          );
+        }
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          resources.relativisticError = error instanceof Error
+            ? error.message
+            : String(error);
+        }
+      } finally {
+        resources.relativisticLoadPending = false;
+      }
+    };
+
     qualityRef.current = createObservatoryQualityState({
       capabilities: detectRuntimeCapabilities(
         gl,
@@ -1192,18 +1535,25 @@ export function MushroomObservatoryRuntime({
         resources.skyDisabled = false;
         resources.gaiaDisabled = false;
         resources.blackHoleDisabled = false;
+        resources.relativisticSupport = getObservatoryRelativisticLensSupport(gl);
+        resources.relativisticDisabled = !resources.relativisticSupport.supported;
         resources.starVolumeDisabled = false;
         resources.nativeSkyError = null;
         resources.gaiaShaderError = null;
         resources.blackHoleError = null;
+        resources.relativisticError = resources.relativisticSupport.supported
+          ? null
+          : "WebGL2 unavailable";
         resources.starVolumeError = null;
         resources.nativeSkyPrewarmed = false;
         resources.gaiaPrewarmed = false;
         resources.blackHolePrewarmed = false;
         resources.blackHoleCompositePrewarmed = false;
+        resources.relativisticPrewarmed = false;
         resources.starVolumePrewarmed = false;
         resources.nativePrewarmMs = 0;
         resources.blackHolePrewarmMs = 0;
+        resources.relativisticPrewarmMs = 0;
         resources.starVolumePrewarmMs = 0;
         resources.textureUploadMs = 0;
         resources.portalRenderedThisFrame = false;
@@ -1217,6 +1567,7 @@ export function MushroomObservatoryRuntime({
           resources.aperture = null;
         }
         resources.forceUnsignedByte = false;
+        resources.blackHoleForceUnsignedByte = false;
         disposePortalResources();
         disposeBlackHolePassResources();
         if (resources.gaia) {
@@ -1292,17 +1643,33 @@ export function MushroomObservatoryRuntime({
           error: resources.portalError
         },
         blackHole: {
-          ready: Boolean(resources.blackHole && resources.blackHolePass),
+          ready: Boolean(
+            resources.blackHolePass
+            && (resources.blackHole || resources.relativisticLens)
+          ),
           visible: resources.blackHolePass?.composite.visible === true,
+          mode: isRelativisticLensPrimary(resources)
+            ? "schwarzschild-lut"
+            : "procedural-fallback",
+          type: !blackHoleTarget
+            ? "disabled"
+            : blackHoleTarget.texture.type === THREE.HalfFloatType
+              ? "half-float"
+              : "rgba8",
           quality: resources.blackHole?.userData?.quality ?? "minimum",
           width: blackHoleTarget?.width ?? 0,
           height: blackHoleTarget?.height ?? 0,
           estimatedTargetBytes: blackHoleTarget
-            ? blackHoleTarget.width * blackHoleTarget.height * 8
+            ? blackHoleTarget.width * blackHoleTarget.height * (
+                blackHoleTarget.texture.type === THREE.HalfFloatType ? 12 : 8
+              )
             : 0,
           cameraDistance: resources.blackHole?.userData?.cameraDistance ?? null,
           angularRadius: resources.blackHole?.userData?.angularRadius ?? 0,
-          reveal: resources.blackHole?.userData?.reveal ?? 0,
+          reveal: Math.max(
+            resources.blackHole?.userData?.reveal ?? 0,
+            resources.relativisticLens?.userData?.reveal ?? 0
+          ),
           addedDrawCalls: resources.blackHoleRenderedThisFrame
             ? countVisibleDrawables(resources.blackHolePass?.scene)
               + (resources.blackHolePass?.composite.visible ? 1 : 0)
@@ -1310,9 +1677,26 @@ export function MushroomObservatoryRuntime({
           fboPassActive: resources.blackHoleRenderedThisFrame,
           frames: resources.blackHoleFrames,
           prewarmed: resources.blackHolePrewarmed
-            && resources.blackHoleCompositePrewarmed,
-          prewarmMs: resources.blackHolePrewarmMs,
+            && resources.blackHoleCompositePrewarmed
+            && (
+              !hasRelativisticLensLuts(resources)
+              || resources.relativisticPrewarmed
+            ),
+          prewarmMs: resources.blackHolePrewarmMs
+            + resources.relativisticPrewarmMs,
           error: resources.blackHoleError
+        },
+        relativisticLens: {
+          supported: resources.relativisticSupport.supported,
+          lutFilter: resources.relativisticSupport.lutFilter,
+          loading: resources.relativisticLoadPending,
+          ready: isRelativisticLensPrimary(resources),
+          lutReady: hasRelativisticLensLuts(resources),
+          fallback: resources.relativisticLens?.userData?.fallback ?? true,
+          fetchMs: resources.relativisticFetchMs,
+          prewarmed: resources.relativisticPrewarmed,
+          prewarmMs: resources.relativisticPrewarmMs,
+          error: resources.relativisticError
         },
         starVolume: {
           ready: Boolean(resources.starVolume),
@@ -1364,11 +1748,18 @@ export function MushroomObservatoryRuntime({
         },
         backdrop4k: {
           ready: resources.textureReady,
-          error: resources.textureError
+          error: resources.textureError,
+          activeTier: resources.activeSkyTextureTier,
+          highLoading: resources.highTextureLoadStarted
+            && !resources.highTextureReady
+            && !resources.highTextureError,
+          highReady: resources.highTextureReady,
+          highError: resources.highTextureError
         },
         capabilities: {
           stencil: resources.stencilSupported,
           halfFloat: resources.halfFloatSupported,
+          webgl2: gl.capabilities.isWebGL2,
           contextLost: resources.contextLost,
           contextLossCount: resources.contextLossCount,
           contextRestoreCount: resources.contextRestoreCount
@@ -1399,6 +1790,8 @@ export function MushroomObservatoryRuntime({
       handleShaderFailureRef.current = null;
       ensureHiddenCosmosRef.current = null;
       renderBlackHolePassRef.current = null;
+      requestHighSkyTextureRef.current = null;
+      startRelativisticLoadRef.current = null;
       if (window.__villaObservatoryRuntimeSnapshot === runtimeSnapshot) {
         delete window.__villaObservatoryRuntimeSnapshot;
       }
@@ -1423,10 +1816,14 @@ export function MushroomObservatoryRuntime({
       }
       resetHiddenEffectRendering(resources, sky, riftVisual);
       removeMushroomSkyAperture(resources.aperture);
-      if (backdropMaterial?.uniforms?.uSkyTexture?.value === loadedTexture) {
+      if (
+        backdropMaterial?.uniforms?.uSkyTexture?.value === loadedTexture
+        || backdropMaterial?.uniforms?.uSkyTexture?.value === loadedHighTexture
+      ) {
         backdropMaterial.uniforms.uSkyTexture.value = fallbackTexture;
       }
       loadedTexture?.dispose();
+      loadedHighTexture?.dispose();
       resourcesRef.current = null;
       queueMicrotask(() => {
         if (sky.userData.lifecycleToken === lifecycleToken) {
@@ -1480,6 +1877,7 @@ export function MushroomObservatoryRuntime({
       && !resources.skyDisabled
       && !baseImageComparison
       && hiddenSkyAvailable;
+    let nativeLensAmount = 0;
     if (!hiddenEffectsRenderable) {
       // Infrastructure failures and the QA base-image comparison fail closed
       // immediately. A gradual close here could reveal an unstencilled void.
@@ -1527,8 +1925,11 @@ export function MushroomObservatoryRuntime({
         * resources.lensAngularScale;
       const horizonRadius = MUSHROOM_SKY_LENS_DEFAULT_HORIZON_RADIUS
         * resources.lensAngularScale;
+      nativeLensAmount = isRelativisticLensPrimary(resources)
+        ? 0
+        : resources.lensAmount;
       setMushroomSkyLens(sky, {
-        amount: resources.lensAmount,
+        amount: nativeLensAmount,
         direction: resources.lensDirection,
         einsteinRadius,
         influenceRadius,
@@ -1567,6 +1968,10 @@ export function MushroomObservatoryRuntime({
       && resources.stencilSupported
       && qualityRef.current?.maximumQuality !== "minimum"
     ) {
+      if (qualityRef.current?.quality === "high") {
+        requestHighSkyTextureRef.current?.();
+      }
+      startRelativisticLoadRef.current?.();
       startGaiaLoadRef.current?.();
       if (!resources.hiddenCosmosLoadRequested) {
         resources.hiddenCosmosLoadRequested = true;
@@ -1659,7 +2064,7 @@ export function MushroomObservatoryRuntime({
       setGaiaStarPixelRatio(resources.gaia, gl.getPixelRatio());
       setGaiaStarReveal(resources.gaia, channels.faintStarReveal);
       setGaiaStarLens(resources.gaia, {
-        amount: resources.lensAmount,
+        amount: nativeLensAmount,
         direction: resources.lensDirection,
         einsteinRadius: MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS
           * resources.lensAngularScale,
@@ -1706,22 +2111,59 @@ export function MushroomObservatoryRuntime({
           channels.brightStarReveal
         )
       : 0;
-    let blackHoleActive = false;
+    const relativisticPrimary = isRelativisticLensPrimary(resources)
+      && hiddenQuality !== "minimum";
+    const fallbackBlackHoleVisible = finiteCosmosGate
+      && hiddenQuality !== "minimum"
+      && !resources.blackHoleDisabled
+      && !relativisticPrimary;
+    let fallbackBlackHoleActive = false;
     if (resources.blackHole) {
       setObservatoryBlackHoleVisible(
         resources.blackHole,
-        finiteCosmosGate
-          && hiddenQuality !== "minimum"
-          && !resources.blackHoleDisabled
+        fallbackBlackHoleVisible
       );
-      blackHoleActive = updateObservatoryBlackHole(
+      fallbackBlackHoleActive = updateObservatoryBlackHole(
         resources.blackHole,
         camera,
         celestialTime,
-        blackHoleReveal,
+        fallbackBlackHoleVisible ? blackHoleReveal : 0,
         hiddenQuality
       );
     }
+
+    let relativisticActive = false;
+    if (resources.relativisticLens) {
+      const relativisticVisible = finiteCosmosGate && relativisticPrimary;
+      setObservatoryRelativisticLensVisible(
+        resources.relativisticLens,
+        relativisticVisible
+      );
+      relativisticActive = updateObservatoryRelativisticLens(
+        resources.relativisticLens,
+        camera,
+        {
+          timeSeconds: celestialTime,
+          reveal: relativisticVisible ? blackHoleReveal : 0,
+          quality: hiddenQuality,
+          skyTexture: skyBackdropMaterial?.uniforms?.uSkyTexture?.value ?? null,
+          luts: resources.relativisticLuts,
+          lensPosition: LENS_WORLD_POSITION,
+          discNormal: RELATIVISTIC_DISC_NORMAL,
+          skyRotation: getRelativisticSkyRotation(sky),
+          skyBrightness: skyBackdropMaterial?.uniforms?.uBrightness?.value
+            ?? MUSHROOM_SKY_IMAGE_BRIGHTNESS,
+          blackHoleRadius: 1.35,
+          discInnerRadius: 3.08,
+          discOuterRadius: 7.6,
+          discOpacity: 0.94,
+          influenceRadius: 0.58 * resources.lensAngularScale,
+          hdrOutput: resources.blackHolePass?.renderTarget?.texture?.type
+            === THREE.HalfFloatType
+        }
+      );
+    }
+    const blackHoleActive = relativisticActive || fallbackBlackHoleActive;
 
     if (resources.blackHolePass) {
       const blackHoleTargetKey = [

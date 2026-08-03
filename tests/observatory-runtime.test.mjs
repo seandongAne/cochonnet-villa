@@ -155,6 +155,45 @@ test("F owns a finite depth-tested black-hole pass and one world-anchored star-v
   );
 });
 
+test("the Bruneton Schwarzschild layer owns the primary F path and the procedural mesh remains fallback", () => {
+  for (const api of [
+    "loadObservatoryRelativisticLensLuts",
+    "createObservatoryRelativisticLens",
+    "updateObservatoryRelativisticLens",
+    "prewarmObservatoryRelativisticLens"
+  ]) {
+    assert.match(runtime, new RegExp(`${api}\\(`));
+  }
+  assert.match(
+    runtime,
+    /resources\.blackHolePass\.scene\.add\(resources\.relativisticLens\)/,
+    "the HDR lens must share the finite black-hole FBO and its stencil composite"
+  );
+  assert.match(
+    runtime,
+    /loadObservatoryRelativisticLensLuts\(\{[\s\S]*?linear:\s*resources\.relativisticSupport\.floatLinear,[\s\S]*?signal:\s*abortController\.signal/
+  );
+  assert.match(
+    runtime,
+    /resources\.relativisticLoadPending[\s\S]*?\|\| resources\.relativisticLuts[\s\S]*?resources\.relativisticLoadPending = true;[\s\S]*?finally \{\s*resources\.relativisticLoadPending = false;/
+  );
+  assert.match(runtime, /const relativisticPrimary = isRelativisticLensPrimary\(resources\)/);
+  assert.match(runtime, /&& !relativisticPrimary;/);
+  assert.match(runtime, /nativeLensAmount = isRelativisticLensPrimary\(resources\)[\s\S]*?\? 0[\s\S]*?: resources\.lensAmount/);
+  assert.match(
+    runtime,
+    /updateObservatoryRelativisticLens\([\s\S]*?skyTexture:\s*skyBackdropMaterial\?\.uniforms\?\.uSkyTexture[\s\S]*?skyRotation:\s*getRelativisticSkyRotation\(sky\)[\s\S]*?hdrOutput:/
+  );
+  assert.match(runtime, /blackHoleRadius:\s*1\.35/);
+  assert.match(runtime, /discOuterRadius:\s*7\.6/);
+  assert.match(
+    runtime,
+    /RELATIVISTIC_DISC_NORMAL = new THREE\.Vector3\(0\.62, 0\.52, 0\.59\)\.normalize\(\)/
+  );
+  assert.match(runtime, /observatoryShaderFailure === "relativistic-lens"/);
+  assert.match(runtime, /mode:\s*isRelativisticLensPrimary\(resources\)[\s\S]*?"schwarzschild-lut"/);
+});
+
 test("Gaia stays one native-resolution main-scene Points draw behind the roof stencil", () => {
   assert.equal(
     matchCount(gaia, /new THREE\.Points\s*\(/g),
@@ -203,7 +242,7 @@ test("catalogue fetch is abortable and all owned GPU/browser resources are clean
   assert.match(runtime, /resources\.gaiaLoadStarted \|\| !mounted/);
   assert.match(
     runtime,
-    /if \(texture !== fallbackTexture\) \{[\s\S]*?uSkyTexture\.value = fallbackTexture;[\s\S]*?loadedTexture = null;[\s\S]*?texture\.dispose\(\);[\s\S]*?fallbackTexture\?\.isTexture/
+    /const replacement = isHighTexture && loadedTexture\?\.isTexture[\s\S]*?\? loadedTexture[\s\S]*?: fallbackTexture;[\s\S]*?loadedTexture === texture[\s\S]*?loadedHighTexture === texture[\s\S]*?texture\.dispose\(\);[\s\S]*?replacement\?\.isTexture/
   );
 
   for (const cleanup of [
@@ -213,6 +252,8 @@ test("catalogue fetch is abortable and all owned GPU/browser resources are clean
     /disposeHiddenCosmosResources\(\)/,
     /disposeObservatoryBlackHolePass\(resources\.blackHolePass\)/,
     /disposeObservatoryBlackHole\(resources\.blackHole\)/,
+    /disposeObservatoryRelativisticLens\(resources\.relativisticLens\)/,
+    /disposeObservatoryRelativisticLensLuts\(resources\.relativisticLuts\)/,
     /disposeObservatoryStarVolume\(resources\.starVolume\)/,
     /disposeGaiaStarPoints\(resources\.gaia\)/,
     /removeMushroomSkyAperture\(resources\.aperture\)/,
@@ -247,6 +288,14 @@ test("HalfFloat failure rebuilds as RGBA8 and a second failure falls back to Low
   assert.match(runtime, /resources\.forceUnsignedByte = true/);
   assert.match(
     runtime,
+    /resources\.halfFloatSupported[\s\S]*?&& !resources\.blackHoleForceUnsignedByte[\s\S]*?\? THREE\.HalfFloatType[\s\S]*?: THREE\.UnsignedByteType/
+  );
+  assert.match(
+    runtime,
+    /failedTargetWasHalfFloat[\s\S]*?!resources\.blackHoleForceUnsignedByte[\s\S]*?resources\.blackHoleForceUnsignedByte = true;[\s\S]*?disposeBlackHolePassResources\(\);[\s\S]*?ensureHiddenCosmosResources\(/
+  );
+  assert.match(
+    runtime,
     /resources\.forceUnsignedByte = true;[\s\S]*?resources\.qualityApplied = null;[\s\S]*?applyQuality\(qualityRef\.current\?\.quality \?\? "medium"\)/
   );
   assert.match(
@@ -259,6 +308,10 @@ test("HalfFloat failure rebuilds as RGBA8 and a second failure falls back to Low
   );
   assert.match(runtime, /gl\.setRenderTarget\(previousTarget\)/);
   assert.match(runtime, /gl\.xr\.enabled = previousXrEnabled/);
+  assert.match(
+    runtime,
+    /gl\.setRenderTarget\(pass\.renderTarget\);[\s\S]*?checkFramebufferStatus[\s\S]*?if \(prewarm\) gl\.setRenderTarget\(getNativePrewarmTarget\(\)\);[\s\S]*?gl\.render\(pass\.scene, pass\.camera\)/
+  );
 });
 
 test("diagnostics expose runtime state and motion query overrides stay QA-only", () => {
@@ -267,6 +320,7 @@ test("diagnostics expose runtime state and motion query overrides stay QA-only",
     "adaptation",
     "portal",
     "blackHole",
+    "relativisticLens",
     "starVolume",
     "gaia",
     "backdrop4k"
@@ -366,12 +420,14 @@ test("shader failures are classified and per-frame draw metrics report actual wo
     "mushroom-gaia-star-material",
     "mushroom-observatory-portal-composite-material",
     "OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME",
+    "OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME",
     "OBSERVATORY_STAR_VOLUME_MATERIAL_NAME"
   ]) {
     assert.match(runtime, new RegExp(material));
   }
   assert.match(runtime, /observatoryShaderFailure === "gaia"/);
   assert.match(runtime, /observatoryShaderFailure === "black-hole"/);
+  assert.match(runtime, /observatoryShaderFailure === "relativistic-lens"/);
   assert.match(runtime, /observatoryShaderFailure === "star-volume"/);
   assert.match(runtime, /observatoryShaderFailure === "native-sky"/);
   assert.match(runtime, /resources\.portalRenderedThisFrame = false/);

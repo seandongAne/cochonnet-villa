@@ -32,9 +32,9 @@ test("black-hole pass quality tiers preserve aspect and enforce their own caps",
   );
 
   for (const [quality, expected] of [
-    ["HIGH", [1280, 720]],
-    ["medium", [960, 540]],
-    ["low", [720, 405]]
+    ["HIGH", [1920, 1080]],
+    ["medium", [1280, 720]],
+    ["low", [960, 540]]
   ]) {
     const size = calculateObservatoryBlackHolePassTargetSize({
       width: 3840,
@@ -52,8 +52,8 @@ test("black-hole pass quality tiers preserve aspect and enforce their own caps",
     pixelRatio: 2,
     quality: "high"
   });
-  assert.ok(portrait.width <= 1280);
-  assert.ok(portrait.height <= 720);
+  assert.ok(portrait.width <= 1920);
+  assert.ok(portrait.height <= 1080);
   assert.ok(Math.abs(portrait.width / portrait.height - 1080 / 1920) < 0.002);
 });
 
@@ -64,7 +64,7 @@ test("black-hole target keeps depth, drops stencil/MSAA/mipmaps, and disposes on
     pixelRatio: 2,
     quality: "high"
   });
-  assert.deepEqual([target.width, target.height], [1280, 720]);
+  assert.deepEqual([target.width, target.height], [1920, 1080]);
   assert.equal(target.depthBuffer, true);
   assert.equal(target.stencilBuffer, false);
   assert.equal(target.samples, 0);
@@ -209,7 +209,7 @@ test("aggregate pass resizes, keeps its texture binding, and disposes idempotent
     pixelRatio: 2,
     quality: "high"
   });
-  assert.deepEqual([size.width, size.height], [1280, 720]);
+  assert.deepEqual([size.width, size.height], [1920, 1080]);
   assert.equal(pass.quality, "high");
   assert.equal(
     pass.composite.material.uniforms.uBlackHoleTexture.value,

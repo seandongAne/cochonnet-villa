@@ -146,7 +146,7 @@ Gaia v1 来自 ESA Gaia DR3 `gaiadr3.gaia_source` 的可复现 ADQL 查询，运
 
 - `observatory-diagnostics.js` 固化 `l2-stair`、`loft-center`、`loft-edge`、`loft-room`、`black-hole-edge` 五个相机书签、p50/p95/p99/1% low 统计和显存估算。
 - `?observatory=test` 使用 `frameloop="never"`，可确定性推进 0.5/2/10 秒；`?observatory=perf` 保留真实帧循环，并同时挂载正常 `PlayerControls`，可以实际走完验收路线。
-- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；十三张实施后/验收截图已保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层、隐藏 Rift+Lens，以及 3D 黑洞的预检/中心/边缘视差、黑金/真实星点调校与无面板验收画面。
+- 六张固定状态实施前截图保存在 `docs/observatory-baseline/`；十四张实施后/验收截图已保存在 `docs/observatory-final/`，覆盖 L2、开灯、关灯 0.5/2/10 秒、穹顶边缘、消光层、隐藏 Rift+Lens，以及 3D 黑洞的预检/中心/边缘视差、黑金/真实星点调校、Schwarzschild 8K 光线弯曲与无面板验收画面。
 - 4K WebP 仍为原始 4096×1024；186/186 自动测试与生产构建通过。20 秒人工路线视频和目标设备三轮 GPU p95 仍属人工验收证据，不是代码缺口。
 
 工作内容：
@@ -390,8 +390,19 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - 吸积盘采用太阳式黑/金温度叙事：背离观察者的一侧压到近黑，外盘保留深金与琥珀，只有靠近事件视界的窄带进入白热；RGBA8 独立 FBO 内先做局部辐射压缩，避免整圈削顶成灰白，同时不引入会洗亮墙面的全屏 Bloom。
 - 有限星群不再用随景深放大的软圆片。shader 使用固定屏幕支持区和 DPR 感知的解析 Gaussian PSF，加上极弱 Airy 翼；亮度采用连续长尾并写入 RGB，稀疏尘埃降到辅助层，因此近处仍有真实视差，但画面读成细锐恒星而不是风格化灯泡。
 - High/Medium/Low 按档位减少吸积盘层数、光子壳、碎屑、有限星群数量和黑洞 FBO 分辨率；Minimum 不分配新黑洞 FBO/星群。新 pass 创建、预热、framebuffer 或 shader 失败时只禁用 3D 奇点层，继续保留 6A 的旧 point-mass Lens 作为 fail-soft fallback，不会变成空白穹顶。
-- 本版全部使用项目内 Three.js 程序化几何与 shader，**尚未引入 Sketchfab 外部黑洞模型，也尚未实现 Bruneton 风格的预计算引力弯曲 LUT**；两者仍是后续可评估方向，不能写成当前依赖或已交付能力。
-- 验收图 `09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png`、`12-black-hole-3d-acceptance-clean.png`，以及最终黑金/真实星点调校图 `13-black-gold-real-stars-acceptance.png` 已保存在 `docs/observatory-final/`。这些图是浏览器功能证据；目标显示器上的人眼 wow factor 仍由用户最终确认。
+- 6B 全部使用项目内 Three.js 程序化几何与 shader；没有引入 Sketchfab 外部模型。6C 在保留这条程序化 fallback 的前提下，加入预计算 Schwarzschild 光线追迹作为 High/Medium/Low 的主路径。
+- 验收图 `09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png`、`12-black-hole-3d-acceptance-clean.png`，以及黑金/真实星点调校图 `13-black-gold-real-stars-acceptance.png` 已保存在 `docs/observatory-final/`。这些图是浏览器功能证据；目标显示器上的人眼 wow factor 仍由用户最终确认。
+
+#### 6C：Schwarzschild 高清混合星空 v1（已实现）
+
+- F 仍是唯一入口和 reveal 时钟，但 High/Medium 主路径已从 point-mass 近似升级为 Eric Bruneton BSD-3-Clause 预计算表：512×512 光线偏折 LUT 与 64×32 逆半径 LUT 在 shader 中重建 Schwarzschild 测地线，直接重采样当前真实星空，而不是在照片上叠一张黑洞贴图。
+- 同一张摄影星空会形成真实弯曲、Einstein ring 与多重背景像；倾斜吸积盘同时计算 primary/secondary 光路交点、Doppler beaming 和引力红移。黑金气体只在接近侧与内盘进入白热，事件视界保持干净黑色剪影，未引入会洗亮房间的全屏 Bloom。
+- High 使用来自 Poly Haven 官方 8192×4096 母版裁出的 8192×2048 星空；Medium/Low 保留现有 4096×1024。8K 只在靠近 L2/L3、High 档且 `maxTextureSize >= 8192` 时懒加载，失败或降档立即继续使用 4K/程序化 fallback。两档纹理使用 sRGB、三线性 mipmap 和各向异性采样；透镜放大区读取原始细节，临界曲线的强压缩区做 footprint 过滤以减少摩尔纹。
+- 黑洞专用 FBO 上限为 High 1920×1080、Medium 1280×720、Low 960×540。优先使用 HalfFloat HDR；framebuffer 失败只重建一次 RGBA8 局部压缩路径，再失败则保留旧程序化黑洞与 point-mass Lens，不会让穹顶变空。
+- Gaia、hero stars 和三层有限星群统一为约 1 CSS px 的解析能量守恒 PSF；亮度主要写入 RGB，闪烁限制在微弱、异步的强度变化，只有极少数最亮星保留窄小衍射尖峰，因此不再呈现低分辨率灯泡。
+- 正式 HDR target 会在 L2 预热阶段先完成分配与完整性检查，shader/纹理上传则只画到 1×1 目标；关灯、F 关闭、离开 L3、context loss 和组件卸载仍沿用既有零持续 draw 与幂等释放契约。
+- LUT、8K 资源、来源元数据、许可和离线重建脚本均保存在 `public/data/`、`public/textures/` 与 `scripts/`；项目仍不依赖 Sketchfab iframe、远程模型或访客端外部 API。
+- 无面板验收图 `14-schwarzschild-8k-acceptance.png` 记录 High/8K、HalfFloat、80k Gaia 与 Schwarzschild LUT 同时工作的最终浏览器画面。
 
 自动测试和浏览器固定机位只能证明通道接线、降级、深度层与横移画面可运行；黑洞的立体强度、遮挡可读性、视差舒适度、最终 wow factor，以及 Iris Xe/M1 与 UHD 620 级目标设备上的三轮 GPU p95，仍待人工/目标硬件验收。
 
@@ -447,6 +458,7 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 - reduced-motion 两次截图 hash 完全相同，full-motion 对照 hash 不同。
 - 隐藏 R/F 在 Medium/35k Gaia 与 960×497 HalfFloat Portal 下完成组合验收；Rift/Lens 状态、有限距离层、开灯复位和零稳态 cosmos draw 均由 runtime snapshot 核对。
 - 黑金/真实星点调校在同一 Medium 路径下完成浏览器复验；连续两帧截图 hash 不同，证明吸积盘与星点动态仍在运行，开灯后黑洞、有限星群、Gaia、Portal 与 native sky 的持续 draw 均回到 0。
+- Schwarzschild 8K 路径已在真实 WebGL2 浏览器中确认：High 激活 8192×2048 星空、80k Gaia、1920×993 HalfFloat 黑洞 FBO，LUT 完成加载/预热且 diagnostics 报告 `mode: schwarzschild-lut`；浏览器无 shader/framebuffer 错误。目标设备 GPU p95 仍按下段单独验收。
 
 仍需人工提供的性能验收证据是：固定 20 秒路线视频，以及在目标 Iris Xe/M1 和 UHD 620 级设备上各预热 5 秒、连续三轮记录 GPU/CPU p95。它们不属于代码缺口。
 
@@ -464,13 +476,13 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 | 房间中心直视穹顶 | 无图片贴脸感、极点接缝或近距离像素感 |
 | 沿房间横移约 2 m | 远星固定，近星云只有轻微视差 |
 | 瞄准墙上开关按 R | 遮罩先展开、墙后消失；三层碎片/环随横移产生明显但舒适的差速视差，无绿色漏底 |
-| 瞄准墙上开关按 F | Gaia/hero/银河沿同一方向弯曲，事件视界清晰；走动时位置与角尺寸变化，背对事件时无 Portal 假透镜 |
+| 瞄准墙上开关按 F | 摄影银河、Gaia 与真实星点沿同一 Schwarzschild 光路弯曲；Einstein ring、多重背景像、primary/secondary 盘像和事件视界清晰；走动时位置与角尺寸变化，背对事件时无 Portal 假透镜 |
 | 贴墙看穹顶边缘 | 无 stencil 泄漏、木圈穿帮或透明排序错误 |
 | 快速环视/resize | 无 temporal 鬼影、闪屏或 FBO 拉伸 |
 | 连续切灯 20 次 | 状态、显存、纹理和材质数量不持续增长 |
 | reduced-motion | 漂移/闪烁冻结，切灯和可读性仍完整 |
 
-实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面，`09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png` 记录有限距离黑洞的预检、中心与边缘视差，`12-black-hole-3d-acceptance-clean.png` 是首版无面板画面，`13-black-gold-real-stars-acceptance.png` 是黑金高温盘与解析真实星点的最终浏览器验收画面。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash、full-motion 动态与 R/F 复位；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
+实施后固定截图已收集在 `docs/observatory-final/`：`07-volume-extinction-acceptance.jpg` 是“发光 + 消光”调校画面，`08-hidden-rift-gaia-lens-acceptance.png` 是隐藏 Rift+Lens 组合验收画面，`09-black-hole-3d-preflight.png`、`10-black-hole-3d-center.png`、`11-black-hole-3d-edge-parallax.png` 记录有限距离黑洞的预检、中心与边缘视差，`12-black-hole-3d-acceptance-clean.png` 是首版无面板画面，`13-black-gold-real-stars-acceptance.png` 是黑金高温盘与解析真实星点调校，`14-schwarzschild-8k-acceptance.png` 是 8K 摄影星空与预计算 Schwarzschild 光线弯曲的最终无面板验收画面。自动浏览器已经确认 resize、20 次切灯资源稳定、context loss/restore、reduced-motion hash、full-motion 动态与 R/F 复位；这些是功能证据。星空距离感、R/F 立体强度、视差舒适度、stencil 边缘、影院暗度和 wow factor 仍必须由人眼在实际显示器上验收。
 
 ## 9. 主要风险与缓解
 

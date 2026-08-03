@@ -43,10 +43,9 @@ export const MUSHROOM_SKY_LENS_DEFAULT_RING_STRENGTH = 1.15;
 export const MUSHROOM_SKY_BACKDROP_DRIFT = 0.00012;
 export const MUSHROOM_SKY_STAR_DRIFT = -0.00028;
 
-// Most points breathe very gently while the larger stars get a deeper,
-// quicker pulse. The speed values are radians per second, so this range gives
-// the noticeable stars a roughly 2-5 second cycle without making the whole
-// ceiling flash in sync.
+// The hero points scintillate by only a few percent. Speed values are radians
+// per second, so independent phases remain perceptible without turning the
+// ceiling into a synchronized pulse or changing apparent stellar diameter.
 export const MUSHROOM_SKY_TWINKLE_SPEED_MIN = 1.15;
 export const MUSHROOM_SKY_TWINKLE_SPEED_MAX = 2.9;
 
@@ -240,11 +239,14 @@ const STAR_VERTEX_SHADER = /* glsl */ `
   attribute float aTwinkleSpeed;
   attribute float aTwinkleStrength;
   attribute float aSize;
+  attribute float aRadiance;
   attribute vec3 aColor;
 
   varying float vBrightness;
   varying float vLensMagnification;
-  varying float vTwinkleStrength;
+  varying float vPsfScale;
+  varying float vRadiance;
+  varying float vSpriteSizePx;
   varying vec3 vColor;
 
   float angularDistance(vec3 first, vec3 second) {
@@ -290,12 +292,11 @@ const STAR_VERTEX_SHADER = /* glsl */ `
   void main() {
     float wave = sin(uTime * aTwinkleSpeed + aPhase);
     float secondWave = sin(uTime * (aTwinkleSpeed * 0.61) + aPhase * 1.73);
-    float shimmer = 0.5 + 0.5 * (wave * 0.72 + secondWave * 0.28);
-    // A narrow crest gives a few prominent points a recognisable sparkle,
-    // while the slower shimmer keeps the transition organic between peaks.
-    float sparkle = pow(max(0.0, 0.5 + 0.5 * wave), 10.0);
-    float fullTwinkle = 0.28 + 0.58 * shimmer + 0.52 * sparkle;
-    vBrightness = mix(0.84, fullTwinkle, aTwinkleStrength);
+    // Atmospheric scintillation is a weak radiance modulation. It never
+    // changes the PSF size, and reduced motion freezes uTime in the runtime.
+    vBrightness = 1.0 + aTwinkleStrength * (
+      wave * 0.72 + secondWave * 0.28
+    );
     vec3 apparentPosition = position;
     vLensMagnification = 1.0;
     if (uLensAmount > 0.0) {
@@ -306,49 +307,79 @@ const STAR_VERTEX_SHADER = /* glsl */ `
       vLensMagnification += lensInfluence * 0.72;
       apparentPosition = lensStarPosition(position);
     }
-    vTwinkleStrength = aTwinkleStrength;
+    vPsfScale = aSize;
+    vRadiance = aRadiance;
     vColor = aColor;
 
     vec4 viewPosition = modelViewMatrix * vec4(apparentPosition, 1.0);
     gl_Position = projectionMatrix * viewPosition;
-    // Screen-space sizes avoid the "near particles" cue caused by perspective
-    // attenuation. These are celestial points, not dust floating in the room.
-    float sizePulse = mix(
-      1.0,
-      0.78 + 0.30 * shimmer + 0.28 * sparkle,
-      aTwinkleStrength
-    );
-    gl_PointSize = aSize * uPixelRatio * sizePulse * vLensMagnification;
+    // Fixed screen-space support avoids both perspective particles and the
+    // old stylised size pulse. The visible PSF inside remains about 1 CSS px.
+    gl_PointSize = 8.0 * uPixelRatio;
+    vSpriteSizePx = gl_PointSize;
   }
 `;
 
 const STAR_FRAGMENT_SHADER = /* glsl */ `
+  uniform float uPixelRatio;
   uniform float uReveal;
 
   varying float vBrightness;
   varying float vLensMagnification;
-  varying float vTwinkleStrength;
+  varying float vPsfScale;
+  varying float vRadiance;
+  varying float vSpriteSizePx;
   varying vec3 vColor;
 
   void main() {
-    float distanceFromCentre = length(gl_PointCoord - vec2(0.5));
-    float core = 1.0 - smoothstep(0.05, 0.48, distanceFromCentre);
-    float halo = 1.0 - smoothstep(0.18, 0.5, distanceFromCentre);
-    vec2 fromCentre = abs(gl_PointCoord - vec2(0.5));
-    float verticalRay = (1.0 - smoothstep(0.035, 0.11, fromCentre.x))
-      * (1.0 - smoothstep(0.18, 0.5, fromCentre.y));
-    float horizontalRay = (1.0 - smoothstep(0.035, 0.11, fromCentre.y))
-      * (1.0 - smoothstep(0.18, 0.5, fromCentre.x));
-    float heroStar = smoothstep(0.72, 0.96, vTwinkleStrength);
-    float brightCrest = smoothstep(0.88, 1.18, vBrightness);
-    float flare = (verticalRay + horizontalRay) * heroStar * brightCrest;
-    float alpha = (core * 0.90 + halo * 0.28 + flare * 0.74)
-      * vBrightness * uReveal * 0.86 * vLensMagnification;
-    if (alpha < 0.015) discard;
-    gl_FragColor = vec4(
-      vColor * (0.96 + vBrightness * 0.32 + flare * 0.44),
-      alpha
+    vec2 centred = gl_PointCoord - vec2(0.5);
+    float safePixelRatio = max(uPixelRatio, 0.5);
+    vec2 pixelPositionCss = centred * max(vSpriteSizePx, 1.0) / safePixelRatio;
+    float pixelRadiusCss = length(pixelPositionCss);
+    float prominence = smoothstep(0.55, 4.8, vRadiance);
+
+    // One-pixel analytic PSF with an energy-normalized core and a barely
+    // visible Airy ring. aSize changes sigma only within photographic bounds.
+    float sigmaCss = mix(0.38, 0.47, clamp(vPsfScale, 0.0, 1.0));
+    float coreNormalization = pow(0.42 / sigmaCss, 2.0);
+    float stellarCore = exp(
+      -0.5 * pow(pixelRadiusCss / sigmaCss, 2.0)
+    ) * coreNormalization;
+    float airyWing = exp(
+      -0.5 * pow((pixelRadiusCss - 1.5) / 0.28, 2.0)
+    ) * mix(0.01, 0.035, prominence);
+
+    // Only a handful of the seeded 360 stars reach this radiance tail.
+    // Their diffraction spikes stay sub-pixel narrow and never inflate into
+    // the old cross-shaped bulb.
+    float diffractionGate = smoothstep(4.7, 5.5, vRadiance);
+    float verticalSpike = exp(-0.5 * pow(pixelPositionCss.x / 0.23, 2.0))
+      * exp(-0.5 * pow(pixelPositionCss.y / 2.75, 2.0));
+    float horizontalSpike = exp(-0.5 * pow(pixelPositionCss.y / 0.23, 2.0))
+      * exp(-0.5 * pow(pixelPositionCss.x / 2.75, 2.0));
+    float diffractionSpike = (verticalSpike + horizontalSpike)
+      * diffractionGate * 0.095;
+
+    float edge = max(abs(centred.x), abs(centred.y));
+    float edgeAA = max(fwidth(edge), 0.001);
+    float spriteSupport = 1.0 - smoothstep(0.5 - edgeAA, 0.5, edge);
+    float coverage = clamp(
+      (stellarCore + airyWing + diffractionSpike) * spriteSupport,
+      0.0,
+      1.0
     );
+    float alpha = coverage * uReveal;
+    if (alpha < 1.0 / 2048.0) discard;
+
+    // Brightness, scintillation and gravitational magnification are radiance,
+    // not alpha. Additive blending therefore applies flux exactly once.
+    float chroma = mix(0.12, 0.42, prominence);
+    vec3 stellarColour = mix(vec3(1.0), vColor, chroma);
+    vec3 sourceRadiance = stellarColour
+      * vRadiance
+      * vBrightness
+      * vLensMagnification;
+    gl_FragColor = vec4(sourceRadiance, alpha);
     #include <colorspace_fragment>
   }
 `;
@@ -364,8 +395,8 @@ function seededRandom(seed) {
   };
 }
 
-// Mirrors the vertex-shader curve so node tests can verify that elapsed real
-// time produces a perceptible (not merely non-zero) change in star output.
+// Mirrors the vertex-shader curve so node tests can verify the weak,
+// asynchronous radiance modulation and the reduced-motion freeze path.
 export function calculateMushroomStarTwinkle(
   time,
   speed,
@@ -384,10 +415,7 @@ export function calculateMushroomStarTwinkle(
   const secondWave = Math.sin(
     safeTime * (safeSpeed * 0.61) + safePhase * 1.73
   );
-  const shimmer = 0.5 + 0.5 * (wave * 0.72 + secondWave * 0.28);
-  const sparkle = Math.max(0, 0.5 + 0.5 * wave) ** 10;
-  const fullTwinkle = 0.28 + 0.58 * shimmer + 0.52 * sparkle;
-  return THREE.MathUtils.lerp(0.84, fullTwinkle, safeStrength);
+  return 1 + safeStrength * (wave * 0.72 + secondWave * 0.28);
 }
 
 function configureSkyStencil(material) {
@@ -407,6 +435,7 @@ function createStarGeometry(starCount, radius, seed) {
   const speeds = new Float32Array(starCount);
   const strengths = new Float32Array(starCount);
   const sizes = new Float32Array(starCount);
+  const radiances = new Float32Array(starCount);
   const colors = new Float32Array(starCount * 3);
   const palette = [
     new THREE.Color("#dbe9ff"),
@@ -432,10 +461,13 @@ function createStarGeometry(starCount, radius, seed) {
         MUSHROOM_SKY_TWINKLE_SPEED_MAX - MUSHROOM_SKY_TWINKLE_SPEED_MIN
       );
     const prominence = random();
-    sizes[index] = 1.4 + Math.pow(prominence, 2.6) * 4.2;
-    // Tiny background points stay calm; the sparse larger stars visibly
-    // breathe. Correlating strength with size avoids a noisy TV-static look.
-    strengths[index] = 0.28 + Math.pow(prominence, 1.1) * 0.72;
+    sizes[index] = 0.24 + Math.pow(prominence, 1.5) * 0.76;
+    // Scintillation changes flux by at most about four percent. Radiance uses
+    // a long tail so brightness never needs to masquerade as a larger sprite.
+    strengths[index] = 0.006 + Math.pow(prominence, 4) * 0.036;
+    radiances[index] = 0.09
+      + Math.pow(prominence, 3) * 0.66
+      + Math.pow(prominence, 24) * 5.5;
 
     const color = palette[Math.floor(random() * palette.length)];
     colors[offset] = color.r;
@@ -449,6 +481,7 @@ function createStarGeometry(starCount, radius, seed) {
   geometry.setAttribute("aTwinkleSpeed", new THREE.BufferAttribute(speeds, 1));
   geometry.setAttribute("aTwinkleStrength", new THREE.BufferAttribute(strengths, 1));
   geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+  geometry.setAttribute("aRadiance", new THREE.BufferAttribute(radiances, 1));
   geometry.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
   geometry.computeBoundingSphere();
   return geometry;

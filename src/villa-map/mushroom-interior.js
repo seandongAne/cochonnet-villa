@@ -56,6 +56,8 @@ const STAIR_B_X = -2.0; // source-space x=-8, world x=-10 at 2x
 export const MUSHROOM_STAR_DOME_NAME = "mushroom-interior-dome";
 export const MUSHROOM_STAR_TEXTURE_URL =
   "/textures/qwantani-night-puresky-dome-4k.webp";
+export const MUSHROOM_STAR_TEXTURE_HIGH_URL =
+  "/textures/qwantani-night-puresky-dome-8k.webp";
 export const MUSHROOM_OBSERVATORY_EXPOSURE = 0.5;
 
 // L1/L2 stay storybook-warm. L3 deliberately switches to dim, short-range

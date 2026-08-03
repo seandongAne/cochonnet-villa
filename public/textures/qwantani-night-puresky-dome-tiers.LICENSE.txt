@@ -1,0 +1,32 @@
+Qwantani Night (Pure Sky) - Observatory texture tiers
+=====================================================
+
+Source asset: Qwantani Night (Pure Sky)
+Photography: Greg Zaal
+Processing: Jarod Guest
+Publisher: Poly Haven
+Asset page: https://polyhaven.com/a/qwantani_night_puresky
+Source API: https://api.polyhaven.com/files/qwantani_night_puresky
+License: CC0 1.0 Universal (Public Domain Dedication)
+License text: https://creativecommons.org/publicdomain/zero/1.0/
+
+Local derivatives:
+
+- qwantani-night-puresky-dome-4k.webp (4096 x 1024, Medium)
+- qwantani-night-puresky-dome-8k.webp (8192 x 2048, High)
+
+The High derivative is built directly from Poly Haven's official 8192 x 4096
+tonemapped JPEG. Its upper hemisphere is cropped at native resolution. The
+existing Medium derivative supplies only a heavily blurred, low-frequency
+colour and dark-horizon grade; it is not enlarged to supply High-tier image
+detail. Build parameters, source checksums and output checksums are recorded in
+qwantani-night-puresky-dome-tiers.meta.json.
+
+Rebuild with:
+
+node scripts/build-observatory-sky-textures.mjs
+
+For an offline rebuild, first download the exact official source named in the
+metadata, then run:
+
+node scripts/build-observatory-sky-textures.mjs --source <downloaded-jpeg>

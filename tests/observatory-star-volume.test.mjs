@@ -127,13 +127,20 @@ test("all quality tiers are deterministic subsets of the same single draw", () =
   assert.ok(uniquePeriods.size > 1000, "twinkle periods should be independent, not synchronized");
   assert.ok(warmest < 0.2 && coolest > 0.8, "the restrained field still spans warm/cool temperatures");
   assert.ok(starPeriodMax < dustPeriodMin, "microdust evolves more slowly than the stars");
-  assert.match(volume.userData.points.material.fragmentShader, /uTime[\s\S]*?vPeriod/);
-  assert.match(volume.userData.points.material.vertexShader, /uQualityLevel[\s\S]*?aQualityRank/);
-  assert.match(volume.userData.points.material.vertexShader, /spriteSizeCss/);
-  assert.match(volume.userData.points.material.fragmentShader, /pixelRadius/);
-  assert.match(volume.userData.points.material.fragmentShader, /airyWing/);
-  assert.doesNotMatch(volume.userData.points.material.vertexShader, /94\.0\s*\/\s*max/);
-  assert.doesNotMatch(volume.userData.points.material.fragmentShader, /starHalo/);
+  const vertexShader = volume.userData.points.material.vertexShader;
+  const fragmentShader = volume.userData.points.material.fragmentShader;
+  assert.match(fragmentShader, /uTime[\s\S]*?vPeriod/);
+  assert.match(vertexShader, /uQualityLevel[\s\S]*?aQualityRank/);
+  assert.match(vertexShader, /spriteSizeCss\s*=\s*mix\(7\.0,\s*5\.0,\s*aKind\)/);
+  assert.match(fragmentShader, /pixelPositionCss/);
+  assert.match(fragmentShader, /STAR_SIGMA_CSS\s*=\s*0\.42/);
+  assert.match(fragmentShader, /diffractionGate\s*=\s*smoothstep\(3\.35,\s*4\.05,\s*vBrightness\)/);
+  assert.match(fragmentShader, /spikeAngle\s*=\s*vPhase/);
+  assert.match(fragmentShader, /starSource\s*=\s*colour\s*\*\s*vBrightness\s*\*\s*pulse/);
+  assert.doesNotMatch(vertexShader, /gl_PointSize\s*=.*(?:aBrightness|aSize|uTime)/);
+  assert.doesNotMatch(fragmentShader, /airyWing|starHalo|vPsfScale/);
+  assert.doesNotMatch(vertexShader, /vPsfScale/);
+  assert.doesNotMatch(vertexShader, /94\.0\s*\/\s*max/);
 
   const brightnesses = geometry.getAttribute("aBrightness");
   const starBrightnesses = [];
@@ -150,6 +157,7 @@ test("all quality tiers are deterministic subsets of the same single draw", () =
   }
   starBrightnesses.sort((a, b) => a - b);
   const medianStar = starBrightnesses[Math.floor(starBrightnesses.length / 2)];
+  const diffractionTail = starBrightnesses.filter((brightness) => brightness > 3.35);
   assert.ok(
     starBrightnesses[0] < 0.08
       && medianStar < 0.25
@@ -158,6 +166,11 @@ test("all quality tiers are deterministic subsets of the same single draw", () =
   );
   assert.ok(faintestDust >= 0.0179 && brightestDust <= 0.0551,
     "microdust must stay much fainter than unresolved stars");
+  assert.ok(
+    diffractionTail.length > 0
+      && diffractionTail.length / starBrightnesses.length < 0.025,
+    "only a tiny deterministic brightest tail may receive diffraction spikes"
+  );
 
   disposeObservatoryStarVolume(volume);
 });

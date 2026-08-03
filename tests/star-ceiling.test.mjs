@@ -8,6 +8,7 @@ import { createMaterials } from "../src/villa-map/assets.js";
 import {
   createMushroomInterior,
   MUSHROOM_STAR_DOME_NAME,
+  MUSHROOM_STAR_TEXTURE_HIGH_URL,
   MUSHROOM_STAR_TEXTURE_URL
 } from "../src/villa-map/mushroom-interior.js";
 import { MUSHROOM_INTERIOR_LOCAL_RADIUS } from "../src/villa-map/mushroom-interior-config.js";
@@ -32,6 +33,10 @@ test("the mushroom factory exposes an inward-facing Node-pure fallback dome", ()
   assert.equal(
     MUSHROOM_STAR_TEXTURE_URL,
     "/textures/qwantani-night-puresky-dome-4k.webp"
+  );
+  assert.equal(
+    MUSHROOM_STAR_TEXTURE_HIGH_URL,
+    "/textures/qwantani-night-puresky-dome-8k.webp"
   );
 
   const interior = createMushroomInterior(createMaterials());
@@ -96,8 +101,25 @@ test("the browser runtime loads and disposes the sRGB dome texture", () => {
   assert.match(source, /new THREE\.TextureLoader\(\)/);
   assert.match(source, /getObjectByName\(MUSHROOM_STAR_DOME_NAME\)/);
   assert.match(source, /loader\.load\(\s*MUSHROOM_STAR_TEXTURE_URL/);
+  assert.match(source, /loader\.load\(\s*MUSHROOM_STAR_TEXTURE_HIGH_URL/);
+  assert.match(source, /gl\.capabilities\.maxTextureSize < 8192/);
+  assert.match(source, /qualityRef\.current\?\.quality === "high"/);
+  assert.match(source, /activateSkyTexture\(loadedHighTexture, "8k"\)/);
+  assert.match(source, /activateSkyTexture\(loadedTexture, "4k"\)/);
+  assert.match(source, /resources\.textureReady = true;\s*sky\.userData\.textureReady = true;/);
   assert.match(source, /texture\.colorSpace = THREE\.SRGBColorSpace/);
+  assert.match(source, /texture\.generateMipmaps = true/);
+  assert.match(source, /texture\.minFilter = THREE\.LinearMipmapLinearFilter/);
   assert.match(source, /gl\.capabilities\.getMaxAnisotropy\(\)/);
   assert.match(source, /loadedTexture\?\.dispose\(\)/);
+  assert.match(source, /loadedHighTexture\?\.dispose\(\)/);
   assert.match(source, /resources\.textureError = true/);
+  assert.match(
+    source,
+    /if \(!mounted \|\| sky\.userData\.lifecycleToken !== lifecycleToken\) return;/
+  );
+  assert.match(
+    source,
+    /scheduleTexturePreupload\(\s*backdropMaterial\?\.uniforms\?\.uSkyTexture\?\.value \?\? fallbackTexture/
+  );
 });

@@ -26,20 +26,20 @@ export const OBSERVATORY_BLACK_HOLE_PASS_QUALITY_PRESETS = Object.freeze({
   high: Object.freeze({
     id: "high",
     renderScale: 1,
-    maxWidth: 1280,
-    maxHeight: 720
+    maxWidth: 1920,
+    maxHeight: 1080
   }),
   medium: Object.freeze({
     id: "medium",
-    renderScale: 0.75,
-    maxWidth: 960,
-    maxHeight: 540
+    renderScale: 0.85,
+    maxWidth: 1280,
+    maxHeight: 720
   }),
   low: Object.freeze({
     id: "low",
-    renderScale: 0.5,
-    maxWidth: 720,
-    maxHeight: 405
+    renderScale: 0.6,
+    maxWidth: 960,
+    maxHeight: 540
   })
 });
 

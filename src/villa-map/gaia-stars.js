@@ -63,6 +63,8 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
   varying float vIntensity;
   varying float vMagnitudeVisibility;
   varying float vLensMagnification;
+  varying float vPsfScale;
+  varying float vSpriteSizePx;
   varying vec3 vStarColor;
 
   float angularDistance(vec3 first, vec3 second) {
@@ -122,6 +124,7 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
     // live in the shader interface without perturbing the radiometric value.
     float catalogSignal = aBpRp * 0.0;
     vIntensity = aIntensity + catalogSignal;
+    vPsfScale = aSize;
     vStarColor = aStarColor;
 
     vec3 lensedPosition = position;
@@ -136,33 +139,71 @@ const GAIA_STAR_VERTEX_SHADER = /* glsl */ `
     }
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(lensedPosition, 1.0);
-    gl_PointSize = max(
-      1.0,
-      aSize * uPixelRatio * (0.82 + 0.18 * uReveal) * vLensMagnification
-    );
+    // Gaia sources are unresolved. A fixed support sprite gives the analytic
+    // one-CSS-pixel PSF enough samples on HiDPI screens; brightness and lens
+    // magnification must not inflate the apparent stellar diameter.
+    gl_PointSize = 6.0 * uPixelRatio;
+    vSpriteSizePx = gl_PointSize;
   }
 `;
 
 const GAIA_STAR_FRAGMENT_SHADER = /* glsl */ `
+  uniform float uPixelRatio;
   uniform float uReveal;
 
   varying float vIntensity;
   varying float vMagnitudeVisibility;
   varying float vLensMagnification;
+  varying float vPsfScale;
+  varying float vSpriteSizePx;
   varying vec3 vStarColor;
 
   void main() {
-    float radius = length(gl_PointCoord - vec2(0.5));
-    float core = 1.0 - smoothstep(0.04, 0.47, radius);
-    float halo = 1.0 - smoothstep(0.18, 0.5, radius);
-    float alpha = (core * 0.88 + halo * 0.20)
-      * vIntensity
-      * uReveal
-      * vMagnitudeVisibility
-      * vLensMagnification;
-    if (alpha < 0.012) discard;
+    vec2 centred = gl_PointCoord - vec2(0.5);
+    float safePixelRatio = max(uPixelRatio, 0.5);
+    vec2 pixelPositionCss = centred * max(vSpriteSizePx, 1.0) / safePixelRatio;
+    float pixelRadiusCss = length(pixelPositionCss);
+    float prominence = smoothstep(0.45, 3.6, vIntensity);
 
-    gl_FragColor = vec4(vStarColor * (0.82 + vIntensity * 0.62), alpha);
+    // Analytic, energy-balanced point-spread function. Its 0.38-0.46 CSS-px
+    // sigma gives a roughly one-pixel FWHM at every DPR. The normalization
+    // prevents the rare slightly wider bright cores from gaining fake energy.
+    float sigmaCss = mix(0.38, 0.46, clamp(vPsfScale, 0.0, 1.0));
+    float coreNormalization = pow(0.42 / sigmaCss, 2.0);
+    float stellarCore = exp(
+      -0.5 * pow(pixelRadiusCss / sigmaCss, 2.0)
+    ) * coreNormalization;
+    float airyWing = exp(
+      -0.5 * pow((pixelRadiusCss - 1.42) / 0.26, 2.0)
+    ) * mix(0.008, 0.028, prominence);
+
+    // Only the exceptionally bright catalogue tail receives a narrow camera
+    // diffraction cross. It is a PSF feature, not a size/opacity pulse.
+    float diffractionGate = smoothstep(2.4, 3.25, vIntensity);
+    float verticalSpike = exp(-0.5 * pow(pixelPositionCss.x / 0.24, 2.0))
+      * exp(-0.5 * pow(pixelPositionCss.y / 2.05, 2.0));
+    float horizontalSpike = exp(-0.5 * pow(pixelPositionCss.y / 0.24, 2.0))
+      * exp(-0.5 * pow(pixelPositionCss.x / 2.05, 2.0));
+    float diffractionSpike = (verticalSpike + horizontalSpike)
+      * diffractionGate * 0.075;
+
+    float edge = max(abs(centred.x), abs(centred.y));
+    float edgeAA = max(fwidth(edge), 0.001);
+    float spriteSupport = 1.0 - smoothstep(0.5 - edgeAA, 0.5, edge);
+    float coverage = clamp(
+      (stellarCore + airyWing + diffractionSpike) * spriteSupport,
+      0.0,
+      1.0
+    );
+    float alpha = coverage * uReveal * vMagnitudeVisibility;
+    if (alpha < 1.0 / 2048.0) discard;
+
+    // AdditiveBlending applies alpha once, so radiometric brightness belongs
+    // in RGB. Keeping alpha as coverage avoids squaring flux into soft bulbs.
+    float chroma = mix(0.12, 0.38, prominence);
+    vec3 stellarColour = mix(vec3(1.0), vStarColor, chroma);
+    vec3 sourceRadiance = stellarColour * vIntensity * vLensMagnification;
+    gl_FragColor = vec4(sourceRadiance, alpha);
     #include <colorspace_fragment>
   }
 `;
@@ -347,19 +388,20 @@ function createGaiaStarGeometry(catalog, radius) {
     positions[offset + 1] = catalog.positions[offset + 1] * safeRadius;
     positions[offset + 2] = catalog.positions[offset + 2] * safeRadius;
 
-    // Gaia G magnitude is logarithmic: lower values are brighter. Keep most
-    // catalogue points sub-pixel and reserve the larger sprites for sparse,
-    // genuinely bright measurements.
+    // Gaia G magnitude is logarithmic: lower values are brighter. aSize now
+    // modulates only the sub-pixel PSF sigma; point-sprite support stays fixed.
     const prominence = THREE.MathUtils.clamp(
       (10.2 - catalog.magnitudes[index]) / 8.6,
       0,
       1
     );
-    sizes[index] = 1.0 + Math.pow(prominence, 1.8) * 4.5;
-    // The catalogue supplies structure and measured colour, not a blanket of
-    // extra exposure. Keep it below the old additive level so depth comes from
-    // dust extinction rather than simply making every point brighter.
-    intensities[index] = 0.22 + Math.pow(prominence, 1.35) * 0.68;
+    sizes[index] = 0.25 + Math.pow(prominence, 1.6) * 0.75;
+    // Put measured-like flux into a continuous long tail instead of encoding
+    // brightness as a larger disc. Almost all points stay faint; only the
+    // sparse brightest measurements can reach the diffraction-spike gate.
+    intensities[index] = 0.055
+      + Math.pow(prominence, 2.4) * 0.38
+      + Math.pow(prominence, 18) * 4.2;
 
     gaiaBpRpToColor(catalog.bpRp[index], scratchColor);
     colours[offset] = scratchColor.r;

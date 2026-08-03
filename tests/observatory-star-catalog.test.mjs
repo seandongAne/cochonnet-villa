@@ -177,14 +177,25 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
     GAIA_LENS_DEFAULT_INFLUENCE_RADIUS
   );
   const intensity = stars.geometry.getAttribute("aIntensity");
+  const psfScale = stars.geometry.getAttribute("aSize");
   let minimumIntensity = Infinity;
   let maximumIntensity = -Infinity;
+  let spikeCandidateCount = 0;
   for (let index = 0; index < intensity.count; index += 1) {
     minimumIntensity = Math.min(minimumIntensity, intensity.getX(index));
     maximumIntensity = Math.max(maximumIntensity, intensity.getX(index));
+    if (intensity.getX(index) > 2.4) spikeCandidateCount += 1;
+    assert.ok(psfScale.getX(index) >= 0.25);
+    assert.ok(psfScale.getX(index) <= 1);
   }
-  assert.ok(minimumIntensity >= 0.22 - 1e-6);
-  assert.ok(maximumIntensity <= 0.90 + 1e-6);
+  assert.ok(minimumIntensity < 0.13, "most catalogue stars should remain faint");
+  assert.ok(maximumIntensity > 3.5, "measured brightness needs a sparse long tail");
+  assert.ok(maximumIntensity < 4.7);
+  assert.ok(spikeCandidateCount > 0);
+  assert.ok(
+    spikeCandidateCount <= 8,
+    "diffraction spikes belong only to the exceptionally bright catalogue tail"
+  );
   const partialMagnitudeLimit = stars.material.uniforms.uMagnitudeLimit.value;
   assert.ok(partialMagnitudeLimit > stars.userData.brightMagnitudeLimit);
   assert.ok(partialMagnitudeLimit < stars.userData.maximumMagnitude + 0.35);
@@ -212,6 +223,24 @@ test("the runtime factory creates one GPU Points draw and disposes it once", () 
     "80k Gaia vertices must bypass lens calculations while the event is off"
   );
   assert.match(stars.material.fragmentShader, /vMagnitudeVisibility/);
+  assert.match(stars.material.vertexShader, /gl_PointSize = 6\.0 \* uPixelRatio/);
+  assert.doesNotMatch(stars.material.vertexShader, /sizePulse/);
+  assert.match(stars.material.fragmentShader, /pixelPositionCss/);
+  assert.match(stars.material.fragmentShader, /float sigmaCss = mix\(0\.38, 0\.46/);
+  assert.match(stars.material.fragmentShader, /float coreNormalization/);
+  assert.match(stars.material.fragmentShader, /float airyWing/);
+  assert.match(stars.material.fragmentShader, /float diffractionGate = smoothstep\(2\.4, 3\.25/);
+  assert.match(
+    stars.material.fragmentShader,
+    /float alpha = coverage \* uReveal \* vMagnitudeVisibility;/,
+    "alpha must remain PSF coverage rather than catalogue brightness"
+  );
+  assert.match(
+    stars.material.fragmentShader,
+    /vec3 sourceRadiance = stellarColour \* vIntensity \* vLensMagnification;/,
+    "catalogue brightness and lens magnification belong in RGB"
+  );
+  assert.doesNotMatch(stars.material.fragmentShader, /float halo/);
 
   const originalPositions = [...stars.geometry.getAttribute("position").array];
   setGaiaStarLens(stars, {

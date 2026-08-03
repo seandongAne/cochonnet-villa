@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "title": "Qwantani Night Pure Sky observatory texture tiers",
+  "license": {
+    "expression": "CC0-1.0",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "photography": "Greg Zaal",
+    "processing": "Jarod Guest",
+    "publisher": "Poly Haven"
+  },
+  "source": {
+    "assetPage": "https://polyhaven.com/a/qwantani_night_puresky",
+    "api": "https://api.polyhaven.com/files/qwantani_night_puresky",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/qwantani_night_puresky.jpg",
+    "tier": "official-tonemapped-8k",
+    "format": "jpeg",
+    "width": 8192,
+    "height": 4096,
+    "bytes": 30309210,
+    "publishedMd5": "70c24e45fe8db819641c76068675c4a2",
+    "sha256": "e557a79662a413d93e7248a418a1f2f11cca604ffd3a56bb9687d925629b7e2d"
+  },
+  "transform": {
+    "detailSource": "official Poly Haven 8K tonemapped JPEG",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 8192,
+      "height": 2048
+    },
+    "detailContrast": {
+      "saturation": 1.12,
+      "linearSlope": 1.14,
+      "linearIntercept": -14
+    },
+    "gradeTransfer": {
+      "reference": "qwantani-night-puresky-dome-4k.webp",
+      "blurSigmaAtMediumResolution": 12,
+      "minimumGuideValue": 8,
+      "maximumChannelRatio": 2.5,
+      "purpose": "low-frequency colour and horizon grade only; all 8K spatial detail comes from the official source"
+    },
+    "webp": {
+      "quality": 92,
+      "effort": 6,
+      "smartSubsample": true
+    }
+  },
+  "tiers": {
+    "medium": {
+      "url": "/textures/qwantani-night-puresky-dome-4k.webp",
+      "filename": "qwantani-night-puresky-dome-4k.webp",
+      "width": 4096,
+      "height": 1024,
+      "bytes": 1284590,
+      "sha256": "38bd58883bc16a315dda45df73ac60833cf774e3227cd0045884deccbf4b028d",
+      "role": "existing default and Medium-tier fallback"
+    },
+    "high": {
+      "url": "/textures/qwantani-night-puresky-dome-8k.webp",
+      "filename": "qwantani-night-puresky-dome-8k.webp",
+      "width": 8192,
+      "height": 2048,
+      "bytes": 5101484,
+      "sha256": "85a8c22a11a7d45692848fa795a28f1664e3a9a3a44a476e5da62d7d3b185efc",
+      "role": "High-tier native-detail upper-hemisphere backdrop"
+    }
+  },
+  "generatedBy": {
+    "command": "node scripts/build-observatory-sky-textures.mjs",
+    "script": "scripts/build-observatory-sky-textures.mjs",
+    "sharp": "0.34.5",
+    "libvips": "8.17.3"
+  }
+}

@@ -63,7 +63,6 @@ const STAR_VOLUME_VERTEX_SHADER = /* glsl */ `
   attribute float aKind;
   attribute float aPhase;
   attribute float aPeriod;
-  attribute float aSize;
   attribute float aTemperature;
   attribute float aQualityRank;
   attribute float aShell;
@@ -77,7 +76,6 @@ const STAR_VOLUME_VERTEX_SHADER = /* glsl */ `
   varying float vTemperature;
   varying float vBrightness;
   varying float vSpriteSizePx;
-  varying float vPsfScale;
 
   void main() {
     float enabled = 1.0 - step(uQualityLevel + 0.01, aQualityRank);
@@ -99,10 +97,10 @@ const STAR_VOLUME_VERTEX_SHADER = /* glsl */ `
     gl_Position = projectionMatrix * viewPosition;
 
     // Stars are unresolved light sources: distance changes their parallax and
-    // brightness, not their apparent diameter. A fixed 5–6 CSS-pixel support
-    // sprite gives the analytic ~1px PSF enough physical samples on HiDPI
-    // displays without turning near-shell points into large circular bulbs.
-    float spriteSizeCss = mix(6.0, 7.0, aKind);
+    // flux, never their apparent diameter. A fixed support sprite gives the
+    // analytic ~1 CSS-pixel PSF and rare diffraction tail enough HiDPI samples.
+    // The legacy aSize geometry attribute is intentionally not consumed.
+    float spriteSizeCss = mix(7.0, 5.0, aKind);
     gl_PointSize = enabled > 0.5 ? spriteSizeCss * uPixelRatio : 0.0;
 
     // Even if a visitor reaches the extreme wall edge, no point pops through
@@ -110,14 +108,13 @@ const STAR_VOLUME_VERTEX_SHADER = /* glsl */ `
     // the physical room and dome safety envelope.
     float cameraSafety = smoothstep(2.8, 6.2, distance(worldPosition.xyz, cameraPosition));
     float shellAttenuation = mix(1.0, 0.76, aShell / 2.0);
-    vAlpha = enabled * uReveal * cameraSafety * shellAttenuation;
+    vAlpha = enabled * uReveal * cameraSafety;
     vKind = aKind;
     vPhase = aPhase;
     vPeriod = aPeriod;
     vTemperature = aTemperature;
-    vBrightness = aBrightness;
+    vBrightness = aBrightness * shellAttenuation;
     vSpriteSizePx = gl_PointSize;
-    vPsfScale = aSize;
   }
 `;
 
@@ -132,44 +129,72 @@ const STAR_VOLUME_FRAGMENT_SHADER = /* glsl */ `
   varying float vTemperature;
   varying float vBrightness;
   varying float vSpriteSizePx;
-  varying float vPsfScale;
 
   const float PI = 3.141592653589793;
 
   void main() {
     vec2 centred = gl_PointCoord - vec2(0.5);
-    float radius = length(centred);
     if (vAlpha < 0.001) discard;
     float safePixelRatio = max(uPixelRatio, 0.5);
-    float pixelRadius = radius * max(vSpriteSizePx, 1.0);
+    vec2 pixelPositionCss = centred * max(vSpriteSizePx, 1.0)
+      / safePixelRatio;
+    float pixelRadiusCss = length(pixelPositionCss);
     float prominence = smoothstep(0.18, 1.8, vBrightness);
 
     // Per-point period and phase prevent a synchronized ceiling pulse. A weak
     // second oscillator breaks the repeated sine silhouette without becoming
     // the large SDF flare already supplied by the distant hero-star layer.
     float phase = uTime * (2.0 * PI / max(0.5, vPeriod)) + vPhase;
-    float asynchronousTwinkle = 0.96
-      + 0.025 * sin(phase)
-      + 0.015 * sin(phase * 0.37 + vPhase * 1.73);
+    float asynchronousTwinkle = 0.985
+      + 0.01 * sin(phase)
+      + 0.005 * sin(phase * 0.37 + vPhase * 1.73);
 
-    // Pixel-space point-spread function. The narrow Gaussian core stays close
-    // to one CSS pixel while a very weak Airy-like wing lets only rare bright
-    // stars bloom. Dust is deliberately fainter and narrower, never a blue
-    // emissive disc. This is resolution-independent across DPR 0.5–2.
-    float psfScale = clamp((vPsfScale - 0.4) / 0.8, 0.0, 1.0);
-    float starSigma = mix(0.34, 0.58, psfScale) * safePixelRatio;
-    float starCore = exp(-0.5 * pow(pixelRadius / starSigma, 2.0));
-    float airyWing = exp(
-      -0.5 * pow(pixelRadius / (1.35 * safePixelRatio), 2.0)
-    ) * mix(0.018, 0.07, prominence);
-    float dustSigma = mix(0.28, 0.44, psfScale) * safePixelRatio;
-    float dustCore = exp(-0.5 * pow(pixelRadius / dustSigma, 2.0)) * 0.14;
+    // Fixed-energy analytic point-spread function. sigma=0.42 CSS px gives a
+    // ~0.99 CSS-pixel FWHM at every DPR. There is no brightness-driven radius,
+    // isotropic glow halo, or size pulse: stellar energy stays in RGB below.
+    const float STAR_SIGMA_CSS = 0.42;
+    const float DUST_SIGMA_CSS = 0.31;
+    float starCore = exp(
+      -0.5 * pow(pixelRadiusCss / STAR_SIGMA_CSS, 2.0)
+    );
+    float dustCore = exp(
+      -0.5 * pow(pixelRadiusCss / DUST_SIGMA_CSS, 2.0)
+    );
+
+    // Only the brightest ~2% of the deterministic population reaches this
+    // gate. Per-star rotation avoids a repeated stylised cross icon.
+    float diffractionGate = smoothstep(3.35, 4.05, vBrightness);
+    float spikeAngle = vPhase * 0.5;
+    float spikeCos = cos(spikeAngle);
+    float spikeSin = sin(spikeAngle);
+    vec2 spikePosition = mat2(
+      spikeCos, -spikeSin,
+      spikeSin, spikeCos
+    ) * pixelPositionCss;
+    float transverseWidth = 0.16;
+    float longitudinalWidth = 2.15;
+    float verticalSpike = exp(
+      -0.5 * pow(spikePosition.x / transverseWidth, 2.0)
+    ) * exp(
+      -0.5 * pow(spikePosition.y / longitudinalWidth, 2.0)
+    );
+    float horizontalSpike = exp(
+      -0.5 * pow(spikePosition.y / transverseWidth, 2.0)
+    ) * exp(
+      -0.5 * pow(spikePosition.x / longitudinalWidth, 2.0)
+    );
+    float diffractionSpike = (verticalSpike + horizontalSpike)
+      * diffractionGate * 0.052;
     float edge = max(abs(centred.x), abs(centred.y));
     float edgeAA = max(fwidth(edge), 0.001);
     float spriteSupport = 1.0 - smoothstep(0.5 - edgeAA, 0.5, edge);
-    float starPsf = (starCore + airyWing) * spriteSupport;
+    float starPsf = clamp(
+      (starCore + diffractionSpike) * spriteSupport,
+      0.0,
+      1.0
+    );
     float dustPsf = dustCore * spriteSupport;
-    float pulse = mix(0.99, asynchronousTwinkle, prominence);
+    float pulse = mix(0.995, asynchronousTwinkle, prominence);
 
     vec3 warm = vec3(1.0, 0.91, 0.83);
     vec3 neutral = vec3(0.96, 0.98, 1.0);
@@ -183,15 +208,14 @@ const STAR_VOLUME_FRAGMENT_SHADER = /* glsl */ `
     // Brightness belongs in RGB, not alpha: AdditiveBlending applies source
     // alpha once. This preserves a physical long-tail radiance distribution
     // instead of squaring it and inflating bright stars into opaque bulbs.
-    float starAlpha = starPsf * vAlpha;
-    float dustAlpha = dustPsf * vAlpha * 0.008;
-    float alpha = mix(starAlpha, dustAlpha, vKind);
+    float coverage = mix(starPsf, dustPsf, vKind);
+    float alpha = coverage * vAlpha;
     if (alpha < 1.0 / 2048.0) discard;
     // AdditiveBlending already multiplies RGB by source alpha. Supplying
     // straight (rather than premultiplied) colour keeps faint dust readable
     // without squaring its deliberately low opacity.
     vec3 starSource = colour * vBrightness * pulse;
-    vec3 dustSource = vec3(0.35, 0.45, 0.62) * 0.08;
+    vec3 dustSource = vec3(0.35, 0.45, 0.62) * vBrightness * 0.0025;
     gl_FragColor = vec4(mix(starSource, dustSource, vKind), alpha);
     #include <colorspace_fragment>
   }

@@ -1,0 +1,47 @@
+{
+  "schema": "cochonnet-observatory-schwarzschild-lut",
+  "version": 1,
+  "description": "Precomputed Schwarzschild beam deflection and inverse-radius tables for constant-time background lensing and primary/secondary accretion-disc intersections.",
+  "source": {
+    "project": "Eric Bruneton, black_hole_shader",
+    "repository": "https://github.com/ebruneton/black_hole_shader",
+    "revision": "e72b3f293409893a6fa25528b29572c96fc57f57",
+    "paper": "https://arxiv.org/abs/2010.08735",
+    "downloadBase": "https://ebruneton.github.io/black_hole_shader/demo/",
+    "license": "BSD-3-Clause",
+    "licenseFile": "observatory-black-hole-lut-LICENSE.txt"
+  },
+  "recordLayout": {
+    "endianness": "little",
+    "scalarType": "float32",
+    "header": [
+      "width",
+      "height"
+    ],
+    "channels": [
+      "physical value",
+      "coordinate time"
+    ],
+    "rowOrder": "row-major"
+  },
+  "files": [
+    {
+      "path": "observatory-black-hole-ray-deflection-v1.bin",
+      "upstreamName": "deflection.dat",
+      "width": 512,
+      "height": 512,
+      "channels": 2,
+      "byteLength": 2097160,
+      "sha256": "1080f45a12fba81321771c2071f4a31795444b110833f61384a9bdf7d057c19d"
+    },
+    {
+      "path": "observatory-black-hole-ray-inverse-radius-v1.bin",
+      "upstreamName": "inverse_radius.dat",
+      "width": 64,
+      "height": 32,
+      "channels": 2,
+      "byteLength": 16392,
+      "sha256": "7fa22a9270e61f2842c97fb1a9398bcb13e1a965ad39b0f73169354a0d608b04"
+    }
+  ]
+}
