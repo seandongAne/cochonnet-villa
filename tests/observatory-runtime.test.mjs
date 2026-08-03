@@ -401,7 +401,8 @@ test("diagnostics expose runtime state and motion query overrides stay QA-only",
     "kerrLens",
     "starVolume",
     "gaia",
-    "backdrop4k"
+    "backdrop4k",
+    "audio"
   ]) {
     assert.match(runtime, new RegExp(`\\b${field}:`));
   }
@@ -555,4 +556,26 @@ test("hidden Rift/Lens events fail closed and preserve finite-distance depth cue
   );
   assert.match(runtime, /backdropSuppression \* 0\.62/);
   assert.match(runtime, /resources\.lensAmount \* 0\.12/);
+});
+
+test("the audio bridge receives the rendered clocks and the visuals' real world anchors", () => {
+  assert.match(runtime, /interior\.updateWorldMatrix\(true, true\)/);
+  assert.match(
+    runtime,
+    /interior\.getObjectByName\(\s*MUSHROOM_OBSERVATORY_SWITCH_NAME\s*\)/
+  );
+  assert.match(runtime, /switchObject\.getWorldPosition\(switchWorldPosition\)/);
+  assert.match(
+    runtime,
+    /rift: Object\.freeze\(\[\s*PORTAL_ORIGIN\.x,\s*PORTAL_ORIGIN\.y \+ 6,\s*PORTAL_ORIGIN\.z\s*\]\)/
+  );
+  assert.match(runtime, /lens: Object\.freeze\(LENS_WORLD_POSITION\.toArray\(\)\)/);
+  assert.match(runtime, /audioFrame\.celestialTime = celestialTime/);
+  assert.match(runtime, /audioFrame\.riftState = resources\.riftState/);
+  assert.match(runtime, /audioFrame\.lensAmount = resources\.lensAmount/);
+  assert.match(runtime, /audioFrame\.blackHoleReveal = blackHoleReveal/);
+  assert.match(
+    runtime,
+    /audioFrame\.sourcePositions = resources\.audioSourcePositions/
+  );
 });

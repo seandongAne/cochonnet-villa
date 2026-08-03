@@ -14,7 +14,7 @@ import { EditControls } from "./EditControls.jsx";
 import { ObservatoryDiagnostics } from "./ObservatoryDiagnostics.jsx";
 import { ObservatoryQualityPanel } from "./ObservatoryQualityPanel.jsx";
 
-const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Q", "Esc"];
+const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Q", "M", "Esc"];
 
 // Clip-plane height bounds for the dollhouse cut (see EditControls). 6.0 shows
 // the ground floor from above; raise toward ~12 to edit the upper storey.
@@ -112,6 +112,7 @@ export default function VillaMap() {
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState(null);
   const [qualityPanelOpen, setQualityPanelOpen] = useState(false);
+  const [observatoryAudioMuted, setObservatoryAudioMuted] = useState(false);
   const [observatoryQualityPreference, setObservatoryQualityPreference] =
     useState(() => readObservatoryQualityPreference(
       getObservatoryPreferenceStorage()
@@ -313,6 +314,29 @@ export default function VillaMap() {
     qualityPanelOpen
   ]);
 
+  // Sound remains player-controllable in both production and the query-only
+  // QA routes. Keep this separate from Q, whose modal is intentionally absent
+  // in diagnostics mode, so perf-mode headphone checks can still mute safely.
+  useEffect(() => {
+    if (editMode) return undefined;
+    const onKey = (event) => {
+      if (
+        event.code !== "KeyM"
+        || event.repeat
+        || event.ctrlKey
+        || event.metaKey
+        || event.altKey
+        || isTypingTarget(event.target)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setObservatoryAudioMuted((current) => !current);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editMode]);
+
   const copyRecord = () => {
     if (!selected || !live) return;
     const line = recordLine(selected.placement, live);
@@ -380,6 +404,7 @@ export default function VillaMap() {
           observatoryLightsOn={observatoryLightsOn}
           observatoryRiftOpen={observatoryHiddenEffects.rift}
           observatoryLensActive={observatoryHiddenEffects.lens}
+          observatoryAudioMuted={observatoryAudioMuted}
           onObservatoryHiddenEffectsReset={resetObservatoryHiddenEffects}
           observatoryQualityPreference={observatoryQualityPreference}
           onObservatoryQualityStatusChange={
@@ -448,6 +473,9 @@ export default function VillaMap() {
           <p className="villa-map-quality-hint">
             <kbd>Q</kbd>
             画质
+            <span aria-hidden="true">·</span>
+            <kbd>M</kbd>
+            {observatoryAudioMuted ? "开启音效" : "静音"}
           </p>
       )}
 

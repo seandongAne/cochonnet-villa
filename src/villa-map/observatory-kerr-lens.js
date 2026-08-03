@@ -158,6 +158,11 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   const float FLOW_MIDDLE_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle.toFixed(1)};
   const float FLOW_OUTER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer.toFixed(1)};
   const float FLOW_HOTSPOT_MEAN = 0.196380615234375;
+  // Exact circular means for pow(0.5 + 0.5*cos(theta), 4/10).
+  // Subtracting them lets the long rotating arc and its narrow leading knot
+  // carry much stronger local contrast without lifting the disc's mean flux.
+  const float FLOW_ROTATION_ARC_MEAN = 0.2734375;
+  const float FLOW_LEADING_HOTSPOT_MEAN = 0.17619705200195312;
 
   vec2 seamSafeDerivative(vec2 derivativeValue) {
     return vec2(
@@ -349,9 +354,9 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     float temperature = pow(KERR_ISCO / radius, 0.75) * noTorque;
     float observedTemperature = temperature * clamp(redshift, 0.0, 3.5);
 
-    vec3 deepGold = vec3(0.28, 0.035, 0.002);
-    vec3 solarGold = vec3(4.4, 1.15, 0.07);
-    vec3 hotCore = vec3(8.2, 4.5, 1.05);
+    vec3 deepGold = vec3(0.12, 0.009, 0.0004);
+    vec3 solarGold = vec3(5.8, 1.5, 0.04);
+    vec3 hotCore = vec3(11.0, 4.2, 0.55);
     vec3 colour = mix(deepGold, solarGold, smoothstep(0.08, 0.38, observedTemperature));
     colour = mix(colour, hotCore, smoothstep(0.42, 0.88, observedTemperature));
 
@@ -385,13 +390,67 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       ),
       8.0
     );
-    // FLOW_HOTSPOT_MEAN is the exact circular mean of the eighth-power
-    // hotspot. All other terms are zero-mean sines, so contrast rises while
-    // the old ~0.99 micro-grain average energy remains effectively 1.0.
+    // Differential flow remains in the small-scale gas. The hero tracer uses
+    // the 15-second middle reference as one coherent source-space arc; giving
+    // every radius its own tracer period wound a long-running session into a
+    // stack of bright spring-like loops.
+    float tracerPhase = azimuth
+      - emissionTime * (2.0 * PI / FLOW_MIDDLE_PERIOD);
+    float rotationArc = pow(
+      0.5 + 0.5 * cos(tracerPhase - radius * 0.18),
+      4.0
+    );
+    float leadingHotspot = pow(
+      0.5 + 0.5 * cos(tracerPhase - radius * 0.18 - 0.52),
+      10.0
+    );
+    // One smooth source-radius band becomes one primary lensed arc. Its broad
+    // Gaussian shoulders avoid the hard concentric outlines produced by the
+    // previous almost-full-disc window.
+    float ribbonRadialWindow = exp(-pow(
+      (radius - (KERR_ISCO + 1.55)) / 0.72,
+      2.0
+    ));
+    // Higher image orders should read only as a faint physical echo, not copy
+    // the hero tracer into another set of luminous loops.
+    float tracerImageWeight = mix(
+      0.04,
+      1.0,
+      step(0.5, imageWeight)
+    );
+    float tracerContrastWeight = ribbonRadialWindow * tracerImageWeight;
+    // Every carrier below is zero mean. Most of the old broad-band energy is
+    // moved into the single long arc and its leading knot: this creates a
+    // trackable direction marker instead of merely making the texture busier.
+    // the azimuthally integrated emissivity remains exactly the old value.
     float flowStructure = 1.0
-      + longStream * 0.30
-      + filamentStream * 0.14
-      + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.58;
+      + longStream * 0.10
+      + filamentStream * 0.04
+      + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.20
+      + tracerContrastWeight * (
+        (rotationArc - FLOW_ROTATION_ARC_MEAN) * 1.10
+        + (leadingHotspot - FLOW_LEADING_HOTSPOT_MEAN) * 1.50
+      );
+    // A narrow thermal crest just outside the ISCO creates the white-hot
+    // lensed inner edge. It is always present, but the leading knot pushes a
+    // small segment toward solar white rather than making a uniform neon ring.
+    float innerHeat = exp(-pow(
+      (radius - (KERR_ISCO + 0.40)) / 0.31,
+      2.0
+    ));
+    float platinumRibbon = ribbonRadialWindow * (
+      rotationArc * 0.68 + leadingHotspot * 0.32
+    ) * tracerImageWeight;
+    // Keep the physical inner crest warm, but do not let the moving hero arc
+    // whiten the whole Doppler crescent. Motion will receive a separate gold
+    // display tracer after the HDR shoulder below.
+    float movingWhiteHeat = innerHeat * (
+      0.02 + tracerImageWeight * (
+        rotationArc * 0.035 + leadingHotspot * 0.16
+      )
+    ) + platinumRibbon * (0.04 + leadingHotspot * 0.08);
+    vec3 whiteGold = vec3(18.0, 11.0, 4.5);
+    colour = mix(colour, whiteGold, clamp(movingWhiteHeat, 0.0, 0.48));
     float radialEmission = pow(KERR_ISCO / radius, 1.72) * noTorque;
     // Liouville invariance for specific intensity: I_nu / nu^3 is conserved.
     float relativisticBoost = pow(clamp(redshift, 0.0, 3.5), 3.0);
@@ -408,12 +467,81 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       * uDiscOpacity * imageWeight;
     alpha = clamp(alpha, 0.0, 0.97);
     vec3 radiance = colour * radialEmission * relativisticBoost
-      * flowStructure * 1.35;
-    // The transfer stays HDR, but a hue-preserving display shoulder prevents
-    // the approaching side from clipping into a flat white triangle. This is
-    // display mapping only; the Kerr g^3 relation above is unchanged.
+      * flowStructure * 0.88;
+    // The physical g^3 thermal term can almost erase a moving knot when it
+    // crosses the receding side. Keep that Doppler asymmetry in the broad
+    // disc, but give the narrow tracer a bounded optically-thick visibility
+    // floor. This is concentrated source radiance, not a screen-space ring or
+    // whole-frame gain, and keeps the same 10/15/25-second source motion.
+    float carrierRelativisticBoost = pow(
+      clamp(redshift, 0.50, 2.20),
+      1.40
+    );
+    float ribbonCarrier = ribbonRadialWindow * (
+      rotationArc * 0.78 + leadingHotspot * 0.55
+    ) * tracerImageWeight;
+    vec3 platinumRibbonColour = mix(
+      vec3(10.0, 2.4, 0.08),
+      vec3(22.0, 9.0, 0.8),
+      0.35 + leadingHotspot * 0.65
+    );
+    radiance += platinumRibbonColour
+      * radialEmission
+      * carrierRelativisticBoost
+      * ribbonCarrier
+      * 0.32;
+    // Redistribute, rather than globally add, display brightness. The broad
+    // disc gets a firmer shoulder than before, while only the narrow inner
+    // crest receives HDR-like headroom. This preserves the dark sky and black
+    // event horizon while allowing a white-hot moving segment to read.
     float discLuminance = dot(radiance, vec3(0.2126, 0.7152, 0.0722));
-    radiance /= 1.0 + discLuminance * (uHdrOutput > 0.5 ? 0.48 : 0.82);
+    float baseShoulder = uHdrOutput > 0.5 ? 0.74 : 0.90;
+    // Half-float targets retain an intrinsic ~20x luminance ceiling for only
+    // the moving platinum tracer. The downstream low-exposure composite then
+    // has real highlight energy to work with instead of upscaling brown LDR.
+    float hotShoulder = uHdrOutput > 0.5 ? 0.05 : 0.28;
+    float highlightHeadroom = clamp(
+      max(
+        innerHeat * (
+          0.015 + tracerImageWeight * (
+            rotationArc * 0.02 + leadingHotspot * 0.15
+          )
+        ),
+        platinumRibbon * (0.10 + leadingHotspot * 0.25)
+      ),
+      0.0,
+      1.0
+    );
+    float shoulderStrength = mix(
+      baseShoulder,
+      hotShoulder,
+      highlightHeadroom
+    );
+    radiance /= 1.0 + discLuminance * shoulderStrength;
+    // Re-inject one bounded, saturated gold source-space arc after the
+    // shoulder. The previous pre-shoulder platinum signal was compressed into
+    // the almost-static pale Doppler crescent. This post-shoulder tracer stays
+    // position-readable at low room exposure, yet its Gaussian radius,
+    // one-sided angular carrier and 4% secondary weight prevent a closed ring
+    // or a field of luminous coils.
+    float displayTracer = ribbonCarrier * mix(
+      0.78,
+      1.0,
+      smoothstep(0.20, 1.10, carrierRelativisticBoost)
+    );
+    vec3 goldTracerColour = mix(
+      vec3(2.8, 0.62, 0.025),
+      // Only the narrow leading knot reaches a near-white solar colour. The
+      // much longer carrier stays amber, so the moving cue reads as HDR
+      // without flattening into another pale crescent.
+      vec3(12.0, 9.0, 4.8),
+      smoothstep(0.08, 0.92, leadingHotspot)
+    );
+    // Final display-space lift: enough for the moving arc to read from normal
+    // viewing distance, while its narrow Gaussian footprint keeps the frame's
+    // average luminance essentially unchanged.
+    float goldTracerEnergy = 0.96 + leadingHotspot * 0.39;
+    radiance += goldTracerColour * displayTracer * goldTracerEnergy;
     return vec4(radiance * alpha, alpha);
   }
 

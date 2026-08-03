@@ -3,6 +3,7 @@ import { test } from "node:test";
 import * as THREE from "three";
 
 import {
+  calculateObservatoryBlackHolePassLocalHdrSettings,
   calculateObservatoryBlackHolePassTargetSize,
   createObservatoryBlackHolePass,
   createObservatoryBlackHolePassComposite,
@@ -13,6 +14,7 @@ import {
   getObservatoryBlackHolePassQuality,
   OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_NAME,
   OBSERVATORY_BLACK_HOLE_PASS_DEFAULT_QUALITY,
+  OBSERVATORY_BLACK_HOLE_PASS_LOCAL_HDR_PROFILES,
   OBSERVATORY_BLACK_HOLE_PASS_QUALITY_PRESETS,
   OBSERVATORY_BLACK_HOLE_PASS_RENDER_ORDER,
   OBSERVATORY_BLACK_HOLE_PASS_STENCIL_REF,
@@ -20,6 +22,46 @@ import {
   updateObservatoryBlackHolePassCamera,
   updateObservatoryBlackHolePassComposite
 } from "../src/villa-map/observatory-black-hole-pass.js";
+
+test("black-hole local HDR is bounded to High/Medium and Low keeps the legacy path", () => {
+  assert.deepEqual(
+    Object.keys(OBSERVATORY_BLACK_HOLE_PASS_LOCAL_HDR_PROFILES),
+    ["high", "medium", "low"]
+  );
+
+  const high = calculateObservatoryBlackHolePassLocalHdrSettings({
+    width: 1920,
+    height: 1080,
+    quality: "high"
+  });
+  const medium = calculateObservatoryBlackHolePassLocalHdrSettings({
+    width: 1280,
+    height: 720,
+    quality: "medium"
+  });
+  const low = calculateObservatoryBlackHolePassLocalHdrSettings({
+    width: 960,
+    height: 540,
+    quality: "low"
+  });
+
+  assert.equal(high.enabled, true);
+  assert.equal(medium.enabled, true);
+  assert.equal(low.enabled, false);
+  assert.equal(high.sampleTier, 2);
+  assert.equal(medium.sampleTier, 1);
+  assert.equal(low.sampleTier, 0);
+  assert.ok(high.haloStrength > medium.haloStrength);
+  assert.ok(high.coreGain > medium.coreGain);
+  assert.ok(medium.coreGain > 1);
+  assert.equal(low.haloStrength, 0);
+  assert.equal(low.coreGain, 1);
+  assert.equal(low.haloRadiusPixels, 0);
+  assert.ok(high.haloRadiusPixels <= 96);
+  assert.ok(medium.haloRadiusPixels <= 64);
+  assert.equal(high.inverseWidth, 1 / 1920);
+  assert.equal(high.inverseHeight, 1 / 1080);
+});
 
 test("black-hole pass quality tiers preserve aspect and enforce their own caps", () => {
   assert.deepEqual(
@@ -108,6 +150,24 @@ test("black-hole pass camera copies full world translation, rotation, and projec
     source.projectionMatrix.toArray()
   );
 
+  const lensAnchor = new THREE.Object3D();
+  lensAnchor.name = "mushroom-observatory-black-hole";
+  lensAnchor.position.copy(expectedPosition).addScaledVector(
+    source.getWorldDirection(new THREE.Vector3()),
+    42
+  );
+  lensAnchor.userData.cameraDistance = 42;
+  lensAnchor.userData.angularRadius = 0.17;
+  pass.scene.add(lensAnchor);
+  updateObservatoryBlackHolePassCamera(source, pass);
+  assert.ok(
+    pass.composite.material.uniforms.uLensUvCenter.value.distanceTo(
+      new THREE.Vector2(0.5, 0.5)
+    ) < 1e-7
+  );
+  assert.ok(pass.composite.material.uniforms.uLensUvRadius.value > 0.08);
+  assert.ok(pass.composite.material.uniforms.uLensUvRadius.value < 0.2);
+
   const previousPosition = pass.camera.position.clone();
   rig.position.x += 4;
   rig.updateMatrixWorld(true);
@@ -129,7 +189,10 @@ test("fullscreen composite is stencil-clipped and preserves premultiplied pass s
   const texture = new THREE.Texture();
   const composite = createObservatoryBlackHolePassComposite({
     texture,
-    reveal: 0.35
+    reveal: 0.35,
+    width: 1280,
+    height: 720,
+    quality: "medium"
   });
   const material = composite.material;
 
@@ -140,6 +203,17 @@ test("fullscreen composite is stencil-clipped and preserves premultiplied pass s
   assert.equal(composite.renderOrder, -890);
   assert.equal(material.uniforms.uBlackHoleTexture.value, texture);
   assert.equal(material.uniforms.uReveal.value, 0.35);
+  assert.equal(material.defines.OBSERVATORY_BH_LOCAL_HDR, 1);
+  assert.deepEqual(
+    material.uniforms.uInvResolution.value.toArray(),
+    [1 / 1280, 1 / 720]
+  );
+  assert.ok(material.uniforms.uHaloRadiusPixels.value > 0);
+  assert.ok(material.uniforms.uHaloStrength.value > 0);
+  assert.ok(material.uniforms.uCoreGain.value > 1);
+  assert.deepEqual(material.uniforms.uLensUvCenter.value.toArray(), [0.5, 0.5]);
+  assert.equal(material.uniforms.uLensUvRadius.value, 0.12);
+  assert.equal(material.uniforms.uCompositeAspect.value, 1280 / 720);
   assert.equal(material.transparent, true);
   assert.equal(material.blending, THREE.CustomBlending);
   assert.equal(material.blendEquation, THREE.AddEquation);
@@ -155,8 +229,34 @@ test("fullscreen composite is stencil-clipped and preserves premultiplied pass s
   assert.equal(material.stencilFail, THREE.KeepStencilOp);
   assert.equal(material.stencilZFail, THREE.KeepStencilOp);
   assert.equal(material.stencilZPass, THREE.KeepStencilOp);
-  assert.match(material.fragmentShader, /blackHoleLayer\.rgb \* reveal/);
+  assert.match(material.fragmentShader, /localRadiance \* reveal/);
   assert.match(material.fragmentShader, /blackHoleLayer\.a \* reveal/);
+  assert.match(
+    material.fragmentShader,
+    /observatoryThermalEnergy\([\s\S]*colour\.r - colour\.b[\s\S]*colour\.g - colour\.b/
+  );
+  assert.match(material.fragmentShader, /immediateSupport/);
+  assert.match(material.fragmentShader, /supportedNeutralRidge/);
+  assert.match(material.fragmentShader, /float coreCandidate = supportedNeutralRidge/);
+  assert.match(material.fragmentShader, /pow\(coreCandidate, 2\.15\)/);
+  assert.match(material.fragmentShader, /flatNeutralShoulder/);
+  assert.match(material.fragmentShader, /carrierLift \* 0\.12/);
+  assert.match(material.fragmentShader, /uLensUvCenter/);
+  assert.match(material.fragmentShader, /uLensUvRadius/);
+  assert.match(material.fragmentShader, /aureoleTail/);
+  assert.match(material.fragmentShader, /smoothGold/);
+  assert.doesNotMatch(material.fragmentShader, /photonWhite|photonPeak/);
+  assert.doesNotMatch(material.fragmentShader, /nearEnergy|middleEnergy|farEnergy/);
+  assert.match(material.fragmentShader, /uCoreGain/);
+  assert.match(material.fragmentShader, /uHaloStrength/);
+  assert.match(material.fragmentShader, /#if OBSERVATORY_BH_LOCAL_HDR >= 1/);
+  assert.match(material.fragmentShader, /#if OBSERVATORY_BH_LOCAL_HDR >= 2/);
+  assert.match(material.fragmentShader, /whitePeak/);
+  const thermalExtractor = material.fragmentShader.match(
+    /float observatoryThermalEnergy\(vec3 colour\) \{[\s\S]*?\n  \}/
+  )?.[0] ?? "";
+  assert.ok(thermalExtractor.length > 0);
+  assert.doesNotMatch(thermalExtractor, /alpha|blackHoleLayer/);
   assert.match(
     material.fragmentShader,
     /existingCosmos \* \(1 - source\.a\)/
@@ -169,6 +269,18 @@ test("fullscreen composite is stencil-clipped and preserves premultiplied pass s
   }), true);
   assert.equal(material.uniforms.uReveal.value, 1);
   assert.equal(composite.visible, false);
+
+  const materialVersion = material.version;
+  assert.equal(updateObservatoryBlackHolePassComposite(composite, {
+    width: 960,
+    height: 540,
+    quality: "low"
+  }), true);
+  assert.equal(material.defines.OBSERVATORY_BH_LOCAL_HDR, 0);
+  assert.equal(material.uniforms.uHaloRadiusPixels.value, 0);
+  assert.equal(material.uniforms.uHaloStrength.value, 0);
+  assert.equal(material.uniforms.uCoreGain.value, 1);
+  assert.ok(material.version > materialVersion);
 
   let geometryDisposals = 0;
   let materialDisposals = 0;
@@ -202,6 +314,8 @@ test("aggregate pass resizes, keeps its texture binding, and disposes idempotent
     pass.renderTarget.texture
   );
   assert.equal(pass.composite.visible, false);
+  assert.equal(pass.composite.material.defines.OBSERVATORY_BH_LOCAL_HDR, 0);
+  assert.equal(pass.composite.material.uniforms.uHaloStrength.value, 0);
 
   const size = resizeObservatoryBlackHolePass(pass, {
     width: 8000,
@@ -211,6 +325,12 @@ test("aggregate pass resizes, keeps its texture binding, and disposes idempotent
   });
   assert.deepEqual([size.width, size.height], [1920, 1080]);
   assert.equal(pass.quality, "high");
+  assert.equal(pass.composite.material.defines.OBSERVATORY_BH_LOCAL_HDR, 2);
+  assert.deepEqual(
+    pass.composite.material.uniforms.uInvResolution.value.toArray(),
+    [1 / 1920, 1 / 1080]
+  );
+  assert.ok(pass.composite.material.uniforms.uHaloStrength.value > 0);
   assert.equal(
     pass.composite.material.uniforms.uBlackHoleTexture.value,
     pass.renderTarget.texture
