@@ -43,8 +43,8 @@ test("villa control card unmounts as soon as mouse exploration starts", () => {
 
   assert.match(
     component,
-    /\{!editMode && !observatoryDiagnosticsMode && !exploring && \(/,
-    "the control card must stay out of both exploration and deterministic QA views"
+    /\{!editMode\s*&& !observatoryDiagnosticsMode\s*&& !exploring\s*&& !qualityPanelOpen && \(/,
+    "the control card must stay out of exploration, QA and the quality modal"
   );
   assert.doesNotMatch(styles, /is-exploring\s+\.villa-map-overlay/);
 });

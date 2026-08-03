@@ -16,7 +16,7 @@ export const OBSERVATORY_RIFT_STENCIL_REF = 7;
 const RIFT_RADIUS = MUSHROOM_INTERIOR_LOCAL_RADIUS * MUSHROOM_INTERIOR_SCALE - 0.28;
 const RIFT_RING_COUNT = 3;
 const RIFT_FRAGMENT_COUNT = 240;
-const RIFT_SHARD_COUNT = 54;
+const RIFT_SHARD_COUNT = 24;
 const RIFT_EPSILON = 0.001;
 
 const APERTURE_VERTEX_SHADER = /* glsl */ `
@@ -76,7 +76,7 @@ const FRAGMENT_VERTEX_SHADER = /* glsl */ `
     vec4 viewPosition = modelViewMatrix * vec4(displaced, 1.0);
     gl_Position = projectionMatrix * viewPosition;
     float perspectiveSize = 105.0 / max(2.0, -viewPosition.z);
-    gl_PointSize = clamp(aSize * uPixelRatio * perspectiveSize, 1.0, 13.0);
+    gl_PointSize = clamp(aSize * uPixelRatio * perspectiveSize, 1.0, 4.5);
     vAlpha = reveal;
     vPhase = aPhase;
   }
@@ -328,6 +328,7 @@ export function createObservatoryRiftVisual() {
   visual.userData.elapsed = 0;
   visual.userData.disposed = false;
   visual.userData.channels = null;
+  visual.userData.settledFragmentFactor = 0;
   return visual;
 }
 
@@ -367,6 +368,7 @@ export function updateObservatoryRiftVisual(
   visual.userData.channels = channels ?? null;
   if (!active) {
     visual.userData.elapsed = 0;
+    visual.userData.settledFragmentFactor = 0;
     return false;
   }
 
@@ -381,10 +383,19 @@ export function updateObservatoryRiftVisual(
   aperture.material.uniforms.uTime.value = elapsed;
 
   const fragments = visual.userData.fragments;
+  // These close shards explain the dome unfolding, but once it is open they
+  // must yield to the shared 72-184 m star volume instead of masquerading as
+  // room-scale stars beside the player.
+  const settledFragmentFactor = THREE.MathUtils.lerp(
+    1,
+    0.12,
+    THREE.MathUtils.smoothstep(expansion, 0.68, 1)
+  );
+  visual.userData.settledFragmentFactor = settledFragmentFactor;
   fragments.visible = depth > RIFT_EPSILON;
   fragments.material.uniforms.uTime.value = elapsed;
   fragments.material.uniforms.uReveal.value = expansion;
-  fragments.material.uniforms.uDepth.value = depth;
+  fragments.material.uniforms.uDepth.value = depth * settledFragmentFactor;
   fragments.material.uniforms.uParallax.value = parallax;
   fragments.material.uniforms.uPixelRatio.value = THREE.MathUtils.clamp(
     Number.isFinite(pixelRatio) ? pixelRatio : 1,
@@ -394,8 +405,13 @@ export function updateObservatoryRiftVisual(
   fragments.rotation.y = elapsed * 0.025 * parallax;
 
   const shards = visual.userData.shards;
+  const settledShardOpacity = THREE.MathUtils.lerp(
+    0.18,
+    0.08,
+    THREE.MathUtils.smoothstep(expansion, 0.68, 1)
+  );
   shards.visible = depth > RIFT_EPSILON;
-  shards.material.opacity = depth * 0.26;
+  shards.material.opacity = depth * settledShardOpacity;
   shards.rotation.y = -elapsed * 0.035 * parallax;
   shards.rotation.z = Math.sin(elapsed * 0.21) * 0.018 * parallax;
 
@@ -414,7 +430,11 @@ export function updateObservatoryRiftVisual(
     ring.visible = ringIntensity > RIFT_EPSILON;
     ring.position.y = RIFT_RADIUS * Math.cos(theta);
     ring.scale.setScalar(ringRadius);
-    ring.rotation.y = elapsed * (index % 2 === 0 ? 0.08 : -0.06) * parallax;
+    if (ring.visible) {
+      ring.rotation.y = elapsed
+        * (index % 2 === 0 ? 0.08 : -0.06)
+        * parallax;
+    }
     ring.material.opacity = ringIntensity * (0.82 - index * 0.13);
   }
   return true;

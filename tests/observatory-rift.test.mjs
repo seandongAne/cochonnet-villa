@@ -13,6 +13,7 @@ const CHANNEL_NAMES = [
   "wallDissolve",
   "foregroundDepth",
   "foregroundParallax",
+  "ringFadeProgress",
   "ringIntensity",
   "backdropSuppression",
   "spatialMotionScale"
@@ -76,8 +77,82 @@ test("a complete opening exposes every depth channel and retains a quiet rim", (
   assert.equal(opened.channels.foregroundDepth, 1);
   assert.equal(opened.channels.foregroundParallax, 1);
   assert.equal(opened.channels.backdropSuppression, 1);
+  assert.equal(opened.ringFadeProgress, 0);
+  assert.equal(opened.channels.ringFadeProgress, 0);
   assert.ok(opened.channels.ringIntensity > 0);
   assert.ok(opened.channels.ringIntensity < 0.25);
+});
+
+test("the open state fades its transition rings smoothly over a one-second tail", () => {
+  const opened = stepObservatoryRift(
+    createObservatoryRiftState({ inLoft: true }),
+    {
+      deltaSeconds: OBSERVATORY_RIFT_TIMING.openingSeconds,
+      targetOpen: true,
+      inLoft: true
+    }
+  );
+  const openingIntensity = opened.channels.ringIntensity;
+
+  const halfway = stepObservatoryRift(opened, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.ringFadeSeconds / 2,
+    targetOpen: true,
+    inLoft: true
+  });
+  assert.equal(halfway.mode, "open");
+  assert.equal(halfway.transitionProgress, 1);
+  assert.ok(Math.abs(halfway.ringFadeProgress - 0.5) < 1e-9);
+  assert.ok(halfway.channels.ringIntensity > 0);
+  assert.ok(halfway.channels.ringIntensity < openingIntensity);
+
+  const settled = stepObservatoryRift(halfway, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.ringFadeSeconds / 2,
+    targetOpen: true,
+    inLoft: true
+  });
+  assert.equal(settled.transitionProgress, 1);
+  assert.equal(settled.ringFadeProgress, 1);
+  assert.equal(settled.channels.ringFadeProgress, 1);
+  assert.equal(settled.channels.ringIntensity, 0);
+  assert.equal(settled.channels.apertureExpansion, 1);
+  assert.equal(settled.channels.wallDissolve, 1);
+  assert.equal(settled.channels.foregroundDepth, 1);
+});
+
+test("ring tail re-arms continuously through close and reversal", () => {
+  let state = createObservatoryRiftState({ inLoft: true });
+  state = stepObservatoryRift(state, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.openingSeconds
+      + OBSERVATORY_RIFT_TIMING.ringFadeSeconds,
+    targetOpen: true,
+    inLoft: true
+  });
+  assert.equal(state.channels.ringIntensity, 0);
+
+  const closing = stepObservatoryRift(state, {
+    deltaSeconds: 0.25,
+    targetOpen: false,
+    inLoft: true
+  });
+  assert.ok(closing.ringFadeProgress < 1);
+  assert.ok(closing.channels.ringIntensity > 0);
+
+  const reversedWithoutTime = stepObservatoryRift(closing, {
+    deltaSeconds: 0,
+    targetOpen: true,
+    inLoft: true
+  });
+  assert.deepEqual(reversedWithoutTime.channels, closing.channels);
+
+  const closed = stepObservatoryRift(closing, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.closingSeconds,
+    targetOpen: false,
+    inLoft: true
+  });
+  assert.equal(closed.transitionProgress, 0);
+  assert.equal(closed.ringFadeProgress, 0);
+  assert.equal(closed.channels.ringFadeProgress, 0);
+  assert.equal(closed.channels.ringIntensity, 0);
 });
 
 test("reversing midway preserves all channels without a visual jump", () => {
@@ -125,6 +200,9 @@ test("leaving L3 fail-closes and clears an accidentally retained request", () =>
   assert.equal(outside.transitionProgress, 0);
   assert.equal(outside.channels.wallDissolve, 0);
   assert.equal(outside.channels.foregroundDepth, 0);
+  assert.equal(outside.ringFadeProgress, 0);
+  assert.equal(outside.channels.ringFadeProgress, 0);
+  assert.equal(outside.channels.ringIntensity, 0);
 });
 
 test("reduced motion keeps the dissolve but removes parallax and rim travel", () => {
@@ -139,6 +217,31 @@ test("reduced motion keeps the dissolve but removes parallax and rim travel", ()
   assert.equal(reduced.foregroundParallax, 0);
   assert.equal(reduced.spatialMotionScale, 0);
   assert.ok(reduced.ringIntensity < ordinary.ringIntensity);
+});
+
+test("reduced motion freezes travel but still completes the ring tail", () => {
+  let state = createObservatoryRiftState({
+    inLoft: true,
+    reducedMotion: true
+  });
+  state = stepObservatoryRift(state, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.openingSeconds,
+    targetOpen: true,
+    inLoft: true,
+    reducedMotion: true
+  });
+  assert.ok(state.channels.ringIntensity > 0);
+  assert.equal(state.channels.spatialMotionScale, 0);
+
+  state = stepObservatoryRift(state, {
+    deltaSeconds: OBSERVATORY_RIFT_TIMING.ringFadeSeconds,
+    targetOpen: true,
+    inLoft: true,
+    reducedMotion: true
+  });
+  assert.equal(state.channels.ringFadeProgress, 1);
+  assert.equal(state.channels.ringIntensity, 0);
+  assert.equal(state.channels.spatialMotionScale, 0);
 });
 
 test("invalid time and progress inputs stay finite and bounded", () => {

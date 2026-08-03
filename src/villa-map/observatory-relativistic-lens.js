@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+import { OBSERVATORY_BLACK_HOLE_FLOW_PERIODS } from "./observatory-black-hole.js";
+
 // Schwarzschild beam lookup and rendering core for the observatory.
 //
 // The lookup coordinate transforms and constant-time TraceRay procedure are
@@ -162,6 +164,13 @@ const RELATIVISTIC_FRAGMENT_SHADER = /* glsl */ `
   const float PI = 3.141592653589793;
   const float SCHWARZSCHILD_MU = 4.0 / 27.0;
   const float CRITICAL_IMPACT_PARAMETER = 2.598076211353316;
+  // Shared gas-pattern cadence. These phases never rotate the event horizon,
+  // disc normal or camera/lens frame; reduced motion freezes them simply by
+  // freezing the existing shared uTime value.
+  const float FLOW_INNER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner.toFixed(1)};
+  const float FLOW_MIDDLE_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle.toFixed(1)};
+  const float FLOW_OUTER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer.toFixed(1)};
+  const float FLOW_HOTSPOT_MEAN = 0.196380615234375;
 
   struct RayTraceResult {
     float deflection;
@@ -567,7 +576,23 @@ const RELATIVISTIC_FRAGMENT_SHADER = /* glsl */ `
       dot(pointDirection, approachAxis),
       dot(pointDirection, discAxisY)
     ) * radius;
-    float flowAngle = -uTime * (0.31 / pow(max(radius, 1.0), 1.47));
+    float normalizedFlowRadius = clamp(
+      (radius - uDiscInnerRadius)
+        / max(uDiscOuterRadius - uDiscInnerRadius, 0.001),
+      0.0,
+      1.0
+    );
+    float orbitalPeriod = mix(
+      FLOW_INNER_PERIOD,
+      FLOW_MIDDLE_PERIOD,
+      smoothstep(0.0, 0.5, normalizedFlowRadius)
+    );
+    orbitalPeriod = mix(
+      orbitalPeriod,
+      FLOW_OUTER_PERIOD,
+      smoothstep(0.5, 1.0, normalizedFlowRadius)
+    );
+    float flowAngle = -uTime * (2.0 * PI / orbitalPeriod);
     float flowCos = cos(flowAngle);
     float flowSin = sin(flowAngle);
     gasPoint = mat2(flowCos, -flowSin, flowSin, flowCos) * gasPoint;
@@ -579,7 +604,26 @@ const RELATIVISTIC_FRAGMENT_SHADER = /* glsl */ `
       (gasPoint + cheapWarp) * 1.36 - vec2(0.0, uTime * 0.011)
     );
     float filament = pow(1.0 - abs(fineGas * 2.0 - 1.0), 2.2);
-    float density = 0.18 + broadGas * 0.58 + filament * 0.28;
+    float flowPhase = atan(gasPoint.y, gasPoint.x);
+    float longStream = sin(flowPhase * 2.0 - radius * 1.42);
+    float filamentStream = sin(
+      flowPhase * 5.0 - radius * 2.85 + (broadGas - 0.5) * 1.24
+    );
+    float hotspotShape = pow(
+      0.5 + 0.5 * sin(
+        flowPhase * 3.0 - radius * 1.16 + (fineGas - 0.5) * 0.96
+      ),
+      8.0
+    );
+    // Long gold streams and compact hot knots gain contrast around an exact
+    // unit mean. The old FBM density remains the energy baseline, preventing
+    // the enhanced motion from becoming a uniformly glowing annulus.
+    float flowStructure = 1.0
+      + longStream * 0.30
+      + filamentStream * 0.14
+      + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.58;
+    float density = (0.18 + broadGas * 0.58 + filament * 0.28)
+      * flowStructure;
     float radialFade = smoothstep(
       uDiscInnerRadius,
       uDiscInnerRadius * 1.11,

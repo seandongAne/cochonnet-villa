@@ -3,12 +3,18 @@ import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
 import { createVillaWorld } from "../world.js";
+import { isTypingTarget } from "../controls.js";
+import {
+  readObservatoryQualityPreference,
+  writeObservatoryQualityPreference
+} from "../observatory-quality-preference.js";
 import { Scene } from "./Scene.jsx";
 import { PlayerControls } from "./PlayerControls.jsx";
 import { EditControls } from "./EditControls.jsx";
 import { ObservatoryDiagnostics } from "./ObservatoryDiagnostics.jsx";
+import { ObservatoryQualityPanel } from "./ObservatoryQualityPanel.jsx";
 
-const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Esc"];
+const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Q", "Esc"];
 
 // Clip-plane height bounds for the dollhouse cut (see EditControls). 6.0 shows
 // the ground floor from above; raise toward ~12 to edit the upper storey.
@@ -28,6 +34,17 @@ const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze([
   "black-hole-edge",
   "loft-room"
 ]);
+
+// Accessing the localStorage property itself can throw on opaque origins or
+// tightly sandboxed embeds, before the preference helper gets a chance to
+// handle getItem/setItem. Keep the entire acquisition fail-soft.
+function getObservatoryPreferenceStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 // Snap a radian angle to a tidy multiple of π/2 when it's within ~1° of one, so
 // the copied record reads `Math.PI / 2` like the hand-authored data rather than
@@ -94,6 +111,17 @@ export default function VillaMap() {
   const [exploring, setExploring] = useState(false);
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState(null);
+  const [qualityPanelOpen, setQualityPanelOpen] = useState(false);
+  const [observatoryQualityPreference, setObservatoryQualityPreference] =
+    useState(() => readObservatoryQualityPreference(
+      getObservatoryPreferenceStorage()
+    ));
+  const [observatoryQualityStatus, setObservatoryQualityStatus] = useState({
+    activeQuality: "medium",
+    maximumQuality: "medium",
+    lockedQuality: null,
+    preference: "auto"
+  });
   // The observatory deliberately opens with its dim cinema-style house lights
   // on. The first star reveal therefore belongs to the visitor at the switch.
   const [observatoryLightsOn, setObservatoryLightsOn] = useState(
@@ -109,6 +137,24 @@ export default function VillaMap() {
     // Functions passed directly to a state setter are treated as updater
     // callbacks, so wrap the diagnostics object (which contains methods).
     setObservatoryDiagnosticsApi(() => api);
+  }, []);
+  const handleObservatoryQualityStatusChange = useCallback((nextStatus) => {
+    setObservatoryQualityStatus((current) => (
+      current.activeQuality === nextStatus.activeQuality
+      && current.maximumQuality === nextStatus.maximumQuality
+      && current.lockedQuality === nextStatus.lockedQuality
+      && current.preference === nextStatus.preference
+        ? current
+        : nextStatus
+    ));
+  }, []);
+  const handleObservatoryQualitySelect = useCallback((preference) => {
+    setObservatoryQualityPreference(
+      writeObservatoryQualityPreference(
+        getObservatoryPreferenceStorage(),
+        preference
+      )
+    );
   }, []);
   const resetObservatoryHiddenEffects = useCallback(() => {
     setObservatoryHiddenEffects((current) => (
@@ -167,11 +213,34 @@ export default function VillaMap() {
   // Set by <PlayerControls> once the controls exist; the Start button triggers
   // pointer lock through it.
   const lockRef = useRef(null);
+  const qualityPanelResumeRef = useRef(false);
   // If the Start button is clicked before <PlayerControls> has mounted (its
   // effect runs after the Canvas children mount, which can lag on slow loads),
   // remember the intent so the lock fires the moment controls are ready —
   // otherwise the click would be a silent no-op.
   const wantLockRef = useRef(false);
+
+  const openQualityPanel = useCallback(() => {
+    qualityPanelResumeRef.current = exploring
+      || lockRef.current?.isLocked === true;
+    lockRef.current?.setEnabled(false);
+    try {
+      if (document.pointerLockElement) document.exitPointerLock?.();
+    } catch {
+      // Embedded browsers may reject Pointer Lock APIs. The controls are
+      // still paused and the visible-cursor drag fallback remains safe.
+    }
+    setQualityPanelOpen(true);
+  }, [exploring]);
+
+  const closeQualityPanel = useCallback(() => {
+    const controls = lockRef.current;
+    const shouldResume = qualityPanelResumeRef.current;
+    qualityPanelResumeRef.current = false;
+    setQualityPanelOpen(false);
+    controls?.setEnabled(true);
+    if (shouldResume) controls?.lock();
+  }, []);
 
   const requestLock = () => {
     if (lockRef.current) {
@@ -210,6 +279,40 @@ export default function VillaMap() {
     return () => window.removeEventListener("keydown", onKey);
   }, [editMode]);
 
+  // Q is deliberately player-facing (unlike the hidden R/F observatory
+  // actions). Opening the modal releases native Pointer Lock and suspends the
+  // movement bridge; closing it resumes the prior exploration session.
+  useEffect(() => {
+    if (editMode || observatoryDiagnosticsMode) return undefined;
+    const onKey = (event) => {
+      if (
+        event.repeat
+        || event.ctrlKey
+        || event.metaKey
+        || event.altKey
+        || isTypingTarget(event.target)
+      ) {
+        return;
+      }
+      if (event.code === "KeyQ") {
+        event.preventDefault();
+        if (qualityPanelOpen) closeQualityPanel();
+        else openQualityPanel();
+      } else if (event.key === "Escape" && qualityPanelOpen) {
+        event.preventDefault();
+        closeQualityPanel();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    closeQualityPanel,
+    editMode,
+    observatoryDiagnosticsMode,
+    openQualityPanel,
+    qualityPanelOpen
+  ]);
+
   const copyRecord = () => {
     if (!selected || !live) return;
     const line = recordLine(selected.placement, live);
@@ -247,7 +350,9 @@ export default function VillaMap() {
   return (
     <main
       className={`villa-map-root${
-        exploring || observatoryDiagnosticsMode ? " is-exploring" : ""
+        (exploring && !qualityPanelOpen) || observatoryDiagnosticsMode
+          ? " is-exploring"
+          : ""
       }`}
       data-villa-map-root
     >
@@ -276,6 +381,10 @@ export default function VillaMap() {
           observatoryRiftOpen={observatoryHiddenEffects.rift}
           observatoryLensActive={observatoryHiddenEffects.lens}
           onObservatoryHiddenEffectsReset={resetObservatoryHiddenEffects}
+          observatoryQualityPreference={observatoryQualityPreference}
+          onObservatoryQualityStatusChange={
+            handleObservatoryQualityStatusChange
+          }
         />
         {editMode ? (
           <EditControls
@@ -316,11 +425,36 @@ export default function VillaMap() {
             onInteraction={setInteraction}
             onToggleObservatoryLights={toggleObservatoryLights}
             onObservatoryHiddenAction={handleObservatoryHiddenAction}
+            suspended={qualityPanelOpen}
           />
         )}
       </Canvas>
 
-      {!editMode && !observatoryDiagnosticsMode && !exploring && (
+      {!editMode && !observatoryDiagnosticsMode && qualityPanelOpen && (
+        <ObservatoryQualityPanel
+          open
+          preference={observatoryQualityPreference}
+          activeQuality={observatoryQualityStatus.activeQuality}
+          maximumQuality={observatoryQualityStatus.maximumQuality}
+          onSelect={handleObservatoryQualitySelect}
+          onClose={closeQualityPanel}
+        />
+      )}
+
+      {!editMode
+        && !observatoryDiagnosticsMode
+        && exploring
+        && !qualityPanelOpen && (
+          <p className="villa-map-quality-hint">
+            <kbd>Q</kbd>
+            画质
+          </p>
+      )}
+
+      {!editMode
+        && !observatoryDiagnosticsMode
+        && !exploring
+        && !qualityPanelOpen && (
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>
@@ -363,7 +497,7 @@ export default function VillaMap() {
 
       {loading && <div className="villa-map-loading">正在搭建猪猪山庄...</div>}
 
-      {displayedInteraction && !editMode && (
+      {displayedInteraction && !editMode && !qualityPanelOpen && (
         <aside className="interaction-panel" aria-label="互动信息">
           <h2>{displayedInteraction.title}</h2>
           <p>{displayedInteraction.body}</p>

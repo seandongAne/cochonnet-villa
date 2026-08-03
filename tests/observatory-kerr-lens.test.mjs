@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import * as THREE from "three";
 
+import { OBSERVATORY_BLACK_HOLE_FLOW_PERIODS } from "../src/villa-map/observatory-black-hole.js";
+
 import {
   createObservatoryKerrLens,
   createObservatoryKerrLensAtlases,
@@ -169,6 +171,11 @@ test("loader fetches the four exact assets with one abort signal", async () => {
 
 test("shader keeps topology nearest, composes photo and source stars through one exit ray, and preserves hot fallback pixels", () => {
   const shader = OBSERVATORY_KERR_LENS_FRAGMENT_SHADER;
+  assert.deepEqual(OBSERVATORY_BLACK_HOLE_FLOW_PERIODS, {
+    inner: 40,
+    middle: 60,
+    outer: 100
+  });
   assert.match(shader, /texelFetch\(uKerrSkyAtlas, texel, 0\)/);
   assert.match(shader, /float status = floor\(skyTransfer\.a \+ 0\.5\)/);
   assert.match(shader, /if \(status > STATUS_CAPTURED \+ 0\.25\) discard/);
@@ -185,6 +192,15 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /pow\(clamp\(redshift, 0\.0, 3\.5\), 3\.0\)/);
   assert.match(shader, /uKerrDiscSecondaryAtlas/);
   assert.match(shader, /uKerrDiscPrimaryAtlas/);
+  assert.match(shader, /const float FLOW_INNER_PERIOD = 40\.0/);
+  assert.match(shader, /const float FLOW_MIDDLE_PERIOD = 60\.0/);
+  assert.match(shader, /const float FLOW_OUTER_PERIOD = 100\.0/);
+  assert.match(shader, /azimuth - emissionTime \* \(2\.0 \* PI \/ orbitalPeriod\)/);
+  assert.match(shader, /float longStream = sin\(flowPhase \* 2\.0/);
+  assert.match(shader, /float hotspotShape = pow/);
+  assert.match(shader, /hotspotShape - FLOW_HOTSPOT_MEAN/);
+  assert.match(shader, /\* flowStructure \* 1\.35/);
+  assert.doesNotMatch(shader, /quietStructure|emissionTime \* 0\.045/);
   assert.match(shader, /Captured rays intentionally contribute opaque black/);
   assert.match(shader, /0\.72 - edgeAa,[\s\S]*?edgeDistance/);
   assert.doesNotMatch(shader, /texture\(uKerrSkyAtlas/);

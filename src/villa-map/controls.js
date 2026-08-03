@@ -25,6 +25,7 @@ export function createExplorerControls({
   let yaw = 0;
   let pitch = 0;
   let isLocked = false;
+  let enabled = true;
   // Fallback session for surfaces that reject Pointer Lock (embedded browsers,
   // some previews). While started-but-unlocked, the camera only rotates during
   // an explicit left-button DRAG on the canvas — never on free mouse movement —
@@ -37,6 +38,7 @@ export function createExplorerControls({
   camera.rotation.set(pitch, yaw, 0);
 
   function lock() {
+    if (!enabled) return;
     hasStarted = true;
     onLockChange?.(true);
 
@@ -61,6 +63,7 @@ export function createExplorerControls({
   }
 
   function handleMouseMove(event) {
+    if (!enabled) return;
     if (!isLocked && !(hasStarted && isDragging)) {
       return;
     }
@@ -72,6 +75,7 @@ export function createExplorerControls({
   }
 
   function handleKeyDown(event) {
+    if (!enabled) return;
     if (event.code === "Escape" && hasStarted && !isLocked) {
       hasStarted = false;
       isDragging = false;
@@ -110,6 +114,7 @@ export function createExplorerControls({
   }
 
   function handleCanvasMouseDown(event) {
+    if (!enabled) return;
     if (event.button !== undefined && event.button !== 0) {
       return;
     }
@@ -136,6 +141,18 @@ export function createExplorerControls({
     isDragging = false;
   }
 
+  // UI overlays (currently the player-facing observatory quality panel) can
+  // pause the explorer without destroying and rebuilding the controls. Clear
+  // held keys immediately so opening a panel while walking cannot leave a
+  // stale movement key active behind it.
+  function setEnabled(value) {
+    enabled = Boolean(value);
+    if (!enabled) {
+      keys.clear();
+      isDragging = false;
+    }
+  }
+
   // Instantly relocate the player (door/teleport transitions). Yaw is reset so
   // the arrival view faces where the destination intends.
   function teleport(position, yawAngle = 0) {
@@ -146,6 +163,7 @@ export function createExplorerControls({
   }
 
   function update(delta) {
+    if (!enabled) return;
     const movementProfile = getMovementProfile(camera.position, world);
     applyCameraHeight(delta, movementProfile.cameraY);
     velocity.set(0, 0, 0);
@@ -200,6 +218,7 @@ export function createExplorerControls({
 
   return {
     lock,
+    setEnabled,
     teleport,
     update,
     dispose,

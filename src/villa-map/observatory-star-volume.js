@@ -25,24 +25,24 @@ export const OBSERVATORY_STAR_VOLUME_BLACK_HOLE_DIRECTION = Object.freeze({
   z: -0.10997683
 });
 
-// The nearest band begins well outside the 9.5 m round room. The three finite
-// ranges are intentionally separated: ordinary camera translation then gives
-// the near points visibly more motion than the middle/far points, unlike Gaia
-// and the 4K panorama which remain camera-centred at infinity.
+// All three bands sit close to the camera's 200 m far plane, with deliberate
+// gaps between them. Translation still produces a subtle near/middle/far
+// depth ordering, but no star can read as a room-scale light floating beside
+// the visitor. Gaia and the 4K panorama remain camera-centred at infinity.
 export const OBSERVATORY_STAR_VOLUME_SHELLS = Object.freeze([
-  Object.freeze({ id: "near", minRadius: 12.8, maxRadius: 18 }),
-  Object.freeze({ id: "middle", minRadius: 21, maxRadius: 30 }),
-  Object.freeze({ id: "far", minRadius: 34, maxRadius: 49 })
+  Object.freeze({ id: "near", minRadius: 72, maxRadius: 96 }),
+  Object.freeze({ id: "middle", minRadius: 112, maxRadius: 145 }),
+  Object.freeze({ id: "far", minRadius: 160, maxRadius: 184 })
 ]);
 
-// This is deliberately tiny beside Gaia's 8k/35k/80k catalogue. It contributes
-// a sparse finite foreground cue, not a second dense sky, and remains one draw
-// call at every non-Minimum tier.
+// This remains much smaller than Gaia's 8k/35k/80k catalogue, but is dense
+// enough to make lateral movement reveal several shallow distance layers. The
+// entire volume remains one draw call at every non-Minimum tier.
 export const OBSERVATORY_STAR_VOLUME_COUNTS = Object.freeze({
   minimum: Object.freeze({ stars: 0, dust: 0, total: 0 }),
-  low: Object.freeze({ stars: 144, dust: 192, total: 336 }),
-  medium: Object.freeze({ stars: 360, dust: 480, total: 840 }),
-  high: Object.freeze({ stars: 720, dust: 840, total: 1560 })
+  low: Object.freeze({ stars: 800, dust: 120, total: 920 }),
+  medium: Object.freeze({ stars: 2400, dust: 360, total: 2760 }),
+  high: Object.freeze({ stars: 5200, dust: 720, total: 5920 })
 });
 
 const QUALITY_LEVEL = Object.freeze({ minimum: 0, low: 1, medium: 2, high: 3 });
@@ -107,7 +107,9 @@ const STAR_VOLUME_VERTEX_SHADER = /* glsl */ `
     // the camera. This fade is normally 1 because generation starts outside
     // the physical room and dome safety envelope.
     float cameraSafety = smoothstep(2.8, 6.2, distance(worldPosition.xyz, cameraPosition));
-    float shellAttenuation = mix(1.0, 0.76, aShell / 2.0);
+    // The close layer is only a quiet parallax reference. Most visible energy
+    // lives in the dense far shell so the field reads as deep space.
+    float shellAttenuation = mix(0.32, 0.88, aShell / 2.0);
     vAlpha = enabled * uReveal * cameraSafety;
     vKind = aKind;
     vPhase = aPhase;
@@ -307,9 +309,10 @@ function isSafeVolumePosition(position, direction, focusDirection, kind) {
 }
 
 function chooseShell(index) {
-  // Stable 30/40/30 split makes every quality tier contain all three depths.
-  const slot = index % 10;
-  if (slot < 3) return 0;
+  // Stable 10/25/65 split puts most samples near the far plane while retaining
+  // two quieter reference layers for subtle translation parallax.
+  const slot = index % 20;
+  if (slot < 2) return 0;
   if (slot < 7) return 1;
   return 2;
 }

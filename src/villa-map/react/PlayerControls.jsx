@@ -23,7 +23,8 @@ export function PlayerControls({
   onLockChange,
   onInteraction,
   onToggleObservatoryLights,
-  onObservatoryHiddenAction
+  onObservatoryHiddenAction,
+  suspended = false
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -113,12 +114,24 @@ export function PlayerControls({
     onObservatoryHiddenAction
   ]);
 
+  useEffect(() => {
+    controlsRef.current?.setEnabled(!suspended);
+  }, [suspended]);
+
   // Run before visual frame followers such as the camera-centred observatory
   // sky. This removes the tiny one-frame sky lag that would otherwise show up
   // as a false parallax wobble while walking.
   useFrame((_, delta) => {
     const controls = controlsRef.current;
     if (!controls) {
+      return;
+    }
+    if (suspended) {
+      nearestRef.current = null;
+      if (activeId.current) {
+        activeId.current = "";
+        onInteraction(null);
+      }
       return;
     }
     // Clamp big frame gaps (tab refocus) exactly like the old rAF loop did.

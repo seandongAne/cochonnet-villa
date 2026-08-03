@@ -43,6 +43,17 @@ function countEnabledKinds(geometry, qualityLevel) {
   return counts;
 }
 
+function countEnabledShells(geometry, qualityLevel) {
+  const shells = geometry.getAttribute("aShell");
+  const ranks = geometry.getAttribute("aQualityRank");
+  const counts = [0, 0, 0];
+  for (let index = 0; index < shells.count; index += 1) {
+    if (ranks.getX(index) > qualityLevel) continue;
+    counts[shells.getX(index)] += 1;
+  }
+  return counts;
+}
+
 test("star volume is one deterministic, stencil-clipped Points draw", () => {
   const first = createObservatoryStarVolume({ seed: 0x12345678 });
   const second = createObservatoryStarVolume({ seed: 0x12345678 });
@@ -102,9 +113,22 @@ test("all quality tiers are deterministic subsets of the same single draw", () =
   const geometry = volume.userData.points.geometry;
   const levels = { minimum: 0, low: 1, medium: 2, high: 3 };
 
+  assert.deepEqual(OBSERVATORY_STAR_VOLUME_COUNTS, {
+    minimum: { stars: 0, dust: 0, total: 0 },
+    low: { stars: 800, dust: 120, total: 920 },
+    medium: { stars: 2400, dust: 360, total: 2760 },
+    high: { stars: 5200, dust: 720, total: 5920 }
+  });
+
   for (const [quality, level] of Object.entries(levels)) {
     assert.deepEqual(countEnabledKinds(geometry, level), OBSERVATORY_STAR_VOLUME_COUNTS[quality]);
     assert.equal(getObservatoryStarVolumeCounts(quality), OBSERVATORY_STAR_VOLUME_COUNTS[quality]);
+    const total = OBSERVATORY_STAR_VOLUME_COUNTS[quality].total;
+    assert.deepEqual(
+      countEnabledShells(geometry, level),
+      [total * 0.1, total * 0.25, total * 0.65],
+      `${quality} must preserve the 10/25/65 near/middle/far density split`
+    );
   }
   assert.equal(getObservatoryStarVolumeCounts("NOT-A-TIER"), OBSERVATORY_STAR_VOLUME_COUNTS.medium);
 
@@ -142,6 +166,15 @@ test("all quality tiers are deterministic subsets of the same single draw", () =
   assert.doesNotMatch(vertexShader, /vPsfScale/);
   assert.doesNotMatch(vertexShader, /94\.0\s*\/\s*max/);
 
+  const shellAttenuation = vertexShader.match(
+    /shellAttenuation\s*=\s*mix\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*aShell\s*\/\s*2\.0\s*\)/
+  );
+  assert.ok(shellAttenuation, "shell radiance should use a monotonic near-to-far attenuation");
+  assert.ok(
+    Number(shellAttenuation[1]) < Number(shellAttenuation[2]),
+    "the sparse near shell must be dimmer than the dense far shell"
+  );
+
   const brightnesses = geometry.getAttribute("aBrightness");
   const starBrightnesses = [];
   let faintestDust = Infinity;
@@ -176,6 +209,12 @@ test("all quality tiers are deterministic subsets of the same single draw", () =
 });
 
 test("three finite shells stay outside the room and preserve a dark lens core", () => {
+  assert.deepEqual(OBSERVATORY_STAR_VOLUME_SHELLS, [
+    { id: "near", minRadius: 72, maxRadius: 96 },
+    { id: "middle", minRadius: 112, maxRadius: 145 },
+    { id: "far", minRadius: 160, maxRadius: 184 }
+  ]);
+
   const volume = createObservatoryStarVolume();
   const geometry = volume.userData.points.geometry;
   const positions = geometry.getAttribute("position");
@@ -217,32 +256,18 @@ test("three finite shells stay outside the room and preserve a dark lens core", 
   disposeObservatoryStarVolume(volume);
 });
 
-test("camera translation produces real finite parallax while the volume remains world anchored", () => {
+test("camera translation preserves subtle ordered parallax across all three distant shells", () => {
   const volume = createObservatoryStarVolume();
   const points = volume.userData.points;
   const positions = points.geometry.getAttribute("position");
   const shells = points.geometry.getAttribute("aShell");
-  const localPoint = new THREE.Vector3();
-  let pointIndex = -1;
-  for (let index = 0; index < positions.count; index += 1) {
-    localPoint.fromBufferAttribute(positions, index);
-    if (shells.getX(index) === 0 && localPoint.z < -7) {
-      pointIndex = index;
-      break;
-    }
-  }
-  assert.notEqual(pointIndex, -1, "seed should expose at least one near-shell forward point");
-
   volume.updateMatrixWorld(true);
-  const worldPoint = new THREE.Vector3()
-    .fromBufferAttribute(positions, pointIndex)
-    .applyMatrix4(points.matrixWorld);
   const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 200);
   camera.position.copy(volume.position);
   camera.lookAt(volume.position.clone().add(new THREE.Vector3(0, 0, -1)));
   camera.updateMatrixWorld(true);
   camera.updateProjectionMatrix();
-  const before = worldPoint.clone().project(camera);
+  const beforeCamera = camera.position.clone();
 
   const fixedAnchor = volume.position.clone();
   const fixedGeometry = Array.from(positions.array);
@@ -260,9 +285,36 @@ test("camera translation produces real finite parallax while the volume remains 
     quality: "high",
     pixelRatio: 1.5
   });
-  const after = worldPoint.clone().project(camera);
+  const angleTotals = [0, 0, 0];
+  const shellCounts = [0, 0, 0];
+  const worldPoint = new THREE.Vector3();
+  const beforeDirection = new THREE.Vector3();
+  const afterDirection = new THREE.Vector3();
+  for (let index = 0; index < positions.count; index += 1) {
+    worldPoint.fromBufferAttribute(positions, index).applyMatrix4(points.matrixWorld);
+    beforeDirection.copy(worldPoint).sub(beforeCamera).normalize();
+    afterDirection.copy(worldPoint).sub(camera.position).normalize();
+    const shellIndex = shells.getX(index);
+    angleTotals[shellIndex] += beforeDirection.angleTo(afterDirection);
+    shellCounts[shellIndex] += 1;
+  }
+  const meanAngularParallax = angleTotals.map((total, shellIndex) => (
+    total / shellCounts[shellIndex]
+  ));
 
-  assert.ok(Math.abs(after.x - before.x) > 0.025, "a 1.25 m walk should expose finite parallax");
+  assert.ok(
+    meanAngularParallax[0] > meanAngularParallax[1]
+      && meanAngularParallax[1] > meanAngularParallax[2],
+    `mean angular parallax must fall near-to-far: ${meanAngularParallax.join(", ")}`
+  );
+  assert.ok(
+    meanAngularParallax[2] > 0.002,
+    "a 1.25 m walk should retain a small but measurable far-shell depth cue"
+  );
+  assert.ok(
+    meanAngularParallax[0] < 0.02,
+    "even the near shell must remain distant instead of sweeping past the visitor"
+  );
   assert.deepEqual(volume.position.toArray(), fixedAnchor.toArray(), "update must not recenter on camera");
   assert.ok(arraysEqual(Array.from(positions.array), fixedGeometry), "CPU geometry remains fixed in world space");
   assert.deepEqual(volume.userData.lastCameraPosition.toArray(), camera.position.toArray());

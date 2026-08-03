@@ -10,6 +10,7 @@ import {
   OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR,
   OBSERVATORY_BLACK_HOLE_DEBRIS_NAME,
   OBSERVATORY_BLACK_HOLE_DISK_ROOT_NAME,
+  OBSERVATORY_BLACK_HOLE_FLOW_PERIODS,
   OBSERVATORY_BLACK_HOLE_HORIZON_NAME,
   OBSERVATORY_BLACK_HOLE_MOON_NAME,
   OBSERVATORY_BLACK_HOLE_NAME,
@@ -159,6 +160,61 @@ test("the singularity uses a locally compressed solar black-and-gold palette", (
   disposeObservatoryBlackHole(blackHole);
 });
 
+test("enhanced gas lanes keep unit mean energy while adding long-stream contrast", () => {
+  assert.deepEqual(OBSERVATORY_BLACK_HOLE_FLOW_PERIODS, {
+    inner: 40,
+    middle: 60,
+    outer: 100
+  });
+
+  const hotspotMean = 0.196380615234375;
+  const samples = 32_768;
+  const values = [];
+  const flowStructureAt = (phase, radius) => {
+    const longStream = Math.sin(phase * 2 - radius * 1.42);
+    const filamentStream = Math.sin(phase * 5 - radius * 2.85);
+    const hotspotShape = Math.pow(
+      0.5 + 0.5 * Math.sin(phase * 3 - radius * 1.16),
+      8
+    );
+    return 1
+      + longStream * 0.30
+      + filamentStream * 0.14
+      + (hotspotShape - hotspotMean) * 0.58;
+  };
+  const fiveSecondAdvance = 5 * Math.PI * 2
+    / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle;
+  let fiveSecondDifference = 0;
+  for (let index = 0; index < samples; index += 1) {
+    const phase = index / samples * Math.PI * 2;
+    const radius = 4.82;
+    const value = flowStructureAt(phase, radius);
+    values.push(value);
+    fiveSecondDifference += Math.abs(
+      flowStructureAt(phase + fiveSecondAdvance, radius) - value
+    );
+  }
+  const mean = values.reduce((sum, value) => sum + value, 0) / samples;
+  assert.ok(Math.abs(mean - 1) < 1e-12, "contrast must redistribute energy");
+  assert.ok(
+    Math.max(...values) - Math.min(...values) > 0.9,
+    "long lanes and sparse knots must remain visibly non-uniform"
+  );
+  assert.ok(
+    fiveSecondDifference / samples > 0.2,
+    "the one-minute middle flow must read within a five-second observation"
+  );
+
+  const blackHole = createObservatoryBlackHole();
+  const shader = blackHole.userData.resources.diskLayers[0].material.fragmentShader;
+  assert.match(shader, /const float HOTSPOT_MEAN = 0\.196380615234375/);
+  assert.match(shader, /float longStream = sin\(vFlowPhase \* 2\.0/);
+  assert.match(shader, /float hotspotShape = pow/);
+  assert.match(shader, /\(hotspotShape - HOTSPOT_MEAN\) \* 0\.58/);
+  assert.match(shader, /float filament = 0\.69 \* flowStructure/);
+  disposeObservatoryBlackHole(blackHole);
+});
+
 test("quality tiers retain the core while reducing disc, photon, and debris work", () => {
   assert.deepEqual(
     Object.keys(OBSERVATORY_BLACK_HOLE_QUALITY_PRESETS).sort(),
@@ -216,7 +272,19 @@ test("update preserves the anchor and animates differential flow and multi-radiu
     layer.material.uniforms.uFlowSpeed.value
   ));
   assert.ok(flowSpeeds[0] > flowSpeeds[1] && flowSpeeds[1] > flowSpeeds[2]);
+  const flowPeriods = flowSpeeds.map((speed) => Math.PI * 2 / speed);
+  assert.ok(Math.abs(flowPeriods[0] - 40) < 1e-12);
+  assert.ok(Math.abs(flowPeriods[1] - 60) < 1e-12);
+  assert.ok(Math.abs(flowPeriods[2] - 100) < 1e-12);
+  assert.deepEqual(
+    resources.diskLayers.map((layer) => (
+      layer.material.uniforms.uReferenceRadius.value
+    )),
+    [3.54, 4.82, 6.14]
+  );
   assert.match(resources.diskLayers[0].material.vertexShader, /differentialSpeed/);
+  assert.match(resources.diskLayers[0].material.vertexShader, /uReferenceRadius/);
+  assert.match(resources.diskLayers[0].material.vertexShader, /0\.35/);
   assert.match(resources.diskLayers[0].material.vertexShader, /vDoppler/);
   assert.match(resources.diskLayers[0].material.fragmentShader, /relativisticBeaming/);
   assert.notEqual(
@@ -228,11 +296,16 @@ test("update preserves the anchor and animates differential flow and multi-radiu
   assert.ok(Math.max(...radii) - Math.min(...radii) > 2.6);
   const before = new THREE.Matrix4();
   const after = new THREE.Matrix4();
+  const diskRotation = resources.diskRoot.quaternion.clone();
   resources.debris.getMatrixAt(0, before);
   updateObservatoryBlackHole(blackHole, camera, 8, 1, "high");
   resources.debris.getMatrixAt(0, after);
   assert.notDeepEqual(after.toArray(), before.toArray());
   assert.deepEqual(blackHole.position.toArray(), anchor.toArray());
+  assert.ok(
+    resources.diskRoot.quaternion.equals(diskRotation),
+    "gas must flow inside a fixed disc orientation"
+  );
 
   const nearAngularRadius = blackHole.userData.angularRadius;
   camera.position.copy(blackHole.position).add(new THREE.Vector3(0, 0, 100));

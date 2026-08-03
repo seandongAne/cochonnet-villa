@@ -115,7 +115,7 @@ test("only the volumetric nebula enters the FBO portal", () => {
   );
 });
 
-test("F owns a finite depth-tested black-hole pass and one world-anchored star-volume draw", () => {
+test("R and F share one distant star volume while the finite black hole remains F-only", () => {
   for (const factory of [
     "createObservatoryBlackHole",
     "createObservatoryBlackHolePass",
@@ -141,10 +141,38 @@ test("F owns a finite depth-tested black-hole pass and one world-anchored star-v
     runtime,
     /updateObservatoryStarVolume\([\s\S]*?motionScale:\s*adaptation\.celestialMotionScale[\s\S]*?quality:\s*hiddenQuality/
   );
+  const sharedStarAmount = runtime.match(
+    /const\s+([A-Za-z_$][\w$]*)\s*=\s*Math\.max\(\s*resources\.lensAmount,\s*riftChannels\.foregroundDepth\s*\)/
+  );
+  assert.ok(
+    sharedStarAmount,
+    "the distant star volume must use the stronger of the R depth and F lens channels"
+  );
+  const sharedStarAmountName = sharedStarAmount[1];
+  const starVolumeReveal = runtime.match(
+    /const\s+starVolumeReveal\s*=([\s\S]*?);/
+  );
+  assert.ok(starVolumeReveal);
   assert.match(
-    runtime,
-    /resources\.lensAmount \* Math\.max\([\s\S]*?channels\.portalReveal,[\s\S]*?channels\.brightStarReveal/,
-    "the existing F director must remain the only reveal clock"
+    starVolumeReveal[1],
+    new RegExp(`\\b${sharedStarAmountName}\\b`),
+    "both hidden effects must reveal the same finite star field"
+  );
+
+  const lensOnlyGate = runtime.match(
+    /const\s+([A-Za-z_$][\w$]*)\s*=\s*skyIsActive[\s\S]{0,320}?resources\.lensAmount\s*>\s*PORTAL_REVEAL_EPSILON\s*;/
+  );
+  assert.ok(lensOnlyGate, "the finite black-hole pass needs a separate F-only gate");
+  const blackHoleReveal = runtime.match(
+    /const\s+blackHoleReveal\s*=([\s\S]*?);/
+  );
+  assert.ok(blackHoleReveal);
+  assert.match(blackHoleReveal[1], new RegExp(`\\b${lensOnlyGate[1]}\\b`));
+  assert.match(blackHoleReveal[1], /resources\.lensAmount/);
+  assert.doesNotMatch(
+    blackHoleReveal[1],
+    /riftChannels\.foregroundDepth/,
+    "R may add distant stars but must never summon the F-only black hole"
   );
   assert.match(runtime, /hiddenQuality !== "minimum"/);
   assert.match(runtime, /createObservatoryBlackHole\(\{[\s\S]*?scale:\s*1,/);
@@ -501,6 +529,11 @@ test("hidden Rift/Lens events fail closed and preserve finite-distance depth cue
   assert.match(runtime, /updateObservatoryRiftVisual\(/);
   assert.match(runtime, /updateRiftFadeSurfaces\(resources, riftChannels\.wallDissolve\)/);
   assert.match(runtime, /resetHiddenEffectRendering\(resources, sky, riftVisual\)/);
+  assert.match(
+    runtime,
+    /riftVisual\.userData\.elapsed = 0;\s*riftVisual\.userData\.settledFragmentFactor = 0;/,
+    "hard resets should clear the settled near-fragment diagnostic state"
+  );
   assert.match(runtime, /riftVisual\.userData\.lifecycleToken = lifecycleToken/);
   assert.match(
     runtime,

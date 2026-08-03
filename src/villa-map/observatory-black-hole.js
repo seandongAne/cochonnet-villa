@@ -20,6 +20,16 @@ export const OBSERVATORY_BLACK_HOLE_MOON_NAME =
 
 export const OBSERVATORY_BLACK_HOLE_DEFAULT_QUALITY = "medium";
 export const OBSERVATORY_BLACK_HOLE_WORLD_DISTANCE = 42;
+// These are reference orbital periods for the moving gas pattern, not a
+// rotation of the event horizon or the disc mesh. The three render paths
+// (Kerr atlas, Schwarzschild LUT and procedural fallback) share this cadence:
+// a visitor can read the motion within 5-10 seconds without seeing a portal-
+// like rigidly spinning ring.
+export const OBSERVATORY_BLACK_HOLE_FLOW_PERIODS = Object.freeze({
+  inner: 40,
+  middle: 60,
+  outer: 100
+});
 
 const LOFT_ORIGIN = new THREE.Vector3(
   MUSHROOM_INTERIOR_CENTER.x,
@@ -90,6 +100,7 @@ const DEBRIS_MAX_COUNT = OBSERVATORY_BLACK_HOLE_QUALITY_PRESETS.high.debrisCount
 const REVEAL_EPSILON = 0.001;
 const OCCLUSION_REVEAL_THRESHOLD = 0.08;
 const PREWARM_REVEAL = 0.01;
+const TWO_PI = Math.PI * 2;
 
 const DISK_LAYER_DEFINITIONS = Object.freeze([
   Object.freeze({
@@ -98,7 +109,8 @@ const DISK_LAYER_DEFINITIONS = Object.freeze([
     thickness: 0.28,
     height: -0.13,
     segments: 144,
-    flowSpeed: 2.34,
+    flowSpeed: TWO_PI / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner,
+    referenceRadius: 3.54,
     phase: 0.4,
     brightness: 2.55,
     approach: "#ffd45a",
@@ -110,7 +122,8 @@ const DISK_LAYER_DEFINITIONS = Object.freeze([
     thickness: 0.42,
     height: 0.08,
     segments: 128,
-    flowSpeed: 1.42,
+    flowSpeed: TWO_PI / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle,
+    referenceRadius: 4.82,
     phase: 2.2,
     brightness: 1.42,
     approach: "#ff9d0a",
@@ -122,7 +135,8 @@ const DISK_LAYER_DEFINITIONS = Object.freeze([
     thickness: 0.58,
     height: 0.31,
     segments: 112,
-    flowSpeed: 0.84,
+    flowSpeed: TWO_PI / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer,
+    referenceRadius: 6.14,
     phase: 4.1,
     brightness: 0.64,
     approach: "#9a4300",
@@ -233,6 +247,7 @@ const MOON_FRAGMENT_SHADER = /* glsl */ `
 const DISK_VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
   uniform float uFlowSpeed;
+  uniform float uReferenceRadius;
   uniform float uLayerPhase;
 
   attribute float aRadius;
@@ -255,7 +270,13 @@ const DISK_VERTEX_SHADER = /* glsl */ `
     vDoppler = dot(worldTangent, eyeDirection);
     vRadius = aRadius;
     vSurface = aSurface;
-    float differentialSpeed = uFlowSpeed / pow(max(aRadius, 1.0), 1.18);
+    // The authored layers establish the 40/60/100 s Kepler-like progression.
+    // A gentle intra-layer differential keeps filaments shearing naturally
+    // without making the inner edge race around like a rigid VFX ring.
+    float differentialSpeed = uFlowSpeed * pow(
+      uReferenceRadius / max(aRadius, 1.0),
+      0.35
+    );
     vFlowPhase = aAzimuth - uTime * differentialSpeed + uLayerPhase;
 
     gl_Position = projectionMatrix * viewMatrix * worldPosition;
@@ -283,22 +304,24 @@ const DISK_FRAGMENT_SHADER = /* glsl */ `
     float outerFade = 1.0 - smoothstep(0.78, 1.0, radialPosition);
     float radialFade = innerFade * outerFade;
 
-    float broadLane = 0.5 + 0.5 * sin(
-      vFlowPhase * 3.2 - vRadius * 2.45
+    // Long spiral lanes carry most of the readable motion. Sparse compact
+    // hotspots sit inside them, rather than forming a uniformly luminous
+    // annulus. (0.5 + 0.5*sin(x))^8 has the exact circular mean below, so the
+    // stronger contrast does not raise the disc's average emitted energy.
+    const float HOTSPOT_MEAN = 0.196380615234375;
+    float longStream = sin(vFlowPhase * 2.0 - vRadius * 1.42);
+    float filamentStream = sin(vFlowPhase * 5.0 - vRadius * 2.85);
+    float hotspotShape = pow(
+      0.5 + 0.5 * sin(vFlowPhase * 3.0 - vRadius * 1.16),
+      8.0
     );
-    float fineLane = 0.5 + 0.5 * sin(
-      vFlowPhase * 8.7 - uTime * 0.16 + vRadius * 6.2
-    );
-    float turbulentLane = 0.5 + 0.5 * sin(
-      vFlowPhase * 17.0 + fineLane * 2.2 - vRadius * 3.4
-    );
-    // Continuous layered lanes read as hot flowing gas. The earlier hard
-    // threshold produced a mechanical row of glowing tiles at this scale.
-    float filament = 0.5
-      + broadLane * 0.22
-      + fineLane * 0.13
-      + turbulentLane * 0.08;
-    filament = pow(filament, 1.15);
+    float flowStructure = 1.0
+      + longStream * 0.30
+      + filamentStream * 0.14
+      + (hotspotShape - HOTSPOT_MEAN) * 0.58;
+    // 0.69 matches the previous layered-lane mean; only spatial contrast and
+    // motion readability change, not the average black/gold balance.
+    float filament = 0.69 * flowStructure;
     float surfaceLight = mix(0.62, 1.0, abs(vSurface));
 
     float approachMix = pow(smoothstep(-0.62, 0.86, vDoppler), 1.7);
@@ -629,6 +652,7 @@ function createDiskLayer(definition, index) {
     uniforms: {
       uTime: { value: 0 },
       uFlowSpeed: { value: definition.flowSpeed },
+      uReferenceRadius: { value: definition.referenceRadius },
       uLayerPhase: { value: definition.phase },
       uApproachColour: { value: new THREE.Color(definition.approach) },
       uRecedeColour: { value: new THREE.Color(definition.recede) },
@@ -692,7 +716,21 @@ function createDebris() {
     const phase = random() * Math.PI * 2;
     const height = (random() - 0.5) * (0.25 + band * 0.17);
     const scale = 0.48 + random() * 1.18;
-    const speed = (1.72 / Math.pow(radius, 1.36)) * (0.82 + random() * 0.34);
+    const flowBlend = radius <= 4.82
+      ? THREE.MathUtils.smoothstep(radius, 3.05, 4.82)
+      : THREE.MathUtils.smoothstep(radius, 4.82, 6.59);
+    const referencePeriod = radius <= 4.82
+      ? THREE.MathUtils.lerp(
+        OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner,
+        OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle,
+        flowBlend
+      )
+      : THREE.MathUtils.lerp(
+        OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle,
+        OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer,
+        flowBlend
+      );
+    const speed = TWO_PI / (referencePeriod * (0.96 + random() * 0.08));
     const wobble = random() * Math.PI * 2;
     orbits.push({ radius, phase, height, scale, speed, wobble });
     debris.setColorAt(

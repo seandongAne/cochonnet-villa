@@ -13,6 +13,9 @@ import {
   stepObservatoryQuality
 } from "../observatory-quality.js";
 import {
+  normalizeObservatoryQualityPreference
+} from "../observatory-quality-preference.js";
+import {
   createObservatoryPortal,
   disposeObservatoryPortal,
   OBSERVATORY_PORTAL_DEFAULT_LENS_RADIUS,
@@ -416,7 +419,10 @@ function resetHiddenEffectRendering(resources, sky, riftVisual) {
   updateRiftFadeSurfaces(resources, 0);
   if (riftVisual) {
     riftVisual.visible = false;
-    if (!riftVisual.userData.disposed) riftVisual.userData.elapsed = 0;
+    if (!riftVisual.userData.disposed) {
+      riftVisual.userData.elapsed = 0;
+      riftVisual.userData.settledFragmentFactor = 0;
+    }
   }
   resources.lensAmount = 0;
   resources.lensDistance = LENS_WORLD_DISTANCE;
@@ -478,7 +484,9 @@ export function MushroomObservatoryRuntime({
   riftVisual,
   riftOpen = false,
   lensActive = false,
-  onHiddenEffectsReset
+  onHiddenEffectsReset,
+  qualityPreference = "auto",
+  onQualityStatusChange
 }) {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
@@ -497,6 +505,8 @@ export function MushroomObservatoryRuntime({
   const startRelativisticLoadRef = useRef(null);
   const startKerrLoadRef = useRef(null);
   const updateKerrLensRef = useRef(null);
+  const onQualityStatusChangeRef = useRef(onQualityStatusChange);
+  onQualityStatusChangeRef.current = onQualityStatusChange;
 
   useEffect(() => {
     let mounted = true;
@@ -530,6 +540,8 @@ export function MushroomObservatoryRuntime({
     const resources = {
       reducedMotion: readReducedMotion(),
       comparisonMode: requestedSkyMode === "base" ? "base" : "impossible",
+      diagnosticsQualityOverride: qualityOverride,
+      playerQualityPreference: "auto",
       requestedQuality: qualityOverride,
       qualityLocked: qualityOverride && stencilSupported ? qualityOverride : null,
       stencilSupported,
@@ -638,6 +650,23 @@ export function MushroomObservatoryRuntime({
       requestedRift: false,
       requestedLens: false,
       hiddenResetRequested: false
+    };
+    resources.reportQualityStatus = () => {
+      const qualityState = qualityRef.current;
+      onQualityStatusChangeRef.current?.({
+        activeQuality: qualityState?.quality ?? "minimum",
+        // Manual locks intentionally replace the controller's live ceiling,
+        // but the player panel should still report the device's Auto
+        // recommendation rather than echoing the selected manual tier.
+        maximumQuality:
+          qualityState?.capabilityAssessment?.maximumQuality
+          ?? qualityState?.maximumQuality
+          ?? "minimum",
+        lockedQuality: resources.qualityLocked,
+        preference: resources.diagnosticsQualityOverride
+          ?? resources.playerQualityPreference
+          ?? "auto"
+      });
     };
     resources.portalScene.background = new THREE.Color("#000000");
     resourcesRef.current = resources;
@@ -1508,6 +1537,7 @@ export function MushroomObservatoryRuntime({
       }
       if (resources.gaiaBinary) replaceGaia(quality);
       resources.qualityApplied = quality;
+      resources.reportQualityStatus?.();
     }
     applyQualityRef.current = applyQuality;
 
@@ -1902,8 +1932,14 @@ export function MushroomObservatoryRuntime({
         resources.contextLost = false;
         resources.stencilSupported = detectStencilBuffer(gl);
         resources.halfFloatSupported = detectHalfFloatPortal(gl);
-        resources.qualityLocked = qualityOverride && resources.stencilSupported
-          ? qualityOverride
+        const restoredQualityOverride = resources.diagnosticsQualityOverride
+          ?? (resources.playerQualityPreference !== "auto"
+            ? resources.playerQualityPreference
+            : null);
+        resources.requestedQuality = restoredQualityOverride;
+        resources.qualityLocked = restoredQualityOverride
+          && resources.stencilSupported
+          ? restoredQualityOverride
           : null;
         resources.skipNextPerformanceSample = true;
         resources.handledShaderFailures.clear();
@@ -1962,15 +1998,19 @@ export function MushroomObservatoryRuntime({
           disposeGaiaStarPoints(resources.gaia);
           resources.gaia = null;
         }
+        const restoredInitialQuality = qualityRef.current?.quality;
         qualityRef.current = createObservatoryQualityState({
           capabilities: detectRuntimeCapabilities(
             gl,
             resources.reducedMotion,
             resources.stencilSupported
           ),
-          ...(qualityOverride && resources.stencilSupported
-            ? { initialQuality: qualityOverride, maximumQuality: qualityOverride }
-            : {})
+          ...(resources.qualityLocked
+            ? {
+                initialQuality: resources.qualityLocked,
+                maximumQuality: resources.qualityLocked
+              }
+            : { initialQuality: restoredInitialQuality })
         });
         resources.qualityApplied = null;
         applyQuality(qualityRef.current.quality);
@@ -2267,6 +2307,43 @@ export function MushroomObservatoryRuntime({
     // down and rebuild the FBO, 4K texture or Gaia buffers.
   }, [adaptationRef, camera, getState, gl, interior, riftVisual, scene, sky]);
 
+  // Player-facing quality changes update the live allocation/LOD policy in
+  // place. They must never tear down the long-lived texture/FBO lifecycle
+  // effect above. Query-only QA overrides remain authoritative when present.
+  useEffect(() => {
+    const resources = resourcesRef.current;
+    if (!resources || resources.diagnosticsQualityOverride) return;
+
+    const preference = normalizeObservatoryQualityPreference(qualityPreference);
+    const requestedQuality = preference === "auto" ? null : preference;
+    resources.playerQualityPreference = preference;
+    resources.requestedQuality = requestedQuality;
+    resources.qualityLocked = requestedQuality && resources.stencilSupported
+      ? requestedQuality
+      : null;
+
+    const currentQuality = qualityRef.current?.quality;
+    qualityRef.current = createObservatoryQualityState({
+      capabilities: detectRuntimeCapabilities(
+        gl,
+        resources.reducedMotion,
+        resources.stencilSupported
+      ),
+      ...(resources.qualityLocked
+        ? {
+            initialQuality: resources.qualityLocked,
+            maximumQuality: resources.qualityLocked
+          }
+        : { initialQuality: currentQuality })
+    });
+
+    if (resources.qualityApplied !== qualityRef.current.quality) {
+      applyQualityRef.current?.(qualityRef.current.quality);
+    } else {
+      resources.reportQualityStatus?.();
+    }
+  }, [gl, qualityPreference]);
+
   useFrame((_, delta) => {
     const resources = resourcesRef.current;
     if (!resources) return;
@@ -2539,21 +2616,29 @@ export function MushroomObservatoryRuntime({
     const state = getState();
     const hiddenQuality = qualityRef.current?.quality ?? "minimum";
     const celestialTime = sky.userData.elapsed ?? 0;
-    const finiteCosmosGate = skyIsActive
+    const finiteLensGate = skyIsActive
       && !baseImageComparison
       && inLoft
       && resources.lensAmount > PORTAL_REVEAL_EPSILON;
+    const finiteStarAmount = Math.max(
+      resources.lensAmount,
+      riftChannels.foregroundDepth
+    );
+    const finiteStarGate = skyIsActive
+      && !baseImageComparison
+      && inLoft
+      && finiteStarAmount > PORTAL_REVEAL_EPSILON;
 
     if (resources.starVolume) {
-      const starVolumeReveal = finiteCosmosGate
-        ? resources.lensAmount * Math.max(
+      const starVolumeReveal = finiteStarGate
+        ? finiteStarAmount * Math.max(
             channels.brightStarReveal,
             channels.faintStarReveal
           )
         : 0;
       setObservatoryStarVolumeVisible(
         resources.starVolume,
-        finiteCosmosGate && !resources.starVolumeDisabled
+        finiteStarGate && !resources.starVolumeDisabled
       );
       updateObservatoryStarVolume(
         resources.starVolume,
@@ -2568,7 +2653,7 @@ export function MushroomObservatoryRuntime({
       );
     }
 
-    const blackHoleReveal = finiteCosmosGate
+    const blackHoleReveal = finiteLensGate
       ? resources.lensAmount * Math.max(
           channels.portalReveal,
           channels.brightStarReveal
@@ -2577,7 +2662,7 @@ export function MushroomObservatoryRuntime({
     const relativisticPrimary = isRelativisticLensPrimary(resources)
       && hiddenQuality !== "minimum";
     const kerrPrimary = isKerrLensPrimary(resources, hiddenQuality);
-    const fallbackBlackHoleVisible = finiteCosmosGate
+    const fallbackBlackHoleVisible = finiteLensGate
       && hiddenQuality !== "minimum"
       && !resources.blackHoleDisabled
       && !relativisticPrimary;
@@ -2598,7 +2683,7 @@ export function MushroomObservatoryRuntime({
 
     let relativisticActive = false;
     if (resources.relativisticLens) {
-      const relativisticVisible = finiteCosmosGate && relativisticPrimary;
+      const relativisticVisible = finiteLensGate && relativisticPrimary;
       setObservatoryRelativisticLensVisible(
         resources.relativisticLens,
         relativisticVisible
@@ -2633,7 +2718,7 @@ export function MushroomObservatoryRuntime({
     }
     let kerrActive = false;
     if (resources.kerrLens) {
-      const kerrVisible = finiteCosmosGate && kerrPrimary;
+      const kerrVisible = finiteLensGate && kerrPrimary;
       setObservatoryKerrLensVisible(resources.kerrLens, kerrVisible);
       kerrActive = updateKerrLensRef.current?.(camera, {
         timeSeconds: celestialTime,

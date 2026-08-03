@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+import { OBSERVATORY_BLACK_HOLE_FLOW_PERIODS } from "./observatory-black-hole.js";
+
 // Offline Kerr transfer-atlas renderer for the hidden Observatory lens.
 //
 // The atlas contains physical null-geodesic transfer results, not a baked
@@ -149,6 +151,13 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   const float KERR_ISCO = 2.023593104700402;
   const float STATUS_ESCAPED = 0.0;
   const float STATUS_CAPTURED = 1.0;
+  // Gas-pattern periods only: the event horizon, 60-degree Kerr frame and
+  // transfer atlas remain fixed. The middle reference completes one orbit in
+  // about a minute, with physically legible differential flow either side.
+  const float FLOW_INNER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner.toFixed(1)};
+  const float FLOW_MIDDLE_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle.toFixed(1)};
+  const float FLOW_OUTER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer.toFixed(1)};
+  const float FLOW_HOTSPOT_MEAN = 0.196380615234375;
 
   vec2 seamSafeDerivative(vec2 derivativeValue) {
     return vec2(
@@ -347,11 +356,42 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     colour = mix(colour, hotCore, smoothstep(0.42, 0.88, observedTemperature));
 
     float emissionTime = uTime - crossingTime * 0.0025;
-    float grain = noise21(vec2(
-      floor((azimuth + emissionTime * 0.045) * 23.0),
-      floor(radius * 7.0)
-    ));
-    float quietStructure = mix(0.92, 1.06, grain);
+    float normalizedFlowRadius = clamp(
+      (radius - KERR_ISCO) / max(uDiscOuterRadius - KERR_ISCO, 0.001),
+      0.0,
+      1.0
+    );
+    float orbitalPeriod = mix(
+      FLOW_INNER_PERIOD,
+      FLOW_MIDDLE_PERIOD,
+      smoothstep(0.0, 0.5, normalizedFlowRadius)
+    );
+    orbitalPeriod = mix(
+      orbitalPeriod,
+      FLOW_OUTER_PERIOD,
+      smoothstep(0.5, 1.0, normalizedFlowRadius)
+    );
+    float flowPhase = azimuth - emissionTime * (2.0 * PI / orbitalPeriod);
+    // Low-frequency spiral lanes remain coherent over long arcs. Higher-
+    // frequency filaments and sparse hot knots ride inside them, making a
+    // 5-10 second observation visibly dynamic without a rigid disc rotation.
+    float longStream = sin(flowPhase * 2.0 - radius * 1.42);
+    float filamentStream = sin(
+      flowPhase * 5.0 - radius * 2.85 + sin(radius * 1.7) * 0.62
+    );
+    float hotspotShape = pow(
+      0.5 + 0.5 * sin(
+        flowPhase * 3.0 - radius * 1.16 + sin(radius * 2.1) * 0.48
+      ),
+      8.0
+    );
+    // FLOW_HOTSPOT_MEAN is the exact circular mean of the eighth-power
+    // hotspot. All other terms are zero-mean sines, so contrast rises while
+    // the old ~0.99 micro-grain average energy remains effectively 1.0.
+    float flowStructure = 1.0
+      + longStream * 0.30
+      + filamentStream * 0.14
+      + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.58;
     float radialEmission = pow(KERR_ISCO / radius, 1.72) * noTorque;
     // Liouville invariance for specific intensity: I_nu / nu^3 is conserved.
     float relativisticBoost = pow(clamp(redshift, 0.0, 3.5), 3.0);
@@ -368,7 +408,7 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       * uDiscOpacity * imageWeight;
     alpha = clamp(alpha, 0.0, 0.97);
     vec3 radiance = colour * radialEmission * relativisticBoost
-      * quietStructure * 1.35;
+      * flowStructure * 1.35;
     // The transfer stays HDR, but a hue-preserving display shoulder prevents
     // the approaching side from clipping into a flat white triangle. This is
     // display mapping only; the Kerr g^3 relation above is unchanged.

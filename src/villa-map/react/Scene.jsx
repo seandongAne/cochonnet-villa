@@ -389,7 +389,9 @@ export function Scene({
   observatoryLightsOn = true,
   observatoryRiftOpen = false,
   observatoryLensActive = false,
-  onObservatoryHiddenEffectsReset
+  onObservatoryHiddenEffectsReset,
+  observatoryQualityPreference = "auto",
+  onObservatoryQualityStatusChange
 }) {
   const observatoryAdaptationRef = useRef(
     createObservatoryAdaptationState({
@@ -525,6 +527,8 @@ export function Scene({
         riftOpen={observatoryRiftOpen}
         lensActive={observatoryLensActive}
         onHiddenEffectsReset={onObservatoryHiddenEffectsReset}
+        qualityPreference={observatoryQualityPreference}
+        onQualityStatusChange={onObservatoryQualityStatusChange}
       />
 
       {/* ---- Terrain ---- */}

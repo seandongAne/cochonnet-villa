@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import * as THREE from "three";
 
+import { OBSERVATORY_BLACK_HOLE_FLOW_PERIODS } from "../src/villa-map/observatory-black-hole.js";
+
 import {
   createObservatoryRelativisticLens,
   createObservatoryRelativisticLensLuts,
@@ -308,6 +310,11 @@ test("full-screen material samples the photographic sky through the Schwarzschil
     OBSERVATORY_RELATIVISTIC_LENS_OPTICAL_SCALE
   );
   assert.ok(OBSERVATORY_RELATIVISTIC_LENS_OPTICAL_SCALE >= 1.45);
+  assert.deepEqual(OBSERVATORY_BLACK_HOLE_FLOW_PERIODS, {
+    inner: 40,
+    middle: 60,
+    outer: 100
+  });
 
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /traceSchwarzschildRay/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /lookupRayDeflection/);
@@ -328,6 +335,14 @@ test("full-screen material samples the photographic sky through the Schwarzschil
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /pow\(doppler, 3\.0\)/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /blackBodyGold/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /discFbm/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /const float FLOW_INNER_PERIOD = 40\.0/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /const float FLOW_MIDDLE_PERIOD = 60\.0/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /const float FLOW_OUTER_PERIOD = 100\.0/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /2\.0 \* PI \/ orbitalPeriod/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /float longStream = sin\(flowPhase \* 2\.0/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /hotspotShape - FLOW_HOTSPOT_MEAN/);
+  assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /\* flowStructure/);
+  assert.doesNotMatch(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /0\.31 \/ pow/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /pointDirection/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /discAxisY/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /cheapWarp/);

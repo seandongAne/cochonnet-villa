@@ -51,14 +51,49 @@ function createKeyboardHarness({ onAction, onHiddenAction } = {}) {
   });
 
   return {
+    camera,
     controls,
     keydown: documentListeners.get("keydown"),
+    keyup: documentListeners.get("keyup"),
     restore() {
       controls.dispose();
       globalThis.document = previousDocument;
     }
   };
 }
+
+test("a modal can suspend explorer movement and actions without rebuilding controls", () => {
+  const actions = [];
+  let eActions = 0;
+  const harness = createKeyboardHarness({
+    onAction() {
+      eActions += 1;
+    },
+    onHiddenAction(action) {
+      actions.push(action);
+    }
+  });
+  harness.controls.lock();
+  harness.keydown({ code: "KeyW", preventDefault() {} });
+  harness.controls.setEnabled(false);
+
+  const pausedPosition = harness.camera.position.clone();
+  harness.controls.update(0.25);
+  harness.keydown({ code: "KeyE", repeat: false });
+  harness.keydown({ code: "KeyR", repeat: false, preventDefault() {} });
+
+  assert.deepEqual(harness.camera.position.toArray(), pausedPosition.toArray());
+  assert.equal(eActions, 0);
+  assert.deepEqual(actions, []);
+
+  harness.controls.setEnabled(true);
+  harness.keydown({ code: "KeyE", repeat: false });
+  harness.keydown({ code: "KeyR", repeat: false, preventDefault() {} });
+  harness.restore();
+
+  assert.equal(eActions, 1);
+  assert.deepEqual(actions, ["rift"]);
+});
 
 test("R/F emit semantic hidden actions only during an active exploration session", () => {
   const actions = [];
