@@ -10,86 +10,90 @@ Static Astro site about 15 pet pigs. Two features:
 - `npm run dev` — local dev server
 - `npm run build` — production build
 - `npm run preview` — serve the production build (full-speed; dev is slow to first-compile the three/drei bundle)
-- `npm test` — Node.js built-in `node:test` runner
+- `npm test` — Node.js built-in `node:test` runner (globs `tests/*.test.mjs`, one file per concern)
 
 ## 3D scene (`src/villa-map/`)
 
-Framework-agnostic core — pure logic + Three.js factories, reused verbatim by the React layer **and** the test suite:
+Framework-agnostic core — pure logic + Three.js factories, reused verbatim by the React layer **and** the node test suite (so: no `window`/`document`/`TextureLoader` at import time):
 
 | File | Role |
 |------|------|
-| `world.js` | Geometry data, collision (2D AABB + optional Y range), interaction/stair/water/**floor** zones, `MUSHROOM_INTERIOR` pocket-space data |
-| `controls.js` | WASD + pointer-lock factory (drag-look fallback when lock is denied), camera-Y interp through stair/floor/water zones, `teleport()`, E-key `onAction` |
-| `assets.js` | Procedural mesh factories for buildings & terrain |
-| `mushroom-interior.js` | Procedural three-storey round-tower interior of the mushroom house (Phase 5); node-pure like `assets.js` |
-| `porky-models.js` | GLB pig loading (4 variants) with procedural fallback |
-| `interaction.js` | `findNearestInteraction` proximity logic; Y-floor filter for multi-floor hotspots |
-| `placements.js` | GLB porky placement data (position / rotation / variant) |
-| `furniture-models.js` | Generic GLB prop loader — uniform scale, X/Z re-center, floor-sit, placeholder + fallback (Phase 2; mirrors `porky-models.js`). Reused for exterior props too |
-| `furniture-placements.js` | GLB furniture placement data, per room. Stamps each record at load with derived `footprint` (world m), `floor`, `solid`, `noShadow` (+ a `FURNITURE_FOOTPRINTS` native-size map) that the shadow + collider layers read |
-| `exterior-placements.js` | GLB courtyard/exterior placement data (Phase 3); same stamped shape as furniture, loaded by the same `createFurniturePiece` |
-| `architecture-placements.js` | GLB **entrance** accent placement data (Phase 4) — topiaries, porch railings, planters; same stamped shape, same `createFurniturePiece`. Solid pieces sit at x≈±5.9/±6.6 (porch edge) so the open entry x∈[-5,5] stays walkable. No door piece — the front is an open portal |
-| `shadows.js` | `createShadowBlobs(placements)` → soft radial-gradient "blob" contact shadows (Phase 3); pure ShaderMaterial, node-safe, skips `noShadow` pieces |
-| `furniture-colliders.js` | `deriveFurnitureColliders(placements)` → per-piece rotated-AABB colliders for `solid` props (Phase 3); pure Math, floor-scoped Y range |
+| `world.js` | Geometry data, collision (2D AABB + optional Y range + the mushroom interior's circular boundary), interaction/stair/water/floor zones, `MUSHROOM_INTERIOR` pocket-space data |
+| `controls.js` | WASD + pointer-lock factory (drag-look fallback when lock is denied), camera-Y interp through stair/floor/water zones, `teleport()`, E-key `onAction`, modifier-safe hidden R/F semantic actions |
+| `assets.js` | Procedural mesh factories for buildings & terrain (beveled villa shell, open glass-curtain front, hot springs, meadow) |
+| `mushroom-interior.js` | Procedural three-storey round-tower interior, fairy-light/bunting canopies on L1/L2, the physical L3 light switch, node-pure fallback dome for the real-sky texture |
+| `mushroom-sky.js` | 80 m camera-centred observatory sky: filtered Milky Way backdrop, deterministic GPU stars, point-mass lensing/event horizon, switch-driven reveal, L3 gating, stencil aperture, disposal |
+| `mushroom-nebula.js` | Volumetric ray-march nebula ShaderMaterial; bounded High/Medium/Low presets, camera bridge, reduced-motion pause |
+| `gaia-stars.js` | Gaia DR3 v1 binary decoder, ICRS star geometry, G-magnitude/BP-RP rendering, one `THREE.Points` draw with LOD + GPU lensing |
+| `observatory-adaptation.js` | Node-pure switch/dark-adaptation director; single source for house-light, room-darkness, portal, bright/faint-star, nebula and motion channels |
+| `observatory-portal.js` | Portal/FBO factories: capped target sizing, near-layer parallax camera, stencil-ref-7 emission/extinction composite, safe lens projection, resize, idempotent disposal |
+| `observatory-rift.js` / `observatory-rift-visual.js` | Hidden non-Euclidean Rift: reversible transition director + expanding stencil dome, finite star/shard bands, unfolding rings |
+| `observatory-black-hole.js` / `observatory-black-hole-pass.js` | Finite-distance 3D black hole (42 m anchor, tilted accretion disc, event horizon, photon shell, debris) + its depth-buffered FBO pass and HDR composite |
+| `observatory-relativistic-lens.js` | Schwarzschild lensing via Bruneton BSD-3 precomputed LUTs (`public/data/observatory-black-hole-*.bin`); analytic fallback |
+| `observatory-kerr-lens.js` | Offline Kerr transfer-atlas lensing (a*=0.94, i=60°; `public/data/observatory-kerr-*.bin`); High/Medium primary path, falls back to Schwarzschild |
+| `observatory-gaia-source-map.js` | Renders Gaia/hero stars into an equirect source atlas so the Kerr/Schwarzschild passes lens stars and photo sky through one light path |
+| `observatory-star-volume.js` | Three finite-distance star shells (72–184 m) for parallax depth in Rift/lens modes; single deterministic Points draw |
+| `observatory-quality.js` | High/Medium/Low/Minimum capability caps + rolling-p95 auto-tier controller with dwell/cooldown hysteresis |
+| `observatory-quality-preference.js` | Versioned localStorage persistence for the player's `Q` quality panel (SSR/storage-failure safe) |
+| `observatory-audio.js` | Procedural spatial-audio graph math (no audio files); consumed by the React audio bridge |
+| `observatory-diagnostics.js` | Stable observatory camera bookmarks, frame-time summaries, render-target memory estimates for browser QA |
+| `interaction.js` | `findNearestInteraction` proximity logic, Y-floor filtering, fixed-radius camera-ray targeting for the hidden physical controls |
+| `porky-models.js` | GLB pig loading (15 variants) with procedural fallback |
+| `placements.js` | Porky placement data (position / rotation / variant) |
+| `furniture-models.js` | Generic GLB prop loader — per-pack base scale, X/Z re-center, floor-sit, placeholder + fallback; reused for exterior/architecture props |
+| `furniture-placements.js` | Furniture placement data per room (Kenney villa + KayKit mushroom tower). Stamps `footprint`/`floor`/`solid`/`noShadow` on each record; mushroom `wallMounted` decor projects tangent to the round wall, `onWallShelfId` clutter follows its shelf |
+| `exterior-placements.js` / `architecture-placements.js` | Courtyard props and villa-entrance accents; same stamped shape, same loader |
+| `shadows.js` | `createShadowBlobs(placements)` — soft radial-gradient blob contact shadows; skips `noShadow` |
+| `furniture-colliders.js` | `deriveFurnitureColliders(placements)` — rotated-AABB colliders for `solid` props, 0.85 shrink, floor-scoped Y |
 
 React layer (`src/villa-map/react/`, client-only):
 
 | File | Role |
 |------|------|
-| `VillaMap.jsx` | Island root: `<Canvas>` + overlay / loading / HUD chrome as React state |
-| `Scene.jsx` | Lights, fog, IBL (three `RoomEnvironment`); mounts factory meshes via `<primitive>` |
-| `PlayerControls.jsx` | Bridges `controls.js` + `interaction.js` into R3F's `useFrame` |
+| `VillaMap.jsx` | Island root: `<Canvas>` (with `stencil: true`) + overlay/loading/HUD state; owns E light state, hidden R/F state, the `Q` quality panel and the query-only QA panel |
+| `Scene.jsx` | Lights, fog, IBL; mounts factory meshes/Rift and shares one observatory `adaptationRef` across lighting, palette, exposure, markers and sky runtime |
+| `PlayerControls.jsx` | Bridges controls/interaction into R3F at priority `-2`; R/F reach React only while the L3 camera ray hits the physical wall switch |
+| `MushroomObservatoryRuntime.jsx` | Sole browser owner of 4K/8K/Gaia/LUT/atlas lazy loading + prewarm, FBO render choreography (priority `-1`), hidden Rift/Lens channels, classified fail-close, context-loss recovery, diagnostics |
+| `MushroomObservatoryAudio.jsx` | Web Audio bridge: gesture-gated context, HRTF-panned switch/dome/rift/black-hole layers driven by the same per-frame adaptation state; `M` mutes |
+| `ObservatoryDiagnostics.jsx` / `ObservatoryQualityPanel.jsx` | Query-only fixed-camera test/perf harness; player-facing quality panel |
+| `EditControls.jsx` | `?edit=1` furniture editor (orbit + drag gizmo + clipping plane; prints paste-ready placement records) |
 
-World bounds: x `[-40, 44]`, z `[-40, 42]` (Phase 5 removed the perimeter fence; the oversized meadow plane + fog hide the rim). Main villa is two floors (ground eye-Y ≈ 1.6, upper ≈ 8.05). The mushroom-house interior is a **buried pocket space** under XZ (-6, 18) — slab tops y = -40/-36/-32, floor indices 2/3/4 — reached only by teleport. GLB models in `public/models/porkies/` (pigs), `public/models/furniture/` (Kenney CC0 Furniture Kit), `public/models/exterior/` (Kenney CC0 Nature + Holiday kits) and `public/models/architecture/` (Kenney CC0 Furniture + City-Suburban kits; Phase 4 entrance accents) — each dir has its `LICENSE.txt`. **Gotcha:** some UnityGLTF-exported Kenney GLBs (Holiday-kit `bench`/`lantern`; City-Suburban `railing`/`planter`) reference an external `Textures/colormap.png` by relative URI, so that atlas is vendored **per dir** (`public/models/exterior/Textures/colormap.png` and `public/models/architecture/Textures/colormap.png`) — without it those props render flat white. The Furniture-kit and Nature-kit GLBs are self-contained (embedded or `baseColorFactor`/`KHR_materials_unlit`).
+## World facts
+
+- Bounds x `[-40, 44]`, z `[-40, 42]`; no perimeter fence (oversized meadow + fog hide the rim). Main villa is two floors (ground eye-Y ≈ 1.6, upper ≈ 8.05).
+- The mushroom-house interior is a **buried pocket space** under XZ (-6, 18), scaled 2× (~19 m across; slab tops y = -48/-40/-32, floor indices 2/3/4), reached only by E-key teleport at the door. Every interior zone/collider is Y-banded; the exterior `mushroom-house` collider is Y-scoped `[0,30]`. A world test asserts the normal start is `{0,1.6,18}`.
+- GLB dirs (each with its own `LICENSE.txt`): `public/models/porkies/` (pigs), `furniture/` (Kenney CC0 Furniture Kit, base scale 2.2), `mushroom-furniture/` (53-model KayKit Furniture Bits CC0, base scale 1), `exterior/` (Kenney Nature + Holiday), `architecture/` (Kenney Furniture + City-Suburban). **Gotcha:** UnityGLTF-exported Kenney GLBs (Holiday `bench`/`lantern`; City-Suburban `railing`/`planter`) reference `Textures/colormap.png` by relative URI — the atlas is vendored per dir or those props render flat white.
+- Observatory data/textures: `public/textures/qwantani-night-puresky-dome-{4k,8k}.webp` (Poly Haven CC0 night sky), `public/data/gaia-bright-stars-v1.bin` (+meta, ESA/Gaia/DPAC), Schwarzschild LUTs (Bruneton BSD-3) and self-generated Kerr atlas (CC0) — regeneration scripts in `scripts/`, provenance/SHA-256 in the sibling `.meta.json`/LICENSE files. Keep filenames' `-v1` and metadata in sync when regenerating; the shipped bins are byte-pinned by tests.
 
 ## Key patterns
 
-- ES modules everywhere (`"type": "module"`)
-- Procedural geometry at runtime; pre-made GLB assets are pigs (`porky-models.js`) and furniture (`furniture-models.js`). Both load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural placeholder/fallback, and mount in R3F via `<primitive object={…}>` — **not** rewritten as JSX, **not** drei `useGLTF` (keeps the framework-agnostic core node-testable and the loader uniform across pigs/props).
-- React island only on `/villa-map/` (`client:only="react"` — Three.js needs `window`); the rest of the site stays vanilla Astro static HTML.
-- **Version pins (don't bump blindly):** project is on **Astro 6 / Vite 7**. Keep `@astrojs/react@^5` (the v6 line targets Astro 7 / Vite 8) and `overrides: { vite: "^7" }` in package.json. drei `<SoftShadows>` is incompatible with three r184 (broken PCSS depth shader) — avoid; shadows use `PCFShadowMap`.
-- Bilingual; content defaults to Chinese (`zh`), `data-i18n` for hooks
-- Tests cover HTML render, world geometry, collisions, interactions, porky / furniture / **exterior** / **architecture** placements (incl. that referenced GLB + the colormap atlas exist in `public/`), **blob shadows**, **furniture colliders**, the **beveled villa shell** (`shell.test.mjs` — node-pure build + palette), a **no-overlap regression** (`overlap.test.mjs` — solid non-chair furniture must not clip > 0.5 m²), the **mushroom interior** (`mushroom-interior.test.mjs` — zones/colliders/teleports/factory), and a **same-model spacing guard** (`spacing.test.mjs` — identical props ≥ 1.8 m apart on a floor; chair-family + railing exempt). `npm test` globs `tests/*.test.mjs` (one file per concern), run via the `node --test` runner.
+- ES modules everywhere (`"type": "module"`).
+- Procedural geometry at runtime; pre-made GLBs (pigs/furniture/props) load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural fallback, mounted via `<primitive object={…}>` — **not** drei `useGLTF`, keeping the core node-testable and the loader uniform.
+- React island only on `/villa-map/` (`client:only="react"`); the rest of the site is vanilla Astro static HTML. Bilingual; content defaults to Chinese (`zh`), `data-i18n` for hooks.
+- **Version pins (don't bump blindly):** Astro 6 / Vite 7; keep `@astrojs/react@^5` and `overrides: { vite: "^7" }`. drei `<SoftShadows>` is broken with three r184 — shadows use `PCFShadowMap`.
+- Tests are node-pure and behavior-pinning: world/collision/interaction geometry, placement + asset-existence guards (GLBs, colormap atlas, binary observatory data incl. SHA-256), overlap (`overlap.test.mjs`, solid non-chair clip ≤ 0.5 m²) and same-model spacing (`spacing.test.mjs`, ≥ 1.8 m; chair-family + railing exempt) regressions, villa shell palette, mushroom interior/collision/wall-decor, and the full `observatory-*`/`mushroom-sky`/`star-ceiling` suite (adaptation, portal, nebula, Gaia contract, quality hysteresis, hidden R/F, rift, black hole, Kerr/relativistic lenses, audio, React runtime contracts).
 
-## Phase 2: richer assets
+## Impossible Observatory (mushroom L3)
 
-The boxy look was an *asset* gap, not a framework one. All six interior rooms now use CC0 GLB furniture (Kenney Furniture Kit — 140 cohesive low-poly pieces, CC0; 25 vendored, ~380 KB) instead of primitives — **72 pieces** across `entry-foyer`, `great-hall-west` (living), `great-hall-east` (dining), `master-bedroom`, `study-loft`, `lounge-balcony`. The villa shell, stairs, partitions, railings, hot springs, mushroom house, terrain and pigs are still procedural. A later "猪窝" cozy-clutter pass piled every room with layered rugs, greenery, books, warm lamps and extra seating (mostly **non-solid** decor so it crowds without trapping the player or tripping the overlap guard; only 2 new solid side-table accents, both in empty corners) and corrected the dining-chair facing (the `chair` model's backrest sits on its -Z side at `rotationY` 0, so seats tuck under the table).
+Detailed record: `docs/IMPOSSIBLE_OBSERVATORY_PLAN.md`. The L3 loft is a dark-adaptation observatory: pressing E at the physical wall switch drops the warm room to near-black, then reveals a layered cosmos — photo Milky Way backdrop (0.36 brightness), 360 procedural hero stars, real Gaia stars revealed bright→faint by magnitude, and a half-res volumetric nebula Portal with controlled parallax — all clipped to the dome by stencil ref 7. Hidden Lab: aiming at the switch, `R` toggles a non-Euclidean Rift, `F` a finite-distance black hole/gravitational lens (Kerr atlas → Schwarzschild LUT → analytic point-mass fallback ladder). `E`/lights-on and leaving L3 reset everything; production HUD never advertises R/F.
 
-**To add/restyle furniture** (rooms or the courtyard/exterior):
-1. Copy GLBs from the kit into `public/models/furniture/` (kit is authored ~0.45× metric; `FURNITURE_BASE_SCALE` ≈ 2.2 lifts it into the villa's metre world — a uniform factor preserves inter-piece proportions, per-piece nudge via `placement.scale`). Upstairs rooms sit at y ≈ 6.66, ground at y ≈ 0.11.
-2. Append placement records (world coords) to `furniture-placements.js`; it stamps `footprint`/`floor`/`solid`/`noShadow` on each (footprint from the `FURNITURE_FOOTPRINTS` native-size map × `FURNITURE_BASE_SCALE` × `placement.scale`). Set `solid`/`noShadow` per the model-policy table, or override per record.
-3. `npm test` + `npm run build`; eyeball in preview.
+Architecture rules that must hold:
 
-**Visual furniture editor (dev-only):** open `/villa-map/?edit=1` to tune positions without blind-coding coords. It swaps the walk controls for orbit + a drag gizmo (drei `OrbitControls` + `TransformControls`), adds a height-adjustable global clipping plane ("dollhouse" cut, `[`/`]` keys) since the roof/ceilings occlude interiors, and lets you click any furniture piece to select it — a panel prints the **paste-ready `furniture-placements.js` record** (Copy button) reflecting the live transform. `G`/`R` toggle translate/rotate, `Esc` deselects. The data file stays the source of truth (tests/overlap guard still gate); you paste the numbers back. Gated on `?edit=1` (`VillaMap.jsx`) so ordinary visitors are unaffected; the editor lives in `react/EditControls.jsx` + the `editMode`/`onSelectPiece` hooks in `Scene.jsx`.
+- `MushroomObservatoryRuntime` is the **sole browser owner** of observatory assets/FBOs; `observatory-adaptation.js` is the **only** timing source (components consume one shared `adaptationRef` — never reintroduce per-component timers).
+- Lights-on steady state = **zero sustained cosmos draw calls**; heavy assets lazy-load only near the L2 approach; failures are classified fail-soft (Portal→drop volumetrics, Gaia→keep photo+hero stars, native sky→physical dome; Kerr→Schwarzschild) and every dispose is idempotent (StrictMode-safe).
+- Quality tiers: High 80k Gaia / 0.68-scale Portal / 48 nebula steps · Medium 35k / 0.55 / 30 · Low 8k, **no volumetric FBO** · Minimum 360 procedural stars only. Auto-tier via rolling p95 with dwell/cooldown; player `Q` panel overrides (persisted); QA query overrides win over both.
 
-The old per-room `createFurnitureSet` boxes were removed from `assets.js` once every room was migrated.
+**QA harness (query-only; ordinary visits always start lights-on and ignore these):**
+`/villa-map/?observatory=test&view=loft-center&lights=off&quality=medium&motion=full&sky=impossible` (deterministic `frameloop="never"`, panel-driven 0.5/2/10 s steps) and `/villa-map/?observatory=perf&…` (real loop + walkable `PlayerControls`). Views: `l2-stair`, `loft-center`, `loft-edge`, `loft-room`, `black-hole-edge`. Baseline/acceptance screenshots: `docs/observatory-baseline/`, `docs/observatory-final/`. Remaining acceptance gap is human/target-GPU (Iris Xe/M1, UHD 620) validation, not code.
 
-## Phase 3: grounding, solidity, outdoors
+## Furniture workflow
 
-Three streams, conflict-free (each owns new files; only `Scene.jsx` + `world.js` are edited to wire them):
+1. Copy kit GLBs into the right `public/models/` dir (Kenney ≈0.45× metric → base scale 2.2; KayKit metre-authored → base scale 1). Villa upstairs y ≈ 6.66, ground y ≈ 0.11; mushroom floors per `MUSHROOM_INTERIOR.floorY`.
+2. Append placement records to the matching `*-placements.js`; stamping derives `footprint`/`floor`/`solid`/`noShadow` (override per record when needed). Solid = substantial grounded pieces only; elevated clutter stays walk-through.
+3. `npm test` + `npm run build`; eyeball in preview. The overlap/spacing tests gate regressions.
 
-- **Contact shadows** (`shadows.js`) — per-piece soft **blob decals** (flat radial-gradient `PlaneGeometry` + a tiny node-safe `ShaderMaterial`, no texture/canvas), sized to the piece's `footprint`, laid at `position.y + 0.02`, rotated by `rotationY` via a wrapper group. Chosen over drei `<ContactShadows>` (one ground plane can't span two floors + async-loaded GLBs). Tunables in `shadows.js`: `SHADOW_OPACITY` 0.45, `SHADOW_PADDING` 1.35, fragment core `smoothstep(0.5, 0.22, d)` — bumped from softer defaults so the shadow reads beyond an object's base. `noShadow` pieces (rugs, tabletop items) get none.
-- **Per-piece colliders** (`furniture-colliders.js`) — solid furniture/props now block the player. Rotated-AABB from `footprint`+`rotationY`, **0.85 shrink** (player radius 0.62 is added at test time, so a full box feels sticky), floor-scoped Y range. Spread into `world.colliders`. Solid set: sofas/beds/tables/bookcases/wardrobe/sideboard/lounge chairs; walk-through: rugs/lamps/books/small plants/dining+desk chairs/coat rack. NB grand-scale furniture means a big piece can fill a small room (the master bed fills the bedroom's north — you walk to its foot, not around it).
-- **Exterior props** (`exterior-placements.js` + `public/models/exterior/`) — ~19 courtyard props (fountain/statue ring, lampposts lining the path, benches, planters, flowers, bushes, campfire+logs, rock, sign) from Kenney Nature + Holiday kits, placed in the grassy courtyard (z>0), reusing `createFurniturePiece`. Same stamped shape, so shadows + colliders apply uniformly. Exterior footprint is baked = native × 2.2 × scale (the loader's effective scale).
+**Visual editor:** `/villa-map/?edit=1` swaps walk controls for orbit + drag gizmo with a dollhouse clipping plane (`[`/`]`), click a piece → panel prints the paste-ready placement record (`G`/`R` translate/rotate, `Esc` deselect). Data files stay the source of truth.
 
-**Still deferred:** AI text-to-3D for a few signature pieces; richer exterior set; (contact shadows + colliders + courtyard props are now done).
+## Verifying the 3D scene in preview
 
-## Phase 4: shell polish · entrance accents · de-overlap
-
-Same conflict-free shape as Phase 3 (parallel streams own new/stream-only files; only `Scene.jsx` + `world.js` are edited in a short serial integration). The main villa `createModernVilla` read "hand-built" because of a **finish gap** (flat colours + hard 90° box edges), not geometry — same lesson as Phase 2.
-
-- **Shell polish** (`assets.js`) — a new `addBeveledBox` helper (mirrors `addBox`, uses `RoundedBoxGeometry` from `three/addons`, radius ≈0.04–0.08 clamped, falls back to a plain box for sub-~0.012 slivers) rounds the chunky shell boxes (perimeter/wing walls, lintel, upper walls, roofs, chimney, porch deck/steps, planters, 4 corner posts) — thin glass/mullions stay flat. Refined `createMaterials` (warmer trims + new keys `fascia`/`stoneBase`/`baseboard`) and added finish detail: glass-pane frames, roof **fascia/eave** boards, interior **baseboards**. **`assets.js` stays node-pure** — no `TextureLoader`/`document` (the node suite imports it). Wall centres/extents are UNCHANGED (colliders depend on them); bevels/detail are purely visual.
-- **Open-plan front** (`assets.js`, follow-up tweak) — the villa front is an **open portal** (no door leaf — the lone door read as out of place) and a **unified glass curtain wall**: both front wings now use the same `buildGlassCurtainWing` helper (peach base + glass pane + mullions + transom + frame), replacing the old glassy-left / dark-red-right mismatch. The x=±3 ground-floor **foyer-pocket partition walls were removed** for one continuous open hall (the lone west-hall terracotta accent panel they carried is kept inline); the matching `foyer-*-wall-*` colliders were dropped from `world.js`. Stair banisters + upper-floor partitions stay.
-- **Entrance accents** (`architecture-placements.js` + `public/models/architecture/`) — 8 CC0 GLB pieces at the villa front: 2 Furniture-kit `pottedPlant` topiaries flanking the open entry, City-Suburban `railing` ×4 (porch edges, solid) + `planter` ×2 (solid). Same stamped shape + `createFurniturePiece`, so shadows + colliders apply uniformly. Placed clear of the Phase-3 courtyard props and the x∈[-5,5] entry path (solids sit at x≈±5.9/±6.6).
-- **De-overlap** (`furniture-placements.js` + `world.js` markers) — fixed the 3 audited solid clips: west-sofa scale 2.3→2.05 + coffee-table nudged (→0 m²), and the grand bed scale 2.2→1.9 with both nightstands moved to the headboard corners (→0.28 m² each, under the 0.5 m² bar). Relocated 4 interaction markers off the furniture they were buried in (master-bedroom/study-loft/lounge-balcony moved; blanket-nest kept — only over a flat rug). `tests/overlap.test.mjs` guards it (no solid non-chair pair clips > 0.5 m²; intended overlaps — rugs under furniture, items on tables, tucked chairs — preserved).
-
-**Still deferred:** AI text-to-3D signature pieces; richer exterior set.
-
-## Phase 5: open meadow · enterable mushroom house · input polish
-
-- **Fence removal + expanded bounds** (`world.js` + `Scene.jsx`) — the 5 fence meshes/colliders and the gate marker are gone (`createFence` deleted from `assets.js`); bounds grew to x∈[-40,44], z∈[-40,42]. The meadow plane is oversized (120×116) so the rim stays fogged; the main path extends south. `dog-house-view` / `trees-view` lost `scenicOnly` (now real destinations); the sign/overlay copy no longer mentions a fence.
-- **Drag-look fallback** (`controls.js`) — when Pointer Lock is denied (embedded browsers), the old free-look on every mousemove let the visible OS cursor drift out of the map and mis-click other UI. Now fallback rotation happens ONLY while the left button is held (drag), pointer lock is retried on each canvas press, and mouseup/Esc end it. With real pointer lock nothing changed.
-- **Enterable mushroom house** (`world.js` + `mushroom-interior.js` + `furniture-placements.js`) — the door interaction carries an `action: { label, teleport }`; pressing **E** (handled in `controls.js` → `PlayerControls` reads the nearest hotspot) teleports into a three-storey round-tower interior **buried at y≈-40 under the house** (invisible from outside; XZ overlaps the courtyard, so every interior zone/collider is Y-banded). Mechanics: generic `floorZones` (XZ rect + Y activation band + eyeY) checked in `getMovementProfile` after stairs; stair zones gained optional `minY`/`maxY`. Two 2.4 m-wide flights (A east L1→L2, B west L2→L3, both ascending northward) with shortened side-rail colliders (flight ends stay enterable — the player radius is added to every collider, a narrower flight seals itself shut), under-stair blocks and rim guards, all Y-banded. Furniture floors 2/3/4 map to the interior levels in `furniture-colliders.js`; a porky naps on L1. The exterior `mushroom-house` collider is Y-scoped to `[0,30]`.
-- **Same-model spacing** (`spacing.test.mjs`) — identical kit models must stay ≥ 1.8 m apart per floor across all placement sets (chair-family + `railing` exempt as intentional rows/pairs); the two offending duplicate book piles were relocated.
-
-**Verifying the 3D scene in preview:** the headless preview window is 0×0, which collapses the viewport-unit layout and leaves R3F uninitialized. Work around it by forcing pixel dimensions on `.villa-map-shell` / `.villa-map-root` via `preview_eval` + dispatching a `resize` event. **`requestAnimationFrame` never fires in the headless pane** (frame loop is fully stalled — key-driven walking can't be simulated), so to inspect anything off the start view temporarily expose `window.__villa = { gl, scene, camera }` in `Scene.jsx`'s `StudioEnvironment` effect, then per shot set `camera.position`/`rotation` (order "YXZ") and call `gl.render(scene, camera)` manually, screenshot, repeat. Remove the hook + rebuild before shipping. For a quick furniture framing, temporarily pointing `start` at a room also works (revert it — a world test asserts `start` = `{0,1.6,18}`).
+Prefer the query-only observatory harness above — no temporary source hooks, production start position untouched. `observatory=test` gives deterministic fixed-camera screenshots; `observatory=perf` gives a real frame loop. If a headless preview pane opens at 0×0, force pixel dimensions on `.villa-map-shell` / `.villa-map-root` and dispatch `resize` first. Don't infer production FPS from a stalled headless pane, and don't ship `window.__villa*` debug hooks.

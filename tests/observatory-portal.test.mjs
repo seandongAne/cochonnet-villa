@@ -5,7 +5,6 @@ import * as THREE from "three";
 import {
   calculateObservatoryPortalParallaxOffset,
   calculateObservatoryPortalTargetSize,
-  centerObservatoryPortalFarField,
   createObservatoryPortal,
   createObservatoryPortalComposite,
   createObservatoryPortalRenderTarget,
@@ -116,7 +115,7 @@ test("portal render target has no depth/stencil allocation and disposes once", (
   assert.equal(disposals, 1);
 });
 
-test("portal camera gives near layers scaled parallax and far layers zero parallax", () => {
+test("portal camera gives near layers scaled parallax", () => {
   const source = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 200);
   source.position.set(10, 5, -4);
   source.rotation.set(-0.2, 0.35, 0, "YXZ");
@@ -148,13 +147,6 @@ test("portal camera gives near layers scaled parallax and far layers zero parall
   const nearLayer = new THREE.Object3D();
   nearLayer.position.set(106, 52, 8);
   const nearVectorBefore = nearLayer.position.clone().sub(portalCamera.position);
-  const farField = new THREE.Group();
-  const farStar = new THREE.Object3D();
-  farStar.position.set(30, 20, -40);
-  farField.add(farStar);
-  centerObservatoryPortalFarField(farField, portalCamera);
-  const farVectorBefore = farStar.getWorldPosition(new THREE.Vector3())
-    .sub(portalCamera.position);
 
   source.position.x += 4;
   updateObservatoryPortalCamera(source, portalCamera, {
@@ -162,14 +154,17 @@ test("portal camera gives near layers scaled parallax and far layers zero parall
     cosmosOrigin,
     parallaxScale: 0.25
   });
-  centerObservatoryPortalFarField(farField, portalCamera);
 
+  // The far star layers are camera-centred in the main scene, so this module
+  // only owns the scaled near-layer parallax.
   const nearVectorAfter = nearLayer.position.clone().sub(portalCamera.position);
-  const farVectorAfter = farStar.getWorldPosition(new THREE.Vector3())
-    .sub(portalCamera.position);
   assert.equal(portalCamera.position.x, 103, "4 room metres map to 1 cosmic metre");
   assert.notDeepEqual(nearVectorAfter.toArray(), nearVectorBefore.toArray());
-  assert.deepEqual(farVectorAfter.toArray(), farVectorBefore.toArray());
+  assert.deepEqual(
+    portalCamera.userData.observatoryParallaxOffset.toArray(),
+    [3, 1, -0.5],
+    "the stored per-camera offset must track the update in place"
+  );
 });
 
 test("fullscreen portal composite reads the existing dome stencil", () => {

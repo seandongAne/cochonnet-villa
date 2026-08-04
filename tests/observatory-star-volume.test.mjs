@@ -88,7 +88,6 @@ test("star volume is one deterministic, stencil-clipped Points draw", () => {
     "aKind",
     "aPhase",
     "aPeriod",
-    "aSize",
     "aTemperature",
     "aQualityRank",
     "aShell",
@@ -96,6 +95,11 @@ test("star volume is one deterministic, stencil-clipped Points draw", () => {
     "aBrightness"
   ];
   assert.deepEqual(Object.keys(points.geometry.attributes), expectedAttributes);
+  assert.equal(
+    points.geometry.getAttribute("aSize"),
+    undefined,
+    "no shader consumes a per-star size: brightness must never upload a dead aSize attribute"
+  );
 
   const firstPositions = Array.from(points.geometry.getAttribute("position").array);
   const secondPositions = Array.from(second.userData.points.geometry.getAttribute("position").array);

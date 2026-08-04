@@ -73,7 +73,7 @@
   },
   "generator": {
     "path": "scripts/build-kerr-transfer-atlas.mjs",
-    "sha256": "f7fe62266b2a5354d35fc29272667f6915c093fad0fb09686085dd6ebefe51a3",
+    "sha256": "aed7bb2f4c0985c55e43e46b72cab95fb95f5cea07ca5055e394c9596d696f74",
     "workersDoNotAffectResults": true,
     "command": "node scripts/build-kerr-transfer-atlas.mjs"
   },

@@ -145,6 +145,13 @@ function copyVector3(target, value) {
 
 const portalLensProjectionScratch = new THREE.Vector3();
 
+// updateObservatoryPortalCamera runs on every animated frame with a single
+// caller, so it reuses module-level scratch objects instead of allocating.
+const portalSourcePositionScratch = new THREE.Vector3();
+const portalSourceQuaternionScratch = new THREE.Quaternion();
+const portalParallaxOffsetScratch = new THREE.Vector3();
+const portalCosmicAnchorScratch = new THREE.Vector3();
+
 /**
  * Project a finite world-space lens into Portal UV space.
  *
@@ -336,14 +343,19 @@ export function updateObservatoryPortalCamera(
   if (!sourceCamera?.isCamera || !portalCamera?.isCamera) return null;
 
   sourceCamera.updateMatrixWorld(true);
-  const sourcePosition = sourceCamera.getWorldPosition(new THREE.Vector3());
-  const sourceQuaternion = sourceCamera.getWorldQuaternion(new THREE.Quaternion());
+  const sourcePosition = sourceCamera.getWorldPosition(
+    portalSourcePositionScratch
+  );
+  const sourceQuaternion = sourceCamera.getWorldQuaternion(
+    portalSourceQuaternionScratch
+  );
   const offset = calculateObservatoryPortalParallaxOffset(
     sourcePosition,
     portalOrigin,
-    parallaxScale
+    parallaxScale,
+    portalParallaxOffsetScratch
   );
-  const cosmicAnchor = copyVector3(new THREE.Vector3(), cosmosOrigin);
+  const cosmicAnchor = copyVector3(portalCosmicAnchorScratch, cosmosOrigin);
 
   portalCamera.position.copy(cosmicAnchor).add(offset);
   portalCamera.quaternion.copy(sourceQuaternion);
@@ -358,26 +370,15 @@ export function updateObservatoryPortalCamera(
     }
   }
   portalCamera.updateMatrixWorld(true);
-  portalCamera.userData.observatoryParallaxOffset = offset.clone();
-  return portalCamera;
-}
-
-/**
- * Centre an infinite/far celestial layer on the portal camera. Its children
- * retain an identical camera-relative vector after translation, giving them
- * exactly zero translation parallax while a static near layer remains free to
- * exhibit the scaled camera movement above.
- */
-export function centerObservatoryPortalFarField(farField, portalCamera) {
-  if (!farField?.isObject3D || !portalCamera?.isCamera) return null;
-  const cameraWorldPosition = portalCamera.getWorldPosition(new THREE.Vector3());
-  if (farField.parent) {
-    farField.parent.updateMatrixWorld(true);
-    farField.parent.worldToLocal(cameraWorldPosition);
+  // Reuse the per-camera vector after the first call; consumers read it every
+  // frame right after this update, so mutation in place is safe.
+  const storedOffset = portalCamera.userData.observatoryParallaxOffset;
+  if (storedOffset?.isVector3) {
+    storedOffset.copy(offset);
+  } else {
+    portalCamera.userData.observatoryParallaxOffset = offset.clone();
   }
-  farField.position.copy(cameraWorldPosition);
-  farField.updateMatrixWorld(true);
-  return farField;
+  return portalCamera;
 }
 
 export function createObservatoryPortalCompositeMaterial({

@@ -11,6 +11,7 @@ import {
   disposeMushroomSky,
   isMushroomObservatorySkyPosition,
   MUSHROOM_SKY_APERTURE_NAME,
+  MUSHROOM_SKY_BACKDROP_DRIFT,
   MUSHROOM_SKY_BACKDROP_NAME,
   MUSHROOM_SKY_IMAGE_BRIGHTNESS,
   MUSHROOM_SKY_LENS_DEFAULT_EINSTEIN_RADIUS,
@@ -434,6 +435,79 @@ test("reduced motion freezes drift and twinkle while preserving camera centring"
 
   setMushroomSkyPixelRatio(sky, 4);
   assert.equal(sky.userData.stars.material.uniforms.uPixelRatio.value, 1.8);
+  disposeMushroomSky(sky);
+});
+
+test("the sky clock wraps for fp32 stability without snapping the drift rotations", () => {
+  const sky = createMushroomSky({ starCount: 16, seed: 314 });
+  sky.userData.textureReady = true;
+  const l3 = new THREE.Vector3(
+    MUSHROOM_INTERIOR_CENTER.x,
+    MUSHROOM_INTERIOR_EYE_Y[2],
+    MUSHROOM_INTERIOR_CENTER.z
+  );
+
+  updateMushroomSky(sky, l3, 0.1, { reveal: 1 });
+  const rotationBeforeSeam = sky.userData.backdrop.rotation.y;
+
+  // Park the accumulator one frame short of the 4096 s seam, then step over.
+  sky.userData.elapsed = 4095.98;
+  updateMushroomSky(sky, l3, 0.05, { reveal: 1 });
+  assert.ok(
+    sky.userData.elapsed < 1,
+    "the elapsed clock must wrap instead of growing without bound"
+  );
+  assert.equal(
+    sky.userData.stars.material.uniforms.uTime.value,
+    sky.userData.elapsed,
+    "the fp32 shader clock must follow the wrapped accumulator"
+  );
+  assert.ok(
+    Math.abs(
+      sky.userData.backdrop.rotation.y
+      - (rotationBeforeSeam + 0.05 * MUSHROOM_SKY_BACKDROP_DRIFT)
+    ) < 1e-12,
+    "panorama drift must integrate through the seam instead of snapping back"
+  );
+
+  disposeMushroomSky(sky);
+});
+
+test("the aperture stencil draws before the backdrop reads it in the opaque queue", () => {
+  const sky = createMushroomSky({ starCount: 8, seed: 7 });
+  const backdrop = sky.userData.backdrop;
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(4.75, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshBasicMaterial({ side: THREE.BackSide })
+  );
+  const aperture = createMushroomSkyAperture(dome);
+
+  // The dome mask only works because ReplaceStencilOp (aperture) lays the
+  // stencil down BEFORE EqualStencilFunc (backdrop) samples it, and within the
+  // opaque queue renderOrder alone sequences them. Pin the relation itself so
+  // swapping the two constants cannot pass on independent sign checks.
+  assert.equal(aperture.material.stencilZPass, THREE.ReplaceStencilOp);
+  assert.equal(backdrop.material.stencilFunc, THREE.EqualStencilFunc);
+  assert.equal(
+    aperture.material.transparent,
+    false,
+    "the stencil writer must stay in the opaque queue"
+  );
+  assert.equal(
+    backdrop.material.transparent,
+    false,
+    "the stencil reader must share the writer's opaque queue"
+  );
+  assert.ok(aperture.renderOrder > 0);
+  assert.ok(backdrop.renderOrder > 0);
+  assert.ok(
+    aperture.renderOrder < backdrop.renderOrder,
+    "the stencil writer must draw before the stencil reader"
+  );
+
+  removeMushroomSkyAperture(aperture);
+  dome.material.dispose();
+  dome.geometry.dispose();
   disposeMushroomSky(sky);
 });
 

@@ -68,12 +68,56 @@ export const OBSERVATORY_QUALITY_TIMING = Object.freeze({
   degradeAfterSeconds: 2,
   upgradeAfterSeconds: 8,
   transitionCooldownSeconds: 3,
-  // Upgrades demand substantial headroom, while downgrades begin only after
-  // the actual target is exceeded. The wide gap is the first anti-thrashing
-  // layer; asymmetric dwell times and cooldown provide the other two.
-  degradeP95Ratio: 1,
+  // The samples fed in are raw requestAnimationFrame deltas. Under a vsynced
+  // compositor those are quantized to multiples of the display refresh
+  // interval, so on a 60 Hz display a healthy machine reports ~16.7 ms
+  // regardless of GPU headroom. Two consequences shape these numbers:
+  // - Downgrades fire only when p95 clears max(target, refresh estimate) by a
+  //   wide margin (x1.3): ordinary GC/compositor jitter hugging the vsync
+  //   cadence (p95 ~16.8-17.4) must not read as overload, while genuinely
+  //   dropped frames land near 2x the refresh interval (~33 ms) and still
+  //   clear the bar within the two-second dwell.
+  // - Upgrades cannot demand sub-vsync frame times on 60 Hz displays (rAF can
+  //   never report them). p95 below upgradeP95Ratio x target remains the fast
+  //   path for high-refresh displays; holding the display's native cadence
+  //   (p95 within vsyncHoldToleranceMs of the refresh estimate) is the
+  //   equivalent headroom signal under vsync.
+  // Asymmetric dwell times, the transition cooldown and the failed-upgrade
+  // backoff below are the anti-thrash layers.
+  degradeP95Ratio: 1.3,
   upgradeP95Ratio: 0.72,
-  targetFrameMs: 16.7
+  targetFrameMs: 16.7,
+  vsyncHoldToleranceMs: 1.5,
+  // A downgrade that quickly reverses an upgrade marks that upgrade attempt
+  // as failed: the tier is blocked for failedUpgradeBackoffSeconds, doubling
+  // on every repeat failure of the same tier. Holding an upgraded tier
+  // through the probe window forgives its earlier failures.
+  failedUpgradeProbeSeconds: 30,
+  failedUpgradeBackoffSeconds: 90
+});
+
+// Refresh-interval estimate ("how fast can this display tick?").
+//
+// Under vsync the fastest *sustained* rAF delta in the window is the best
+// observable proxy for the display refresh interval, so the estimate is a low
+// percentile of the rolling window rather than its minimum: a single
+// anomalously short delta (timer jitter, a compositor catch-up frame) cannot
+// fake a faster display.
+//
+// The clamp range is deliberate:
+// - minIntervalMs (~240 Hz) keeps vsync-off outliers from producing nonsense.
+// - maxIntervalMs (~57 Hz) deliberately EXCLUDES 30 Hz displays. A healthy
+//   30 Hz display (~33 ms cadence) is observationally identical to a 60 Hz
+//   machine dropping every other frame, and treating real overload as "just a
+//   slow display" would strand struggling machines at high tiers. Rescuing
+//   overload wins that conflict, so a true 30 Hz display reads as over budget
+//   and settles at the "minimum" tier - a safe, conservative outcome for
+//   hardware this module cannot distinguish from a struggling 60 Hz machine.
+export const OBSERVATORY_REFRESH_ESTIMATE = Object.freeze({
+  minSamples: 8,
+  lowPercentile: 0.1,
+  minIntervalMs: 4,
+  maxIntervalMs: 17.5
 });
 
 export const OBSERVATORY_QUALITY_MAX_SAMPLES = 600;
@@ -261,11 +305,47 @@ export function calculateObservatoryFrameTimeP95(samples = []) {
   return values[index];
 }
 
+/**
+ * Clamped low-percentile refresh-interval estimate over the rolling window.
+ * Returns null until enough valid samples exist to trust the cadence.
+ */
+export function estimateObservatoryRefreshInterval(samples = [], {
+  minSamples = OBSERVATORY_REFRESH_ESTIMATE.minSamples,
+  lowPercentile = OBSERVATORY_REFRESH_ESTIMATE.lowPercentile,
+  minIntervalMs = OBSERVATORY_REFRESH_ESTIMATE.minIntervalMs,
+  maxIntervalMs = OBSERVATORY_REFRESH_ESTIMATE.maxIntervalMs
+} = {}) {
+  const values = samples
+    .map(frameTimeFrom)
+    .filter((value) => value !== null && value > 0)
+    .sort((a, b) => a - b);
+  if (values.length < minSamples) return null;
+  const index = Math.min(
+    values.length - 1,
+    Math.max(0, Math.ceil(values.length * lowPercentile) - 1)
+  );
+  return Math.min(maxIntervalMs, Math.max(minIntervalMs, values[index]));
+}
+
 function freezeSample(sample) {
   return Object.freeze({
     timeSeconds: sample.timeSeconds,
     frameTimeMs: sample.frameTimeMs
   });
+}
+
+function freezeUpgradeBackoffs(backoffs) {
+  const frozen = {};
+  for (const [tier, entry] of Object.entries(backoffs ?? {})) {
+    if (!entry) continue;
+    frozen[tier] = Object.freeze({
+      failures: finiteNonNegative(entry.failures),
+      untilSeconds: Number.isFinite(entry.untilSeconds)
+        ? Math.max(0, entry.untilSeconds)
+        : 0
+    });
+  }
+  return Object.freeze(frozen);
 }
 
 function makeQualityState({
@@ -274,10 +354,13 @@ function makeQualityState({
   samples,
   elapsedSeconds,
   p95Ms,
+  refreshIntervalEstimateMs = null,
   overBudgetSeconds,
   surplusSeconds,
   cooldownRemainingSeconds,
   transition,
+  upgradeProbe = null,
+  upgradeBackoffs = null,
   config,
   capabilityAssessment
 }) {
@@ -290,10 +373,21 @@ function makeQualityState({
     samples: Object.freeze(samples.map(freezeSample)),
     elapsedSeconds: finiteNonNegative(elapsedSeconds),
     p95Ms: finiteNonNegative(p95Ms),
+    refreshIntervalEstimateMs:
+      Number.isFinite(refreshIntervalEstimateMs) && refreshIntervalEstimateMs > 0
+        ? refreshIntervalEstimateMs
+        : null,
     overBudgetSeconds: finiteNonNegative(overBudgetSeconds),
     surplusSeconds: finiteNonNegative(surplusSeconds),
     cooldownRemainingSeconds: finiteNonNegative(cooldownRemainingSeconds),
     transition: transition ? Object.freeze({ ...transition }) : null,
+    upgradeProbe: upgradeProbe
+      ? Object.freeze({
+          tier: upgradeProbe.tier,
+          startedSeconds: finiteNonNegative(upgradeProbe.startedSeconds)
+        })
+      : null,
+    upgradeBackoffs: freezeUpgradeBackoffs(upgradeBackoffs),
     config,
     capabilityAssessment
   });
@@ -310,7 +404,12 @@ export function createObservatoryQualityState({
   transitionCooldownSeconds =
     OBSERVATORY_QUALITY_TIMING.transitionCooldownSeconds,
   degradeP95Ratio = OBSERVATORY_QUALITY_TIMING.degradeP95Ratio,
-  upgradeP95Ratio = OBSERVATORY_QUALITY_TIMING.upgradeP95Ratio
+  upgradeP95Ratio = OBSERVATORY_QUALITY_TIMING.upgradeP95Ratio,
+  vsyncHoldToleranceMs = OBSERVATORY_QUALITY_TIMING.vsyncHoldToleranceMs,
+  failedUpgradeProbeSeconds =
+    OBSERVATORY_QUALITY_TIMING.failedUpgradeProbeSeconds,
+  failedUpgradeBackoffSeconds =
+    OBSERVATORY_QUALITY_TIMING.failedUpgradeBackoffSeconds
 } = {}) {
   const capabilityAssessment = assessObservatoryCapabilities(capabilities);
   const safeMaximum = normalizeObservatoryQuality(
@@ -354,7 +453,19 @@ export function createObservatoryQualityState({
       OBSERVATORY_QUALITY_TIMING.transitionCooldownSeconds
     ),
     degradeP95Ratio: safeDegradeRatio,
-    upgradeP95Ratio: safeUpgradeRatio
+    upgradeP95Ratio: safeUpgradeRatio,
+    vsyncHoldToleranceMs: finiteNonNegative(
+      vsyncHoldToleranceMs,
+      OBSERVATORY_QUALITY_TIMING.vsyncHoldToleranceMs
+    ),
+    failedUpgradeProbeSeconds: finitePositive(
+      failedUpgradeProbeSeconds,
+      OBSERVATORY_QUALITY_TIMING.failedUpgradeProbeSeconds
+    ),
+    failedUpgradeBackoffSeconds: finitePositive(
+      failedUpgradeBackoffSeconds,
+      OBSERVATORY_QUALITY_TIMING.failedUpgradeBackoffSeconds
+    )
   });
 
   return makeQualityState({
@@ -393,16 +504,36 @@ export function stepObservatoryQuality(
   );
   const elapsedSeconds = previous.elapsedSeconds + safeDelta;
 
+  // An upgraded tier that survives its probation window is a successful
+  // upgrade: drop the probe and forgive any earlier failure record so the
+  // backoff no longer escalates for that tier.
+  let upgradeProbe = previous.upgradeProbe ?? null;
+  let upgradeBackoffs = previous.upgradeBackoffs ?? {};
+  if (
+    upgradeProbe
+    && elapsedSeconds - upgradeProbe.startedSeconds + DECISION_TIME_EPSILON
+      >= previous.config.failedUpgradeProbeSeconds
+  ) {
+    if (upgradeBackoffs[upgradeProbe.tier]) {
+      upgradeBackoffs = { ...upgradeBackoffs };
+      delete upgradeBackoffs[upgradeProbe.tier];
+    }
+    upgradeProbe = null;
+  }
+
   if (!active) {
     return makeQualityState({
       ...previous,
       samples: [],
       elapsedSeconds,
       p95Ms: 0,
+      refreshIntervalEstimateMs: null,
       overBudgetSeconds: 0,
       surplusSeconds: 0,
       cooldownRemainingSeconds: 0,
-      transition: null
+      transition: null,
+      upgradeProbe,
+      upgradeBackoffs
     });
   }
 
@@ -423,6 +554,7 @@ export function stepObservatoryQuality(
   }
 
   const p95Ms = calculateObservatoryFrameTimeP95(samples);
+  const refreshIntervalEstimateMs = estimateObservatoryRefreshInterval(samples);
   let overBudgetSeconds = previous.overBudgetSeconds;
   let surplusSeconds = previous.surplusSeconds;
   let cooldownRemainingSeconds = Math.max(
@@ -432,20 +564,38 @@ export function stepObservatoryQuality(
   let quality = previous.quality;
   let transition = null;
 
+  // A tier whose last upgrade attempt recently failed may not be retried
+  // until its backoff expires, no matter how much headroom accumulates.
+  const upgradeCandidate = getAdjacentObservatoryQuality(quality, "up");
+  const candidateBackoff = upgradeBackoffs[upgradeCandidate] ?? null;
+  const upgradeBlocked = candidateBackoff !== null
+    && elapsedSeconds < candidateBackoff.untilSeconds;
+
   if (previous.cooldownRemainingSeconds > 0) {
     // Do not pre-charge a reverse transition while the cooldown is active.
     overBudgetSeconds = 0;
     surplusSeconds = 0;
   } else if (validFrame) {
-    const degradeThreshold = previous.config.targetFrameMs
-      * previous.config.degradeP95Ratio;
+    // Vsync quantization makes the display refresh interval the floor of
+    // every observable frame time, so both thresholds are cadence-aware.
+    const degradeThreshold = Math.max(
+      previous.config.targetFrameMs,
+      refreshIntervalEstimateMs ?? 0
+    ) * previous.config.degradeP95Ratio;
     const upgradeThreshold = previous.config.targetFrameMs
       * previous.config.upgradeP95Ratio;
+    // Fast path aside (high-refresh displays report sub-target deltas), a
+    // machine that pins its p95 to the display's native cadence is keeping up
+    // with vsync - the strongest headroom signal a 60 Hz rAF loop can emit.
+    const holdsVsyncCadence = refreshIntervalEstimateMs !== null
+      && refreshIntervalEstimateMs >= upgradeThreshold
+      && p95Ms
+        <= refreshIntervalEstimateMs + previous.config.vsyncHoldToleranceMs;
 
     if (p95Ms > degradeThreshold) {
       overBudgetSeconds += safeDelta;
       surplusSeconds = 0;
-    } else if (p95Ms < upgradeThreshold) {
+    } else if (p95Ms < upgradeThreshold || holdsVsyncCadence) {
       surplusSeconds += safeDelta;
       overBudgetSeconds = 0;
     } else {
@@ -471,6 +621,7 @@ export function stepObservatoryQuality(
       surplusSeconds + DECISION_TIME_EPSILON
         >= previous.config.upgradeAfterSeconds
       && qualityIndex(quality) < qualityIndex(previous.maximumQuality)
+      && !upgradeBlocked
     ) {
       const from = quality;
       quality = getAdjacentObservatoryQuality(quality, "up");
@@ -478,7 +629,9 @@ export function stepObservatoryQuality(
         from,
         to: quality,
         direction: "up",
-        reason: "sustained-headroom",
+        reason: p95Ms < upgradeThreshold
+          ? "sustained-headroom"
+          : "vsync-headroom",
         p95Ms
       };
     }
@@ -490,16 +643,36 @@ export function stepObservatoryQuality(
     overBudgetSeconds = 0;
     surplusSeconds = 0;
     cooldownRemainingSeconds = previous.config.transitionCooldownSeconds;
-  } else if (quality === "minimum") {
-    overBudgetSeconds = Math.min(
-      overBudgetSeconds,
-      previous.config.degradeAfterSeconds
-    );
-  } else if (quality === previous.maximumQuality) {
-    surplusSeconds = Math.min(
-      surplusSeconds,
-      previous.config.upgradeAfterSeconds
-    );
+    if (transition.direction === "up") {
+      upgradeProbe = { tier: transition.to, startedSeconds: elapsedSeconds };
+    } else if (upgradeProbe && upgradeProbe.tier === transition.from) {
+      // Downgrading out of a tier we only just upgraded into means that
+      // upgrade failed: block retries with a per-tier doubling backoff.
+      const failures = (upgradeBackoffs[transition.from]?.failures ?? 0) + 1;
+      upgradeBackoffs = {
+        ...upgradeBackoffs,
+        [transition.from]: {
+          failures,
+          untilSeconds: elapsedSeconds
+            + previous.config.failedUpgradeBackoffSeconds
+              * 2 ** (failures - 1)
+        }
+      };
+      upgradeProbe = null;
+    }
+  } else {
+    if (quality === "minimum") {
+      overBudgetSeconds = Math.min(
+        overBudgetSeconds,
+        previous.config.degradeAfterSeconds
+      );
+    }
+    if (quality === previous.maximumQuality || upgradeBlocked) {
+      surplusSeconds = Math.min(
+        surplusSeconds,
+        previous.config.upgradeAfterSeconds
+      );
+    }
   }
 
   return makeQualityState({
@@ -508,9 +681,12 @@ export function stepObservatoryQuality(
     samples,
     elapsedSeconds,
     p95Ms,
+    refreshIntervalEstimateMs,
     overBudgetSeconds,
     surplusSeconds,
     cooldownRemainingSeconds,
-    transition
+    transition,
+    upgradeProbe,
+    upgradeBackoffs
   });
 }

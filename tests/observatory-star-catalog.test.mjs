@@ -100,6 +100,89 @@ test("the first record is the brightest colour-complete source returned by the o
   }
 });
 
+test("equatorialToUnitVector uses the proper view-from-inside convention", () => {
+  // +y is the celestial north pole, RA 0 / Dec 0 sits on +x, and increasing
+  // RA (east) turns toward -z: a det = +1 rotation of the ICRS triad, so an
+  // observer inside the sphere sees east to the LEFT with north up.
+  const cardinalPins = [
+    [0, 0, [1, 0, 0]],
+    [90, 0, [0, 0, -1]],
+    [180, 0, [-1, 0, 0]],
+    [270, 0, [0, 0, 1]],
+    [0, 90, [0, 1, 0]],
+    [0, -90, [0, -1, 0]]
+  ];
+  for (const [ra, dec, expected] of cardinalPins) {
+    const direction = equatorialToUnitVector(ra, dec);
+    for (let axis = 0; axis < 3; axis += 1) {
+      assert.ok(
+        nearlyEqual(direction[axis], expected[axis], 1e-12),
+        `RA ${ra} Dec ${dec} axis ${axis}: got ${direction[axis]}, expected ${expected[axis]}`
+      );
+    }
+  }
+});
+
+test("real asterisms are not mirror-imaged: east appears LEFT viewed from inside", () => {
+  // Two well-known Big Dipper stars shipped in the catalogue:
+  //   Alioth (epsilon UMa), Gaia DR3 1576683529448755328,
+  //     RA 193.50817846782095, Dec +55.959784778923755 (pinned record 0);
+  //   Mizar (zeta UMa), Gaia DR3 1563590579347125632,
+  //     RA ~200.98237, Dec ~+54.92526.
+  // Mizar sits at LARGER RA, i.e. east of Alioth along the Dipper's handle.
+  // Viewed from inside the celestial sphere with north up, east must appear
+  // to the LEFT; the legacy mirrored +sin(ra) z term put it on the right and
+  // flipped every recognizable asterism.
+  const catalogue = decodeGaiaStarCatalog(binary, {
+    lod: "low",
+    includeSourceIds: true
+  });
+  const indexOfSource = (sourceId) => {
+    for (let index = 0; index < catalogue.count; index += 1) {
+      if (catalogue.sourceIds[index] === sourceId) return index;
+    }
+    return -1;
+  };
+  const positionOf = (index) => new THREE.Vector3(
+    catalogue.positions[index * 3],
+    catalogue.positions[index * 3 + 1],
+    catalogue.positions[index * 3 + 2]
+  );
+
+  const aliothIndex = indexOfSource(1_576_683_529_448_755_328n);
+  const mizarIndex = indexOfSource(1_563_590_579_347_125_632n);
+  assert.ok(aliothIndex >= 0, "Alioth must be present in the shipped catalogue");
+  assert.ok(mizarIndex >= 0, "Mizar must be present in the shipped catalogue");
+  const alioth = positionOf(aliothIndex);
+  const mizar = positionOf(mizarIndex);
+
+  // Decoded vectors must live in the corrected render-space convention
+  // (float32 storage + rounded stated coordinates => loose epsilon).
+  const expectedMizar = equatorialToUnitVector(200.98237, 54.92526);
+  assert.ok(mizar.distanceTo(new THREE.Vector3(...expectedMizar)) < 5e-5);
+
+  // Screen basis for a viewer at the origin looking straight at Alioth with
+  // the north celestial pole (+y) up: right = forward x up, up = right x fwd.
+  const forward = alioth.clone().normalize();
+  const screenRight = new THREE.Vector3()
+    .crossVectors(forward, new THREE.Vector3(0, 1, 0))
+    .normalize();
+  const screenUp = new THREE.Vector3()
+    .crossVectors(screenRight, forward)
+    .normalize();
+  const towardMizar = mizar.clone().sub(alioth);
+
+  assert.ok(
+    towardMizar.dot(screenRight) < 0,
+    "Mizar (east of Alioth) must appear to the LEFT for a view from inside; "
+      + "a positive value means the sky is mirror-imaged east-west"
+  );
+  assert.ok(
+    towardMizar.dot(screenUp) < 0,
+    "Mizar (lower declination) must appear BELOW Alioth with north up"
+  );
+});
+
 test("LOD tiers are magnitude-sorted prefixes with valid ICRS unit vectors", () => {
   const low = decodeGaiaStarCatalog(binary, { lod: "low" });
   const medium = decodeGaiaStarCatalog(binary, { lod: "medium" });
@@ -337,6 +420,26 @@ test("the offline builder deterministically encodes saved official TAP CSV", () 
     [...decoded.sourceIds],
     [1_576_683_529_448_755_328n, 6_560_604_777_055_249_536n]
   );
+
+  // The v1 byte format is FROZEN: records store the legacy mirrored z
+  // (+cos(dec)sin(ra)); encoder and decoder each negate that component, so
+  // encode -> decode is an exact identity into the corrected render-space
+  // convention and regeneration keeps the shipped binary byte-identical.
+  const expectedDirection = equatorialToUnitVector(
+    193.50817846782095,
+    55.959784778923755
+  );
+  const rawView = new DataView(first);
+  assert.ok(nearlyEqual(
+    rawView.getFloat32(GAIA_STAR_HEADER_BYTES + 16, true),
+    -expectedDirection[2]
+  ), "the raw record must keep the legacy mirrored z byte layout");
+  for (let axis = 0; axis < 3; axis += 1) {
+    assert.ok(
+      nearlyEqual(decoded.positions[axis], expectedDirection[axis]),
+      `round-trip axis ${axis} must equal the corrected equatorialToUnitVector`
+    );
+  }
 });
 
 test("catalogue corruption and unsupported LODs fail closed", () => {

@@ -22,6 +22,9 @@ import {
   updateObservatoryBlackHolePassCamera,
   updateObservatoryBlackHolePassComposite
 } from "../src/villa-map/observatory-black-hole-pass.js";
+import {
+  OBSERVATORY_BLACK_HOLE_NAME
+} from "../src/villa-map/observatory-black-hole.js";
 
 test("black-hole local HDR is bounded to High/Medium and Low keeps the legacy path", () => {
   assert.deepEqual(
@@ -151,7 +154,9 @@ test("black-hole pass camera copies full world translation, rotation, and projec
   );
 
   const lensAnchor = new THREE.Object3D();
-  lensAnchor.name = "mushroom-observatory-black-hole";
+  // The pass must look the anchor up by the black-hole module's exported name;
+  // a duplicated literal here would let a rename silently break the lookup.
+  lensAnchor.name = OBSERVATORY_BLACK_HOLE_NAME;
   lensAnchor.position.copy(expectedPosition).addScaledVector(
     source.getWorldDirection(new THREE.Vector3()),
     42
@@ -185,6 +190,57 @@ test("black-hole pass camera copies full world translation, rotation, and projec
   disposeObservatoryBlackHolePass(pass);
 });
 
+test("an anchor behind the camera disables the aureole instead of mirroring it", () => {
+  const source = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 300);
+  source.position.set(0, 0, 0);
+  source.lookAt(0, 0, -1);
+  source.updateMatrixWorld(true);
+  const pass = createObservatoryBlackHolePass({
+    sourceCamera: source,
+    width: 800,
+    height: 450,
+    quality: "medium"
+  });
+  const uniforms = pass.composite.material.uniforms;
+
+  const lensAnchor = new THREE.Object3D();
+  lensAnchor.name = OBSERVATORY_BLACK_HOLE_NAME;
+  lensAnchor.position.set(0, 0, -42);
+  lensAnchor.userData.cameraDistance = 42;
+  lensAnchor.userData.angularRadius = 0.17;
+  pass.scene.add(lensAnchor);
+
+  updateObservatoryBlackHolePassCamera(source, pass);
+  assert.equal(uniforms.uLensVisibility.value, 1);
+  assert.ok(
+    uniforms.uLensUvCenter.value.distanceTo(new THREE.Vector2(0.5, 0.5)) < 1e-7
+  );
+
+  // project() of a rear-hemisphere point returns finite sign-mirrored NDC
+  // that passes an isFinite guard, so the pass must gate in camera space and
+  // zero the aureole rather than paint it at the mirrored position.
+  source.lookAt(0, 0, 1);
+  source.updateMatrixWorld(true);
+  updateObservatoryBlackHolePassCamera(source, pass);
+  assert.equal(
+    uniforms.uLensVisibility.value,
+    0,
+    "a behind-camera anchor must shut the gold aureole off"
+  );
+  assert.match(
+    pass.composite.material.fragmentShader,
+    /aureole = horizonCut \* aureoleTail \* outerCut \* approachSide\s*\*\s*clamp\(uLensVisibility, 0\.0, 1\.0\)/,
+    "the shader must multiply the aureole by the CPU visibility gate"
+  );
+
+  source.lookAt(0, 0, -1);
+  source.updateMatrixWorld(true);
+  updateObservatoryBlackHolePassCamera(source, pass);
+  assert.equal(uniforms.uLensVisibility.value, 1, "a front anchor re-enables it");
+
+  disposeObservatoryBlackHolePass(pass);
+});
+
 test("fullscreen composite is stencil-clipped and preserves premultiplied pass semantics", () => {
   const texture = new THREE.Texture();
   const composite = createObservatoryBlackHolePassComposite({
@@ -213,6 +269,7 @@ test("fullscreen composite is stencil-clipped and preserves premultiplied pass s
   assert.ok(material.uniforms.uCoreGain.value > 1);
   assert.deepEqual(material.uniforms.uLensUvCenter.value.toArray(), [0.5, 0.5]);
   assert.equal(material.uniforms.uLensUvRadius.value, 0.12);
+  assert.equal(material.uniforms.uLensVisibility.value, 1);
   assert.equal(material.uniforms.uCompositeAspect.value, 1280 / 720);
   assert.equal(material.transparent, true);
   assert.equal(material.blending, THREE.CustomBlending);

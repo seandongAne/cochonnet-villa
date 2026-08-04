@@ -444,6 +444,10 @@ export function disposeObservatoryRiftVisual(visual) {
   if (!visual || visual.userData.disposed) return false;
   visual.userData.disposed = true;
   visual.traverse((object) => {
+    // The instanced shards keep their instanceMatrix/instanceColor GL buffers
+    // until the InstancedMesh itself dispatches its dispose event (three
+    // r184); geometry/material disposal alone leaks them.
+    if (object.isInstancedMesh) object.dispose();
     object.geometry?.dispose?.();
     if (Array.isArray(object.material)) {
       for (const material of object.material) material?.dispose?.();

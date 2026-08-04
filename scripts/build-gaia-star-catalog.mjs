@@ -181,7 +181,12 @@ export function buildGaiaCatalogBinary(stars) {
     writeUint64(view, offset, star.sourceId);
     view.setFloat32(offset + 8, x, true);
     view.setFloat32(offset + 12, y, true);
-    view.setFloat32(offset + 16, z, true);
+    // The frozen v1 record layout stores the LEGACY MIRRORED z component
+    // (+cos(dec)sin(ra)). equatorialToUnitVector now returns the corrected
+    // render-space z (east toward -z), so negate while encoding; the decoder
+    // negates again on read. encode -> decode therefore stays an exact
+    // identity and regeneration reproduces the shipped bytes.
+    view.setFloat32(offset + 16, -z, true);
     view.setInt16(
       offset + 20,
       encodeMillimagnitudes(star.magnitude, "Gaia G magnitude"),

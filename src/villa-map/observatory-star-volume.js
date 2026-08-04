@@ -99,7 +99,8 @@ const STAR_VOLUME_VERTEX_SHADER = /* glsl */ `
     // Stars are unresolved light sources: distance changes their parallax and
     // flux, never their apparent diameter. A fixed support sprite gives the
     // analytic ~1 CSS-pixel PSF and rare diffraction tail enough HiDPI samples.
-    // The legacy aSize geometry attribute is intentionally not consumed.
+    // There is deliberately no per-star size attribute: kind alone picks the
+    // sprite support, and brightness lives entirely in fragment radiance.
     float spriteSizeCss = mix(7.0, 5.0, aKind);
     gl_PointSize = enabled > 0.5 ? spriteSizeCss * uPixelRatio : 0.0;
 
@@ -350,9 +351,6 @@ function createRecord(random, index, kind, qualityRank, focusDirection, focusBas
   const period = kind === STAR_KIND
     ? THREE.MathUtils.lerp(2.35, 7.4, random())
     : THREE.MathUtils.lerp(7.5, 16, random());
-  const size = kind === STAR_KIND
-    ? THREE.MathUtils.lerp(0.48, 1.04, Math.pow(random(), 1.7))
-    : THREE.MathUtils.lerp(0.42, 0.72, random());
   const temperature = THREE.MathUtils.clamp(
     0.5 + (random() - 0.5) * 0.86,
     0,
@@ -373,7 +371,6 @@ function createRecord(random, index, kind, qualityRank, focusDirection, focusBas
     kind,
     phase,
     period,
-    size,
     temperature,
     qualityRank,
     shell: shellIndex,
@@ -417,7 +414,6 @@ function createGeometry(seed, focusDirection) {
   const kinds = new Float32Array(count);
   const phases = new Float32Array(count);
   const periods = new Float32Array(count);
-  const sizes = new Float32Array(count);
   const temperatures = new Float32Array(count);
   const qualityRanks = new Float32Array(count);
   const shells = new Float32Array(count);
@@ -432,7 +428,6 @@ function createGeometry(seed, focusDirection) {
     kinds[index] = record.kind;
     phases[index] = record.phase;
     periods[index] = record.period;
-    sizes[index] = record.size;
     temperatures[index] = record.temperature;
     qualityRanks[index] = record.qualityRank;
     shells[index] = record.shell;
@@ -445,7 +440,6 @@ function createGeometry(seed, focusDirection) {
   geometry.setAttribute("aKind", new THREE.BufferAttribute(kinds, 1));
   geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
   geometry.setAttribute("aPeriod", new THREE.BufferAttribute(periods, 1));
-  geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
   geometry.setAttribute("aTemperature", new THREE.BufferAttribute(temperatures, 1));
   geometry.setAttribute("aQualityRank", new THREE.BufferAttribute(qualityRanks, 1));
   geometry.setAttribute("aShell", new THREE.BufferAttribute(shells, 1));

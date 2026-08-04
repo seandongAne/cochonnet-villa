@@ -50,6 +50,16 @@ export const MUSHROOM_SKY_TWINKLE_SPEED_MIN = 1.15;
 export const MUSHROOM_SKY_TWINKLE_SPEED_MAX = 2.9;
 
 const SKY_STENCIL_REF = 7;
+// Match mushroom-nebula's precision-friendly clock window. uTime feeds fp32
+// sine arguments in the star vertex shader; unwrapped it degrades twinkle in
+// multi-hour sessions. 4096 s keeps arguments <= ~11.9k rad (fp32 ULP there is
+// ~1.4e-3 rad) and the wrap is harmless for the multiplied twinkle
+// frequencies: each star's phases jump at the seam, but aTwinkleStrength caps
+// at 0.042, so the worst one-frame flux step is ~8 percent on a handful of
+// stars once every ~68 minutes — below the live scintillation amplitude. The
+// slow drift rotations are NOT derived from this clock (a 4096 s wrap would
+// snap the panorama by ~28 degrees); they integrate incrementally in fp64.
+const SKY_TIME_WRAP_SECONDS = 4096;
 const APERTURE_RENDER_ORDER = 900;
 const BACKDROP_RENDER_ORDER = 901;
 // Transparent objects render after the opaque stencil/backdrop regardless of
@@ -771,13 +781,20 @@ export function updateMushroomSky(
   // Milky Way slide across the nearby roof like a printed photograph.
   sky.position.copy(cameraPosition);
 
+  const backdrop = sky.userData.backdrop;
+  const stars = sky.userData.stars;
   if (!reducedMotion) {
-    sky.userData.elapsed += Math.min(Math.max(delta || 0, 0), 0.1);
+    const frameDelta = Math.min(Math.max(delta || 0, 0), 0.1);
+    // Keep long-running sessions within a precision-friendly time window for
+    // the fp32 shader clock, while the drift rotations accumulate in fp64 so
+    // the photographic panorama stays seam-free across the wrap.
+    sky.userData.elapsed = (sky.userData.elapsed + frameDelta)
+      % SKY_TIME_WRAP_SECONDS;
+    backdrop.rotation.y += frameDelta * MUSHROOM_SKY_BACKDROP_DRIFT;
+    stars.rotation.y += frameDelta * MUSHROOM_SKY_STAR_DRIFT;
   }
 
   const elapsed = sky.userData.elapsed;
-  const backdrop = sky.userData.backdrop;
-  const stars = sky.userData.stars;
   const backdropRevealAmount = THREE.MathUtils.clamp(
     Number.isFinite(backdropReveal) ? backdropReveal : 0,
     0,
@@ -788,8 +805,6 @@ export function updateMushroomSky(
     0,
     1
   );
-  backdrop.rotation.y = SKY_START_ROTATION + elapsed * MUSHROOM_SKY_BACKDROP_DRIFT;
-  stars.rotation.y = STAR_START_ROTATION + elapsed * MUSHROOM_SKY_STAR_DRIFT;
   applyMushroomSkyLensUniforms(sky);
   backdrop.material.uniforms.uReveal.value = backdropRevealAmount;
   stars.material.uniforms.uTime.value = elapsed;

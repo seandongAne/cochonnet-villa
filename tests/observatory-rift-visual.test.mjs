@@ -148,11 +148,23 @@ test("settled ring channels hide the seams and stop their rotation only", () => 
 test("rift visual disposal is idempotent", () => {
   const visual = createObservatoryRiftVisual();
   let disposals = 0;
+  let shardMeshDisposals = 0;
   visual.userData.fragments.geometry.addEventListener("dispose", () => {
     disposals += 1;
+  });
+  // Geometry/material disposal does not free instanceMatrix/instanceColor;
+  // three r184 releases those GL buffers only via the InstancedMesh's own
+  // dispose event, so disposal must dispatch it exactly once.
+  visual.userData.shards.addEventListener("dispose", () => {
+    shardMeshDisposals += 1;
   });
   assert.equal(disposeObservatoryRiftVisual(visual), true);
   assert.equal(disposeObservatoryRiftVisual(visual), false);
   assert.equal(disposals, 1);
+  assert.equal(
+    shardMeshDisposals,
+    1,
+    "the shard InstancedMesh must dispatch its own dispose event"
+  );
   assert.equal(visual.children.length, 0);
 });

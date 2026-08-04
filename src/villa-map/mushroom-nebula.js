@@ -161,6 +161,11 @@ function nebulaMaterialFrom(value) {
   return value?.material?.isShaderMaterial ? value.material : null;
 }
 
+// Shared floor for copyVector2. Vector2.max() never mutates its argument, so
+// the per-frame update path can reuse this instead of allocating a fresh
+// Vector2 on every call.
+const NEBULA_MIN_RESOLUTION = new THREE.Vector2(1, 1);
+
 function copyVector2(target, value) {
   if (Array.isArray(value)) {
     target.set(
@@ -173,7 +178,7 @@ function copyVector2(target, value) {
       Number.isFinite(value?.y) ? value.y : 1
     );
   }
-  target.max(new THREE.Vector2(1, 1));
+  target.max(NEBULA_MIN_RESOLUTION);
   return target;
 }
 

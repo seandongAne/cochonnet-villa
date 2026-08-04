@@ -87,6 +87,9 @@ const GAIA_SOURCE_MAP_VERTEX_SHADER = /* glsl */ `
 
     // This is exactly the unrotated world/ICRS convention used by the native
     // sky. The photo applies its own rotation at sample time; Gaia must not.
+    // The mapping is purely direction-based, so it inherits the star vectors'
+    // handedness (east toward -z, view-from-inside; see equatorialToUnitVector
+    // in gaia-stars.js) -- under that convention u increases with RA.
     float u = fract(atan(sourceDirection.z, -sourceDirection.x) / (2.0 * PI));
     float v = asin(clamp(sourceDirection.y, -1.0, 1.0)) / (0.5 * PI);
     vec2 clipPosition = vec2(u, clamp(v, 0.0, 1.0)) * 2.0 - 1.0;

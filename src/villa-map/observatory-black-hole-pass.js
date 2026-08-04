@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+import { OBSERVATORY_BLACK_HOLE_NAME } from "./observatory-black-hole.js";
+
 // Node-pure render-pass primitives for the hidden F-key black-hole event.
 //
 // The browser runtime owns the renderer and decides when to render `scene` into
@@ -103,6 +105,7 @@ const COMPOSITE_FRAGMENT_SHADER = /* glsl */ `
   uniform float uCoreGain;
   uniform vec2 uLensUvCenter;
   uniform float uLensUvRadius;
+  uniform float uLensVisibility;
   uniform float uCompositeAspect;
 
   varying vec2 vUv;
@@ -246,7 +249,11 @@ const COMPOSITE_FRAGMENT_SHADER = /* glsl */ `
         lensRadius * 1.20,
         lensDistance
       );
-      float aureole = horizonCut * aureoleTail * outerCut * approachSide;
+      // uLensVisibility is 0 whenever the CPU projection rejected the anchor
+      // (behind the camera or non-finite); the aureole must vanish entirely
+      // instead of trusting a stale or mirrored uLensUvCenter.
+      float aureole = horizonCut * aureoleTail * outerCut * approachSide
+        * clamp(uLensVisibility, 0.0, 1.0);
       #if OBSERVATORY_BH_LOCAL_HDR >= 2
         aureole *= 1.0;
       #else
@@ -277,10 +284,27 @@ const COMPOSITE_FRAGMENT_SHADER = /* glsl */ `
 const cameraWorldPositionScratch = new THREE.Vector3();
 const cameraWorldQuaternionScratch = new THREE.Quaternion();
 const lensWorldPositionScratch = new THREE.Vector3();
+const lensCameraSpaceScratch = new THREE.Vector3();
 const lensProjectedScratch = new THREE.Vector3();
 const lensProjectedEdgeScratch = new THREE.Vector3();
 const cameraWorldUpScratch = new THREE.Vector3();
-const BLACK_HOLE_LENS_ANCHOR_NAME = "mushroom-observatory-black-hole";
+
+// Ordinary camera fields mirrored onto the pass camera each frame. Hoisted so
+// the per-frame update never rebuilds the list.
+const PASS_CAMERA_MIRRORED_KEYS = Object.freeze([
+  "near",
+  "far",
+  "zoom",
+  "aspect",
+  "fov",
+  "focus",
+  "filmGauge",
+  "filmOffset",
+  "left",
+  "right",
+  "top",
+  "bottom"
+]);
 
 function finitePositive(value, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
@@ -387,7 +411,7 @@ function createCameraLike(sourceCamera) {
 function updateObservatoryBlackHolePassLensProjection(pass, camera) {
   const material = blackHoleCompositeMaterialFrom(pass?.composite);
   const lensAnchor = pass?.scene?.getObjectByName?.(
-    BLACK_HOLE_LENS_ANCHOR_NAME
+    OBSERVATORY_BLACK_HOLE_NAME
   );
   if (
     !material?.uniforms?.uLensUvCenter
@@ -398,12 +422,38 @@ function updateObservatoryBlackHolePassLensProjection(pass, camera) {
 
   pass.scene.updateMatrixWorld(true);
   lensAnchor.getWorldPosition(lensWorldPositionScratch);
+  // Mirror projectObservatoryPortalLens's rear-hemisphere rejection: a point
+  // behind the camera still yields finite, sign-mirrored NDC after project(),
+  // which would paint the aureole at a spurious on-screen position. Gate in
+  // camera space before the perspective divide and shut the aureole off via
+  // its dedicated uniform (a far-away sentinel centre is not safe because the
+  // shader's exponential skirt is only clipped by the radius-relative cuts).
+  lensCameraSpaceScratch.copy(lensWorldPositionScratch)
+    .applyMatrix4(camera.matrixWorldInverse);
+  const near = Number.isFinite(camera.near) ? Math.max(camera.near, 0.001) : 0.001;
+  if (
+    !Number.isFinite(lensCameraSpaceScratch.z)
+    || lensCameraSpaceScratch.z >= -near
+  ) {
+    if (material.uniforms.uLensVisibility) {
+      material.uniforms.uLensVisibility.value = 0;
+    }
+    return false;
+  }
   lensProjectedScratch.copy(lensWorldPositionScratch).project(camera);
   if (
     !Number.isFinite(lensProjectedScratch.x)
     || !Number.isFinite(lensProjectedScratch.y)
-  ) return false;
+  ) {
+    if (material.uniforms.uLensVisibility) {
+      material.uniforms.uLensVisibility.value = 0;
+    }
+    return false;
+  }
 
+  if (material.uniforms.uLensVisibility) {
+    material.uniforms.uLensVisibility.value = 1;
+  }
   material.uniforms.uLensUvCenter.value.set(
     lensProjectedScratch.x * 0.5 + 0.5,
     lensProjectedScratch.y * 0.5 + 0.5
@@ -557,20 +607,7 @@ export function updateObservatoryBlackHolePassCamera(
   camera.projectionMatrixInverse.copy(sourceCamera.projectionMatrixInverse);
   camera.layers.mask = sourceCamera.layers.mask;
 
-  for (const key of [
-    "near",
-    "far",
-    "zoom",
-    "aspect",
-    "fov",
-    "focus",
-    "filmGauge",
-    "filmOffset",
-    "left",
-    "right",
-    "top",
-    "bottom"
-  ]) {
+  for (const key of PASS_CAMERA_MIRRORED_KEYS) {
     if (key in sourceCamera && key in camera) camera[key] = sourceCamera[key];
   }
   if ("coordinateSystem" in sourceCamera && "coordinateSystem" in camera) {
@@ -578,8 +615,6 @@ export function updateObservatoryBlackHolePassCamera(
   }
 
   camera.updateMatrixWorld(true);
-  camera.userData.observatorySourceWorldPosition =
-    cameraWorldPositionScratch.clone();
   updateObservatoryBlackHolePassLensProjection(passOrCamera, camera);
   return camera;
 }
@@ -621,6 +656,7 @@ export function createObservatoryBlackHolePassCompositeMaterial({
       uCoreGain: { value: localHdrSettings.coreGain },
       uLensUvCenter: { value: new THREE.Vector2(0.5, 0.5) },
       uLensUvRadius: { value: 0.12 },
+      uLensVisibility: { value: 1 },
       uCompositeAspect: {
         value: localHdrSettings.width / localHdrSettings.height
       }

@@ -622,7 +622,19 @@ function encodeFloatAtlas(data, width, height) {
   const output = Buffer.allocUnsafe(headerBytes + data.byteLength);
   output.writeUInt32LE(width, 0);
   output.writeUInt32LE(height, 4);
-  Buffer.from(data.buffer, data.byteOffset, data.byteLength).copy(output, headerBytes);
+  // The header, the runtime decoder and the test suite all read the payload
+  // explicitly little-endian, so write every float explicitly LE rather than
+  // memcpying host-endian Float32Array bytes.  On little-endian hosts the
+  // output is byte-identical (every payload value is finite, so the
+  // float32 -> float64 -> float32 round trip is exact); on a big-endian host
+  // this is the difference between a valid atlas and a file with a valid
+  // header and a byte-swapped, corrupt payload.
+  for (let index = 0; index < data.length; index += 1) {
+    output.writeFloatLE(
+      data[index],
+      headerBytes + index * Float32Array.BYTES_PER_ELEMENT
+    );
+  }
   return output;
 }
 

@@ -246,6 +246,19 @@ function validateLodName(lod) {
   return normalized;
 }
 
+// Render-space celestial convention (view from INSIDE the sphere):
+//   +y = north celestial pole (Dec +90), RA 0 / Dec 0 sits on +x, and
+//   increasing RA (east) turns toward -z.
+// For an observer at the origin looking toward +x with +y (north) up,
+// screen-right is forward x up = +z, so east (-z) appears to the LEFT with
+// north up -- exactly like the real sky. This maps the right-handed ICRS
+// triad (X = cos d cos a, Y = cos d sin a, Z = sin d) to (x, y, z) =
+// (X, Z, -Y), a proper det = +1 rotation. The previous +sin(ra) z term was a
+// det = -1 mirror that flipped every asterism east-west. The equirectangular
+// atlases (observatory-gaia-source-map.js, mushroom-sky.js, the Kerr lens)
+// all derive u from atan(direction.z, -direction.x), i.e. they follow
+// whichever handedness these vectors carry: this function is the single
+// authority for that handedness.
 export function equatorialToUnitVector(raDegrees, decDegrees) {
   const ra = Number(raDegrees) * Math.PI / 180;
   const dec = Number(decDegrees) * Math.PI / 180;
@@ -260,7 +273,7 @@ export function equatorialToUnitVector(raDegrees, decDegrees) {
   return [
     horizontal * Math.cos(ra),
     Math.sin(dec),
-    horizontal * Math.sin(ra)
+    -horizontal * Math.sin(ra)
   ];
 }
 
@@ -344,7 +357,12 @@ export function decodeGaiaStarCatalog(
     if (sourceIds) sourceIds[index] = readUint64(view, recordOffset);
     positions[positionOffset] = view.getFloat32(recordOffset + 8, true);
     positions[positionOffset + 1] = view.getFloat32(recordOffset + 12, true);
-    positions[positionOffset + 2] = view.getFloat32(recordOffset + 16, true);
+    // The frozen v1 byte format predates the orientation fix and stores the
+    // LEGACY MIRRORED z component (+cos(dec)sin(ra)). Negate on read so the
+    // decoded vectors land in the corrected render-space convention of
+    // equatorialToUnitVector (east toward -z, view-from-inside) while the
+    // shipped binary stays byte-identical to its pinned sha256.
+    positions[positionOffset + 2] = -view.getFloat32(recordOffset + 16, true);
     magnitudes[index] = view.getInt16(recordOffset + 20, true)
       / MILLIMAGNITUDE_SCALE;
     bpRp[index] = view.getInt16(recordOffset + 22, true)
