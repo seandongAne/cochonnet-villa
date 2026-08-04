@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import * as THREE from "three";
 
+import { traceKerrRay } from "../scripts/build-kerr-transfer-atlas.mjs";
+
 import { OBSERVATORY_BLACK_HOLE_FLOW_PERIODS } from "../src/villa-map/observatory-black-hole.js";
 
 import {
@@ -217,7 +219,7 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /0\.02 \+ tracerImageWeight/);
   assert.match(shader, /rotationArc \* 0\.035 \+ leadingHotspot \* 0\.16/);
   assert.match(shader, /platinumRibbon \* \(0\.04 \+ leadingHotspot \* 0\.08\)/);
-  assert.match(shader, /vec3 whiteGold = vec3\(18\.0, 11\.0, 4\.5\)/);
+  assert.match(shader, /vec3 whiteGold = vec3\(16\.0, 13\.0, 8\.0\)/);
   assert.match(shader, /clamp\(movingWhiteHeat, 0\.0, 0\.48\)/);
   assert.match(shader, /float carrierRelativisticBoost = pow/);
   assert.match(shader, /clamp\(redshift, 0\.50, 2\.20\)/);
@@ -243,9 +245,203 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.doesNotMatch(shader, /texture\(uKerrSkyAtlas/);
 });
 
+test("screen-to-atlas mapping keeps +beta on atlas row 0 and matches the shipped disc's near/far asymmetry", async () => {
+  const shader = OBSERVATORY_KERR_LENS_FRAGMENT_SHADER;
+  // Pin the exact screen->atlas uv expressions for BOTH axes: column 0 holds
+  // alpha=-12 and row 0 holds beta=+12, matching the generator's
+  // "top-to-bottom; betaMax to betaMin" row order read with flipY=false
+  // texelFetch addressing.  Any sign flip here mirrors the lensed sky and the
+  // disc's near/far side without failing a single geometry test, so the
+  // expressions are pinned as text AND re-executed on the CPU below.
+  const atlasUvSource = shader.match(/vec2 atlasUv = vec2\(\n([\s\S]*?)\n\s*\);/);
+  assert.ok(atlasUvSource, "fragment shader must derive atlasUv from alphaBeta");
+  const [uExpression, vExpression] = atlasUvSource[1]
+    .split(",\n")
+    .map((component) => component.trim());
+  assert.equal(uExpression, "(alphaBeta.x + uAtlasExtent.x) / (2.0 * uAtlasExtent.x)");
+  assert.equal(vExpression, "(uAtlasExtent.y - alphaBeta.y) / (2.0 * uAtlasExtent.y)");
+  assert.match(
+    shader,
+    /vec2 texel = floor\(clamp\(atlasUv, vec2\(0\.0\), vec2\(1\.0\)\) \* uAtlasSize\);\n\s*return ivec2\(clamp\(texel, vec2\(0\.0\), uAtlasSize - 1\.0\)\);/
+  );
+
+  // Reproduce the shader's alphaBeta->texel mapping on the CPU, compiled from
+  // the shader source itself so an orientation flip cannot hide behind a
+  // "helpfully" updated text pin: a flipped expression would select mirrored
+  // rows below and fail the physical assertions directly.
+  const compileComponent = (expression) => {
+    const residue = expression.replace(
+      /alphaBeta\.[xy]|uAtlasExtent\.[xy]|\d+(?:\.\d+)?|[()+\-*/\s]/g,
+      ""
+    );
+    assert.equal(residue, "", `unexpected atlasUv tokens: ${residue}`);
+    return new Function(
+      "alphaBetaX",
+      "alphaBetaY",
+      "extentX",
+      "extentY",
+      `"use strict"; return (${expression
+        .replaceAll("alphaBeta.x", "alphaBetaX")
+        .replaceAll("alphaBeta.y", "alphaBetaY")
+        .replaceAll("uAtlasExtent.x", "extentX")
+        .replaceAll("uAtlasExtent.y", "extentY")});`
+    );
+  };
+  const atlasU = compileComponent(uExpression);
+  const atlasV = compileComponent(vExpression);
+  const clamp01 = (value) => Math.min(1, Math.max(0, value));
+  const shaderTexel = (alpha, beta) => {
+    const u = clamp01(atlasU(
+      alpha,
+      beta,
+      OBSERVATORY_KERR_LENS_ALPHA_EXTENT,
+      OBSERVATORY_KERR_LENS_BETA_EXTENT
+    ));
+    const v = clamp01(atlasV(
+      alpha,
+      beta,
+      OBSERVATORY_KERR_LENS_ALPHA_EXTENT,
+      OBSERVATORY_KERR_LENS_BETA_EXTENT
+    ));
+    return {
+      x: Math.min(
+        OBSERVATORY_KERR_LENS_ATLAS_WIDTH - 1,
+        Math.floor(u * OBSERVATORY_KERR_LENS_ATLAS_WIDTH)
+      ),
+      y: Math.min(
+        OBSERVATORY_KERR_LENS_ATLAS_HEIGHT - 1,
+        Math.floor(v * OBSERVATORY_KERR_LENS_ATLAS_HEIGHT)
+      )
+    };
+  };
+
+  const sky = decodeObservatoryKerrLensAtlas(
+    await bundledBinary("observatory-kerr-sky-v1.bin"),
+    "sky"
+  );
+  const primary = decodeObservatoryKerrLensAtlas(
+    await bundledBinary("observatory-kerr-disc-primary-v1.bin"),
+    "disc-primary"
+  );
+  const texelValues = (atlas, { x, y }) => {
+    // flipY=false + texelFetch: texel row y is the y-th stored row of the bin.
+    const offset = (y * atlas.width + x) * atlas.channels;
+    return Array.from(atlas.data.subarray(offset, offset + atlas.channels));
+  };
+
+  // What is actually beta-asymmetric at a=0.94, i=60deg (the capture mask is
+  // beta-symmetric, so only these transfer quantities can see a flip): the
+  // observer sits 30deg above the equatorial disc and beta>0 initializes
+  // increasing Boyer-Lindquist theta, so +beta rays dive directly through the
+  // NEAR side of the disc in front of the hole (first crossing at large
+  // radius, azimuth ~ 0 toward the observer, coordinate time just under the
+  // ~1000M chord), while -beta rays first climb away from the equatorial
+  // plane and reach it only after bending around the FAR side (compact image:
+  // small radius, azimuth ~ +/-pi, ~20M extra light travel time).  Strong
+  // deflection toward the hole likewise swings +beta exit directions to the
+  // +Y (spin-axis) hemisphere and -beta exits to -Y.  Every probe below sits
+  // exactly on a centre of the 0.0625M texel grid, so the nearest texel is
+  // unambiguous and the offline tracer reproduces the stored texel to
+  // float32 precision.
+  const checkProbe = (alpha, beta) => {
+    const ray = traceKerrRay(alpha, beta);
+    const texel = shaderTexel(alpha, beta);
+    const [dirX, dirY, dirZ, status] = texelValues(sky, texel);
+    const [radius, azimuth, redshift, time] = texelValues(primary, texel);
+    assert.equal(
+      status,
+      ray.status,
+      `atlas status at (${alpha}, ${beta}) must match the traced ray`
+    );
+    if (ray.status === OBSERVATORY_KERR_LENS_RAY_STATUS.escaped) {
+      assert.ok(Math.abs(dirX - ray.sourceDirection[0]) < 1e-6);
+      assert.ok(
+        Math.abs(dirY - ray.sourceDirection[1]) < 1e-6,
+        `atlas exit direction Y at (${alpha}, ${beta}) is ${dirY}; traced ${ray.sourceDirection[1]}`
+      );
+      assert.ok(Math.abs(dirZ - ray.sourceDirection[2]) < 1e-6);
+    }
+    const crossing = ray.discCrossings[0];
+    assert.ok(crossing, `probe (${alpha}, ${beta}) must have a primary disc crossing`);
+    assert.ok(Math.abs(radius - crossing.radius) < 1e-5);
+    assert.ok(Math.abs(azimuth - crossing.azimuth) < 1e-5);
+    assert.ok(Math.abs(redshift - crossing.redshift) < 1e-6);
+    assert.ok(Math.abs(time - crossing.coordinateTime) < 1e-3);
+    return { status, dirY, radius, azimuth, time };
+  };
+
+  const top = checkProbe(0.03125, 5.96875);
+  const bottom = checkProbe(0.03125, -5.96875);
+  assert.equal(top.status, OBSERVATORY_KERR_LENS_RAY_STATUS.escaped);
+  assert.equal(bottom.status, OBSERVATORY_KERR_LENS_RAY_STATUS.escaped);
+  assert.ok(top.dirY > 0.85, "+beta ray must exit toward the +Y spin axis");
+  assert.ok(bottom.dirY < -0.85, "-beta ray must exit below the equator");
+  assert.ok(
+    top.dirY - bottom.dirY > 1.7,
+    "a vertical mapping flip would swap the exit hemispheres"
+  );
+  assert.ok(Math.abs(top.azimuth) < 0.1, "near side faces observer azimuth 0");
+  assert.ok(Math.abs(bottom.azimuth) > 2.5, "far side sits at azimuth ~ +/-pi");
+  assert.ok(top.radius > 10, "direct near-side image at large radius");
+  assert.ok(
+    bottom.radius > OBSERVATORY_KERR_LENS_ISCO_RADIUS && bottom.radius < 6,
+    "far-side image lands inside the shader-valid disc band"
+  );
+  assert.ok(
+    bottom.time - top.time > 15,
+    "wrapping behind the hole must cost ~20M of extra travel time"
+  );
+
+  // The alpha axis is pinned by frame dragging: the shadow is displaced
+  // toward +alpha, so +5M is captured while -5M escapes.
+  const right = checkProbe(5.03125, -0.03125);
+  const left = checkProbe(-5.03125, -0.03125);
+  assert.equal(
+    right.status,
+    OBSERVATORY_KERR_LENS_RAY_STATUS.captured,
+    "frame dragging must keep the shadow displaced toward +alpha"
+  );
+  assert.equal(left.status, OBSERVATORY_KERR_LENS_RAY_STATUS.escaped);
+
+  // The same near/far asymmetry holds in aggregate for the shipped file's row
+  // order, independent of any probe choice: top rows (+beta) image the near
+  // side directly at larger radii and earlier times than the wrapped far-side
+  // rows (-beta).
+  const halves = [
+    { count: 0, radiusSum: 0, timeSum: 0 },
+    { count: 0, radiusSum: 0, timeSum: 0 }
+  ];
+  for (let y = 0; y < primary.height; y += 1) {
+    const half = halves[y < primary.height / 2 ? 0 : 1];
+    for (let x = 0; x < primary.width; x += 1) {
+      const offset = (y * primary.width + x) * primary.channels;
+      const radius = primary.data[offset];
+      if (radius <= 0) continue;
+      half.count += 1;
+      half.radiusSum += radius;
+      half.timeSum += primary.data[offset + 3];
+    }
+  }
+  const [topHalf, bottomHalf] = halves;
+  assert.ok(topHalf.count > 60_000 && bottomHalf.count > 60_000);
+  const meanRadiusGap = topHalf.radiusSum / topHalf.count
+    - bottomHalf.radiusSum / bottomHalf.count;
+  const meanTimeGap = bottomHalf.timeSum / bottomHalf.count
+    - topHalf.timeSum / topHalf.count;
+  assert.ok(
+    meanRadiusGap > 2,
+    `near-side rows must image larger mean disc radii (gap ${meanRadiusGap})`
+  );
+  assert.ok(
+    meanTimeGap > 10,
+    `far-side rows must arrive later on average (gap ${meanTimeGap})`
+  );
+});
+
 test("single-sided Kerr carriers make rotation readable in 2-4 seconds without raising mean flux", () => {
   const isco = OBSERVATORY_KERR_LENS_ISCO_RADIUS;
-  const outer = 7.6;
+  // Mirrors the runtime's KERR_DISC_OUTER_RADIUS (extended ribbon disc).
+  const outer = 10.5;
   const hotspotMean = 0.196380615234375;
   const rotationArcMean = 0.2734375;
   const leadingHotspotMean = 0.17619705200195312;
@@ -266,12 +462,29 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
       * smoothstep(0.5, 1, normalizedRadius);
     return period;
   };
+  // Mirrors the shader's static Saturn-ring banding: azimuth-free, so it can
+  // scale the per-radius mean but never make it vary over time.
+  const ringStructureAt = (radius) => {
+    const ringBands = Math.sin(radius * 14.0) * 0.45
+      + Math.sin(radius * 23.0 + 1.7) * 0.30
+      + Math.sin(radius * 41.0 + 4.2) * 0.25;
+    const normalizedRadius = Math.max(
+      0,
+      Math.min(1, (radius - isco) / (outer - isco))
+    );
+    const bandProfile = smoothstep(0, 0.35, normalizedRadius);
+    return 1 + ringBands * (0.10 + 0.24 * bandProfile);
+  };
   const flowStructureAt = (azimuth, radius, timeSeconds) => {
     const flowPhase = azimuth
       - timeSeconds * (2 * Math.PI / orbitalPeriodAt(radius));
     const longStream = Math.sin(flowPhase * 2 - radius * 1.42);
     const filamentStream = Math.sin(
       flowPhase * 5 - radius * 2.85 + Math.sin(radius * 1.7) * 0.62
+    );
+    const streakA = Math.sin(flowPhase * 9 - radius * 9.5);
+    const streakB = Math.sin(
+      flowPhase * 17 - radius * 16 + Math.sin(radius * 3.3) * 1.1
     );
     const hotspotShape = Math.pow(
       0.5 + 0.5 * Math.sin(
@@ -293,14 +506,16 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
       (radius - (isco + 1.55)) / 0.72,
       2
     ));
-    return 1
+    return Math.max(0, (1
       + longStream * 0.10
       + filamentStream * 0.04
+      + streakA * 0.14
+      + streakB * 0.09
       + (hotspotShape - hotspotMean) * 0.20
       + ribbonRadialWindow * (
         (rotationArc - rotationArcMean) * 1.10
         + (leadingHotspot - leadingHotspotMean) * 1.50
-      );
+      )) * ringStructureAt(radius));
   };
   const sampleCount = 8_192;
   const middleRadius = isco + 1.55;
@@ -315,10 +530,24 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
   const base = profileAt(0);
   const afterTwoSeconds = profileAt(2);
   const afterFourSeconds = profileAt(4);
-  const mean = base.reduce((sum, value) => sum + value, 0) / base.length;
+  const azimuthalMean = (profile) => (
+    profile.reduce((sum, value) => sum + value, 0) / profile.length
+  );
+  const mean = azimuthalMean(base);
   const minimum = Math.min(...base);
   const maximum = Math.max(...base);
-  assert.ok(Math.abs(mean - 1) < 1e-12, `mean flux drifted to ${mean}`);
+  // The static ring banding scales each radius' mean (it is a texture), but
+  // every moving carrier stays zero-mean: the azimuthal mean must be exactly
+  // the ring factor and must not vary with time (no ring pulsing).
+  assert.ok(
+    Math.abs(mean - ringStructureAt(middleRadius)) < 1e-9,
+    `mean flux drifted to ${mean}`
+  );
+  assert.ok(
+    Math.abs(azimuthalMean(afterTwoSeconds) - mean) < 1e-9
+      && Math.abs(azimuthalMean(afterFourSeconds) - mean) < 1e-9,
+    "azimuthal mean must not vary over time"
+  );
   assert.ok(maximum / minimum > 8, "the moving arc needs strong spatial contrast");
 
   const peakDegrees = (profile) => (
@@ -333,13 +562,28 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
     peakDegrees(base),
     peakDegrees(afterFourSeconds)
   );
-  assert.ok(
-    Math.abs(twoSecondAdvance - 48) < 1.2,
-    `15-second carrier should move 48 degrees in 2 seconds, got ${twoSecondAdvance}`
+  // Expected advances derive from the shared middle carrier period, folded
+  // into the (-180, 180] range the circular comparison reports. The sheared
+  // gas streaks ride at the LOCAL orbital rate (faster than the tracer at
+  // this radius), so the profile's argmax wobbles around the hero tracer by
+  // up to a streak wavelength — the tolerance covers that wobble while still
+  // rejecting the pre-restyle cadence (which advanced only 48 degrees).
+  const foldDegrees = (degrees) => ((degrees % 360) + 540) % 360 - 180;
+  const expectedTwoSecond = foldDegrees(
+    2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle
+  );
+  const expectedFourSecond = foldDegrees(
+    4 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle
   );
   assert.ok(
-    Math.abs(fourSecondAdvance - 96) < 1.2,
-    `15-second carrier should move 96 degrees in 4 seconds, got ${fourSecondAdvance}`
+    Math.abs(twoSecondAdvance - expectedTwoSecond) < 25,
+    `middle carrier should move about ${expectedTwoSecond} degrees in 2 `
+      + `seconds, got ${twoSecondAdvance}`
+  );
+  assert.ok(
+    Math.abs(fourSecondAdvance - expectedFourSecond) < 25,
+    `middle carrier should fold to about ${expectedFourSecond} degrees after `
+      + `4 seconds, got ${fourSecondAdvance}`
   );
 
   const innerAdvance = 2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner;

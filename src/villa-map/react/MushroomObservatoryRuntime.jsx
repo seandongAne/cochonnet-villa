@@ -28,6 +28,7 @@ import {
   createObservatoryBlackHole,
   disposeObservatoryBlackHole,
   OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR,
+  OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE,
   OBSERVATORY_BLACK_HOLE_WORLD_DISTANCE,
   prewarmObservatoryBlackHole,
   setObservatoryBlackHoleVisible,
@@ -48,6 +49,7 @@ import {
   getObservatoryRelativisticLensSupport,
   loadObservatoryRelativisticLensLuts,
   OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME,
+  OBSERVATORY_RELATIVISTIC_LENS_OPTICAL_SCALE,
   prewarmObservatoryRelativisticLens,
   setObservatoryRelativisticLensLuts,
   setObservatoryRelativisticLensVisible,
@@ -135,6 +137,10 @@ import { MUSHROOM_INTERIOR } from "../world.js";
 
 const CLOSED_CEILING_COLOR = new THREE.Color("#010208");
 const GAIA_RENDER_ORDER = -920;
+// Network-level Gaia fetch failures (rejection, HTTP error, interrupted
+// body) may be transient, so the approach trigger may retry — but never
+// hammer a dead endpoint for the whole session.
+const GAIA_FETCH_MAX_ATTEMPTS = 3;
 const PORTAL_ORIGIN = new THREE.Vector3(
   MUSHROOM_INTERIOR.center.x,
   MUSHROOM_INTERIOR.eyeY[2],
@@ -164,6 +170,15 @@ const LENS_WORLD_POSITION = new THREE.Vector3(
 );
 const lensDirectionScratch = new THREE.Vector3();
 const lensScreenScratch = new THREE.Vector2();
+const portalResolutionScratch = [0, 0];
+// The global shader-failure sweep walks gl.info.programs linearly, which is
+// wasted work on every steady-state frame. Scan in a short burst right after
+// compile-triggering events (quality changes, prewarm work) so asynchronous
+// link failures still surface promptly, then fall back to a slow heartbeat.
+// Frame-counter driven — not wall clock — so the diagnostics harness's
+// manually-advanced frames stay deterministic.
+const OBSERVATORY_SHADER_SCAN_BURST_FRAMES = 8;
+const OBSERVATORY_SHADER_SCAN_INTERVAL_FRAMES = 30;
 const blackHoleClearColorScratch = new THREE.Color();
 const relativisticSkyRotationScratch = new THREE.Matrix3();
 const relativisticSkyRotation4Scratch = new THREE.Matrix4();
@@ -178,14 +193,18 @@ const KERR_INCLINATION_RADIANS = THREE.MathUtils.degToRad(
 const KERR_INCLINATION_SIN = Math.sin(KERR_INCLINATION_RADIANS);
 const KERR_INCLINATION_COS = Math.cos(KERR_INCLINATION_RADIANS);
 // The shipped Schwarzschild calibration has a 2 m optical Schwarzschild
-// radius, hence one geometric mass unit M is one world metre here too.
-const KERR_MASS_WORLD_SCALE = 1;
-// Keep the luminous thin disc inside the strongly lensed field. A wider disc
-// is physically valid, but on a room-scale display its direct image dominates
-// as two hard-edged wedges and hides the photon-ring structure we want people
-// to notice first.
-const KERR_DISC_OUTER_RADIUS = 5.6;
-const KERR_DISC_OPACITY = 0.72;
+// radius, hence one geometric mass unit M is one world metre at presentation
+// scale 1. The shared presentation scale enlarges the apparent event across
+// all three render paths together (see observatory-black-hole.js).
+const KERR_MASS_WORLD_SCALE = 1 * OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE;
+// The 2026-08 restyle extends the luminous disc across most of the lensed
+// field (the transfer atlas bakes valid crossings out to ~11.7 M), so the
+// event reads as a dominant ribbon disc like the cinematic reference instead
+// of a small gold core inside a large milky sky warp. The old "two hard
+// wedges" objection to a wide disc no longer applies: the Saturn-style ring
+// gaps and sheared streaks give the outer lanes structure and translucency.
+const KERR_DISC_OUTER_RADIUS = 10.5;
+const KERR_DISC_OPACITY = 0.78;
 const KERR_STAR_SOURCE_BRIGHTNESS = 0.82;
 const kerrObserverOutScratch = new THREE.Vector3();
 const kerrImageRightScratch = new THREE.Vector3();
@@ -333,11 +352,15 @@ function configureGaiaStencil(points) {
 
 function detectHalfFloatPortal(gl) {
   if (!gl.capabilities.isWebGL2) return false;
-  // Half-float must be both renderable and linearly filterable. Falling back
-  // to RGBA8 is visually harmless for this intentionally subtle layer.
+  // Rendering into a HalfFloatType target only needs a color-renderable
+  // half-float framebuffer: EXT_color_buffer_float or its half-float subset.
+  // Half-float linear *filtering* is core WebGL2 — the 32-bit-float linear
+  // extension governs float textures these targets never use. The
+  // checkFramebufferStatus + RGBA8 retry ladder below stays as the safety
+  // net, and falling back to RGBA8 is visually harmless for this layer.
   return Boolean(
     gl.extensions.get("EXT_color_buffer_float")
-      && gl.extensions.get("OES_texture_float_linear")
+      || gl.extensions.get("EXT_color_buffer_half_float")
   );
 }
 
@@ -585,6 +608,7 @@ export function MushroomObservatoryRuntime({
       gaiaSourceMapPrewarmMs: 0,
       gaiaBinary: null,
       gaiaLoadStarted: false,
+      gaiaFetchAttempts: 0,
       gaiaError: null,
       gaiaShaderError: null,
       gaiaFetchStartedAt: 0,
@@ -664,6 +688,9 @@ export function MushroomObservatoryRuntime({
       skyDisabled: false,
       gaiaDisabled: false,
       handledShaderFailures: new Set(),
+      frameIndex: 0,
+      shaderScanBurstFramesLeft: OBSERVATORY_SHADER_SCAN_BURST_FRAMES,
+      lastShaderScanFrame: -OBSERVATORY_SHADER_SCAN_INTERVAL_FRAMES,
       nativePrewarmTarget: null,
       riftState: createObservatoryRiftState(),
       riftFadeSurfaces: [],
@@ -1038,10 +1065,10 @@ export function MushroomObservatoryRuntime({
       if (!resources.blackHole && !resources.blackHoleDisabled) {
         resources.blackHole = createObservatoryBlackHole({
           anchor: LENS_WORLD_POSITION,
-          // The factory's 14.4 m disc already matches the agreed 12–15 m
-          // physical composition. Keep runtime scale honest so parallax and
-          // diagnostics report the same finite object the tests describe.
-          scale: 1,
+          // The shared presentation scale keeps the fail-soft procedural disc
+          // the same apparent size as the Kerr/Schwarzschild paths, so a lens
+          // fallback never visibly shrinks the event mid-session.
+          scale: OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE,
           quality,
           visible: false
         });
@@ -1064,6 +1091,10 @@ export function MushroomObservatoryRuntime({
           reveal: 0,
           lensPosition: LENS_WORLD_POSITION,
           discNormal: RELATIVISTIC_DISC_NORMAL,
+          // Track the shared presentation scale so the Low-tier disc and the
+          // Kerr underlay stay the same apparent size as the Kerr atlas path.
+          opticalScale: OBSERVATORY_RELATIVISTIC_LENS_OPTICAL_SCALE
+            * OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE,
           hdrOutput: blackHoleTargetType === THREE.HalfFloatType
         });
       }
@@ -1478,8 +1509,12 @@ export function MushroomObservatoryRuntime({
             resources.relativisticLens,
             false
           );
-          disposeRelativisticResources();
         }
+        // The layer is disabled for the rest of the session (only a context
+        // restore re-detects support, and that path re-fetches from scratch),
+        // so free the ~2 MB float LUT textures too instead of holding
+        // permanently-unusable CPU+GPU memory until unmount.
+        disposeRelativisticResources({ disposeLuts: true });
         return;
       }
       if (error?.observatoryShaderFailure === "kerr-lens") {
@@ -1489,8 +1524,11 @@ export function MushroomObservatoryRuntime({
         resources.gaiaSourceMapError ??= message;
         if (resources.kerrLens) {
           setObservatoryKerrLensVisible(resources.kerrLens, false);
-          disposeKerrResources();
         }
+        // Same rationale: the disabled Kerr path can never reuse its ~8.3 MB
+        // CPU + ~8.3 MB GPU transfer atlases this session. A context restore
+        // clears kerrDisabled and re-fetches the atlases from scratch.
+        disposeKerrResources({ disposeAtlases: true });
         return;
       }
       if (error?.observatoryShaderFailure === "black-hole") {
@@ -1570,6 +1608,8 @@ export function MushroomObservatoryRuntime({
       }
       if (resources.gaiaBinary) replaceGaia(quality);
       resources.qualityApplied = quality;
+      // New tier ⇒ new/changed materials may compile over the next frames.
+      resources.shaderScanBurstFramesLeft = OBSERVATORY_SHADER_SCAN_BURST_FRAMES;
       resources.reportQualityStatus?.();
     }
     applyQualityRef.current = applyQuality;
@@ -1792,6 +1832,9 @@ export function MushroomObservatoryRuntime({
       }
       if (didWork) {
         resources.nativePrewarmMs += performance.now() - startedAt;
+        // Fresh compiles: keep the per-frame failure sweep hot for a burst so
+        // asynchronously-resolving link failures are caught promptly.
+        resources.shaderScanBurstFramesLeft = OBSERVATORY_SHADER_SCAN_BURST_FRAMES;
       }
       const shaderFailure = findObservatoryShaderFailure(
         gl,
@@ -1804,6 +1847,7 @@ export function MushroomObservatoryRuntime({
     startGaiaLoadRef.current = async () => {
       if (resources.gaiaLoadStarted || !mounted) return;
       resources.gaiaLoadStarted = true;
+      resources.gaiaError = null;
       resources.gaiaFetchStartedAt = performance.now();
       try {
         const response = await fetch(GAIA_STAR_CATALOG_URL, {
@@ -1818,8 +1862,19 @@ export function MushroomObservatoryRuntime({
         resources.gaiaBinary = binary;
         replaceGaia(qualityRef.current?.quality ?? "medium");
       } catch (error) {
-        if (error?.name !== "AbortError") {
-          resources.gaiaError = error instanceof Error ? error.message : String(error);
+        // Unmount teardown aborts the fetch; that is not a failure and must
+        // never consume a retry attempt.
+        if (error?.name === "AbortError") return;
+        resources.gaiaError = error instanceof Error ? error.message : String(error);
+        // Everything that reaches this catch is a network-level failure
+        // (fetch rejection, HTTP error status, interrupted body). Decode
+        // failures of corrupt data are caught inside replaceGaia and stay
+        // permanently disabled — retrying cannot repair them — but one
+        // transient blip must not drop the star layer for the session:
+        // clearing the started flag lets the approach trigger retry.
+        resources.gaiaFetchAttempts += 1;
+        if (resources.gaiaFetchAttempts < GAIA_FETCH_MAX_ATTEMPTS) {
+          resources.gaiaLoadStarted = false;
         }
       }
     };
@@ -1842,7 +1897,9 @@ export function MushroomObservatoryRuntime({
           linear: resources.relativisticSupport.floatLinear,
           signal: abortController.signal
         });
-        if (!mounted) {
+        // A shader failure can disable the layer while this fetch was in
+        // flight; storing the LUTs then would strand them until unmount.
+        if (!mounted || resources.relativisticDisabled) {
           disposeObservatoryRelativisticLensLuts(luts);
           return;
         }
@@ -1886,7 +1943,9 @@ export function MushroomObservatoryRuntime({
           fetchImpl: fetch,
           signal: abortController.signal
         });
-        if (!mounted) {
+        // Mirror of the LUT guard: never store atlases for a layer that a
+        // shader failure disabled while the fetch was in flight.
+        if (!mounted || resources.kerrDisabled) {
           disposeObservatoryKerrLensAtlases(atlases);
           return;
         }
@@ -2274,8 +2333,10 @@ export function MushroomObservatoryRuntime({
       resources.comparisonMode = mode === "base" ? "base" : "impossible";
       return resources.comparisonMode;
     };
-    window.__villaObservatoryRuntimeSnapshot = runtimeSnapshot;
     if (diagnosticsMode) {
+      // Both QA globals stay query-gated (?observatory=test|perf), matching
+      // the SetSkyMode hook: ordinary visitors get no window-level probe.
+      window.__villaObservatoryRuntimeSnapshot = runtimeSnapshot;
       window.__villaObservatoryRuntimeSetSkyMode = setComparisonMode;
     }
 
@@ -2581,11 +2642,28 @@ export function MushroomObservatoryRuntime({
     }
 
     if (nearObservatory) prewarmNativeRef.current?.();
-    const shaderFailure = findObservatoryShaderFailure(
-      gl,
-      resources.handledShaderFailures
-    );
-    if (shaderFailure) handleShaderFailureRef.current?.(shaderFailure);
+    resources.frameIndex += 1;
+    // Throttled catch-all sweep for main-scene observatory materials (the
+    // portal/black-hole passes and prewarm already scan inline after their
+    // own renders). Burst frames follow compile events; otherwise a slow
+    // heartbeat suffices, and far from the observatory nothing new can fail.
+    const shaderScanDue = (inLoft || nearObservatory)
+      && (
+        resources.shaderScanBurstFramesLeft > 0
+        || resources.frameIndex - resources.lastShaderScanFrame
+          >= OBSERVATORY_SHADER_SCAN_INTERVAL_FRAMES
+      );
+    if (shaderScanDue) {
+      if (resources.shaderScanBurstFramesLeft > 0) {
+        resources.shaderScanBurstFramesLeft -= 1;
+      }
+      resources.lastShaderScanFrame = resources.frameIndex;
+      const shaderFailure = findObservatoryShaderFailure(
+        gl,
+        resources.handledShaderFailures
+      );
+      if (shaderFailure) handleShaderFailureRef.current?.(shaderFailure);
+    }
 
     if (
       !resources.stencilSupported
@@ -2771,13 +2849,20 @@ export function MushroomObservatoryRuntime({
             ?? MUSHROOM_SKY_IMAGE_BRIGHTNESS,
           blackHoleRadius: 1.35,
           discInnerRadius: 3.08,
-          discOuterRadius: 7.6,
+          // Matches the Kerr path's extended ribbon disc so the Low tier and
+          // the underlay keep the same dominant-disc composition.
+          discOuterRadius: KERR_DISC_OUTER_RADIUS,
           // Kerr owns the visible disc in High/Medium. Keep the Schwarzschild
           // ray warp and shadow hot as the per-pixel underlay, but suppress its
           // larger analytic disc so it cannot protrude beyond the square Kerr
           // atlas as two bright fallback wedges. Low still gets the full disc.
           discOpacity: kerrPrimary ? 0 : 0.94,
-          influenceRadius: 0.58 * resources.lensAngularScale,
+          // The acceptance cone tracks the enlarged apparent event; 0.48 rad
+          // at presentation scale 1.5 preserves the original headroom ratio
+          // between the luminous disc and the shader's angular cutoff.
+          influenceRadius: 0.48
+            * OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE
+            * resources.lensAngularScale,
           hdrOutput: resources.blackHolePass?.renderTarget?.texture?.type
             === THREE.HalfFloatType
         }
@@ -2916,10 +3001,14 @@ export function MushroomObservatoryRuntime({
       )
     });
     const parallax = portal.camera.userData.observatoryParallaxOffset;
+    // updateMushroomNebula copies the resolution into its uniform, so a
+    // module-scope scratch avoids a fresh array allocation every frame.
+    portalResolutionScratch[0] = portal.renderTarget.width;
+    portalResolutionScratch[1] = portal.renderTarget.height;
     updateMushroomNebula(resources.nebula, frameDelta, {
       reveal: 1,
       parallax,
-      resolution: [portal.renderTarget.width, portal.renderTarget.height],
+      resolution: portalResolutionScratch,
       camera: portal.camera,
       reducedMotion: adaptation.celestialMotionScale === 0
     });

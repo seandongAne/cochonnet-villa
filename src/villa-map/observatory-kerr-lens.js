@@ -359,6 +359,12 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     vec3 hotCore = vec3(11.0, 4.2, 0.55);
     vec3 colour = mix(deepGold, solarGold, smoothstep(0.08, 0.38, observedTemperature));
     colour = mix(colour, hotCore, smoothstep(0.42, 0.88, observedTemperature));
+    // Only the strongly blueshifted approaching inner gas crosses into a
+    // white-blue thermal tier, echoing the reference art's hot arcs while the
+    // receding side and outer lanes stay black/gold. The threshold sits above
+    // the rest-frame temperature peak, so no whole ring can reach it at once.
+    vec3 blueWhite = vec3(9.5, 10.5, 12.5);
+    colour = mix(colour, blueWhite, smoothstep(0.98, 1.42, observedTemperature));
 
     float emissionTime = uTime - crossingTime * 0.0025;
     float normalizedFlowRadius = clamp(
@@ -390,8 +396,27 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       ),
       8.0
     );
+    // Saturn-style ring banding: dozens of thin concentric emissivity lanes
+    // give the disc the dense ribbon structure of the cinematic reference.
+    // The bands are azimuth-free and static in disc coordinates, so each
+    // radius keeps a constant azimuthal mean over time (no ring pulsing) —
+    // yet as soon as gas streaks shear across them the rotation reads.
+    float ringBands =
+        sin(radius * 14.0) * 0.45
+      + sin(radius * 23.0 + 1.7) * 0.30
+      + sin(radius * 41.0 + 4.2) * 0.25;
+    float bandProfile = smoothstep(0.0, 0.35, normalizedFlowRadius);
+    float ringStructure = 1.0 + ringBands * mix(0.10, 0.34, bandProfile);
+    // Sheared gas streaks: high-frequency zero-mean carriers whose phase
+    // advances with the local orbital rate. Differential rotation stretches
+    // them into trailing spiral filaments, so motion is trackable everywhere
+    // on the disc instead of only at the single hero knot.
+    float streakA = sin(flowPhase * 9.0 - radius * 9.5);
+    float streakB = sin(
+      flowPhase * 17.0 - radius * 16.0 + sin(radius * 3.3) * 1.1
+    );
     // Differential flow remains in the small-scale gas. The hero tracer uses
-    // the 15-second middle reference as one coherent source-space arc; giving
+    // the middle reference period as one coherent source-space arc; giving
     // every radius its own tracer period wound a long-running session into a
     // stack of bright spring-like loops.
     float tracerPhase = azimuth
@@ -423,14 +448,17 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     // moved into the single long arc and its leading knot: this creates a
     // trackable direction marker instead of merely making the texture busier.
     // the azimuthally integrated emissivity remains exactly the old value.
-    float flowStructure = 1.0
+    float flowStructure = (1.0
       + longStream * 0.10
       + filamentStream * 0.04
+      + streakA * 0.14
+      + streakB * 0.09
       + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.20
       + tracerContrastWeight * (
         (rotationArc - FLOW_ROTATION_ARC_MEAN) * 1.10
         + (leadingHotspot - FLOW_LEADING_HOTSPOT_MEAN) * 1.50
-      );
+      )) * ringStructure;
+    flowStructure = max(flowStructure, 0.0);
     // A narrow thermal crest just outside the ISCO creates the white-hot
     // lensed inner edge. It is always present, but the leading knot pushes a
     // small segment toward solar white rather than making a uniform neon ring.
@@ -449,9 +477,12 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
         rotationArc * 0.035 + leadingHotspot * 0.16
       )
     ) + platinumRibbon * (0.04 + leadingHotspot * 0.08);
-    vec3 whiteGold = vec3(18.0, 11.0, 4.5);
+    vec3 whiteGold = vec3(16.0, 13.0, 8.0);
     colour = mix(colour, whiteGold, clamp(movingWhiteHeat, 0.0, 0.48));
-    float radialEmission = pow(KERR_ISCO / radius, 1.72) * noTorque;
+    // A shallower falloff than the previous 1.72 exponent keeps the extended
+    // outer lanes glowing golden-brown (reference-style luminous ribbons)
+    // instead of collapsing into a dim translucent haze past ~2 ISCO.
+    float radialEmission = pow(KERR_ISCO / radius, 1.15) * noTorque;
     // Liouville invariance for specific intensity: I_nu / nu^3 is conserved.
     float relativisticBoost = pow(clamp(redshift, 0.0, 3.5), 3.0);
     // Thermal emissivity and optical coverage are separate quantities. Using
@@ -463,8 +494,16 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       0.82,
       smoothstep(0.025, 0.42, radialEmission)
     );
-    float alpha = innerEdge * outerEdge * opticalCoverage * validCoverage
-      * uDiscOpacity * imageWeight;
+    // The ring gaps thin the disc's optical depth as well as its emission, so
+    // lensed sky and Gaia stars graze through the darker outer lanes exactly
+    // where the reference art shows translucent ribbons.
+    float ringCoverage = clamp(
+      1.0 + ringBands * (0.10 + 0.38 * bandProfile),
+      0.34,
+      1.5
+    );
+    float alpha = innerEdge * outerEdge * opticalCoverage * ringCoverage
+      * validCoverage * uDiscOpacity * imageWeight;
     alpha = clamp(alpha, 0.0, 0.97);
     vec3 radiance = colour * radialEmission * relativisticBoost
       * flowStructure * 0.88;

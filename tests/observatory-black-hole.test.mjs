@@ -362,17 +362,29 @@ test("black-hole resource disposal is unique and idempotent", () => {
   const resources = blackHole.userData.resources;
   let sharedGeometryDisposals = 0;
   let materialDisposals = 0;
+  let debrisMeshDisposals = 0;
   resources.diskLayers[0].geometry.addEventListener("dispose", () => {
     sharedGeometryDisposals += 1;
   });
   resources.diskLayers[0].material.addEventListener("dispose", () => {
     materialDisposals += 1;
   });
+  // Geometry/material disposal does not free instanceMatrix/instanceColor;
+  // three r184 releases those GL buffers only via the InstancedMesh's own
+  // dispose event, so disposal must dispatch it exactly once.
+  resources.debris.addEventListener("dispose", () => {
+    debrisMeshDisposals += 1;
+  });
 
   assert.equal(disposeObservatoryBlackHole(blackHole), true);
   assert.equal(disposeObservatoryBlackHole(blackHole), false);
   assert.equal(sharedGeometryDisposals, 1);
   assert.equal(materialDisposals, 1);
+  assert.equal(
+    debrisMeshDisposals,
+    1,
+    "the debris InstancedMesh must dispatch its own dispose event"
+  );
   assert.equal(blackHole.children.length, 0);
   assert.equal(blackHole.userData.disposed, true);
   assert.equal(setObservatoryBlackHoleVisible(blackHole, true), false);

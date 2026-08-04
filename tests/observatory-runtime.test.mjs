@@ -175,7 +175,20 @@ test("R and F share one distant star volume while the finite black hole remains 
     "R may add distant stars but must never summon the F-only black hole"
   );
   assert.match(runtime, /hiddenQuality !== "minimum"/);
-  assert.match(runtime, /createObservatoryBlackHole\(\{[\s\S]*?scale:\s*1,/);
+  assert.match(
+    runtime,
+    /createObservatoryBlackHole\(\{[\s\S]*?scale:\s*OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE,/
+  );
+  // All three render paths must track the one shared presentation scale so a
+  // tier switch or lens fallback never changes the event's apparent size.
+  assert.match(
+    runtime,
+    /KERR_MASS_WORLD_SCALE = 1 \* OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE/
+  );
+  assert.match(
+    runtime,
+    /opticalScale: OBSERVATORY_RELATIVISTIC_LENS_OPTICAL_SCALE\s*\n\s*\* OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE/
+  );
   assert.match(
     runtime,
     /else if \(quality === "minimum"\)[\s\S]*?disposeBlackHolePassResources\(\)/,
@@ -216,7 +229,7 @@ test("the Bruneton Schwarzschild layer stays hot beneath the physical Kerr path"
     /updateObservatoryRelativisticLens\([\s\S]*?skyTexture:\s*skyBackdropMaterial\?\.uniforms\?\.uSkyTexture[\s\S]*?skyRotation:\s*getRelativisticSkyRotation\(sky\)[\s\S]*?hdrOutput:/
   );
   assert.match(runtime, /blackHoleRadius:\s*1\.35/);
-  assert.match(runtime, /discOuterRadius:\s*7\.6/);
+  assert.match(runtime, /discOuterRadius:\s*KERR_DISC_OUTER_RADIUS/);
   assert.match(runtime, /discOpacity:\s*kerrPrimary \? 0 : 0\.94/);
   assert.match(
     runtime,
@@ -393,6 +406,11 @@ test("HalfFloat failure rebuilds as RGBA8 and a second failure falls back to Low
 
 test("diagnostics expose runtime state and motion query overrides stay QA-only", () => {
   assert.match(runtime, /window\.__villaObservatoryRuntimeSnapshot = runtimeSnapshot/);
+  assert.match(
+    runtime,
+    /if \(diagnosticsMode\) \{[\s\S]{0,300}?window\.__villaObservatoryRuntimeSnapshot = runtimeSnapshot;\s*window\.__villaObservatoryRuntimeSetSkyMode = setComparisonMode;\s*\}/,
+    "the runtime snapshot probe must be query-gated, never installed in production"
+  );
   for (const field of [
     "adaptation",
     "portal",
@@ -556,6 +574,65 @@ test("hidden Rift/Lens events fail closed and preserve finite-distance depth cue
   );
   assert.match(runtime, /backdropSuppression \* 0\.62/);
   assert.match(runtime, /resources\.lensAmount \* 0\.12/);
+});
+
+test("disabled lens layers free their atlases/LUTs, Gaia retries transient failures, and scans are throttled", () => {
+  // A shader-failure disable is session-permanent, so the transfer data must
+  // be released too — including when the fetch resolves after the disable.
+  assert.match(
+    runtime,
+    /observatoryShaderFailure === "relativistic-lens"[\s\S]{0,900}?disposeRelativisticResources\(\{ disposeLuts: true \}\)/
+  );
+  assert.match(
+    runtime,
+    /observatoryShaderFailure === "kerr-lens"[\s\S]{0,900}?disposeKerrResources\(\{ disposeAtlases: true \}\)/
+  );
+  assert.match(
+    runtime,
+    /if \(!mounted \|\| resources\.relativisticDisabled\) \{\s*disposeObservatoryRelativisticLensLuts\(luts\);/
+  );
+  assert.match(
+    runtime,
+    /if \(!mounted \|\| resources\.kerrDisabled\) \{\s*disposeObservatoryKerrLensAtlases\(atlases\);/
+  );
+
+  // Render-to-half-float needs a color-renderable buffer extension; half-float
+  // linear filtering is core WebGL2, so no 32-bit-float filter gate applies.
+  const halfFloatGate = runtime.match(
+    /function detectHalfFloatPortal\(gl\) \{[\s\S]*?\n\}/
+  );
+  assert.ok(halfFloatGate);
+  assert.match(
+    halfFloatGate[0],
+    /gl\.extensions\.get\("EXT_color_buffer_float"\)\s*\|\| gl\.extensions\.get\("EXT_color_buffer_half_float"\)/
+  );
+  assert.doesNotMatch(halfFloatGate[0], /OES_texture_float_linear/);
+
+  // Network-level Gaia failures retry via the approach trigger (capped);
+  // aborts never count; decode failures stay permanently disabled.
+  assert.match(runtime, /const GAIA_FETCH_MAX_ATTEMPTS = 3/);
+  assert.match(
+    runtime,
+    /if \(error\?\.name === "AbortError"\) return;[\s\S]{0,900}?resources\.gaiaFetchAttempts \+= 1;\s*if \(resources\.gaiaFetchAttempts < GAIA_FETCH_MAX_ATTEMPTS\) \{\s*resources\.gaiaLoadStarted = false;/
+  );
+
+  // The global gl.info.programs sweep is burst + heartbeat, driven by the
+  // frame counter (deterministic under the QA harness), and skipped away
+  // from the observatory.
+  assert.match(runtime, /const OBSERVATORY_SHADER_SCAN_BURST_FRAMES = 8/);
+  assert.match(runtime, /const OBSERVATORY_SHADER_SCAN_INTERVAL_FRAMES = 30/);
+  assert.match(
+    runtime,
+    /const shaderScanDue = \(inLoft \|\| nearObservatory\)[\s\S]{0,400}?shaderScanBurstFramesLeft > 0[\s\S]{0,400}?>= OBSERVATORY_SHADER_SCAN_INTERVAL_FRAMES/
+  );
+
+  // The per-frame nebula resolution array is a module-scope scratch.
+  assert.match(runtime, /const portalResolutionScratch = \[0, 0\]/);
+  assert.match(runtime, /resolution: portalResolutionScratch/);
+  assert.doesNotMatch(
+    runtime,
+    /resolution: \[portal\.renderTarget\.width, portal\.renderTarget\.height\]/
+  );
 });
 
 test("the audio bridge receives the rendered clocks and the visuals' real world anchors", () => {

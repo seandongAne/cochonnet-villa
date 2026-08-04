@@ -615,13 +615,30 @@ const RELATIVISTIC_FRAGMENT_SHADER = /* glsl */ `
       ),
       8.0
     );
+    // Saturn-style ring banding shared with the Kerr path: static concentric
+    // emissivity lanes (azimuth-free, so no ring pulsing) that the sheared
+    // gas streaks visibly cross, making the rotation legible on the Low tier
+    // too. Frequencies match the Kerr shader so tier switches keep one look.
+    float ringBands =
+        sin(radius * 14.0) * 0.45
+      + sin(radius * 23.0 + 1.7) * 0.30
+      + sin(radius * 41.0 + 4.2) * 0.25;
+    float bandProfile = smoothstep(0.0, 0.35, normalizedFlowRadius);
+    float ringStructure = 1.0 + ringBands * mix(0.10, 0.34, bandProfile);
+    float streakA = sin(flowPhase * 9.0 - radius * 9.5);
+    float streakB = sin(
+      flowPhase * 17.0 - radius * 16.0 + (broadGas - 0.5) * 1.35
+    );
     // Long gold streams and compact hot knots gain contrast around an exact
     // unit mean. The old FBM density remains the energy baseline, preventing
     // the enhanced motion from becoming a uniformly glowing annulus.
-    float flowStructure = 1.0
+    float flowStructure = (1.0
       + longStream * 0.30
       + filamentStream * 0.14
-      + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.58;
+      + streakA * 0.16
+      + streakB * 0.10
+      + (hotspotShape - FLOW_HOTSPOT_MEAN) * 0.58) * ringStructure;
+    flowStructure = max(flowStructure, 0.0);
     float density = (0.18 + broadGas * 0.58 + filament * 0.28)
       * flowStructure;
     float radialFade = smoothstep(
@@ -635,7 +652,17 @@ const RELATIVISTIC_FRAGMENT_SHADER = /* glsl */ `
     ));
     float beaming = clamp(pow(doppler, 3.0), 0.12, 5.6);
     float solarCore = pow(clamp(temperatureProfile, 0.0, 1.0), 1.65);
-    vec3 emitted = blackBodyGold(temperatureProfile, doppler)
+    vec3 gasColour = blackBodyGold(temperatureProfile, doppler);
+    // Match the Kerr path's white-blue tier: only strongly blueshifted
+    // approaching inner gas crosses into it, so the receding side and the
+    // outer lanes keep the black/gold narrative.
+    vec3 blueWhite = vec3(1.9, 2.1, 2.5);
+    gasColour = mix(
+      gasColour,
+      blueWhite * max(gasColour.r, 0.35),
+      smoothstep(0.98, 1.42, temperatureProfile * doppler)
+    );
+    vec3 emitted = gasColour
       * density
       * radialFade
       * beaming

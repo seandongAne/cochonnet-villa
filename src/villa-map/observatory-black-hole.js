@@ -24,13 +24,22 @@ export const OBSERVATORY_BLACK_HOLE_WORLD_DISTANCE = 42;
 // rotation of the event horizon or the disc mesh. The three render paths
 // (Kerr atlas, Schwarzschild LUT and procedural fallback) share this cadence:
 // a visitor can read the motion within a few seconds without seeing a portal-
-// like rigidly spinning ring. The middle flow is the authored 15 s reference;
-// inner and outer flows preserve the original 2:3:5 differential ratio.
+// like rigidly spinning ring. The 2026-08 ribbon restyle briefly ran a 4/6/10
+// cadence, but with the Saturn-band + sheared-streak structure carrying the
+// motion signal the original stately 10/15/25 pacing is readable again and
+// was preferred on human review; the 2:3:5 differential ratio is unchanged.
 export const OBSERVATORY_BLACK_HOLE_FLOW_PERIODS = Object.freeze({
   inner: 10,
   middle: 15,
   outer: 25
 });
+
+// Single knob for the F-mode black hole's apparent size, applied uniformly to
+// all three render paths (procedural mesh `scale`, Kerr `massWorldScale`, and
+// the Schwarzschild `opticalScale` multiplier). The 42 m world anchor is
+// untouched, so walking parallax and direction behaviour are identical — only
+// the angular size grows toward the cinematic reference composition.
+export const OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE = 1.35;
 
 const LOFT_ORIGIN = new THREE.Vector3(
   MUSHROOM_INTERIOR_CENTER.x,
@@ -1006,6 +1015,10 @@ export function disposeObservatoryBlackHole(blackHole) {
   const geometries = new Set();
   const materials = new Set();
   blackHole.traverse((object) => {
+    // Geometry/material disposal does not free an InstancedMesh's
+    // instanceMatrix/instanceColor GL buffers: the renderer releases those
+    // only through the mesh's own dispose event (three r184).
+    if (object.isInstancedMesh) object.dispose();
     if (object.geometry) geometries.add(object.geometry);
     if (Array.isArray(object.material)) {
       for (const material of object.material) {
