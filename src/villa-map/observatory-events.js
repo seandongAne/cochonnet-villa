@@ -17,6 +17,16 @@
 
 export const OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND = 0.03;
 export const OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS = 40;
+// Anti-streak pseudo-randomness: the director remembers the last N *started*
+// events and excludes them from the next selection while enough other events
+// remain available. Uniform-with-replacement selection is honest probability,
+// but players read a repeat as a bug ("又是黑洞凌日"); excluding a short
+// recency window keeps the draw feeling random without changing long-run
+// coverage. The exclusion degrades gracefully: if the availability pool is so
+// small that the whole window cannot be excluded, only the immediately
+// previous event is; if even that empties the pool (single-event pool), the
+// repeat is allowed rather than starving events entirely.
+export const OBSERVATORY_RARE_EVENT_RECENT_MEMORY = 2;
 // A cancelled event (lights back on, player leaves L3, infrastructure
 // failure) never snaps to zero — it releases over this window so the sky
 // cannot pop. Relighting itself hides every celestial layer in ~0.36 s, so
@@ -191,6 +201,15 @@ function channelsFor(eventId, intensity) {
   });
 }
 
+function sanitizeRecentEvents(recentEvents) {
+  if (!Array.isArray(recentEvents)) return Object.freeze([]);
+  return Object.freeze(
+    recentEvents
+      .filter((id) => Boolean(OBSERVATORY_RARE_EVENTS[id]))
+      .slice(0, OBSERVATORY_RARE_EVENT_RECENT_MEMORY)
+  );
+}
+
 function makeState({
   mode,
   event,
@@ -199,6 +218,7 @@ function makeState({
   releaseFromIntensity,
   cooldownSeconds,
   seed,
+  recentEvents = [],
   frozenProgress = null
 }) {
   const definition = event ? OBSERVATORY_RARE_EVENTS[event] : null;
@@ -220,6 +240,9 @@ function makeState({
     releaseFromIntensity: clamp01(releaseFromIntensity),
     cooldownSeconds: finiteNonNegative(cooldownSeconds),
     seed: clamp01(seed),
+    // Most-recent-first ids of the last started events; selection memory for
+    // the anti-streak rule, carried through idle/release/cooldown unchanged.
+    recentEvents: sanitizeRecentEvents(recentEvents),
     channels: channelsFor(event, safeIntensity)
   });
 }
@@ -264,7 +287,7 @@ export function createObservatoryRareEventsState() {
   });
 }
 
-function startEvent(eventId, { seed, cooldownSeconds }) {
+function startEvent(eventId, { seed, cooldownSeconds, recentEvents = [] }) {
   return makeState({
     mode: "active",
     event: eventId,
@@ -272,7 +295,8 @@ function startEvent(eventId, { seed, cooldownSeconds }) {
     intensity: 0,
     releaseFromIntensity: 0,
     cooldownSeconds,
-    seed
+    seed,
+    recentEvents
   });
 }
 
@@ -287,8 +311,23 @@ function beginRelease(previous, cooldownSeconds) {
     // toggling must not become a reroll lever.
     cooldownSeconds,
     seed: previous.seed,
+    recentEvents: previous.recentEvents,
     frozenProgress: previous.progress
   });
+}
+
+/**
+ * Anti-streak selection pool: exclude the recent-memory window, degrading to
+ * "just not the immediately previous event", then to the full pool, so small
+ * availability pools never starve.
+ */
+function selectionPoolFor(available, recentEvents) {
+  const recent = Array.isArray(recentEvents) ? recentEvents : [];
+  const withoutRecent = available.filter((id) => !recent.includes(id));
+  if (withoutRecent.length > 0) return withoutRecent;
+  const withoutPrevious = available.filter((id) => id !== recent[0]);
+  if (withoutPrevious.length > 0) return withoutPrevious;
+  return available;
 }
 
 /**
@@ -344,7 +383,8 @@ export function stepObservatoryRareEvents(
           intensity: 0,
           releaseFromIntensity: 0,
           cooldownSeconds: previous.cooldownSeconds,
-          seed: previous.seed
+          seed: previous.seed,
+          recentEvents: previous.recentEvents
         });
       }
       return makeState({
@@ -355,6 +395,7 @@ export function stepObservatoryRareEvents(
         releaseFromIntensity: previous.releaseFromIntensity,
         cooldownSeconds: previous.cooldownSeconds,
         seed: previous.seed,
+        recentEvents: previous.recentEvents,
         frozenProgress: previous.progress
       });
     }
@@ -368,7 +409,8 @@ export function stepObservatoryRareEvents(
         intensity: 0,
         releaseFromIntensity: 0,
         cooldownSeconds: Math.max(0, previous.cooldownSeconds - delta),
-        seed: previous.seed
+        seed: previous.seed,
+        recentEvents: previous.recentEvents
       });
     }
   }
@@ -386,6 +428,7 @@ export function stepObservatoryRareEvents(
         releaseFromIntensity: previous.releaseFromIntensity,
         cooldownSeconds: previous.cooldownSeconds,
         seed: previous.seed,
+        recentEvents: previous.recentEvents,
         frozenProgress: previous.progress
       });
     }
@@ -396,7 +439,8 @@ export function stepObservatoryRareEvents(
       intensity: 0,
       releaseFromIntensity: 0,
       cooldownSeconds: previous.cooldownSeconds,
-      seed: previous.seed
+      seed: previous.seed,
+      recentEvents: previous.recentEvents
     });
   }
 
@@ -411,7 +455,8 @@ export function stepObservatoryRareEvents(
         intensity: 0,
         releaseFromIntensity: 0,
         cooldownSeconds,
-        seed: previous.seed
+        seed: previous.seed,
+        recentEvents: previous.recentEvents
       });
     }
     return makeState({
@@ -424,16 +469,20 @@ export function stepObservatoryRareEvents(
       ),
       releaseFromIntensity: 0,
       cooldownSeconds: previous.cooldownSeconds,
-      seed: previous.seed
+      seed: previous.seed,
+      recentEvents: previous.recentEvents
     });
   }
 
   // Idle and eligible. A forced (QA) event uses a fixed seed so harness
-  // screenshots of a pinned event are reproducible across runs.
+  // screenshots of a pinned event are reproducible across runs; it bypasses
+  // the anti-streak memory (a pinned event must restart indefinitely) and
+  // leaves that memory untouched.
   if (forced) {
     return startEvent(forced, {
       seed: Number.isFinite(forcedSeed) ? forcedSeed : 0.5,
-      cooldownSeconds: 0
+      cooldownSeconds: 0,
+      recentEvents: previous.recentEvents
     });
   }
   const remainingCooldown = Math.max(0, previous.cooldownSeconds - delta);
@@ -445,17 +494,21 @@ export function stepObservatoryRareEvents(
       intensity: 0,
       releaseFromIntensity: 0,
       cooldownSeconds: remainingCooldown,
-      seed: previous.seed
+      seed: previous.seed,
+      recentEvents: previous.recentEvents
     });
   }
   if (random() < rareEventTriggerProbability(chancePerSecond, delta)) {
+    const pool = selectionPoolFor(available, previous.recentEvents);
     const index = Math.min(
-      available.length - 1,
-      Math.floor(random() * available.length)
+      pool.length - 1,
+      Math.floor(random() * pool.length)
     );
-    return startEvent(available[index], {
+    const eventId = pool[index];
+    return startEvent(eventId, {
       seed: random(),
-      cooldownSeconds: 0
+      cooldownSeconds: 0,
+      recentEvents: [eventId, ...(previous.recentEvents ?? [])]
     });
   }
   return makeState({
@@ -465,6 +518,7 @@ export function stepObservatoryRareEvents(
     intensity: 0,
     releaseFromIntensity: 0,
     cooldownSeconds: 0,
-    seed: previous.seed
+    seed: previous.seed,
+    recentEvents: previous.recentEvents
   });
 }

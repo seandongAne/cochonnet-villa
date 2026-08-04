@@ -2366,6 +2366,19 @@ export function MushroomObservatoryRuntime({
             + (resources.aperture?.visible ? 1 : 0),
           error: resources.nativeSkyError
         },
+        skyEvents: {
+          ready: Boolean(skyEventsVisual)
+            && skyEventsVisual.userData.disposed !== true,
+          disabled: resources.skyEventsDisabled,
+          error: resources.skyEventsError
+        },
+        rareEvents: {
+          mode: resources.rareEventsState?.mode ?? "idle",
+          event: resources.rareEventsState?.event ?? null,
+          intensity: resources.rareEventsState?.intensity ?? 0,
+          cooldownSeconds: resources.rareEventsState?.cooldownSeconds ?? 0,
+          availability: resources.rareEventAvailability ?? null
+        },
         hiddenEffects: {
           requestedRift: resources.requestedRift,
           requestedLens: resources.requestedLens,
@@ -2601,21 +2614,24 @@ export function MushroomObservatoryRuntime({
       && inLoft
       && !lightsOn
       && channels.brightStarReveal >= OBSERVATORY_RARE_EVENT_MIN_STAR_REVEAL;
+    // Stashed on resources so the QA snapshot can report exactly the pool the
+    // director saw this frame (a collapsed pool silently biases selection).
+    resources.rareEventAvailability = {
+      skyLayer: Boolean(skyEventsVisual)
+        && !skyEventsVisual.userData.disposed
+        && !resources.skyEventsDisabled,
+      nebula: Boolean(resources.portal && resources.nebula)
+        && qualityRef.current?.preset?.volumetricFbo === true,
+      blackHole: Boolean(resources.blackHole)
+        && !resources.blackHoleDisabled
+        && (qualityRef.current?.quality ?? "minimum") !== "minimum"
+    };
     resources.rareEventsState = stepObservatoryRareEvents(
       resources.rareEventsState,
       {
         deltaSeconds: frameDelta,
         eligible: rareEligible,
-        availability: {
-          skyLayer: Boolean(skyEventsVisual)
-            && !skyEventsVisual.userData.disposed
-            && !resources.skyEventsDisabled,
-          nebula: Boolean(resources.portal && resources.nebula)
-            && qualityRef.current?.preset?.volumetricFbo === true,
-          blackHole: Boolean(resources.blackHole)
-            && !resources.blackHoleDisabled
-            && (qualityRef.current?.quality ?? "minimum") !== "minimum"
-        },
+        availability: resources.rareEventAvailability,
         chancePerSecond: resources.rareEventChancePerSecond,
         forcedEvent: resources.forcedRareEvent,
         forcedSeed: resources.forcedRareEventSeed,

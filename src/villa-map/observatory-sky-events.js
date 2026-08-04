@@ -513,7 +513,10 @@ const BOLIDE_VERTEX_SHADER = /* glsl */ `
     vec3 side = normalize(cross(normalize(along + vec3(1e-5)), head));
 
     float width = mix(1.3, 1.6 + 3.4 * uProgress, isTrain);
-    float active = mix(
+    // "active" is a reserved word in GLSL ES — using it as an identifier
+    // fails shader compilation (ANGLE enforces this), which would fail-soft
+    // the entire sky-event layer.
+    float partGate = mix(
       1.0 - step(0.135, uProgress),
       step(0.03, uProgress),
       isTrain
@@ -522,7 +525,7 @@ const BOLIDE_VERTEX_SHADER = /* glsl */ `
     vec3 vertexPosition = (
       mix(tail, head, aCorner.x * 0.5 + 0.5) * uRadius
       + side * aCorner.y * width
-    ) * active;
+    ) * partGate;
     vUv = vec2(aCorner.x * 0.5 + 0.5, aCorner.y);
     vPart = isTrain;
     gl_Position = projectionMatrix * modelViewMatrix

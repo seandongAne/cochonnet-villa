@@ -37,24 +37,39 @@ export function PlayerControls({
   // The interaction currently in range — read by the E-key action handler.
   const nearestRef = useRef(null);
   const aimDirectionRef = useRef(new Vector3());
+  // The React callbacks are bridged through refs so the controls-creation
+  // effect below never re-runs on a mere callback-identity change. Recreating
+  // the explorer controls resets the camera to the world start position, so a
+  // remount here is a player-visible teleport — it must only ever happen when
+  // the camera/canvas/world themselves change.
+  const onLockChangeRef = useRef(onLockChange);
+  onLockChangeRef.current = onLockChange;
+  const onInteractionRef = useRef(onInteraction);
+  onInteractionRef.current = onInteraction;
+  const onToggleObservatoryLightsRef = useRef(onToggleObservatoryLights);
+  onToggleObservatoryLightsRef.current = onToggleObservatoryLights;
+  const onObservatoryHiddenActionRef = useRef(onObservatoryHiddenAction);
+  onObservatoryHiddenActionRef.current = onObservatoryHiddenAction;
+  const onOpenObservatoryJournalRef = useRef(onOpenObservatoryJournal);
+  onOpenObservatoryJournalRef.current = onOpenObservatoryJournal;
 
   useEffect(() => {
     const controls = createExplorerControls({
       camera,
       canvas: gl.domElement,
       world,
-      onLockChange,
+      onLockChange: (locked) => onLockChangeRef.current?.(locked),
       // E key: doors. If the hotspot in range carries a teleport action
       // (mushroom-house entry / exit), jump the player there facing the
       // direction the destination intends.
-      onAction: () => {
+      onAction: (event) => {
         const target = nearestRef.current;
         if (target?.action?.type === "toggle-observatory-lights") {
-          onToggleObservatoryLights?.();
+          onToggleObservatoryLightsRef.current?.();
           return;
         }
         if (target?.action?.type === OBSERVATORY_EVENT_JOURNAL_ACTION_TYPE) {
-          onOpenObservatoryJournal?.();
+          onOpenObservatoryJournalRef.current?.(event);
           return;
         }
         const destination = target?.action?.teleport;
@@ -64,7 +79,7 @@ export function PlayerControls({
         controlsRef.current.teleport(destination, destination.yaw ?? 0);
         nearestRef.current = null;
         activeId.current = "";
-        onInteraction(null);
+        onInteractionRef.current?.(null);
       },
       // R/F are deliberately hidden: there is no proximity-only shortcut.
       // They work exclusively on L3 when the camera ray passes through the
@@ -90,7 +105,7 @@ export function PlayerControls({
           return;
         }
 
-        onObservatoryHiddenAction?.(action);
+        onObservatoryHiddenActionRef.current?.(action);
       }
     });
     controlsRef.current = controls;
@@ -110,18 +125,7 @@ export function PlayerControls({
       }
       controlsRef.current = null;
     };
-  }, [
-    camera,
-    gl,
-    world,
-    lockRef,
-    wantLockRef,
-    onLockChange,
-    onInteraction,
-    onToggleObservatoryLights,
-    onObservatoryHiddenAction,
-    onOpenObservatoryJournal
-  ]);
+  }, [camera, gl, world, lockRef, wantLockRef]);
 
   useEffect(() => {
     controlsRef.current?.setEnabled(!suspended);

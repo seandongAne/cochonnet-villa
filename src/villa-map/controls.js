@@ -84,7 +84,12 @@ export function createExplorerControls({
     }
 
     if (event.code === "KeyE" && !event.repeat && (isLocked || hasStarted)) {
-      onAction?.();
+      // The event travels with the action so a modal-opening handler can
+      // stopPropagation(): this listener sits on `document`, and without it
+      // the same in-flight keydown would continue to window-level listeners
+      // registered during React's microtask flush — closing the modal it
+      // just opened within one physical keypress.
+      onAction?.(event);
       return;
     }
 

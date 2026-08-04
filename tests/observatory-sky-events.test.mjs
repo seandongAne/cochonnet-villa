@@ -311,3 +311,35 @@ test("dispose is idempotent and updates after dispose are safe no-ops", () => {
     false
   );
 });
+
+test("no shader declares a GLSL reserved word as an identifier", async () => {
+  // "float active = …" in the bolide vertex shader compiled nowhere: `active`
+  // is reserved in GLSL ES, ANGLE rejects the program, and the runtime's
+  // fail-soft classifier then disables the ENTIRE sky-event layer — silently
+  // collapsing the rare-event pool to 星云增强/黑洞凌日 for the whole session
+  // (the field symptom: 黑洞凌日 repeating back-to-back). Node tests cannot
+  // compile GLSL, so pin the source instead: no shader-capable module may
+  // declare a variable whose name is reserved in GLSL ES 1.00/3.00.
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const dir = fileURLToPath(new URL("../src/villa-map/", import.meta.url));
+  const reserved = new RegExp(
+    String.raw`\b(?:float|int|uint|bool|[iub]?vec[234]|mat[234](?:x[234])?)\s+` +
+    String.raw`(active|asm|cast|class|common|enum|extern|external|filter|` +
+    String.raw`fixed|goto|half|inline|input|interface|long|namespace|` +
+    String.raw`noinline|output|packed|partition|public|resource|sample|` +
+    String.raw`short|sizeof|static|superp|template|this|typedef|union|` +
+    String.raw`unsigned|using|volatile)\b`,
+    "g"
+  );
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".js")) continue;
+    const source = readFileSync(`${dir}${file}`, "utf8");
+    const hits = [...source.matchAll(reserved)].map((match) => match[1]);
+    assert.deepEqual(
+      hits,
+      [],
+      `${file} declares GLSL-reserved identifier(s): ${hits.join(", ")}`
+    );
+  }
+});

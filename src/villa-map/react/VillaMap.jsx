@@ -115,6 +115,15 @@ export default function VillaMap() {
   );
 
   const [exploring, setExploring] = useState(false);
+  // Mirror of `exploring` for identity-stable callbacks (the modal openers
+  // read it when deciding whether to resume pointer lock on close). Depending
+  // on the state directly would change those callbacks' identity on every
+  // lock/unlock, and anything keyed on them would churn with it.
+  const exploringRef = useRef(false);
+  const handleLockChange = useCallback((value) => {
+    exploringRef.current = Boolean(value);
+    setExploring(Boolean(value));
+  }, []);
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState(null);
   const [qualityPanelOpen, setQualityPanelOpen] = useState(false);
@@ -249,7 +258,7 @@ export default function VillaMap() {
   const wantLockRef = useRef(false);
 
   const openQualityPanel = useCallback(() => {
-    qualityPanelResumeRef.current = exploring
+    qualityPanelResumeRef.current = exploringRef.current
       || lockRef.current?.isLocked === true;
     lockRef.current?.setEnabled(false);
     try {
@@ -259,7 +268,7 @@ export default function VillaMap() {
       // still paused and the visible-cursor drag fallback remains safe.
     }
     setQualityPanelOpen(true);
-  }, [exploring]);
+  }, []);
 
   const closeQualityPanel = useCallback(() => {
     const controls = lockRef.current;
@@ -272,8 +281,15 @@ export default function VillaMap() {
 
   // The wall book follows the Q panel's modal discipline: opening releases
   // Pointer Lock and suspends movement; closing resumes the prior session.
-  const openObservatoryJournal = useCallback(() => {
-    observatoryJournalResumeRef.current = exploring
+  const openObservatoryJournal = useCallback((event) => {
+    // The opening E keydown comes from the controls' document-level listener,
+    // while the book's close listener lives on window. React flushes the
+    // open state (and registers that close listener) in a microtask *between*
+    // the two targets of the same in-flight event — without consuming the
+    // keystroke here, one physical E press would open the book and instantly
+    // close it again.
+    event?.stopPropagation?.();
+    observatoryJournalResumeRef.current = exploringRef.current
       || lockRef.current?.isLocked === true;
     lockRef.current?.setEnabled(false);
     try {
@@ -282,7 +298,7 @@ export default function VillaMap() {
       // Embedded browsers may reject Pointer Lock APIs; controls stay paused.
     }
     setObservatoryJournalOpen(true);
-  }, [exploring]);
+  }, []);
 
   const closeObservatoryJournal = useCallback(() => {
     const controls = lockRef.current;
@@ -494,7 +510,7 @@ export default function VillaMap() {
                 world={world}
                 lockRef={lockRef}
                 wantLockRef={wantLockRef}
-                onLockChange={setExploring}
+                onLockChange={handleLockChange}
                 onInteraction={setInteraction}
                 onToggleObservatoryLights={toggleObservatoryLights}
                 onObservatoryHiddenAction={handleObservatoryHiddenAction}
@@ -516,7 +532,7 @@ export default function VillaMap() {
             world={world}
             lockRef={lockRef}
             wantLockRef={wantLockRef}
-            onLockChange={setExploring}
+            onLockChange={handleLockChange}
             onInteraction={setInteraction}
             onToggleObservatoryLights={toggleObservatoryLights}
             onObservatoryHiddenAction={handleObservatoryHiddenAction}
@@ -560,7 +576,8 @@ export default function VillaMap() {
       {!editMode
         && !observatoryDiagnosticsMode
         && !exploring
-        && !qualityPanelOpen && (
+        && !qualityPanelOpen
+        && !observatoryJournalOpen && (
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>

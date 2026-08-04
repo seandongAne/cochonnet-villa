@@ -6,6 +6,7 @@ import {
   OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
   OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS,
   OBSERVATORY_RARE_EVENT_IDS,
+  OBSERVATORY_RARE_EVENT_RECENT_MEMORY,
   OBSERVATORY_RARE_EVENT_RELEASE_SECONDS,
   OBSERVATORY_RARE_EVENTS,
   rareEventEnvelope,
@@ -380,4 +381,181 @@ test("states are frozen and expose the full channel set", () => {
     OBSERVATORY_RARE_EVENT_IDS.length,
     "every event must own a distinct channel"
   );
+});
+
+// ---- Anti-streak pseudo-random selection ----------------------------------
+
+/** Run the active event to completion, then burn through the cooldown. */
+function completeAndCoolDown(state, availability = ALL_AVAILABLE) {
+  let next = stepObservatoryRareEvents(state, {
+    deltaSeconds: state.durationSeconds + 1,
+    eligible: true,
+    availability,
+    random: () => 0.999
+  });
+  next = stepObservatoryRareEvents(next, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS + 1,
+    eligible: true,
+    availability,
+    random: () => 0.999
+  });
+  assert.equal(next.mode, "idle");
+  assert.equal(next.cooldownSeconds, 0);
+  return next;
+}
+
+function startNext(state, selection, availability = ALL_AVAILABLE) {
+  const next = stepObservatoryRareEvents(state, {
+    deltaSeconds: 1,
+    eligible: true,
+    availability,
+    random: sequenceRandom([0, selection, 0.5])
+  });
+  assert.equal(next.mode, "active");
+  return next;
+}
+
+test("selection remembers the last started events and never repeats them back-to-back", () => {
+  assert.equal(OBSERVATORY_RARE_EVENT_RECENT_MEMORY, 2);
+
+  // Selection index 0 would re-pick the same first event every time under
+  // plain uniform selection; the recency window must steer it onward.
+  let state = startNext(createObservatoryRareEventsState(), 0);
+  const first = state.event;
+  assert.deepEqual(state.recentEvents, [first]);
+
+  state = startNext(completeAndCoolDown(state), 0);
+  const second = state.event;
+  assert.notEqual(second, first);
+  assert.deepEqual(state.recentEvents, [second, first]);
+
+  state = startNext(completeAndCoolDown(state), 0);
+  const third = state.event;
+  assert.ok(![first, second].includes(third));
+  assert.deepEqual(
+    state.recentEvents,
+    [third, second],
+    "the memory holds only the last two started events"
+  );
+
+  // With [third, second] excluded, index 0 may legally return to `first`.
+  state = startNext(completeAndCoolDown(state), 0);
+  assert.equal(state.event, first);
+});
+
+test("long random runs contain no immediate repeats while the pool is healthy", () => {
+  // Small deterministic LCG so the run is reproducible.
+  let lcg = 42;
+  const rng = () => {
+    lcg = (lcg * 1664525 + 1013904223) % 4294967296;
+    return lcg / 4294967296;
+  };
+  let state = createObservatoryRareEventsState();
+  let previousEvent = null;
+  const started = [];
+  for (let i = 0; i < 60; i += 1) {
+    state = stepObservatoryRareEvents(state, {
+      deltaSeconds: 1,
+      eligible: true,
+      availability: ALL_AVAILABLE,
+      random: sequenceRandom([0, rng(), rng()])
+    });
+    assert.equal(state.mode, "active");
+    if (previousEvent !== null) {
+      assert.notEqual(
+        state.event,
+        previousEvent,
+        "two consecutive occurrences must never be the same event"
+      );
+    }
+    started.push(state.event);
+    previousEvent = state.event;
+    state = completeAndCoolDown(state);
+  }
+  assert.ok(
+    new Set(started).size >= 10,
+    "a 60-event run should still visit most of the 13-event pool"
+  );
+});
+
+test("a two-event pool alternates and a single-event pool may repeat", () => {
+  const twoAvailable = Object.freeze({
+    skyLayer: false,
+    nebula: true,
+    blackHole: true
+  });
+  let state = startNext(
+    createObservatoryRareEventsState(),
+    0.9,
+    twoAvailable
+  );
+  const sequence = [state.event];
+  for (let i = 0; i < 4; i += 1) {
+    state = startNext(
+      completeAndCoolDown(state, twoAvailable),
+      0.9,
+      twoAvailable
+    );
+    sequence.push(state.event);
+  }
+  for (let i = 1; i < sequence.length; i += 1) {
+    assert.notEqual(
+      sequence[i],
+      sequence[i - 1],
+      "a two-event pool must alternate rather than streak"
+    );
+  }
+
+  // A fully collapsed pool (only the transit renderable) is allowed to
+  // repeat — starving every event would be worse than a streak.
+  const onlyTransit = Object.freeze({
+    skyLayer: false,
+    nebula: false,
+    blackHole: true
+  });
+  let collapsed = startNext(
+    createObservatoryRareEventsState(),
+    0.5,
+    onlyTransit
+  );
+  assert.equal(collapsed.event, "black-hole-transit");
+  collapsed = startNext(
+    completeAndCoolDown(collapsed, onlyTransit),
+    0.5,
+    onlyTransit
+  );
+  assert.equal(collapsed.event, "black-hole-transit");
+});
+
+test("recency memory survives idle, release and ineligible stretches", () => {
+  let state = startNext(createObservatoryRareEventsState(), 0);
+  const first = state.event;
+
+  // Cancel mid-event (lights back on) → release → idle while ineligible.
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: 1 / 60,
+    eligible: false,
+    availability: ALL_AVAILABLE,
+    random: () => 0.999
+  });
+  assert.equal(state.mode, "release");
+  assert.deepEqual(state.recentEvents, [first]);
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_RELEASE_SECONDS + 1,
+    eligible: false,
+    availability: ALL_AVAILABLE,
+    random: () => 0.999
+  });
+  assert.equal(state.mode, "idle");
+  assert.deepEqual(state.recentEvents, [first]);
+
+  // Cooldown out, then the next start still avoids the cancelled event.
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS + 1,
+    eligible: true,
+    availability: ALL_AVAILABLE,
+    random: () => 0.999
+  });
+  state = startNext(state, 0);
+  assert.notEqual(state.event, first);
 });

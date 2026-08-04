@@ -31,8 +31,8 @@ test("the observatory starts with house lights on and E toggles them", () => {
     controls,
     /target\?\.action\?\.type === "toggle-observatory-lights"/
   );
-  assert.match(controls, /onToggleObservatoryLights\?\.\(\)/);
-  assert.match(controls, /onObservatoryHiddenAction\?\.\(action\)/);
+  assert.match(controls, /onToggleObservatoryLightsRef\.current\?\.\(\)/);
+  assert.match(controls, /onObservatoryHiddenActionRef\.current\?\.\(action\)/);
 });
 
 test("the HUD explains both switch states", () => {

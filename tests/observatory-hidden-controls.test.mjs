@@ -244,5 +244,13 @@ test("PlayerControls gates R/F on the L3 physical switch before exposing one cal
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID/);
   assert.match(source, /camera\.getWorldDirection\(aimDirectionRef\.current\)/);
   assert.match(source, /isInteractionTargeted\(/);
-  assert.match(source, /onObservatoryHiddenAction\?\.\(action\)/);
+  // The hidden action reaches React through the ref bridge: the controls
+  // factory must never be recreated (and the camera never reset) just
+  // because a callback identity changed.
+  assert.match(source, /onObservatoryHiddenActionRef\.current\?\.\(action\)/);
+  assert.match(
+    source,
+    /\}, \[camera, gl, world, lockRef, wantLockRef\]\);/,
+    "the controls-creation effect must depend only on stable inputs — a re-run teleports the player to the world start"
+  );
 });

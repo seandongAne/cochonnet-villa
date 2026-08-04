@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   countObservatoryEventSightings,
@@ -115,4 +117,38 @@ test("the wall book exists: L3 interaction zone + physical shelf and book", () =
     Math.hypot(dx, dz) < 2.5,
     "interaction zone must anchor at the shelf"
   );
+});
+
+function readVillaMapSource(file) {
+  return readFileSync(
+    fileURLToPath(new URL(`../src/villa-map/${file}`, import.meta.url)),
+    "utf8"
+  );
+}
+
+test("one E press opens the book without instantly closing it or teleporting the player", () => {
+  const controls = readVillaMapSource("controls.js");
+  const playerControls = readVillaMapSource("react/PlayerControls.jsx");
+  const villaMap = readVillaMapSource("react/VillaMap.jsx");
+
+  // The keydown travels with the action: controls.js listens on `document`,
+  // the book's close listener on `window`, and React registers the latter in
+  // a microtask between the two targets of the same in-flight event. The
+  // opening handler must therefore be able to consume the keystroke.
+  assert.match(controls, /onAction\?\.\(event\)/);
+  assert.match(playerControls, /onOpenObservatoryJournalRef\.current\?\.\(event\)/);
+  assert.match(villaMap, /const openObservatoryJournal = useCallback\(\(event\) => \{/);
+  assert.match(villaMap, /event\?\.stopPropagation\?\.\(\);/);
+
+  // Identity-stable opener: it must not churn with `exploring`, because any
+  // consumer keyed on it (historically the controls-creation effect, which
+  // resets the camera to the world start) would re-run mid-session.
+  assert.match(villaMap, /observatoryJournalResumeRef\.current = exploringRef\.current/);
+
+  // While the book is open the fullscreen start overlay stays away and the
+  // movement bridge is suspended; closing resumes the prior session.
+  assert.match(villaMap, /&& !observatoryJournalOpen && \(\s*<section className="villa-map-overlay"/);
+  assert.match(villaMap, /suspended=\{qualityPanelOpen \|\| observatoryJournalOpen\}/);
+  assert.match(villaMap, /const closeObservatoryJournal = useCallback\(\(\) => \{/);
+  assert.match(villaMap, /if \(shouldResume\) controls\?\.lock\(\);/);
 });
