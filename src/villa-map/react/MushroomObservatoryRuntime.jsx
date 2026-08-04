@@ -126,6 +126,20 @@ import {
   MUSHROOM_STAR_TEXTURE_URL
 } from "../mushroom-interior.js";
 import {
+  createObservatoryRareEventsState,
+  OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
+  OBSERVATORY_RARE_EVENT_IDS,
+  OBSERVATORY_RARE_EVENT_MIN_STAR_REVEAL,
+  stepObservatoryRareEvents
+} from "../observatory-events.js";
+import {
+  disposeObservatorySkyEventsVisual,
+  OBSERVATORY_KILONOVA_NAME,
+  OBSERVATORY_SUPERNOVA_NAME,
+  OBSERVATORY_UFO_NAME,
+  updateObservatorySkyEventsVisual
+} from "../observatory-sky-events.js";
+import {
   createObservatoryRiftState,
   stepObservatoryRift
 } from "../observatory-rift.js";
@@ -153,6 +167,11 @@ const PORTAL_REVEAL_EPSILON = 0.001;
 // emission prevents the aperture becoming a luminous lavender screen.
 const NEBULA_EMISSION_STRENGTH = 0.04;
 const NEBULA_EXTINCTION_STRENGTH = 0.9;
+// 星云增强: the rare-event surge multiplies Portal emission (and slightly
+// lifts reveal) without touching the ray-march step count, so its cost is
+// identical to the ordinary nebula frame.
+const NEBULA_SURGE_EMISSION_GAIN = 2.2;
+const NEBULA_SURGE_REVEAL_GAIN = 0.45;
 const BASE_IMAGE_COMPARISON_BRIGHTNESS = 0.46;
 const LENS_REVEAL_DAMPING = 2.25;
 const LENS_HIDE_DAMPING = 4.8;
@@ -235,7 +254,22 @@ const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   ["mushroom-observatory-black-hole-photon-ring-material-2", "black-hole"],
   ["mushroom-observatory-black-hole-disk-material-1", "black-hole"],
   ["mushroom-observatory-black-hole-disk-material-2", "black-hole"],
-  ["mushroom-observatory-black-hole-disk-material-3", "black-hole"]
+  ["mushroom-observatory-black-hole-disk-material-3", "black-hole"],
+  // Rare-event sky layers fail soft as one unit: a broken event shader
+  // removes the 11 sky-rendered events from the availability pool while the
+  // surge/transit (which render through other systems) stay possible.
+  ["mushroom-observatory-meteor-material", "sky-events"],
+  ["mushroom-observatory-comet-material", "sky-events"],
+  [`${OBSERVATORY_SUPERNOVA_NAME}-material`, "sky-events"],
+  ["mushroom-observatory-bolide-material", "sky-events"],
+  ["mushroom-observatory-satellite-material", "sky-events"],
+  ["mushroom-observatory-planet-material", "sky-events"],
+  ["mushroom-observatory-aurora-material", "sky-events"],
+  ["mushroom-observatory-constellation-line-material", "sky-events"],
+  ["mushroom-observatory-constellation-star-material", "sky-events"],
+  ["mushroom-observatory-moon-material", "sky-events"],
+  [`${OBSERVATORY_KILONOVA_NAME}-material`, "sky-events"],
+  [`${OBSERVATORY_UFO_NAME}-material`, "sky-events"]
 ]);
 
 function hasRelativisticLensLuts(resources) {
@@ -506,10 +540,12 @@ export function MushroomObservatoryRuntime({
   lightsOn,
   adaptationRef,
   riftVisual,
+  skyEventsVisual = null,
   riftOpen = false,
   lensActive = false,
   audioFrameRef,
   onHiddenEffectsReset,
+  onRareEventChange,
   qualityPreference = "auto",
   onQualityStatusChange
 }) {
@@ -532,6 +568,8 @@ export function MushroomObservatoryRuntime({
   const updateKerrLensRef = useRef(null);
   const onQualityStatusChangeRef = useRef(onQualityStatusChange);
   onQualityStatusChangeRef.current = onQualityStatusChange;
+  const onRareEventChangeRef = useRef(onRareEventChange);
+  onRareEventChangeRef.current = onRareEventChange;
 
   useEffect(() => {
     let mounted = true;
@@ -547,6 +585,24 @@ export function MushroomObservatoryRuntime({
     const motionOverride = diagnosticsMode ? search.get("motion") : null;
     const requestedQuality = diagnosticsMode ? search.get("quality") : null;
     const requestedSkyMode = diagnosticsMode ? search.get("sky") : null;
+    // Rare celestial events: ordinary visits roll the configured per-second
+    // hazard; the QA harness stays deterministic (chance 0) and instead pins
+    // one event via `event=` (aimed with `eventseed=`) so screenshots and
+    // perf runs can exercise each phenomenon.
+    const requestedRareEvent = diagnosticsMode ? search.get("event") : null;
+    const forcedRareEvent = OBSERVATORY_RARE_EVENT_IDS.includes(
+      requestedRareEvent
+    )
+      ? requestedRareEvent
+      : null;
+    // Optional companion to `event=`: aim the pinned occurrence (its sky
+    // position/path derive from this seed) at a chosen harness camera.
+    const requestedRareEventSeed = diagnosticsMode
+      ? Number.parseFloat(search.get("eventseed") ?? "")
+      : Number.NaN;
+    const forcedRareEventSeed = Number.isFinite(requestedRareEventSeed)
+      ? Math.min(0.999, Math.max(0, requestedRareEventSeed))
+      : 0.5;
     const qualityOverride = ["high", "medium", "low", "minimum"].includes(
       requestedQuality
     )
@@ -624,6 +680,15 @@ export function MushroomObservatoryRuntime({
       framebufferChecked: false,
       forceUnsignedByte: false,
       hiddenCosmosLoadRequested: false,
+      rareEventsState: createObservatoryRareEventsState(),
+      rareEventChancePerSecond: diagnosticsMode
+        ? 0
+        : OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
+      forcedRareEvent,
+      forcedRareEventSeed,
+      lastReportedRareEvent: null,
+      skyEventsDisabled: false,
+      skyEventsError: null,
       blackHole: null,
       blackHolePass: null,
       blackHoleForceUnsignedByte: false,
@@ -732,6 +797,9 @@ export function MushroomObservatoryRuntime({
     resourcesRef.current = resources;
     sky.userData.lifecycleToken = lifecycleToken;
     if (riftVisual) riftVisual.userData.lifecycleToken = lifecycleToken;
+    if (skyEventsVisual) {
+      skyEventsVisual.userData.lifecycleToken = lifecycleToken;
+    }
 
     const cancelTexturePreupload = () => {
       if (textureIdleHandle === null) return;
@@ -1497,6 +1565,15 @@ export function MushroomObservatoryRuntime({
         resources.starVolumePrewarmed = false;
         if (resources.starVolume) {
           setObservatoryStarVolumeVisible(resources.starVolume, false);
+        }
+        return;
+      }
+      if (error?.observatoryShaderFailure === "sky-events") {
+        resources.skyEventsDisabled = true;
+        resources.skyEventsError = message;
+        if (skyEventsVisual) {
+          skyEventsVisual.visible = false;
+          disposeObservatorySkyEventsVisual(skyEventsVisual);
         }
         return;
       }
@@ -2406,6 +2483,9 @@ export function MushroomObservatoryRuntime({
         if (riftVisual?.userData.lifecycleToken === lifecycleToken) {
           disposeObservatoryRiftVisual(riftVisual);
         }
+        if (skyEventsVisual?.userData.lifecycleToken === lifecycleToken) {
+          disposeObservatorySkyEventsVisual(skyEventsVisual);
+        }
       });
     };
     // `lightsOn` is intentionally consumed by the frame director, not this
@@ -2420,7 +2500,8 @@ export function MushroomObservatoryRuntime({
     interior,
     riftVisual,
     scene,
-    sky
+    sky,
+    skyEventsVisual
   ]);
 
   // Player-facing quality changes update the live allocation/LOD policy in
@@ -2510,6 +2591,51 @@ export function MushroomObservatoryRuntime({
       && !resources.skyDisabled
       && !baseImageComparison
       && hiddenSkyAvailable;
+
+    // Rare celestial events (流星雨 / 彗星 / 星云增强 / 黑洞凌日). The director
+    // is stepped here — inside the single -1 frame owner — so it shares the
+    // adaptation timing source and can never tick while unmounted. Eligibility
+    // requires genuine stargazing: dark loft, renderable sky, stars actually
+    // out. Every infrastructure failure or relight cancels via the same gate.
+    const rareEligible = hiddenEffectsRenderable
+      && inLoft
+      && !lightsOn
+      && channels.brightStarReveal >= OBSERVATORY_RARE_EVENT_MIN_STAR_REVEAL;
+    resources.rareEventsState = stepObservatoryRareEvents(
+      resources.rareEventsState,
+      {
+        deltaSeconds: frameDelta,
+        eligible: rareEligible,
+        availability: {
+          skyLayer: Boolean(skyEventsVisual)
+            && !skyEventsVisual.userData.disposed
+            && !resources.skyEventsDisabled,
+          nebula: Boolean(resources.portal && resources.nebula)
+            && qualityRef.current?.preset?.volumetricFbo === true,
+          blackHole: Boolean(resources.blackHole)
+            && !resources.blackHoleDisabled
+            && (qualityRef.current?.quality ?? "minimum") !== "minimum"
+        },
+        chancePerSecond: resources.rareEventChancePerSecond,
+        forcedEvent: resources.forcedRareEvent,
+        forcedSeed: resources.forcedRareEventSeed,
+        random: Math.random
+      }
+    );
+    const rareEvents = resources.rareEventsState;
+    const rareChannels = rareEvents.channels;
+    // The HUD caption and the journal sighting both wait for the envelope to
+    // genuinely open (≥ 0.5): a relight one second in never records an event
+    // the player could not actually have seen.
+    const rareEventForHud = rareEvents.mode === "active"
+      && rareEvents.intensity >= 0.5
+      ? rareEvents.event
+      : null;
+    if (rareEventForHud !== resources.lastReportedRareEvent) {
+      resources.lastReportedRareEvent = rareEventForHud;
+      onRareEventChangeRef.current?.(rareEventForHud);
+    }
+
     let nativeLensAmount = 0;
     if (!hiddenEffectsRenderable) {
       // Infrastructure failures and the QA base-image comparison fail closed
@@ -2533,7 +2659,13 @@ export function MushroomObservatoryRuntime({
         });
       }
 
-      const lensTarget = inLoft && !lightsOn && lensActive ? 1 : 0;
+      // 黑洞凌日 reuses the entire hidden-F lens pipeline: the event envelope
+      // feeds the same damped reveal target, so the transit inherits the Kerr
+      // → Schwarzschild → analytic fail-soft ladder, the FBO pass and the
+      // audio layer without any second code path.
+      const lensTarget = inLoft && !lightsOn
+        ? Math.max(lensActive ? 1 : 0, rareChannels.blackHole)
+        : 0;
       resources.lensAmount = THREE.MathUtils.damp(
         resources.lensAmount,
         lensTarget,
@@ -2711,11 +2843,32 @@ export function MushroomObservatoryRuntime({
       reducedMotion: adaptation.celestialMotionScale === 0,
       aperture: resources.aperture,
       backdropReveal: channels.portalReveal,
-      starReveal: baseImageComparison ? 0 : channels.brightStarReveal,
+      // A transiting moon washes out the fainter half of the hero stars —
+      // the honest dark-adaptation cost of moonlight.
+      starReveal: baseImageComparison
+        ? 0
+        : channels.brightStarReveal * (1 - rareChannels.moon * 0.35),
       forceActive,
       activeEnabled: celestialVisible
     });
     if (!skyIsActive && riftVisual) riftVisual.visible = false;
+
+    if (skyEventsVisual) {
+      const skyEventsActive = skyIsActive && !baseImageComparison;
+      updateObservatorySkyEventsVisual(skyEventsVisual, {
+        timeSeconds: sky.userData.elapsed ?? 0,
+        channels: skyEventsActive ? rareChannels : null,
+        progress: rareEvents.progress,
+        seed: rareEvents.seed,
+        motionScale: adaptation.celestialMotionScale,
+        // Event layers live among the stars; scaling by the star reveal
+        // keeps a cancelled event from outliving the relighting sky.
+        intensityScale: Math.max(
+          channels.brightStarReveal,
+          channels.faintStarReveal
+        )
+      });
+    }
 
     if (resources.dome) {
       resources.dome.visible = skyIsActive ? false : resources.domeWasVisible;
@@ -2733,7 +2886,12 @@ export function MushroomObservatoryRuntime({
         && skyIsActive
         && channels.faintStarReveal > 0.001;
       setGaiaStarPixelRatio(resources.gaia, gl.getPixelRatio());
-      setGaiaStarReveal(resources.gaia, channels.faintStarReveal);
+      // Moonlight suppresses the faint Gaia field hardest, exactly like a
+      // real bright-moon night.
+      setGaiaStarReveal(
+        resources.gaia,
+        channels.faintStarReveal * (1 - rareChannels.moon * 0.8)
+      );
       setGaiaStarLens(resources.gaia, {
         amount: nativeLensAmount,
         direction: resources.lensDirection,
@@ -2937,6 +3095,10 @@ export function MushroomObservatoryRuntime({
       audioFrame.riftState = resources.riftState;
       audioFrame.lensAmount = resources.lensAmount;
       audioFrame.blackHoleReveal = blackHoleReveal;
+      // The transit already sounds through lensAmount; the id/intensity let a
+      // future audio layer give meteors or the surge their own voice.
+      audioFrame.rareEvent = rareEvents.event;
+      audioFrame.rareEventIntensity = rareEvents.intensity;
       audioFrame.lensAngularScale = resources.lensAngularScale;
       audioFrame.quality = hiddenQuality;
       audioFrame.reducedMotion = resources.reducedMotion;
@@ -2971,8 +3133,13 @@ export function MushroomObservatoryRuntime({
     resources.portalLensVisible = resources.lensAmount > 0
       && projectObservatoryPortalLens(camera, LENS_WORLD_POSITION, lensScreenScratch);
     updateObservatoryPortalComposite(portal.composite, {
-      reveal: channels.nebulaReveal,
-      emissionStrength: NEBULA_EMISSION_STRENGTH,
+      reveal: Math.min(
+        1,
+        channels.nebulaReveal
+          * (1 + rareChannels.nebulaBoost * NEBULA_SURGE_REVEAL_GAIN)
+      ),
+      emissionStrength: NEBULA_EMISSION_STRENGTH
+        * (1 + rareChannels.nebulaBoost * NEBULA_SURGE_EMISSION_GAIN),
       extinctionStrength: NEBULA_EXTINCTION_STRENGTH,
       lensAmount: resources.portalLensVisible ? resources.lensAmount : 0,
       lensCenter: lensScreenScratch,

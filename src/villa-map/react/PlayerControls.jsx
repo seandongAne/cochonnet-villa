@@ -11,6 +11,9 @@ import { MUSHROOM_FLOOR_Y_RANGES } from "../mushroom-interior-config.js";
 import {
   MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID
 } from "../mushroom-interior.js";
+import {
+  OBSERVATORY_EVENT_JOURNAL_ACTION_TYPE
+} from "../observatory-event-journal.js";
 
 // Bridges the framework-agnostic WASD/pointer-lock controls (controls.js) and
 // the proximity HUD logic (interaction.js) into the R3F render loop. Both
@@ -24,6 +27,7 @@ export function PlayerControls({
   onInteraction,
   onToggleObservatoryLights,
   onObservatoryHiddenAction,
+  onOpenObservatoryJournal,
   suspended = false
 }) {
   const camera = useThree((state) => state.camera);
@@ -47,6 +51,10 @@ export function PlayerControls({
         const target = nearestRef.current;
         if (target?.action?.type === "toggle-observatory-lights") {
           onToggleObservatoryLights?.();
+          return;
+        }
+        if (target?.action?.type === OBSERVATORY_EVENT_JOURNAL_ACTION_TYPE) {
+          onOpenObservatoryJournal?.();
           return;
         }
         const destination = target?.action?.teleport;
@@ -111,7 +119,8 @@ export function PlayerControls({
     onLockChange,
     onInteraction,
     onToggleObservatoryLights,
-    onObservatoryHiddenAction
+    onObservatoryHiddenAction,
+    onOpenObservatoryJournal
   ]);
 
   useEffect(() => {

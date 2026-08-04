@@ -63,11 +63,16 @@ test("lighting falls before a smooth sky reveal and keeps faint red guides", () 
   assert.match(source, /MUSHROOM_OBSERVATORY_EXPOSURE \* 0\.34/);
   assert.match(runtime, /stepObservatoryAdaptation/);
   assert.match(runtime, /backdropReveal: channels\.portalReveal/);
+  // Hero and Gaia star channels stay adaptation-driven; the rare moon
+  // transit legitimately multiplies in a moonlight wash-out factor.
   assert.match(
     runtime,
-    /starReveal:\s*baseImageComparison \? 0 : channels\.brightStarReveal/
+    /starReveal:\s*baseImageComparison\s*\?\s*0\s*:\s*channels\.brightStarReveal\s*\*\s*\(1 - rareChannels\.moon \* 0\.35\)/
   );
-  assert.match(runtime, /setGaiaStarReveal\(resources\.gaia, channels\.faintStarReveal\)/);
+  assert.match(
+    runtime,
+    /setGaiaStarReveal\(\s*resources\.gaia,\s*channels\.faintStarReveal\s*\*\s*\(1 - rareChannels\.moon \* 0\.8\)\s*\)/
+  );
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_LEVER_NAME/);
   assert.match(source, /MUSHROOM_OBSERVATORY_SWITCH_LED_NAME/);
 

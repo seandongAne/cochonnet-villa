@@ -30,6 +30,7 @@ const WALL_IDS = [
   "m3-east-picture",
   "m3-east-picture-small",
   "m3-east-shelf",
+  "m3-journal-shelf",
   "m3-south-picture",
   "m3-south-shelf",
   "m3-vanity-mirror"

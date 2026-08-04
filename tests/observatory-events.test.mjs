@@ -1,0 +1,383 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import {
+  createObservatoryRareEventsState,
+  OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
+  OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS,
+  OBSERVATORY_RARE_EVENT_IDS,
+  OBSERVATORY_RARE_EVENT_RELEASE_SECONDS,
+  OBSERVATORY_RARE_EVENTS,
+  rareEventEnvelope,
+  rareEventTriggerProbability,
+  stepObservatoryRareEvents
+} from "../src/villa-map/observatory-events.js";
+
+const ALL_AVAILABLE = Object.freeze({
+  skyLayer: true,
+  nebula: true,
+  blackHole: true
+});
+
+function sequenceRandom(values) {
+  let index = 0;
+  return () => {
+    const value = values[Math.min(index, values.length - 1)];
+    index += 1;
+    return value;
+  };
+}
+
+function stepDark(state, overrides = {}) {
+  return stepObservatoryRareEvents(state, {
+    deltaSeconds: 1 / 60,
+    eligible: true,
+    availability: ALL_AVAILABLE,
+    random: () => 0.999,
+    ...overrides
+  });
+}
+
+test("the per-second chance is exactly 3% and frame-rate independent", () => {
+  assert.equal(OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND, 0.03);
+  assert.ok(
+    Math.abs(rareEventTriggerProbability(0.03, 1) - 0.03) < 1e-12,
+    "one whole second must carry exactly the configured hazard"
+  );
+
+  // Composing 60 small frames must equal one big frame over the same span:
+  // survival probabilities multiply, (1-p)^(1/60*60) === (1-p)^1.
+  const dt = 1 / 60;
+  const perFrame = rareEventTriggerProbability(0.03, dt);
+  const survival60 = Math.pow(1 - perFrame, 60);
+  assert.ok(
+    Math.abs((1 - survival60) - rareEventTriggerProbability(0.03, 1)) < 1e-9,
+    "sliced frames must compose to the same per-second probability"
+  );
+
+  assert.equal(rareEventTriggerProbability(0, 1), 0);
+  assert.equal(rareEventTriggerProbability(0.03, 0), 0);
+  assert.equal(rareEventTriggerProbability(0.03, Number.NaN), 0);
+});
+
+test("no roll can ever fire while ineligible (lights on / off-loft)", () => {
+  let state = createObservatoryRareEventsState();
+  for (let frame = 0; frame < 600; frame += 1) {
+    state = stepObservatoryRareEvents(state, {
+      deltaSeconds: 1 / 60,
+      eligible: false,
+      availability: ALL_AVAILABLE,
+      // Even an RNG that always demands a trigger must be ignored.
+      random: () => 0
+    });
+    assert.equal(state.mode, "idle");
+    assert.equal(state.event, null);
+    assert.equal(state.intensity, 0);
+  }
+});
+
+test("an eligible frame with a winning roll starts one available event", () => {
+  const state = stepDark(createObservatoryRareEventsState(), {
+    // roll wins (0 < p), selection picks index 0, seed 0.42.
+    random: sequenceRandom([0, 0, 0.42])
+  });
+  assert.equal(state.mode, "active");
+  assert.equal(state.event, OBSERVATORY_RARE_EVENT_IDS[0]);
+  assert.equal(state.seed, 0.42);
+  assert.equal(state.label, OBSERVATORY_RARE_EVENTS[state.event].label);
+});
+
+test("selection respects availability: gated events never fire when missing", () => {
+  const gated = new Set(["nebula-surge", "black-hole-transit"]);
+  const seen = new Set();
+  for (let pick = 0; pick < 40; pick += 1) {
+    const state = stepDark(createObservatoryRareEventsState(), {
+      availability: { skyLayer: true, nebula: false, blackHole: false },
+      random: sequenceRandom([0, pick / 40, 0.5])
+    });
+    assert.equal(state.mode, "active");
+    assert.ok(
+      !gated.has(state.event),
+      `gated events must not start unavailable (got ${state.event})`
+    );
+    seen.add(state.event);
+  }
+  assert.equal(
+    seen.size,
+    OBSERVATORY_RARE_EVENT_IDS.length - gated.size,
+    "uniform selection must reach every sky-layer event"
+  );
+
+  // A broken sky-event layer (shader failure) removes the 11 sky-rendered
+  // events; only the Portal surge and the lens transit stay possible.
+  for (let pick = 0; pick < 10; pick += 1) {
+    const state = stepDark(createObservatoryRareEventsState(), {
+      availability: { skyLayer: false, nebula: true, blackHole: true },
+      random: sequenceRandom([0, pick / 10, 0.5])
+    });
+    assert.ok(
+      gated.has(state.event),
+      `without the sky layer only surge/transit may start (got ${state.event})`
+    );
+  }
+
+  // Nothing available → the roll can never start anything.
+  const idle = stepDark(createObservatoryRareEventsState(), {
+    availability: { skyLayer: false, nebula: false, blackHole: false },
+    random: () => 0
+  });
+  assert.equal(idle.mode, "idle");
+});
+
+test("every event maps to its own channel with the envelope intensity", () => {
+  for (const [id, definition] of Object.entries(OBSERVATORY_RARE_EVENTS)) {
+    let state = stepDark(createObservatoryRareEventsState(), {
+      forcedEvent: id
+    });
+    // Advance to mid-event where the envelope is fully open.
+    state = stepDark(state, {
+      deltaSeconds: definition.durationSeconds / 2,
+      forcedEvent: null
+    });
+    assert.equal(state.event, id);
+    assert.ok(state.intensity > 0.99, `${id} envelope should peak mid-event`);
+    for (const [channel, value] of Object.entries(state.channels)) {
+      if (channel === definition.channel) {
+        assert.equal(value, state.intensity);
+      } else {
+        assert.equal(value, 0, `${id} must not drive ${channel}`);
+      }
+    }
+  }
+});
+
+test("the envelope ramps from and back to zero inside the duration", () => {
+  const definition = OBSERVATORY_RARE_EVENTS["meteor-shower"];
+  assert.equal(rareEventEnvelope(0, definition), 0);
+  assert.equal(rareEventEnvelope(1, definition), 0);
+  assert.ok(rareEventEnvelope(0.5, definition) > 0.99);
+  assert.ok(rareEventEnvelope(0.08, definition) > 0);
+});
+
+test("a completed event enters cooldown and cannot immediately re-trigger", () => {
+  let state = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: null,
+    random: sequenceRandom([0, 0, 0.5])
+  });
+  const definition = OBSERVATORY_RARE_EVENTS[state.event];
+  state = stepDark(state, { deltaSeconds: definition.durationSeconds + 1 });
+  assert.equal(state.mode, "idle");
+  assert.equal(state.event, null);
+  assert.equal(
+    state.cooldownSeconds,
+    OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS
+  );
+
+  // A winning roll during cooldown must be ignored…
+  state = stepDark(state, { random: () => 0 });
+  assert.equal(state.mode, "idle");
+  assert.ok(state.cooldownSeconds > 0);
+
+  // …until the cooldown has fully elapsed.
+  state = stepDark(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS,
+    random: () => 0.999
+  });
+  assert.equal(state.cooldownSeconds, 0);
+  state = stepDark(state, { random: sequenceRandom([0, 0, 0.5]) });
+  assert.equal(state.mode, "active");
+});
+
+test("losing eligibility mid-event releases smoothly and never resurrects", () => {
+  let state = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "comet"
+  });
+  state = stepDark(state, { deltaSeconds: 20 });
+  const peak = state.intensity;
+  assert.ok(peak > 0.9);
+
+  // Lights back on: the event begins a bounded release fade.
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: 1 / 60,
+    eligible: false,
+    availability: ALL_AVAILABLE
+  });
+  assert.equal(state.mode, "release");
+  assert.equal(state.event, "comet");
+
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_RELEASE_SECONDS / 2,
+    eligible: false,
+    availability: ALL_AVAILABLE
+  });
+  assert.equal(state.mode, "release");
+  assert.ok(state.intensity < peak);
+  assert.ok(state.intensity > 0);
+
+  // Eligibility returning mid-release must finish the fade, not resurrect.
+  state = stepDark(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_RELEASE_SECONDS
+  });
+  assert.equal(state.mode, "idle");
+  assert.equal(state.event, null);
+  assert.equal(state.intensity, 0);
+});
+
+test("losing an event's availability mid-flight cancels it", () => {
+  let state = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "black-hole-transit"
+  });
+  state = stepDark(state, { deltaSeconds: 10, forcedEvent: null });
+  assert.equal(state.mode, "active");
+
+  // Quality tier collapse: the black hole stops being renderable.
+  state = stepDark(state, {
+    availability: { skyLayer: true, nebula: true, blackHole: false },
+    forcedEvent: null
+  });
+  assert.equal(state.mode, "release");
+});
+
+test("a release freezes the event's progress so paths cannot teleport", () => {
+  let state = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "comet"
+  });
+  state = stepDark(state, { deltaSeconds: 20 });
+  const progressAtCancel = state.progress;
+  assert.ok(progressAtCancel > 0.4);
+
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: 1 / 60,
+    eligible: false,
+    availability: ALL_AVAILABLE
+  });
+  assert.equal(state.mode, "release");
+  assert.equal(state.progress, progressAtCancel);
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_RELEASE_SECONDS / 2,
+    eligible: false,
+    availability: ALL_AVAILABLE
+  });
+  assert.equal(
+    state.progress,
+    progressAtCancel,
+    "the fading comet must hold its place on the arc"
+  );
+});
+
+test("a cancelled event still spends the full cooldown", () => {
+  let state = stepDark(createObservatoryRareEventsState(), {
+    random: sequenceRandom([0, 0, 0.5])
+  });
+  assert.equal(state.mode, "active");
+
+  // Relight cancels the event…
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_RELEASE_SECONDS + 0.1,
+    eligible: false,
+    availability: ALL_AVAILABLE
+  });
+  state = stepObservatoryRareEvents(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENT_RELEASE_SECONDS + 0.1,
+    eligible: false,
+    availability: ALL_AVAILABLE
+  });
+  assert.equal(state.mode, "idle");
+  assert.ok(
+    state.cooldownSeconds > 0,
+    "toggling the lights must not become a reroll lever"
+  );
+
+  // …and a winning roll right after the relight is still ignored.
+  state = stepDark(state, { random: () => 0 });
+  assert.equal(state.mode, "idle");
+});
+
+test("a forced event starts immediately with a deterministic seed", () => {
+  const state = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "nebula-surge",
+    // The RNG must not influence a forced start.
+    random: () => {
+      throw new Error("forced events must not consume the RNG");
+    }
+  });
+  assert.equal(state.mode, "active");
+  assert.equal(state.event, "nebula-surge");
+  assert.equal(state.seed, 0.5);
+
+  // The harness can aim a pinned occurrence with an explicit seed.
+  const aimed = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "moon-transit",
+    forcedSeed: 0.555
+  });
+  assert.equal(aimed.seed, 0.555);
+  const guarded = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "moon-transit",
+    forcedSeed: Number.NaN
+  });
+  assert.equal(guarded.seed, 0.5, "a bad forced seed falls back to 0.5");
+});
+
+test("identical RNG sequences reproduce identical trigger timelines", () => {
+  const script = [0.9, 0.8, 0.00001, 0.6, 0.33, 0.7, 0.9];
+  const run = () => {
+    let state = createObservatoryRareEventsState();
+    const events = [];
+    const random = sequenceRandom(script);
+    for (let frame = 0; frame < 6; frame += 1) {
+      state = stepObservatoryRareEvents(state, {
+        deltaSeconds: 0.5,
+        eligible: true,
+        availability: ALL_AVAILABLE,
+        random
+      });
+      events.push(`${state.mode}:${state.event ?? "-"}`);
+    }
+    return events.join("|");
+  };
+  assert.equal(run(), run());
+});
+
+test("states are frozen and expose the full channel set", () => {
+  const state = createObservatoryRareEventsState();
+  assert.ok(Object.isFrozen(state));
+  assert.ok(Object.isFrozen(state.channels));
+  assert.deepEqual(
+    Object.keys(state.channels).sort(),
+    [
+      "aurora",
+      "blackHole",
+      "bolide",
+      "comet",
+      "constellation",
+      "kilonova",
+      "meteor",
+      "moon",
+      "nebulaBoost",
+      "planets",
+      "satellites",
+      "supernova",
+      "ufo"
+    ]
+  );
+  assert.equal(OBSERVATORY_RARE_EVENT_IDS.length, 13);
+  const channels = new Set();
+  for (const id of OBSERVATORY_RARE_EVENT_IDS) {
+    const definition = OBSERVATORY_RARE_EVENTS[id];
+    assert.ok(
+      definition.durationSeconds > 10,
+      "rare events should be leisurely, not blink-and-miss flashes"
+    );
+    assert.equal(
+      typeof definition.journal,
+      "string",
+      `${id} needs a journal line for the wall book`
+    );
+    channels.add(definition.channel);
+  }
+  assert.equal(
+    channels.size,
+    OBSERVATORY_RARE_EVENT_IDS.length,
+    "every event must own a distinct channel"
+  );
+});

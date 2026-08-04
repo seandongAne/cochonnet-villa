@@ -538,7 +538,13 @@ const RAW_PLACEMENTS = [
   mushroomPiece("pictureframe_large_B", { id: "m3-vanity-mirror", level: 2, x: -10.2, z: 15.72, y: 1.8, rotationY: Math.PI / 2, scale: 1.0, wallMounted: true }),
   mushroomPiece("cactus_medium_B", { id: "m3-vanity-cactus", level: 2, x: -10.0, z: 14.75, y: 0.84, scale: 0.72 }),
   mushroomPiece("shelf_A_big", { id: "m3-south-shelf", level: 2, x: -8.0, z: 22.18, y: 2.05, rotationY: Math.PI, scale: 1.08, wallMounted: true }),
-  mushroomPiece("pictureframe_medium", { id: "m3-south-picture", level: 2, x: -3.25, z: 22.2, y: 2.4, rotationY: Math.PI, scale: 1.2, wallMounted: true })
+  mushroomPiece("pictureframe_medium", { id: "m3-south-picture", level: 2, x: -3.25, z: 22.2, y: 2.4, rotationY: Math.PI, scale: 1.2, wallMounted: true }),
+
+  // 天象图鉴 — the observatory's sighting journal lives on its own small wall
+  // shelf between the vanity and the light switch, so the E-interaction that
+  // opens the catalogue points at a real physical book.
+  mushroomPiece("shelf_B_small", { id: "m3-journal-shelf", level: 2, x: -10.15, z: 18.35, y: 1.5, rotationY: Math.PI / 2, wallMounted: true }),
+  mushroomPiece("book_set", { id: "m3-journal-book", level: 2, x: -10.0, z: 18.35, y: 1.58, rotationY: Math.PI / 2, scale: 1.0, onWallShelfId: "m3-journal-shelf" })
 ];
 
 // Basename shared by both vendored furniture directories.

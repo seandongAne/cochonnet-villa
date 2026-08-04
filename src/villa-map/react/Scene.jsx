@@ -33,6 +33,9 @@ import { EXTERIOR_PLACEMENTS } from "../exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "../architecture-placements.js";
 import { createShadowBlobs } from "../shadows.js";
 import { createMushroomSky } from "../mushroom-sky.js";
+import {
+  createObservatorySkyEventsVisual
+} from "../observatory-sky-events.js";
 import { createObservatoryRiftVisual } from "../observatory-rift-visual.js";
 import { createObservatoryAdaptationState } from "../observatory-adaptation.js";
 import { MushroomObservatoryAudio } from "./MushroomObservatoryAudio.jsx";
@@ -393,7 +396,8 @@ export function Scene({
   observatoryAudioMuted = false,
   onObservatoryHiddenEffectsReset,
   observatoryQualityPreference = "auto",
-  onObservatoryQualityStatusChange
+  onObservatoryQualityStatusChange,
+  onObservatoryRareEventChange
 }) {
   const observatoryAdaptationRef = useRef(
     createObservatoryAdaptationState({
@@ -410,6 +414,12 @@ export function Scene({
   // mounts the resulting Object3D instances through <primitive>.
   const built = useMemo(() => {
     const materials = createMaterials();
+    // The rare-event layer (meteor shower / comet) rides inside the sky group
+    // so it inherits the camera-centred position and the sky's visibility
+    // gate: lights-on steady state still draws zero cosmos objects.
+    const mushroomSky = createMushroomSky();
+    const observatorySkyEvents = createObservatorySkyEventsVisual();
+    mushroomSky.add(observatorySkyEvents);
 
     return {
       // Ground, paths, floors. [object, position] tuples. The meadow plane is
@@ -432,7 +442,8 @@ export function Scene({
       // house — reached via the door interaction's teleport, invisible from
       // the courtyard (nothing renders below the ground plane).
       mushroomInterior: createMushroomInterior(materials),
-      mushroomSky: createMushroomSky(),
+      mushroomSky,
+      observatorySkyEvents,
       observatoryRift: createObservatoryRiftVisual(),
       hay: createHayBale(materials.hay),
       blanket: createBlanketPile(materials.blanket),
@@ -530,10 +541,12 @@ export function Scene({
         lightsOn={observatoryLightsOn}
         adaptationRef={observatoryAdaptationRef}
         riftVisual={built.observatoryRift}
+        skyEventsVisual={built.observatorySkyEvents}
         riftOpen={observatoryRiftOpen}
         lensActive={observatoryLensActive}
         audioFrameRef={observatoryAudioFrameRef}
         onHiddenEffectsReset={onObservatoryHiddenEffectsReset}
+        onRareEventChange={onObservatoryRareEventChange}
         qualityPreference={observatoryQualityPreference}
         onQualityStatusChange={onObservatoryQualityStatusChange}
       />

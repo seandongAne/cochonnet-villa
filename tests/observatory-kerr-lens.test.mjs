@@ -209,8 +209,16 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /float leadingHotspot = pow/);
   assert.match(shader, /\(rotationArc - FLOW_ROTATION_ARC_MEAN\) \* 1\.10/);
   assert.match(shader, /\(leadingHotspot - FLOW_LEADING_HOTSPOT_MEAN\) \* 1\.50/);
-  assert.match(shader, /float innerHeat = exp\(-pow/);
-  assert.match(shader, /float ribbonRadialWindow = exp\(-pow/);
+  // Gaussians squared by multiplication — pow(x, 2.0) is undefined for
+  // negative x in GLSL ES 1.00 and can NaN on some drivers.
+  assert.match(
+    shader,
+    /float innerHeat = exp\(-innerHeatDistance \* innerHeatDistance\)/
+  );
+  assert.match(
+    shader,
+    /float ribbonRadialWindow = exp\(-ribbonRadialDistance \* ribbonRadialDistance\)/
+  );
   assert.match(shader, /\(radius - \(KERR_ISCO \+ 1\.55\)\) \/ 0\.72/);
   assert.match(shader, /float tracerImageWeight = mix/);
   assert.match(shader, /0\.04,[\s\S]*?step\(0\.5, imageWeight\)/);

@@ -66,9 +66,11 @@ test("the -1 frame director owns one shared adaptation state and maps every chan
     "lighting, palette, exposure and markers should follow houseLight"
   );
   assert.match(runtime, /backdropReveal:\s*channels\.portalReveal/);
+  // The hero-star channel maps to brightStarReveal, with the rare moon
+  // transit's moonlight legitimately washing out a fraction of it.
   assert.match(
     runtime,
-    /starReveal:\s*baseImageComparison \? 0 : channels\.brightStarReveal/
+    /starReveal:\s*baseImageComparison\s*\?\s*0\s*:\s*channels\.brightStarReveal\s*\*\s*\(1 - rareChannels\.moon \* 0\.35\)/
   );
   assert.match(
     runtime,
@@ -76,7 +78,7 @@ test("the -1 frame director owns one shared adaptation state and maps every chan
   );
   assert.match(
     runtime,
-    /setGaiaStarReveal\(resources\.gaia,\s*channels\.faintStarReveal\)/
+    /setGaiaStarReveal\(\s*resources\.gaia,\s*channels\.faintStarReveal\s*\*\s*\(1 - rareChannels\.moon \* 0\.8\)\s*\)/
   );
   assert.match(
     runtime,
@@ -448,7 +450,10 @@ test("diagnostics expose runtime state and motion query overrides stay QA-only",
   assert.match(runtime, /requestedSkyMode === "base" \? "base" : "impossible"/);
   assert.match(runtime, /window\.__villaObservatoryRuntimeSetSkyMode = setComparisonMode/);
   assert.match(runtime, /const skyBackdropMaterial = sky\.userData\.backdrop\?\.material/);
-  assert.match(runtime, /starReveal:\s*baseImageComparison \? 0 : channels\.brightStarReveal/);
+  assert.match(
+    runtime,
+    /starReveal:\s*baseImageComparison\s*\?\s*0\s*:\s*channels\.brightStarReveal/
+  );
   assert.match(runtime, /resources\.gaia\.visible = !baseImageComparison/);
   assert.match(
     runtime,

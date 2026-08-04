@@ -8,6 +8,12 @@ import {
   readObservatoryQualityPreference,
   writeObservatoryQualityPreference
 } from "../observatory-quality-preference.js";
+import { OBSERVATORY_RARE_EVENTS } from "../observatory-events.js";
+import {
+  readObservatoryEventJournal,
+  recordObservatoryEventSighting
+} from "../observatory-event-journal.js";
+import { ObservatoryEventJournal } from "./ObservatoryEventJournal.jsx";
 import { Scene } from "./Scene.jsx";
 import { PlayerControls } from "./PlayerControls.jsx";
 import { EditControls } from "./EditControls.jsx";
@@ -133,6 +139,27 @@ export default function VillaMap() {
   const [observatoryHiddenEffects, setObservatoryHiddenEffects] = useState(
     CLOSED_OBSERVATORY_HIDDEN_EFFECTS
   );
+  // Currently active rare celestial event (director-owned; null when idle).
+  // Only used for the small HUD caption — visuals never read React state.
+  const [observatoryRareEvent, setObservatoryRareEvent] = useState(null);
+  // 天象图鉴: every genuinely-started event is recorded as a sighting; the
+  // wall book on L3 reads this journal back.
+  const [observatoryJournal, setObservatoryJournal] = useState(() => (
+    readObservatoryEventJournal(getObservatoryPreferenceStorage())
+  ));
+  const [observatoryJournalOpen, setObservatoryJournalOpen] = useState(false);
+  const observatoryJournalResumeRef = useRef(false);
+  const handleObservatoryRareEventChange = useCallback((eventId) => {
+    setObservatoryRareEvent(eventId ?? null);
+    // QA-pinned events loop endlessly; keep them out of the real journal.
+    if (eventId && !observatoryDiagnosticsMode) {
+      setObservatoryJournal(recordObservatoryEventSighting(
+        getObservatoryPreferenceStorage(),
+        eventId,
+        Date.now()
+      ));
+    }
+  }, []);
   const [observatoryDiagnosticsApi, setObservatoryDiagnosticsApi] = useState(null);
   const handleObservatoryDiagnosticsReady = useCallback((api) => {
     // Functions passed directly to a state setter are treated as updater
@@ -243,6 +270,42 @@ export default function VillaMap() {
     if (shouldResume) controls?.lock();
   }, []);
 
+  // The wall book follows the Q panel's modal discipline: opening releases
+  // Pointer Lock and suspends movement; closing resumes the prior session.
+  const openObservatoryJournal = useCallback(() => {
+    observatoryJournalResumeRef.current = exploring
+      || lockRef.current?.isLocked === true;
+    lockRef.current?.setEnabled(false);
+    try {
+      if (document.pointerLockElement) document.exitPointerLock?.();
+    } catch {
+      // Embedded browsers may reject Pointer Lock APIs; controls stay paused.
+    }
+    setObservatoryJournalOpen(true);
+  }, [exploring]);
+
+  const closeObservatoryJournal = useCallback(() => {
+    const controls = lockRef.current;
+    const shouldResume = observatoryJournalResumeRef.current;
+    observatoryJournalResumeRef.current = false;
+    setObservatoryJournalOpen(false);
+    controls?.setEnabled(true);
+    if (shouldResume) controls?.lock();
+  }, []);
+
+  useEffect(() => {
+    if (editMode || !observatoryJournalOpen) return undefined;
+    const onKey = (event) => {
+      if (event.repeat) return;
+      if (event.key === "Escape" || event.code === "KeyE") {
+        event.preventDefault();
+        closeObservatoryJournal();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeObservatoryJournal, editMode, observatoryJournalOpen]);
+
   const requestLock = () => {
     if (lockRef.current) {
       lockRef.current.lock();
@@ -295,6 +358,10 @@ export default function VillaMap() {
       ) {
         return;
       }
+      // The 天象图鉴 wall book and the Q panel are mutually exclusive modals:
+      // while the book is open its own handler owns E/Escape, and stacking
+      // the quality panel on top would double-run the lock-resume logic.
+      if (observatoryJournalOpen) return;
       if (event.code === "KeyQ") {
         event.preventDefault();
         if (qualityPanelOpen) closeQualityPanel();
@@ -310,6 +377,7 @@ export default function VillaMap() {
     closeQualityPanel,
     editMode,
     observatoryDiagnosticsMode,
+    observatoryJournalOpen,
     openQualityPanel,
     qualityPanelOpen
   ]);
@@ -410,6 +478,7 @@ export default function VillaMap() {
           onObservatoryQualityStatusChange={
             handleObservatoryQualityStatusChange
           }
+          onObservatoryRareEventChange={handleObservatoryRareEventChange}
         />
         {editMode ? (
           <EditControls
@@ -429,6 +498,7 @@ export default function VillaMap() {
                 onInteraction={setInteraction}
                 onToggleObservatoryLights={toggleObservatoryLights}
                 onObservatoryHiddenAction={handleObservatoryHiddenAction}
+                onOpenObservatoryJournal={openObservatoryJournal}
               />
             )}
             <ObservatoryDiagnostics
@@ -450,10 +520,18 @@ export default function VillaMap() {
             onInteraction={setInteraction}
             onToggleObservatoryLights={toggleObservatoryLights}
             onObservatoryHiddenAction={handleObservatoryHiddenAction}
-            suspended={qualityPanelOpen}
+            onOpenObservatoryJournal={openObservatoryJournal}
+            suspended={qualityPanelOpen || observatoryJournalOpen}
           />
         )}
       </Canvas>
+
+      {!editMode && observatoryJournalOpen && (
+        <ObservatoryEventJournal
+          journal={observatoryJournal}
+          onClose={closeObservatoryJournal}
+        />
+      )}
 
       {!editMode && !observatoryDiagnosticsMode && qualityPanelOpen && (
         <ObservatoryQualityPanel
@@ -525,7 +603,21 @@ export default function VillaMap() {
 
       {loading && <div className="villa-map-loading">正在搭建猪猪山庄...</div>}
 
-      {displayedInteraction && !editMode && !qualityPanelOpen && (
+      {!editMode
+        && !observatoryDiagnosticsMode
+        && !observatoryJournalOpen
+        && observatoryRareEvent
+        && OBSERVATORY_RARE_EVENTS[observatoryRareEvent] && (
+          <p className="villa-map-rare-event" role="status">
+            <span aria-hidden="true">✨</span>
+            稀有天象：{OBSERVATORY_RARE_EVENTS[observatoryRareEvent].label}
+          </p>
+      )}
+
+      {displayedInteraction
+        && !editMode
+        && !qualityPanelOpen
+        && !observatoryJournalOpen && (
         <aside className="interaction-panel" aria-label="互动信息">
           <h2>{displayedInteraction.title}</h2>
           <p>{displayedInteraction.body}</p>

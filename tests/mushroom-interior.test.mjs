@@ -474,7 +474,8 @@ test("all three interior levels are densely furnished from the vendored KayKit p
 
 test("mushroom furniture uses metre-scale footprints and layered vertical clutter", () => {
   const pieces = FURNITURE_PLACEMENTS.filter((piece) => piece.room.startsWith("mushroom-"));
-  assert.equal(pieces.length, 94);
+  // 94 original pieces + the L3 天象图鉴 wall shelf and its book.
+  assert.equal(pieces.length, 96);
 
   const models = new Set(pieces.map((piece) => piece.model));
   assert.ok(models.size >= 28, `expected broad pack variety, got ${models.size} models`);

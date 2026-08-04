@@ -432,10 +432,10 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     // One smooth source-radius band becomes one primary lensed arc. Its broad
     // Gaussian shoulders avoid the hard concentric outlines produced by the
     // previous almost-full-disc window.
-    float ribbonRadialWindow = exp(-pow(
-      (radius - (KERR_ISCO + 1.55)) / 0.72,
-      2.0
-    ));
+    // Squared by multiplication: pow(x, 2.0) is undefined for negative x in
+    // GLSL ES 1.00 and can NaN inside the window on some drivers.
+    float ribbonRadialDistance = (radius - (KERR_ISCO + 1.55)) / 0.72;
+    float ribbonRadialWindow = exp(-ribbonRadialDistance * ribbonRadialDistance);
     // Higher image orders should read only as a faint physical echo, not copy
     // the hero tracer into another set of luminous loops.
     float tracerImageWeight = mix(
@@ -462,10 +462,8 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     // A narrow thermal crest just outside the ISCO creates the white-hot
     // lensed inner edge. It is always present, but the leading knot pushes a
     // small segment toward solar white rather than making a uniform neon ring.
-    float innerHeat = exp(-pow(
-      (radius - (KERR_ISCO + 0.40)) / 0.31,
-      2.0
-    ));
+    float innerHeatDistance = (radius - (KERR_ISCO + 0.40)) / 0.31;
+    float innerHeat = exp(-innerHeatDistance * innerHeatDistance);
     float platinumRibbon = ribbonRadialWindow * (
       rotationArc * 0.68 + leadingHotspot * 0.32
     ) * tracerImageWeight;

@@ -38,7 +38,11 @@ test("Q opens a persistent player panel and safely pauses exploration", () => {
   assert.match(villaMap, /lockRef\.current\?\.setEnabled\(false\)/);
   assert.match(villaMap, /controls\?\.setEnabled\(true\)/);
   assert.match(villaMap, /<ObservatoryQualityPanel[\s\S]*?preference=\{observatoryQualityPreference\}/);
-  assert.match(villaMap, /suspended=\{qualityPanelOpen\}/);
+  // The Q panel and the 天象图鉴 wall book share the same modal suspension.
+  assert.match(
+    villaMap,
+    /suspended=\{qualityPanelOpen \|\| observatoryJournalOpen\}/
+  );
   assert.match(playerControls, /controlsRef\.current\?\.setEnabled\(!suspended\)/);
   assert.match(playerControls, /if \(suspended\) \{[\s\S]*?onInteraction\(null\);[\s\S]*?return;/);
 });
