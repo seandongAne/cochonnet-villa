@@ -12,9 +12,11 @@ import {
   renderNotePage,
   renderNotesPage,
   renderNotesTeaser,
+  sanitizeNoteImage,
   sanitizeNoteSlug
 } from "../src/render-notes.js";
 import { renderSite } from "../src/render-site.js";
+import { buildArtPrompt, pickPendingNotes } from "../scripts/generate-note-art.mjs";
 
 const notesData = JSON.parse(
   await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
@@ -157,6 +159,73 @@ test("renderSite keeps working without notes and embeds the teaser with them", (
   const withNotes = renderSite(siteData, normalizeNotes(notesData));
   assert.ok(withNotes.includes('id="notes"'));
   assert.ok(withNotes.includes('data-i18n="notes.eyebrow"'));
+});
+
+test("normalizeNotes preserves safe art images and drops unsafe ones", () => {
+  const notes = normalizeNotes({
+    notes: [
+      { title: "with art", date: "2026-03-01", body: "a", image: "/notes-art/x.webp" },
+      { title: "unsafe art", date: "2026-02-01", body: "b", image: "javascript:alert(1)" },
+      { title: "no art", date: "2026-01-01", body: "c" }
+    ]
+  });
+
+  assert.equal(notes[0].image, "/notes-art/x.webp");
+  assert.ok(!("image" in notes[1]), "unsafe schemes are dropped");
+  assert.ok(!("image" in notes[2]), "absent image stays absent");
+  assert.equal(sanitizeNoteImage("https://example.com/pig.png"), "https://example.com/pig.png");
+  assert.equal(sanitizeNoteImage("data:text/html,x"), "");
+});
+
+test("note pages and cards render the art image with an escaped src", () => {
+  const [note] = normalizeNotes({
+    notes: [{ title: "带图", date: "2026-03-01", body: "正文", image: '/notes-art/a".webp' }]
+  });
+
+  const detail = renderNotePage(note, {});
+  assert.ok(detail.includes('<figure class="note-art">'));
+  assert.ok(detail.includes("/notes-art/a&quot;.webp"));
+
+  const index = renderNotesPage([note]);
+  assert.ok(index.includes('class="note-card-art"'));
+
+  const [plain] = normalizeNotes({ notes: [{ title: "无图", date: "2026-03-02", body: "正文" }] });
+  assert.ok(!renderNotePage(plain, {}).includes('<figure class="note-art">'));
+});
+
+test("art prompt carries the note content and the no-text instruction", () => {
+  const prompt = buildArtPrompt({ title: "星空夜", body: "## 今晚\n\n看到了**流星**。" });
+
+  assert.ok(prompt.includes("《星空夜》"));
+  assert.ok(prompt.includes("看到了流星"), "body excerpt is plain text, not markdown");
+  assert.ok(prompt.includes("不要出现任何文字"));
+});
+
+test("pickPendingNotes selects only real notes without art, with page-matching slugs", () => {
+  const pending = pickPendingNotes([
+    { title: "has art", date: "2026-05-01", body: "a", image: "/notes-art/has-art.webp" },
+    { title: "needs art", date: "2026-05-01", body: "b" },
+    { title: "", date: "2026-05-02", body: "dropped" },
+    { title: "also needs", date: "2026-05-02", body: "c" }
+  ]);
+
+  assert.deepEqual(
+    pending.map((entry) => entry.slug),
+    ["2026-05-01-2", "2026-05-02"],
+    "slug derivation matches normalizeNotes (taken set includes noted-with-art)"
+  );
+});
+
+test("the note-art workflow wires the script to notes.json pushes and the API secret", async () => {
+  const workflow = await readFile(
+    new URL("../.github/workflows/generate-note-art.yml", import.meta.url),
+    "utf8"
+  );
+
+  assert.ok(workflow.includes("content/notes.json"), "triggers on notes content changes");
+  assert.ok(workflow.includes("scripts/generate-note-art.mjs"), "runs the generator");
+  assert.ok(workflow.includes("secrets.OPENAI_API_KEY"), "uses the Actions secret");
+  assert.ok(workflow.includes("deploy-pages.yml"), "re-dispatches the Pages deploy");
 });
 
 test("site navigation links to the notes page with a zh i18n key slot", () => {

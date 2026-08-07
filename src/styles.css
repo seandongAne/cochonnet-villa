@@ -862,6 +862,25 @@ html[lang="zh-Hans"] .size-tag {
   line-height: 1.65;
 }
 
+.note-card-art {
+  width: calc(100% + 2.8rem);
+  margin: -1.4rem -1.4rem 0;
+  aspect-ratio: 16 / 10;
+  max-height: 15rem;
+  object-fit: cover;
+  border-bottom: 1px solid rgba(120, 76, 78, 0.11);
+}
+
+.note-art {
+  margin: 0 0 1.4rem;
+}
+
+.note-art img {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(120, 76, 78, 0.11);
+}
+
 .note-meta {
   display: flex;
   align-items: center;

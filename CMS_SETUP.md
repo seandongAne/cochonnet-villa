@@ -18,6 +18,16 @@ The hosted editor is intentionally simple so it works on GitHub Pages without re
 - Publishing commits `content/notes.json` through the GitHub Contents API; GitHub Pages redeploys automatically, so a new post appears on the site about 1–2 minutes after publishing.
 - Post body supports simple formatting: blank line = new paragraph, `## heading`, `- list item`, `**bold**`, `*italic*`. Raw HTML is always escaped.
 
+### Automatic piglet comic art
+
+Every published note automatically gets a cute piglet comic illustration:
+
+1. When `content/notes.json` changes on `main`, the `Generate note art` workflow runs `scripts/generate-note-art.mjs`.
+2. The script reads each note that has no `image` yet, builds a Chinese prompt from the title + body, and calls the OpenAI Image API (`gpt-image-2`, 1024×1024 webp, `medium` quality — a few cents per image).
+3. Generated art is committed to `public/notes-art/<slug>.webp`, the note's `image` field is stamped, and the Pages deploy is re-dispatched, so the illustration appears on the site a few minutes after the post does.
+
+**One-time setup:** create an OpenAI API key (platform.openai.com) and add it as the repository Actions secret `OPENAI_API_KEY` (Settings → Secrets and variables → Actions). Until the secret exists the workflow logs a notice and does nothing. Optional env overrides in the workflow: `OPENAI_IMAGE_MODEL`, `OPENAI_IMAGE_QUALITY`, `NOTE_ART_MAX_PER_RUN` (default 4 images per run).
+
 ## Local editing
 
 1. Run `npm run dev`

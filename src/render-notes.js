@@ -39,6 +39,21 @@ export function isValidNoteDate(value) {
   return NOTE_DATE_PATTERN.test(String(value ?? "").trim());
 }
 
+export function sanitizeNoteImage(value) {
+  const src = String(value ?? "").trim();
+
+  if (
+    src.startsWith("/") ||
+    src.startsWith("./") ||
+    src.startsWith("http://") ||
+    src.startsWith("https://")
+  ) {
+    return src;
+  }
+
+  return "";
+}
+
 export function deriveNoteSlug({ slug, date, fallback = "note" } = {}, takenSlugs = new Set()) {
   const base =
     sanitizeNoteSlug(slug) ||
@@ -74,12 +89,17 @@ export function normalizeNotes(data) {
     const slug = deriveNoteSlug({ slug: raw?.slug, date, fallback: `note-${index + 1}` }, taken);
     taken.add(slug);
 
+    // `image` is stamped by the note-art workflow; it must survive
+    // normalization or the /admin/notes/ editor would strip it on publish.
+    const image = sanitizeNoteImage(raw?.image);
+
     notes.push({
       slug,
       title,
       date,
       mood: String(raw?.mood ?? "").trim().slice(0, 8),
-      body
+      body,
+      ...(image ? { image } : {})
     });
   });
 
@@ -176,9 +196,13 @@ function renderNoteCard(note, { bilingual = false } = {}) {
   const readMore = bilingual
     ? '<span class="note-more" data-i18n="notes.readMore">Read the note</span>'
     : '<span class="note-more">读全文</span>';
+  const art = note.image
+    ? `<img class="note-card-art" src="${escapeHtml(note.image)}" alt="" loading="lazy" decoding="async" />`
+    : "";
 
   return `
     <a class="note-card" href="${NOTES_INDEX_URL}${escapeHtml(note.slug)}/">
+      ${art}
       ${renderNoteMeta(note)}
       <h3>${escapeHtml(note.title)}</h3>
       <p>${escapeHtml(noteExcerpt(note.body))}</p>
@@ -312,6 +336,11 @@ export function renderNotePage(note, { previousNote = null, nextNote = null } = 
             ${renderNoteMeta(note)}
             <h1>${escapeHtml(note.title)}</h1>
           </header>
+          ${
+            note.image
+              ? `<figure class="note-art"><img src="${escapeHtml(note.image)}" alt="《${escapeHtml(note.title)}》的小猪漫画配图" loading="lazy" decoding="async" /></figure>`
+              : ""
+          }
           <div class="note-body">
             ${renderNoteBody(note.body)}
           </div>
