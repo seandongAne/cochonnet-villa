@@ -94,8 +94,12 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
             <div class="studio-actions" style="margin-top: 1rem;">
               <button class="button button-primary" id="save-note-button" type="button">收进列表</button>
               <button class="button button-muted" id="delete-note-button" type="button">清空重写</button>
+              <button class="button button-muted" id="backup-draft-button" type="button">备份草稿</button>
             </div>
-            <div class="status" id="editor-status">草稿会自动保存在本浏览器，不怕误关页面。</div>
+            <div class="status" id="editor-status">每次输入都会自动存进本浏览器，不怕误关页面。</div>
+            <div class="status" id="draft-status">
+              停笔 5 分钟自动把草稿（含未发布的列表修改）备份到仓库的 notes-drafts 分支，也可点「备份草稿」。换浏览器打开会自动恢复；发布成功后自动清空。
+            </div>
           </section>
 
           <section class="card">

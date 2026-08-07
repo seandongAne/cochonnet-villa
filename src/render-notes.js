@@ -138,15 +138,23 @@ export function applyNoteEdit(notes, editingSlug, { title, date, mood, body }) {
 }
 
 // Remote-sync semantics: local (possibly unpublished) notes win on slug
-// clashes; remote-only notes are appended. Used both when a fetch completes
-// over unpublished local edits and by the pre-publish safety sync.
+// clashes — but adopt the remote `image` when the local copy has none, so a
+// restored pre-art draft can't strip art the workflow stamped meanwhile.
+// Remote-only notes are appended. Used when a fetch completes over
+// unpublished local edits and by the pre-publish safety sync.
 export function mergeRemoteNotes(localNotes, remoteNotes) {
   const local = Array.isArray(localNotes) ? localNotes : [];
   const remote = Array.isArray(remoteNotes) ? remoteNotes : [];
+  const remoteBySlug = new Map(remote.map((note) => [note.slug, note]));
   const localSlugs = new Set(local.map((note) => note.slug));
 
+  const kept = local.map((note) => {
+    const twin = remoteBySlug.get(note.slug);
+    return twin?.image && !note.image ? { ...note, image: twin.image } : note;
+  });
+
   return normalizeNotes({
-    notes: [...local, ...remote.filter((note) => !localSlugs.has(note.slug))]
+    notes: [...kept, ...remote.filter((note) => !localSlugs.has(note.slug))]
   });
 }
 

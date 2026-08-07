@@ -232,6 +232,22 @@ test("mergeRemoteNotes keeps local edits on clashes and appends remote-only note
   assert.ok(merged.some((note) => note.title === "远端独有"), "remote-only appended");
 });
 
+test("mergeRemoteNotes adopts remote art the workflow stamped meanwhile", () => {
+  const local = normalizeNotes({
+    notes: [{ title: "本地草稿版", date: "2026-07-01", body: "本地正文" }]
+  });
+  const remote = normalizeNotes({
+    notes: [
+      { title: "远端版", date: "2026-07-01", body: "远端正文", image: "/notes-art/2026-07-01.webp" }
+    ]
+  });
+
+  const [merged] = mergeRemoteNotes(local, remote);
+
+  assert.equal(merged.body, "本地正文", "local content still wins");
+  assert.equal(merged.image, "/notes-art/2026-07-01.webp", "remote art is inherited");
+});
+
 test("normalizeNotes preserves safe art images and drops unsafe ones", () => {
   const notes = normalizeNotes({
     notes: [

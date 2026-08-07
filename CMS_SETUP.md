@@ -17,6 +17,7 @@ The hosted editor is intentionally simple so it works on GitHub Pages without re
 - Writing studio: `/admin/notes/` — Chinese-first editor with live preview and local draft autosave. It reuses the exact same GitHub token (same localStorage key) as `/admin/`, so signing in once covers both.
 - Publishing commits `content/notes.json` through the GitHub Contents API; GitHub Pages redeploys automatically, so a new post appears on the site about 1–2 minutes after publishing.
 - Post body supports simple formatting: blank line = new paragraph, `## heading`, `- list item`, `**bold**`, `*italic*`. Raw HTML is always escaped.
+- **Drafts are double-protected:** every keystroke saves the full editor state (including staged-but-unpublished list changes) to the browser; after 5 idle minutes (or when leaving the tab, or via the「备份草稿」button) the draft is also committed to the repo's `notes-drafts` branch, so it survives cleared browser data and follows you across devices. Opening the editor restores whichever copy is newer. Publishing clears both. Note: the draft branch is as visible as the repository itself.
 
 ### Automatic piglet comic art
 

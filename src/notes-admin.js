@@ -11,6 +11,13 @@ import {
   renderNoteBody,
   formatNoteDate
 } from "./render-notes.js";
+import {
+  buildDraftPayload,
+  parseDraftPayload,
+  draftHasContent,
+  chooseDraftSource,
+  draftContentKey
+} from "./notes-draft.js";
 
 const OWNER = "seandongAne";
 const REPO = "cochonnet-villa";
@@ -20,7 +27,15 @@ const LIVE_NOTES_URL = "https://www.cochonnetvilla.ca/notes/";
 const TOKEN_STORAGE_KEY = "cochonnetvilla_github_token";
 const DRAFT_STORAGE_KEY = "cochonnetvilla_notes_draft";
 
+// Cloud draft backup: committed to a side branch so it never publishes, never
+// triggers the Pages deploy or the art workflow, and keeps main history clean.
+const DRAFT_BRANCH = "notes-drafts";
+const DRAFT_PATH = "content/notes-draft.json";
+const CLOUD_DRAFT_IDLE_MS = 5 * 60 * 1000;
+
 const apiBase = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CONTENT_PATH}`;
+const draftApiBase = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DRAFT_PATH}`;
+const refsApiBase = `https://api.github.com/repos/${OWNER}/${REPO}/git`;
 
 function toBase64(text) {
   const bytes = new TextEncoder().encode(text);
@@ -66,6 +81,8 @@ export function initNotesAdmin() {
     commitMessageInput: document.querySelector("#commit-message-input"),
     publishButton: document.querySelector("#publish-button"),
     publishStatus: document.querySelector("#publish-status"),
+    backupDraftButton: document.querySelector("#backup-draft-button"),
+    draftStatus: document.querySelector("#draft-status"),
     previewTitle: document.querySelector("#preview-title"),
     previewMeta: document.querySelector("#preview-meta"),
     previewBody: document.querySelector("#preview-body")
@@ -79,7 +96,12 @@ export function initNotesAdmin() {
     editingSlug: null,
     // True once we know the remote state (a successful read, or a definite
     // 404). Publishing without it could clobber notes we never saw.
-    remoteKnown: false
+    remoteKnown: false,
+    // Cloud draft bookkeeping.
+    cloudDraftSha: "",
+    cloudTimer: null,
+    cloudDirty: false,
+    lastCloudKey: ""
   };
 
   function setStatus(element, message, tone = "default") {
@@ -131,21 +153,36 @@ export function initNotesAdmin() {
     setStatus(elements.authStatus, "已清除本浏览器保存的 token。", "warning");
   }
 
+  function currentForm() {
+    return {
+      title: elements.titleInput.value,
+      date: elements.dateInput.value,
+      mood: elements.moodInput.value,
+      body: elements.bodyInput.value
+    };
+  }
+
+  function currentDraftPayload() {
+    return buildDraftPayload({
+      editingSlug: state.editingSlug,
+      form: currentForm(),
+      stagedDirty: state.dirty,
+      stagedNotes: state.notes,
+      savedAt: Date.now()
+    });
+  }
+
+  // Tier 1: every change persists the full editor state (form + staged list)
+  // to this browser, and arms the tier-2 idle timer.
   function saveDraft() {
     try {
-      window.localStorage.setItem(
-        DRAFT_STORAGE_KEY,
-        JSON.stringify({
-          editingSlug: state.editingSlug,
-          title: elements.titleInput.value,
-          date: elements.dateInput.value,
-          mood: elements.moodInput.value,
-          body: elements.bodyInput.value
-        })
-      );
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(currentDraftPayload()));
     } catch {
       // Storage full/blocked — drafts are best-effort only.
     }
+
+    state.cloudDirty = true;
+    scheduleCloudBackup();
   }
 
   function clearDraft() {
@@ -154,15 +191,202 @@ export function initNotesAdmin() {
     } catch {
       // Ignore storage failures.
     }
+
+    if (state.cloudTimer) {
+      clearTimeout(state.cloudTimer);
+      state.cloudTimer = null;
+    }
+
+    state.cloudDirty = false;
+    // Best-effort: blank the cloud copy so another device won't resurrect
+    // content that has already been published.
+    clearCloudDraft().catch(() => {});
   }
 
-  function readDraft() {
+  function readLocalDraft() {
     try {
-      const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      return parseDraftPayload(window.localStorage.getItem(DRAFT_STORAGE_KEY));
     } catch {
       return null;
     }
+  }
+
+  // ---- Tier 2: cloud draft on the notes-drafts branch ----
+
+  function githubHeaders() {
+    const headers = {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    };
+
+    if (state.token) {
+      headers.Authorization = `Bearer ${state.token}`;
+    }
+
+    return headers;
+  }
+
+  function scheduleCloudBackup() {
+    if (state.cloudTimer) {
+      clearTimeout(state.cloudTimer);
+    }
+
+    if (!state.token) {
+      return;
+    }
+
+    state.cloudTimer = setTimeout(() => {
+      state.cloudTimer = null;
+      backupDraftToCloud().catch(() => {});
+    }, CLOUD_DRAFT_IDLE_MS);
+  }
+
+  async function fetchCloudDraft() {
+    const response = await fetch(`${draftApiBase}?ref=${DRAFT_BRANCH}`, {
+      headers: githubHeaders()
+    });
+
+    if (response.status === 404) {
+      state.cloudDraftSha = "";
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`GitHub 返回 ${response.status}。`);
+    }
+
+    const payload = await response.json();
+    state.cloudDraftSha = payload.sha;
+
+    const draft = parseDraftPayload(fromBase64(payload.content.replace(/\n/g, "")));
+    state.lastCloudKey = draftContentKey(draft);
+    return draft;
+  }
+
+  async function ensureDraftBranch() {
+    const mainRef = await fetch(`${refsApiBase}/ref/heads/${BRANCH}`, {
+      headers: githubHeaders()
+    });
+
+    if (!mainRef.ok) {
+      throw new Error(`读取 ${BRANCH} 分支失败（${mainRef.status}）。`);
+    }
+
+    const { object } = await mainRef.json();
+    const created = await fetch(`${refsApiBase}/refs`, {
+      method: "POST",
+      headers: { ...githubHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: `refs/heads/${DRAFT_BRANCH}`, sha: object.sha })
+    });
+
+    // 422 = branch already exists (created concurrently) — that's fine.
+    if (!created.ok && created.status !== 422) {
+      throw new Error(`创建草稿分支失败（${created.status}）。`);
+    }
+  }
+
+  async function putCloudDraft(draftPayload, { keepalive = false } = {}) {
+    const body = {
+      message: "备份小记草稿",
+      content: toBase64(`${JSON.stringify(draftPayload, null, 2)}\n`),
+      branch: DRAFT_BRANCH
+    };
+
+    if (state.cloudDraftSha) {
+      body.sha = state.cloudDraftSha;
+    }
+
+    const attempt = () =>
+      fetch(draftApiBase, {
+        method: "PUT",
+        headers: { ...githubHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        keepalive
+      });
+
+    let response = await attempt();
+
+    if (response.status === 404) {
+      // Branch doesn't exist yet — create it from main and retry once.
+      await ensureDraftBranch();
+      response = await attempt();
+    } else if (response.status === 409 || response.status === 422) {
+      // Stale sha (another device backed up) — refresh and retry once.
+      await fetchCloudDraft().catch(() => {});
+      if (state.cloudDraftSha) {
+        body.sha = state.cloudDraftSha;
+      } else {
+        delete body.sha;
+      }
+      response = await attempt();
+    }
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      throw new Error(errorPayload?.message || `GitHub 返回 ${response.status}。`);
+    }
+
+    const payload = await response.json();
+    state.cloudDraftSha = payload.content?.sha || state.cloudDraftSha;
+    state.lastCloudKey = draftContentKey(draftPayload);
+  }
+
+  async function backupDraftToCloud({ manual = false, keepalive = false } = {}) {
+    if (!state.token) {
+      if (manual) {
+        setStatus(elements.draftStatus, "云端备份需要先保存 GitHub token（本地草稿不受影响）。", "warning");
+      }
+      return;
+    }
+
+    const draftPayload = currentDraftPayload();
+
+    if (!draftHasContent(draftPayload) && !manual) {
+      return;
+    }
+
+    if (draftContentKey(draftPayload) === state.lastCloudKey) {
+      state.cloudDirty = false;
+      if (manual) {
+        setStatus(elements.draftStatus, "云端草稿已是最新，无需重复备份。", "success");
+      }
+      return;
+    }
+
+    if (manual) {
+      setStatus(elements.draftStatus, "正在备份草稿到 GitHub……");
+    }
+
+    try {
+      await putCloudDraft(draftPayload, { keepalive });
+      state.cloudDirty = false;
+      const time = new Date(draftPayload.savedAt).toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      setStatus(elements.draftStatus, `草稿已备份到 GitHub 草稿分支（${time}）。`, "success");
+    } catch (error) {
+      setStatus(
+        elements.draftStatus,
+        `云端备份失败：${error.message} 本地草稿仍然有效，稍后会自动重试。`,
+        "warning"
+      );
+      scheduleCloudBackup();
+    }
+  }
+
+  async function clearCloudDraft() {
+    if (!state.token) {
+      return;
+    }
+
+    await fetchCloudDraft().catch(() => {});
+
+    if (!state.cloudDraftSha) {
+      return;
+    }
+
+    await putCloudDraft(buildDraftPayload({ savedAt: Date.now() }));
   }
 
   function updatePreview() {
@@ -186,6 +410,7 @@ export function initNotesAdmin() {
   function markDirty() {
     state.dirty = true;
     setStatus(elements.publishStatus, "列表里有还没发布的修改，记得点「发布到 GitHub」。", "warning");
+    saveDraft();
   }
 
   function renderList() {
@@ -243,7 +468,6 @@ export function initNotesAdmin() {
         if (state.editingSlug === note.slug) {
           state.editingSlug = null;
           fillForm(null);
-          saveDraft();
         }
 
         markDirty();
@@ -276,7 +500,6 @@ export function initNotesAdmin() {
     state.editingSlug = result.slug;
     markDirty();
     renderList();
-    saveDraft();
     setStatus(elements.editorStatus, `《${title}》已收进列表。点「发布到 GitHub」让它上线。`, "success");
   }
 
@@ -337,6 +560,7 @@ export function initNotesAdmin() {
       // remote list underneath instead of clobbering them, and stay dirty.
       state.notes = mergeRemoteNotes(state.notes, remote.notes);
       renderList();
+      saveDraft();
       setStatus(
         elements.listStatus,
         `已读取远端小记，并保留了你还没发布的修改（共 ${state.notes.length} 篇）。`,
@@ -348,6 +572,7 @@ export function initNotesAdmin() {
     state.notes = remote.notes;
     state.dirty = false;
     renderList();
+    saveDraft();
 
     if (!remote.exists) {
       setStatus(elements.listStatus, "仓库里还没有 notes.json，第一次发布时会自动创建。", "warning");
@@ -432,21 +657,48 @@ export function initNotesAdmin() {
     );
   }
 
-  function restoreDraft() {
-    const draft = readDraft();
+  async function restoreDraft() {
+    const local = readLocalDraft();
+    let cloud = null;
 
-    if (!draft || (!String(draft.title || "").trim() && !String(draft.body || "").trim())) {
+    try {
+      cloud = await fetchCloudDraft();
+    } catch {
+      // Offline or API hiccup — fall back to the local tier.
+    }
+
+    const source = chooseDraftSource(local, cloud);
+
+    if (!source) {
       fillForm(null);
       return;
     }
 
-    state.editingSlug = typeof draft.editingSlug === "string" ? draft.editingSlug : null;
-    elements.titleInput.value = draft.title || "";
-    elements.dateInput.value = draft.date || todayString();
-    elements.moodInput.value = draft.mood || "";
-    elements.bodyInput.value = draft.body || "";
+    const draft = source === "cloud" ? cloud : local;
+
+    state.editingSlug = draft.editingSlug;
+    elements.titleInput.value = draft.form.title;
+    elements.dateInput.value = draft.form.date || todayString();
+    elements.moodInput.value = draft.form.mood;
+    elements.bodyInput.value = draft.form.body;
     updatePreview();
-    setStatus(elements.editorStatus, "已恢复上次没发布的草稿（草稿会自动存在本浏览器）。", "success");
+
+    if (draft.stagedDirty && draft.stagedNotes.length) {
+      // The staged-but-unpublished list comes back too; the pending
+      // fetchNotes() will merge the remote list underneath it.
+      state.notes = draft.stagedNotes;
+      state.dirty = true;
+      renderList();
+      setStatus(elements.publishStatus, "恢复了还没发布的列表修改，记得点「发布到 GitHub」。", "warning");
+    }
+
+    setStatus(
+      elements.editorStatus,
+      source === "cloud"
+        ? "已从 GitHub 云端草稿恢复（比本浏览器的记录更新）。"
+        : "已恢复本地草稿（每次输入都会自动保存）。",
+      "success"
+    );
   }
 
   elements.saveTokenButton?.addEventListener("click", saveToken);
@@ -489,6 +741,19 @@ export function initNotesAdmin() {
     });
   }
 
+  elements.backupDraftButton?.addEventListener("click", () => {
+    backupDraftToCloud({ manual: true }).catch((error) => {
+      setStatus(elements.draftStatus, `云端备份失败：${error.message}`, "warning");
+    });
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    // Leaving the page (tab switch, close) flushes a pending backup early.
+    if (document.visibilityState === "hidden" && state.cloudDirty && state.token) {
+      backupDraftToCloud({ keepalive: true }).catch(() => {});
+    }
+  });
+
   window.addEventListener("beforeunload", (event) => {
     if (state.dirty) {
       event.preventDefault();
@@ -497,9 +762,14 @@ export function initNotesAdmin() {
   });
 
   loadToken();
-  restoreDraft();
-  fetchNotes().catch((error) => {
-    console.error(error);
-    setStatus(elements.listStatus, error.message, "error");
-  });
+  (async () => {
+    await restoreDraft();
+
+    try {
+      await fetchNotes();
+    } catch (error) {
+      console.error(error);
+      setStatus(elements.listStatus, error.message, "error");
+    }
+  })();
 }
