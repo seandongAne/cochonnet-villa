@@ -439,7 +439,7 @@ export function calculateMushroomStarTwinkle(
   return 1 + safeStrength * (wave * 0.72 + secondWave * 0.28);
 }
 
-// Shared by every camera-centred sky layer, including the rare-event layer in
+// Shared by every camera-centred sky layer, including the special-event layer in
 // observatory-sky-events.js, so a stencil-config change can never fork.
 export function configureSkyStencil(material) {
   material.stencilWrite = true;

@@ -38,7 +38,7 @@ export function ObservatoryEventJournal({ journal, onClose }) {
       <header className="villa-map-journal-header">
         <h2>天象图鉴</h2>
         <p>
-          已收录 {seenCount} / {total} 种稀有天象
+          已收录 {seenCount} / {total} 种特殊天象
           {seenCount === 0 && " —— 关灯观星，静静等待。"}
           {seenCount > 0 && seenCount < total && " —— 夜空还藏着更多惊喜。"}
           {seenCount === total && " —— 这片夜空的全部秘密都属于你了！"}

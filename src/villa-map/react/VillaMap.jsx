@@ -148,7 +148,7 @@ export default function VillaMap() {
   const [observatoryHiddenEffects, setObservatoryHiddenEffects] = useState(
     CLOSED_OBSERVATORY_HIDDEN_EFFECTS
   );
-  // Currently active rare celestial event (director-owned; null when idle).
+  // Currently active special celestial event (director-owned; null when idle).
   // Only used for the small HUD caption — visuals never read React state.
   const [observatoryRareEvent, setObservatoryRareEvent] = useState(null);
   // 天象图鉴: every genuinely-started event is recorded as a sighting; the
@@ -157,6 +157,7 @@ export default function VillaMap() {
     readObservatoryEventJournal(getObservatoryPreferenceStorage())
   ));
   const [observatoryJournalOpen, setObservatoryJournalOpen] = useState(false);
+  const observatorySuspended = qualityPanelOpen || observatoryJournalOpen;
   const observatoryJournalResumeRef = useRef(false);
   const handleObservatoryRareEventChange = useCallback((eventId) => {
     setObservatoryRareEvent(eventId ?? null);
@@ -488,6 +489,7 @@ export default function VillaMap() {
           observatoryLightsOn={observatoryLightsOn}
           observatoryRiftOpen={observatoryHiddenEffects.rift}
           observatoryLensActive={observatoryHiddenEffects.lens}
+          observatorySuspended={observatorySuspended}
           observatoryAudioMuted={observatoryAudioMuted}
           onObservatoryHiddenEffectsReset={resetObservatoryHiddenEffects}
           observatoryQualityPreference={observatoryQualityPreference}
@@ -515,6 +517,7 @@ export default function VillaMap() {
                 onToggleObservatoryLights={toggleObservatoryLights}
                 onObservatoryHiddenAction={handleObservatoryHiddenAction}
                 onOpenObservatoryJournal={openObservatoryJournal}
+                suspended={observatorySuspended}
               />
             )}
             <ObservatoryDiagnostics
@@ -537,7 +540,7 @@ export default function VillaMap() {
             onToggleObservatoryLights={toggleObservatoryLights}
             onObservatoryHiddenAction={handleObservatoryHiddenAction}
             onOpenObservatoryJournal={openObservatoryJournal}
-            suspended={qualityPanelOpen || observatoryJournalOpen}
+            suspended={observatorySuspended}
           />
         )}
       </Canvas>
@@ -622,12 +625,14 @@ export default function VillaMap() {
 
       {!editMode
         && !observatoryDiagnosticsMode
-        && !observatoryJournalOpen
+        && !observatorySuspended
+        && !observatoryHiddenEffects.rift
+        && !observatoryHiddenEffects.lens
         && observatoryRareEvent
         && OBSERVATORY_RARE_EVENTS[observatoryRareEvent] && (
           <p className="villa-map-rare-event" role="status">
             <span aria-hidden="true">✨</span>
-            稀有天象：{OBSERVATORY_RARE_EVENTS[observatoryRareEvent].label}
+            特殊天象：{OBSERVATORY_RARE_EVENTS[observatoryRareEvent].label}
           </p>
       )}
 

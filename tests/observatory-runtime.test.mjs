@@ -66,7 +66,7 @@ test("the -1 frame director owns one shared adaptation state and maps every chan
     "lighting, palette, exposure and markers should follow houseLight"
   );
   assert.match(runtime, /backdropReveal:\s*channels\.portalReveal/);
-  // The hero-star channel maps to brightStarReveal, with the rare moon
+  // The hero-star channel maps to brightStarReveal, with the special moon
   // transit's moonlight legitimately washing out a fraction of it.
   assert.match(
     runtime,
@@ -93,6 +93,45 @@ test("the -1 frame director owns one shared adaptation state and maps every chan
     ) >= 2,
     "one motion channel must freeze both the native sky and nebula"
   );
+});
+
+test("special-event timing, suspension and selection share the frame owner", () => {
+  const compact = withoutWhitespace(runtime);
+  assert.match(
+    compact,
+    /const rawFrameDelta = Number\.isFinite\(delta\) \? Math\.max\(delta, 0\) : 0;/
+  );
+  assert.match(compact, /const frameDelta = Math\.min\(rawFrameDelta, 0\.1\);/);
+  assert.match(
+    compact,
+    /const eventDelta = rareEventPaused \|\| skipPerformanceSample \? 0 : rawFrameDelta;/,
+    "event probability and duration need real active-view time, not animation delta"
+  );
+  assert.match(
+    compact,
+    /const rareEventPausedReason = !visiblePage \? "page-hidden" : suspended \? "interface" : hiddenLabActive \? "hidden-lab" : null;/
+  );
+  assert.match(runtime, /document\.visibilityState === "visible"/);
+  assert.match(runtime, /deltaSeconds:\s*eventDelta/);
+  assert.match(runtime, /paused:\s*rareEventPaused \|\| skipPerformanceSample/);
+  assert.match(runtime, /canStart:\s*!hiddenLabActive/);
+  assert.match(
+    runtime,
+    /getAvailableObservatoryRareEventIds\(\{[\s\S]*?reducedMotion:\s*resources\.reducedMotion,[\s\S]*?disabledEventIds:\s*resources\.disabledSkyEventIds/
+  );
+  assert.match(
+    runtime,
+    /rareChannels = rareEventPaused[\s\S]*?OBSERVATORY_RARE_EVENT_IDLE_CHANNELS/
+  );
+  assert.match(scene, /suspended=\{observatorySuspended\}/);
+  for (const field of [
+    "availableEventIds",
+    "effectiveChancePerSecond",
+    "paused",
+    "pausedReason"
+  ]) {
+    assert.match(runtime, new RegExp(`\\b${field}:`));
+  }
 });
 
 test("only the volumetric nebula enters the FBO portal", () => {
@@ -535,6 +574,28 @@ test("shader failures are classified and per-frame draw metrics report actual wo
   assert.match(runtime, /observatoryShaderFailure === "kerr-lens"/);
   assert.match(runtime, /observatoryShaderFailure === "star-volume"/);
   assert.match(runtime, /observatoryShaderFailure === "native-sky"/);
+  for (const eventId of [
+    "meteor-shower",
+    "comet",
+    "supernova",
+    "bolide",
+    "satellite-train",
+    "planet-conjunction",
+    "aurora",
+    "constellation",
+    "moon-transit",
+    "kilonova",
+    "ufo"
+  ]) {
+    assert.match(runtime, new RegExp(`"sky-event:${eventId}"`));
+  }
+  assert.match(runtime, /observatoryShaderFailure\?\.startsWith\("sky-event:"\)/);
+  assert.match(runtime, /disableObservatorySkyEventVisual\(skyEventsVisual, eventId\)/);
+  assert.match(
+    runtime,
+    /resources\.skyEventsDisabled = OBSERVATORY_SKY_RENDERED_EVENT_IDS\.every\(/
+  );
+  assert.doesNotMatch(runtime, /observatoryShaderFailure === "sky-events"/);
   assert.match(runtime, /resources\.portalRenderedThisFrame = false/);
   assert.match(runtime, /resources\.portalRenderedThisFrame = true/);
   assert.match(

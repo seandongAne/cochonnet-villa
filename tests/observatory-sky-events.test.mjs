@@ -4,6 +4,7 @@ import * as THREE from "three";
 
 import {
   createObservatorySkyEventsVisual,
+  disableObservatorySkyEventVisual,
   disposeObservatorySkyEventsVisual,
   OBSERVATORY_AURORA_NAME,
   OBSERVATORY_BOLIDE_NAME,
@@ -30,7 +31,7 @@ import {
   OBSERVATORY_RARE_EVENTS
 } from "../src/villa-map/observatory-events.js";
 
-// channel key → scene-object name, one visual layer per rare event channel
+// channel key → scene-object name, one visual layer per special event channel
 // that renders in the sky (nebulaBoost and blackHole drive existing systems).
 const CHANNEL_OBJECTS = Object.freeze({
   meteor: OBSERVATORY_METEORS_NAME,
@@ -179,6 +180,14 @@ test("the comet advances along a seed-deterministic apex-centred arc", () => {
 test("prefers-reduced-motion suppresses only the motion-dominant layers", () => {
   const group = createObservatorySkyEventsVisual();
   const suppressed = new Set(OBSERVATORY_MOTION_SUPPRESSED_CHANNELS);
+  assert.deepEqual(
+    [...suppressed].sort(),
+    Object.values(OBSERVATORY_RARE_EVENTS)
+      .filter((definition) => definition.requiresMotion === true)
+      .map((definition) => definition.channel)
+      .sort(),
+    "visual suppression and pre-selection policy share one definition flag"
+  );
   for (const [channel, name] of Object.entries(CHANNEL_OBJECTS)) {
     updateObservatorySkyEventsVisual(group, {
       channels: { [channel]: 1 },
@@ -192,6 +201,44 @@ test("prefers-reduced-motion suppresses only the motion-dominant layers", () => 
       `${channel} reduced-motion policy`
     );
   }
+  disposeObservatorySkyEventsVisual(group);
+});
+
+test("one failed event layer disposes in isolation and leaves peers usable", () => {
+  const group = createObservatorySkyEventsVisual();
+  const bolide = group.getObjectByName(OBSERVATORY_BOLIDE_NAME);
+  let geometryDisposals = 0;
+  let materialDisposals = 0;
+  bolide.geometry.addEventListener("dispose", () => {
+    geometryDisposals += 1;
+  });
+  bolide.material.addEventListener("dispose", () => {
+    materialDisposals += 1;
+  });
+
+  assert.equal(disableObservatorySkyEventVisual(group, "bolide"), true);
+  assert.equal(group.getObjectByName(OBSERVATORY_BOLIDE_NAME), undefined);
+  assert.equal(group.userData.bolide, null);
+  assert.equal(group.userData.disabledEventIds.has("bolide"), true);
+  assert.equal(geometryDisposals, 1);
+  assert.equal(materialDisposals, 1);
+  assert.equal(
+    disableObservatorySkyEventVisual(group, "bolide"),
+    false,
+    "repeat failure reports must stay idempotent"
+  );
+
+  assert.equal(
+    updateObservatorySkyEventsVisual(group, {
+      channels: { comet: 1 },
+      progress: 0.4,
+      seed: 0.2
+    }),
+    true
+  );
+  assert.equal(group.getObjectByName(OBSERVATORY_COMET_NAME).visible, true);
+  assert.equal(geometryDisposals, 1);
+  assert.equal(materialDisposals, 1);
   disposeObservatorySkyEventsVisual(group);
 });
 
@@ -315,9 +362,10 @@ test("dispose is idempotent and updates after dispose are safe no-ops", () => {
 test("no shader declares a GLSL reserved word as an identifier", async () => {
   // "float active = …" in the bolide vertex shader compiled nowhere: `active`
   // is reserved in GLSL ES, ANGLE rejects the program, and the runtime's
-  // fail-soft classifier then disables the ENTIRE sky-event layer — silently
-  // collapsing the rare-event pool to 星云增强/黑洞凌日 for the whole session
-  // (the field symptom: 黑洞凌日 repeating back-to-back). Node tests cannot
+  // fail-soft classifier historically disabled the ENTIRE sky-event layer —
+  // silently collapsing the pool to 星云增强/黑洞凌日 for the whole session
+  // (the field symptom: 黑洞凌日 repeating back-to-back). The runtime now
+  // isolates that one phenomenon, but Node tests still cannot compile GLSL,
   // compile GLSL, so pin the source instead: no shader-capable module may
   // declare a variable whose name is reserved in GLSL ES 1.00/3.00.
   const { readdirSync, readFileSync } = await import("node:fs");

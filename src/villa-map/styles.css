@@ -207,7 +207,7 @@
   color: rgba(255, 224, 158, 0.85) !important;
 }
 
-/* Rare celestial event caption (流星雨 / 彗星 / 星云增强 / 黑洞凌日). Top
+/* Special celestial event caption (流星雨 / 彗星 / 星云增强 / 黑洞凌日). Top
    centre so it reads like a quiet observatory annotation, never a dialog. */
 .villa-map-rare-event {
   position: absolute;

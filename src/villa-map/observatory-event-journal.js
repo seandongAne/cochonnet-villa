@@ -1,4 +1,4 @@
-// 天象图鉴 — persistence for which rare celestial events the player has
+// 天象图鉴 — persistence for which special celestial events the player has
 // witnessed. Node-pure and storage-failure safe, following the same versioned
 // localStorage discipline as observatory-quality-preference.js: privacy-mode
 // or opaque-origin storages that throw simply behave like an empty journal.

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   createObservatoryRareEventsState,
+  getAvailableObservatoryRareEventIds,
   OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
   OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS,
   OBSERVATORY_RARE_EVENT_IDS,
@@ -11,6 +12,7 @@ import {
   OBSERVATORY_RARE_EVENTS,
   rareEventEnvelope,
   rareEventTriggerProbability,
+  selectWeightedObservatoryRareEvent,
   stepObservatoryRareEvents
 } from "../src/villa-map/observatory-events.js";
 
@@ -61,6 +63,123 @@ test("the per-second chance is exactly 3% and frame-rate independent", () => {
   assert.equal(rareEventTriggerProbability(0.03, Number.NaN), 0);
 });
 
+test("all special events explicitly use equal test-phase weights", () => {
+  for (const [eventId, definition] of Object.entries(OBSERVATORY_RARE_EVENTS)) {
+    assert.equal(definition.weight, 1, `${eventId} must declare weight: 1`);
+  }
+
+  const pool = ["comet", "aurora", "ufo"];
+  assert.equal(selectWeightedObservatoryRareEvent(pool, 0), "comet");
+  assert.equal(
+    selectWeightedObservatoryRareEvent(pool, (1 / 3) - Number.EPSILON),
+    "comet"
+  );
+  assert.equal(selectWeightedObservatoryRareEvent(pool, 1 / 3), "aurora");
+  assert.equal(selectWeightedObservatoryRareEvent(pool, 2 / 3), "ufo");
+  assert.equal(selectWeightedObservatoryRareEvent(pool, 1), "ufo");
+  assert.equal(selectWeightedObservatoryRareEvent([], 0.5), null);
+});
+
+test("reduced motion and shader failures prune the pool before selection", () => {
+  const motionRequired = [
+    "meteor-shower",
+    "bolide",
+    "satellite-train",
+    "ufo"
+  ];
+  const fullPool = getAvailableObservatoryRareEventIds({
+    availability: ALL_AVAILABLE
+  });
+  const reducedPool = getAvailableObservatoryRareEventIds({
+    availability: ALL_AVAILABLE,
+    reducedMotion: true
+  });
+  assert.deepEqual(
+    fullPool.filter((id) => OBSERVATORY_RARE_EVENTS[id].requiresMotion),
+    motionRequired
+  );
+  assert.equal(fullPool.length, 13);
+  assert.equal(reducedPool.length, 9);
+  for (const eventId of motionRequired) {
+    assert.ok(!reducedPool.includes(eventId), `${eventId} must not be rolled`);
+  }
+
+  const disabled = new Set(["comet", "black-hole-transit"]);
+  const afterFailures = getAvailableObservatoryRareEventIds({
+    availability: ALL_AVAILABLE,
+    disabledEventIds: disabled
+  });
+  assert.equal(afterFailures.length, 11);
+  assert.ok(!afterFailures.includes("comet"));
+  assert.ok(!afterFailures.includes("black-hole-transit"));
+  assert.ok(afterFailures.includes("supernova"));
+
+  assert.equal(
+    getAvailableObservatoryRareEventIds({
+      availability: { skyLayer: true, nebula: false, blackHole: true }
+    }).length,
+    12,
+    "a Low-style pool loses only the Portal-dependent surge"
+  );
+  assert.equal(
+    getAvailableObservatoryRareEventIds({
+      availability: { skyLayer: true, nebula: false, blackHole: false },
+      reducedMotion: true
+    }).length,
+    7,
+    "Minimum + reduced motion keeps only renderable static phenomena"
+  );
+});
+
+test("paused directors preserve the exact state, clock and RNG position", () => {
+  let state = stepDark(createObservatoryRareEventsState(), {
+    forcedEvent: "comet"
+  });
+  state = stepDark(state, {
+    deltaSeconds: 8,
+    forcedEvent: null
+  });
+  const activeElapsed = state.elapsedSeconds;
+  const activeProgress = state.progress;
+  let randomCalls = 0;
+  const pausedActive = stepObservatoryRareEvents(state, {
+    deltaSeconds: 1000,
+    eligible: false,
+    availability: { skyLayer: false, nebula: false, blackHole: false },
+    paused: true,
+    random: () => {
+      randomCalls += 1;
+      return 0;
+    }
+  });
+  assert.equal(pausedActive, state, "pause should return the frozen state object");
+  assert.equal(pausedActive.elapsedSeconds, activeElapsed);
+  assert.equal(pausedActive.progress, activeProgress);
+  assert.equal(randomCalls, 0);
+
+  const cooldown = stepDark(state, {
+    deltaSeconds: OBSERVATORY_RARE_EVENTS.comet.durationSeconds,
+    forcedEvent: null
+  });
+  assert.equal(cooldown.cooldownSeconds, OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS);
+  const pausedCooldown = stepObservatoryRareEvents(cooldown, {
+    deltaSeconds: 1000,
+    eligible: true,
+    availability: ALL_AVAILABLE,
+    paused: true,
+    random: () => {
+      randomCalls += 1;
+      return 0;
+    }
+  });
+  assert.equal(pausedCooldown, cooldown);
+  assert.equal(
+    pausedCooldown.cooldownSeconds,
+    OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS
+  );
+  assert.equal(randomCalls, 0);
+});
+
 test("no roll can ever fire while ineligible (lights on / off-loft)", () => {
   let state = createObservatoryRareEventsState();
   for (let frame = 0; frame < 600; frame += 1) {
@@ -106,7 +225,7 @@ test("selection respects availability: gated events never fire when missing", ()
   assert.equal(
     seen.size,
     OBSERVATORY_RARE_EVENT_IDS.length - gated.size,
-    "uniform selection must reach every sky-layer event"
+    "equal-weight selection must reach every sky-layer event"
   );
 
   // A broken sky-event layer (shader failure) removes the 11 sky-rendered
@@ -367,7 +486,7 @@ test("states are frozen and expose the full channel set", () => {
     const definition = OBSERVATORY_RARE_EVENTS[id];
     assert.ok(
       definition.durationSeconds > 10,
-      "rare events should be leisurely, not blink-and-miss flashes"
+      "special events should be leisurely, not blink-and-miss flashes"
     );
     assert.equal(
       typeof definition.journal,

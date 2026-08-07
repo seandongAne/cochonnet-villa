@@ -12,8 +12,9 @@
 // rate is frame-rate independent: many small frames compose to exactly the
 // same chance as one large step over the same wall-clock span.
 //
-// Selection among available events is uniform (no rarity weighting by design
-// request); the `journal` line on each definition feeds the wall-book 天象图鉴.
+// Selection among available events is weighted. Every event currently carries
+// an explicit weight of 1 for the collection-forward test phase; future rarity
+// tuning only changes definition data. The `journal` line feeds 天象图鉴.
 
 export const OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND = 0.03;
 export const OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS = 40;
@@ -42,6 +43,8 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   "meteor-shower": Object.freeze({
     label: "流星雨",
     channel: "meteor",
+    weight: 1,
+    requiresMotion: true,
     durationSeconds: 26,
     rampInFraction: 0.16,
     rampOutFraction: 0.24,
@@ -51,6 +54,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   comet: Object.freeze({
     label: "彗星经过",
     channel: "comet",
+    weight: 1,
     durationSeconds: 40,
     rampInFraction: 0.1,
     rampOutFraction: 0.14,
@@ -60,6 +64,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   "nebula-surge": Object.freeze({
     label: "星云增强",
     channel: "nebulaBoost",
+    weight: 1,
     durationSeconds: 22,
     rampInFraction: 0.3,
     rampOutFraction: 0.34,
@@ -69,6 +74,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   "black-hole-transit": Object.freeze({
     label: "黑洞凌日",
     channel: "blackHole",
+    weight: 1,
     durationSeconds: 32,
     rampInFraction: 0.22,
     rampOutFraction: 0.24,
@@ -78,6 +84,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   supernova: Object.freeze({
     label: "超新星爆发",
     channel: "supernova",
+    weight: 1,
     durationSeconds: 30,
     rampInFraction: 0.04,
     rampOutFraction: 0.5,
@@ -87,6 +94,8 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   bolide: Object.freeze({
     label: "火流星",
     channel: "bolide",
+    weight: 1,
+    requiresMotion: true,
     durationSeconds: 18,
     rampInFraction: 0.05,
     rampOutFraction: 0.3,
@@ -96,6 +105,8 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   "satellite-train": Object.freeze({
     label: "卫星列车",
     channel: "satellites",
+    weight: 1,
+    requiresMotion: true,
     durationSeconds: 45,
     rampInFraction: 0.08,
     rampOutFraction: 0.12,
@@ -105,6 +116,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   "planet-conjunction": Object.freeze({
     label: "行星合",
     channel: "planets",
+    weight: 1,
     durationSeconds: 36,
     rampInFraction: 0.18,
     rampOutFraction: 0.22,
@@ -114,6 +126,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   aurora: Object.freeze({
     label: "极光",
     channel: "aurora",
+    weight: 1,
     durationSeconds: 50,
     rampInFraction: 0.22,
     rampOutFraction: 0.26,
@@ -123,6 +136,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   constellation: Object.freeze({
     label: "星座连线",
     channel: "constellation",
+    weight: 1,
     durationSeconds: 30,
     rampInFraction: 0.2,
     rampOutFraction: 0.25,
@@ -132,6 +146,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   "moon-transit": Object.freeze({
     label: "月亮过境",
     channel: "moon",
+    weight: 1,
     durationSeconds: 55,
     rampInFraction: 0.12,
     rampOutFraction: 0.14,
@@ -141,6 +156,7 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   kilonova: Object.freeze({
     label: "千新星涟漪",
     channel: "kilonova",
+    weight: 1,
     durationSeconds: 24,
     rampInFraction: 0.06,
     rampOutFraction: 0.3,
@@ -150,6 +166,8 @@ export const OBSERVATORY_RARE_EVENTS = Object.freeze({
   ufo: Object.freeze({
     label: "不明飞行物",
     channel: "ufo",
+    weight: 1,
+    requiresMotion: true,
     durationSeconds: 20,
     rampInFraction: 0.1,
     rampOutFraction: 0.15,
@@ -162,7 +180,7 @@ export const OBSERVATORY_RARE_EVENT_IDS = Object.freeze(
   Object.keys(OBSERVATORY_RARE_EVENTS)
 );
 
-const IDLE_CHANNELS = Object.freeze({
+export const OBSERVATORY_RARE_EVENT_IDLE_CHANNELS = Object.freeze({
   meteor: 0,
   comet: 0,
   nebulaBoost: 0,
@@ -186,6 +204,16 @@ function finiteNonNegative(value) {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+function positiveEventWeight(eventId) {
+  const weight = OBSERVATORY_RARE_EVENTS[eventId]?.weight;
+  return Number.isFinite(weight) ? Math.max(0, weight) : 0;
+}
+
+function disabledEventSet(disabledEventIds) {
+  if (disabledEventIds instanceof Set) return disabledEventIds;
+  return new Set(Array.isArray(disabledEventIds) ? disabledEventIds : []);
+}
+
 function smootherstep01(value) {
   const t = clamp01(value);
   return t * t * t * (t * (t * 6 - 15) + 10);
@@ -194,9 +222,11 @@ function smootherstep01(value) {
 function channelsFor(eventId, intensity) {
   const definition = OBSERVATORY_RARE_EVENTS[eventId];
   const safeIntensity = clamp01(intensity);
-  if (!definition || safeIntensity <= 0) return IDLE_CHANNELS;
+  if (!definition || safeIntensity <= 0) {
+    return OBSERVATORY_RARE_EVENT_IDLE_CHANNELS;
+  }
   return Object.freeze({
-    ...IDLE_CHANNELS,
+    ...OBSERVATORY_RARE_EVENT_IDLE_CHANNELS,
     [definition.channel]: safeIntensity
   });
 }
@@ -267,11 +297,43 @@ export function rareEventEnvelope(progress, definition) {
     * smootherstep01((1 - safeProgress) / rampOut);
 }
 
-function availableEventIds(availability) {
+/** Resolve the exact weighted selection pool for the current runtime policy. */
+export function getAvailableObservatoryRareEventIds({
+  availability = null,
+  reducedMotion = false,
+  disabledEventIds = null
+} = {}) {
+  const disabled = disabledEventSet(disabledEventIds);
   return OBSERVATORY_RARE_EVENT_IDS.filter((id) => {
-    const requirement = OBSERVATORY_RARE_EVENTS[id].requires;
-    return !requirement || availability?.[requirement] === true;
+    const definition = OBSERVATORY_RARE_EVENTS[id];
+    const requirement = definition.requires;
+    return positiveEventWeight(id) > 0
+      && !disabled.has(id)
+      && !(reducedMotion && definition.requiresMotion === true)
+      && (!requirement || availability?.[requirement] === true);
   });
+}
+
+/** Pick one id from a positive-weight pool using one normalized RNG sample. */
+export function selectWeightedObservatoryRareEvent(eventIds, randomValue) {
+  const weighted = (Array.isArray(eventIds) ? eventIds : [])
+    .filter((id) => positiveEventWeight(id) > 0);
+  const totalWeight = weighted.reduce(
+    (sum, id) => sum + positiveEventWeight(id),
+    0
+  );
+  if (weighted.length === 0 || totalWeight <= 0) return null;
+
+  const normalized = Number.isFinite(randomValue)
+    ? Math.min(1 - Number.EPSILON, Math.max(0, randomValue))
+    : 0;
+  const target = normalized * totalWeight;
+  let cumulative = 0;
+  for (const id of weighted) {
+    cumulative += positiveEventWeight(id);
+    if (target < cumulative) return id;
+  }
+  return weighted[weighted.length - 1];
 }
 
 /** Create/reset the director to its idle state (no event, no cooldown). */
@@ -345,6 +407,10 @@ function selectionPoolFor(available, recentEvents) {
  *   visual seed so a pinned event can be aimed at a harness camera.
  * - random: injectable RNG. Consumed only on the frames where a decision is
  *   actually made (roll / selection / seed), never while idle-ineligible.
+ * - paused: freezes the exact state without consuming RNG or advancing an
+ *   active event/cooldown (modal or background-tab semantics).
+ * - canStart: blocks new random/forced starts without cancelling an event that
+ *   is already active (used while the manual hidden Observatory Lab is open).
  */
 export function stepObservatoryRareEvents(
   previousState,
@@ -354,14 +420,23 @@ export function stepObservatoryRareEvents(
     availability = null,
     chancePerSecond = OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
     cooldownSeconds = OBSERVATORY_RARE_EVENT_COOLDOWN_SECONDS,
+    paused = false,
+    canStart = true,
+    reducedMotion = false,
+    disabledEventIds = null,
     forcedEvent = null,
     forcedSeed = 0.5,
     random = Math.random
   } = {}
 ) {
   const previous = previousState ?? createObservatoryRareEventsState();
+  if (paused) return previous;
   const delta = finiteNonNegative(deltaSeconds);
-  const available = availableEventIds(availability);
+  const available = getAvailableObservatoryRareEventIds({
+    availability,
+    reducedMotion,
+    disabledEventIds
+  });
   const forced = forcedEvent && available.includes(forcedEvent)
     ? forcedEvent
     : null;
@@ -478,6 +553,19 @@ export function stepObservatoryRareEvents(
   // screenshots of a pinned event are reproducible across runs; it bypasses
   // the anti-streak memory (a pinned event must restart indefinitely) and
   // leaves that memory untouched.
+  const remainingCooldown = Math.max(0, previous.cooldownSeconds - delta);
+  if (!canStart) {
+    return makeState({
+      mode: "idle",
+      event: null,
+      elapsedSeconds: 0,
+      intensity: 0,
+      releaseFromIntensity: 0,
+      cooldownSeconds: remainingCooldown,
+      seed: previous.seed,
+      recentEvents: previous.recentEvents
+    });
+  }
   if (forced) {
     return startEvent(forced, {
       seed: Number.isFinite(forcedSeed) ? forcedSeed : 0.5,
@@ -485,7 +573,6 @@ export function stepObservatoryRareEvents(
       recentEvents: previous.recentEvents
     });
   }
-  const remainingCooldown = Math.max(0, previous.cooldownSeconds - delta);
   if (remainingCooldown > 0 || available.length === 0) {
     return makeState({
       mode: "idle",
@@ -500,11 +587,7 @@ export function stepObservatoryRareEvents(
   }
   if (random() < rareEventTriggerProbability(chancePerSecond, delta)) {
     const pool = selectionPoolFor(available, previous.recentEvents);
-    const index = Math.min(
-      pool.length - 1,
-      Math.floor(random() * pool.length)
-    );
-    const eventId = pool[index];
+    const eventId = selectWeightedObservatoryRareEvent(pool, random());
     return startEvent(eventId, {
       seed: random(),
       cooldownSeconds: 0,

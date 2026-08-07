@@ -675,7 +675,7 @@ export function createVillaWorld() {
       {
         id: "mushroom-observatory-event-journal",
         title: "天象图鉴",
-        body: "架子上放着一本厚厚的手绘图鉴，记录着这座观星台见过的每一种稀有天象。关灯观星时，每一秒都有小概率遇上一场。",
+        body: "架子上放着一本厚厚的手绘图鉴，记录着这座观星台见过的每一种特殊天象。关灯观星时，每一秒都有小概率遇上一场。",
         // On the west wall between the vanity and the light switch, matching
         // the m3-journal-shelf/book placement.
         position: mushroomInteractionPosition(-10.1, 2, 18.35),

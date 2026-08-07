@@ -127,12 +127,16 @@ import {
 } from "../mushroom-interior.js";
 import {
   createObservatoryRareEventsState,
+  getAvailableObservatoryRareEventIds,
   OBSERVATORY_RARE_EVENT_CHANCE_PER_SECOND,
+  OBSERVATORY_RARE_EVENT_IDLE_CHANNELS,
   OBSERVATORY_RARE_EVENT_IDS,
   OBSERVATORY_RARE_EVENT_MIN_STAR_REVEAL,
+  OBSERVATORY_RARE_EVENTS,
   stepObservatoryRareEvents
 } from "../observatory-events.js";
 import {
+  disableObservatorySkyEventVisual,
   disposeObservatorySkyEventsVisual,
   OBSERVATORY_KILONOVA_NAME,
   OBSERVATORY_SUPERNOVA_NAME,
@@ -167,7 +171,7 @@ const PORTAL_REVEAL_EPSILON = 0.001;
 // emission prevents the aperture becoming a luminous lavender screen.
 const NEBULA_EMISSION_STRENGTH = 0.04;
 const NEBULA_EXTINCTION_STRENGTH = 0.9;
-// 星云增强: the rare-event surge multiplies Portal emission (and slightly
+// 星云增强: the special-event surge multiplies Portal emission (and slightly
 // lifts reveal) without touching the ray-march step count, so its cost is
 // identical to the ordinary nebula frame.
 const NEBULA_SURGE_EMISSION_GAIN = 2.2;
@@ -233,6 +237,11 @@ const kerrWorldYScratch = new THREE.Vector3();
 const kerrWorldZScratch = new THREE.Vector3();
 const kerrToWorldScratch = new THREE.Matrix3();
 const kerrStarSourceRotationScratch = new THREE.Matrix3();
+const OBSERVATORY_SKY_RENDERED_EVENT_IDS = Object.freeze(
+  OBSERVATORY_RARE_EVENT_IDS.filter(
+    (eventId) => OBSERVATORY_RARE_EVENTS[eventId].requires === "skyLayer"
+  )
+);
 const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   [MUSHROOM_NEBULA_MATERIAL_NAME, "portal"],
   [OBSERVATORY_RELATIVISTIC_LENS_MATERIAL_NAME, "relativistic-lens"],
@@ -255,21 +264,20 @@ const OBSERVATORY_SHADER_FAILURE_KINDS = new Map([
   ["mushroom-observatory-black-hole-disk-material-1", "black-hole"],
   ["mushroom-observatory-black-hole-disk-material-2", "black-hole"],
   ["mushroom-observatory-black-hole-disk-material-3", "black-hole"],
-  // Rare-event sky layers fail soft as one unit: a broken event shader
-  // removes the 11 sky-rendered events from the availability pool while the
-  // surge/transit (which render through other systems) stay possible.
-  ["mushroom-observatory-meteor-material", "sky-events"],
-  ["mushroom-observatory-comet-material", "sky-events"],
-  [`${OBSERVATORY_SUPERNOVA_NAME}-material`, "sky-events"],
-  ["mushroom-observatory-bolide-material", "sky-events"],
-  ["mushroom-observatory-satellite-material", "sky-events"],
-  ["mushroom-observatory-planet-material", "sky-events"],
-  ["mushroom-observatory-aurora-material", "sky-events"],
-  ["mushroom-observatory-constellation-line-material", "sky-events"],
-  ["mushroom-observatory-constellation-star-material", "sky-events"],
-  ["mushroom-observatory-moon-material", "sky-events"],
-  [`${OBSERVATORY_KILONOVA_NAME}-material`, "sky-events"],
-  [`${OBSERVATORY_UFO_NAME}-material`, "sky-events"]
+  // Special-event shaders fail soft per phenomenon. A broken bolide must not
+  // silently collapse all 11 sky-rendered entries into a two-event pool.
+  ["mushroom-observatory-meteor-material", "sky-event:meteor-shower"],
+  ["mushroom-observatory-comet-material", "sky-event:comet"],
+  [`${OBSERVATORY_SUPERNOVA_NAME}-material`, "sky-event:supernova"],
+  ["mushroom-observatory-bolide-material", "sky-event:bolide"],
+  ["mushroom-observatory-satellite-material", "sky-event:satellite-train"],
+  ["mushroom-observatory-planet-material", "sky-event:planet-conjunction"],
+  ["mushroom-observatory-aurora-material", "sky-event:aurora"],
+  ["mushroom-observatory-constellation-line-material", "sky-event:constellation"],
+  ["mushroom-observatory-constellation-star-material", "sky-event:constellation"],
+  ["mushroom-observatory-moon-material", "sky-event:moon-transit"],
+  [`${OBSERVATORY_KILONOVA_NAME}-material`, "sky-event:kilonova"],
+  [`${OBSERVATORY_UFO_NAME}-material`, "sky-event:ufo"]
 ]);
 
 function hasRelativisticLensLuts(resources) {
@@ -543,6 +551,7 @@ export function MushroomObservatoryRuntime({
   skyEventsVisual = null,
   riftOpen = false,
   lensActive = false,
+  suspended = false,
   audioFrameRef,
   onHiddenEffectsReset,
   onRareEventChange,
@@ -585,7 +594,7 @@ export function MushroomObservatoryRuntime({
     const motionOverride = diagnosticsMode ? search.get("motion") : null;
     const requestedQuality = diagnosticsMode ? search.get("quality") : null;
     const requestedSkyMode = diagnosticsMode ? search.get("sky") : null;
-    // Rare celestial events: ordinary visits roll the configured per-second
+    // Special celestial events: ordinary visits roll the configured per-second
     // hazard; the QA harness stays deterministic (chance 0) and instead pins
     // one event via `event=` (aimed with `eventseed=`) so screenshots and
     // perf runs can exercise each phenomenon.
@@ -687,6 +696,11 @@ export function MushroomObservatoryRuntime({
       forcedRareEvent,
       forcedRareEventSeed,
       lastReportedRareEvent: null,
+      rareEventAvailableIds: [],
+      rareEventPaused: false,
+      rareEventPausedReason: null,
+      disabledSkyEventIds: new Set(),
+      skyEventErrors: {},
       skyEventsDisabled: false,
       skyEventsError: null,
       blackHole: null,
@@ -1568,13 +1582,18 @@ export function MushroomObservatoryRuntime({
         }
         return;
       }
-      if (error?.observatoryShaderFailure === "sky-events") {
-        resources.skyEventsDisabled = true;
+      if (error?.observatoryShaderFailure?.startsWith("sky-event:")) {
+        const eventId = error.observatoryShaderFailure.slice(
+          "sky-event:".length
+        );
+        if (!OBSERVATORY_RARE_EVENTS[eventId]) return;
+        resources.disabledSkyEventIds.add(eventId);
+        resources.skyEventErrors[eventId] = message;
         resources.skyEventsError = message;
-        if (skyEventsVisual) {
-          skyEventsVisual.visible = false;
-          disposeObservatorySkyEventsVisual(skyEventsVisual);
-        }
+        disableObservatorySkyEventVisual(skyEventsVisual, eventId);
+        resources.skyEventsDisabled = OBSERVATORY_SKY_RENDERED_EVENT_IDS.every(
+          (skyEventId) => resources.disabledSkyEventIds.has(skyEventId)
+        );
         return;
       }
       if (error?.observatoryShaderFailure === "relativistic-lens") {
@@ -2370,6 +2389,8 @@ export function MushroomObservatoryRuntime({
           ready: Boolean(skyEventsVisual)
             && skyEventsVisual.userData.disposed !== true,
           disabled: resources.skyEventsDisabled,
+          disabledEventIds: [...resources.disabledSkyEventIds],
+          errors: { ...resources.skyEventErrors },
           error: resources.skyEventsError
         },
         rareEvents: {
@@ -2377,7 +2398,11 @@ export function MushroomObservatoryRuntime({
           event: resources.rareEventsState?.event ?? null,
           intensity: resources.rareEventsState?.intensity ?? 0,
           cooldownSeconds: resources.rareEventsState?.cooldownSeconds ?? 0,
-          availability: resources.rareEventAvailability ?? null
+          availability: resources.rareEventAvailability ?? null,
+          availableEventIds: resources.rareEventAvailableIds,
+          effectiveChancePerSecond: resources.rareEventChancePerSecond,
+          paused: resources.rareEventPaused,
+          pausedReason: resources.rareEventPausedReason
         },
         hiddenEffects: {
           requestedRift: resources.requestedRift,
@@ -2567,7 +2592,25 @@ export function MushroomObservatoryRuntime({
     }
     resources.portalRenderedThisFrame = false;
     resources.blackHoleRenderedThisFrame = false;
-    const frameDelta = Math.min(Math.max(delta || 0, 0), 0.1);
+    const rawFrameDelta = Number.isFinite(delta) ? Math.max(delta, 0) : 0;
+    // Visual damping stays bounded, while the probability director receives
+    // real active-view time so 4/8/60 FPS all preserve the same 3%/s hazard.
+    const frameDelta = Math.min(rawFrameDelta, 0.1);
+    const visiblePage = typeof document === "undefined"
+      || document.visibilityState === "visible";
+    const skipPerformanceSample = resources.skipNextPerformanceSample;
+    const hiddenLabActive = Boolean(riftOpen || lensActive);
+    const rareEventPausedReason = !visiblePage
+      ? "page-hidden"
+      : suspended
+        ? "interface"
+        : hiddenLabActive
+          ? "hidden-lab"
+          : null;
+    const rareEventPaused = rareEventPausedReason !== null;
+    const eventDelta = rareEventPaused || skipPerformanceSample
+      ? 0
+      : rawFrameDelta;
     const inLoft = isMushroomObservatorySkyPosition(camera.position);
     adaptationRef.current = stepObservatoryAdaptation(adaptationRef.current, {
       deltaSeconds: frameDelta,
@@ -2605,7 +2648,7 @@ export function MushroomObservatoryRuntime({
       && !baseImageComparison
       && hiddenSkyAvailable;
 
-    // Rare celestial events (流星雨 / 彗星 / 星云增强 / 黑洞凌日). The director
+    // Special celestial events (流星雨 / 彗星 / 星云增强 / 黑洞凌日). The director
     // is stepped here — inside the single -1 frame owner — so it shares the
     // adaptation timing source and can never tick while unmounted. Eligibility
     // requires genuine stargazing: dark loft, renderable sky, stars actually
@@ -2626,28 +2669,45 @@ export function MushroomObservatoryRuntime({
         && !resources.blackHoleDisabled
         && (qualityRef.current?.quality ?? "minimum") !== "minimum"
     };
+    resources.rareEventPaused = rareEventPaused;
+    resources.rareEventPausedReason = rareEventPausedReason;
+    resources.rareEventAvailableIds = getAvailableObservatoryRareEventIds({
+      availability: resources.rareEventAvailability,
+      reducedMotion: resources.reducedMotion,
+      disabledEventIds: resources.disabledSkyEventIds
+    });
     resources.rareEventsState = stepObservatoryRareEvents(
       resources.rareEventsState,
       {
-        deltaSeconds: frameDelta,
+        deltaSeconds: eventDelta,
         eligible: rareEligible,
         availability: resources.rareEventAvailability,
         chancePerSecond: resources.rareEventChancePerSecond,
+        paused: rareEventPaused || skipPerformanceSample,
+        canStart: !hiddenLabActive,
+        reducedMotion: resources.reducedMotion,
+        disabledEventIds: resources.disabledSkyEventIds,
         forcedEvent: resources.forcedRareEvent,
         forcedSeed: resources.forcedRareEventSeed,
         random: Math.random
       }
     );
     const rareEvents = resources.rareEventsState;
-    const rareChannels = rareEvents.channels;
+    const rareChannels = rareEventPaused
+      ? OBSERVATORY_RARE_EVENT_IDLE_CHANNELS
+      : rareEvents.channels;
     // The HUD caption and the journal sighting both wait for the envelope to
     // genuinely open (≥ 0.5): a relight one second in never records an event
     // the player could not actually have seen.
-    const rareEventForHud = rareEvents.mode === "active"
+    const rareEventForHud = !rareEventPaused
+      && rareEvents.mode === "active"
       && rareEvents.intensity >= 0.5
       ? rareEvents.event
       : null;
-    if (rareEventForHud !== resources.lastReportedRareEvent) {
+    if (
+      !rareEventPaused
+      && rareEventForHud !== resources.lastReportedRareEvent
+    ) {
       resources.lastReportedRareEvent = rareEventForHud;
       onRareEventChangeRef.current?.(rareEventForHud);
     }
@@ -2739,9 +2799,6 @@ export function MushroomObservatoryRuntime({
     }
     const riftChannels = resources.riftState.channels;
 
-    const visiblePage = typeof document === "undefined"
-      || document.visibilityState === "visible";
-    const skipPerformanceSample = resources.skipNextPerformanceSample;
     resources.skipNextPerformanceSample = false;
     if (!resources.qualityLocked) {
       qualityRef.current = stepObservatoryQuality(qualityRef.current, {
@@ -2872,7 +2929,9 @@ export function MushroomObservatoryRuntime({
     if (skyEventsVisual) {
       const skyEventsActive = skyIsActive && !baseImageComparison;
       updateObservatorySkyEventsVisual(skyEventsVisual, {
-        timeSeconds: sky.userData.elapsed ?? 0,
+        // Event-local time freezes with the director while a modal/background
+        // tab or the manual R/F lab owns the view.
+        timeSeconds: rareEvents.elapsedSeconds,
         channels: skyEventsActive ? rareChannels : null,
         progress: rareEvents.progress,
         seed: rareEvents.seed,

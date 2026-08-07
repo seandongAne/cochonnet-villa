@@ -129,6 +129,7 @@ function readVillaMapSource(file) {
 test("one E press opens the book without instantly closing it or teleporting the player", () => {
   const controls = readVillaMapSource("controls.js");
   const playerControls = readVillaMapSource("react/PlayerControls.jsx");
+  const scene = readVillaMapSource("react/Scene.jsx");
   const villaMap = readVillaMapSource("react/VillaMap.jsx");
 
   // The keydown travels with the action: controls.js listens on `document`,
@@ -148,7 +149,32 @@ test("one E press opens the book without instantly closing it or teleporting the
   // While the book is open the fullscreen start overlay stays away and the
   // movement bridge is suspended; closing resumes the prior session.
   assert.match(villaMap, /&& !observatoryJournalOpen && \(\s*<section className="villa-map-overlay"/);
-  assert.match(villaMap, /suspended=\{qualityPanelOpen \|\| observatoryJournalOpen\}/);
+  assert.match(
+    villaMap,
+    /const observatorySuspended = qualityPanelOpen \|\| observatoryJournalOpen;/
+  );
+  assert.equal(
+    [...villaMap.matchAll(/suspended=\{observatorySuspended\}/g)].length,
+    2,
+    "both diagnostics and ordinary movement bridges share the modal gate"
+  );
+  assert.match(
+    villaMap,
+    /observatorySuspended=\{observatorySuspended\}/,
+    "the same gate must reach the frame-owned event director"
+  );
+  assert.match(scene, /suspended=\{observatorySuspended\}/);
   assert.match(villaMap, /const closeObservatoryJournal = useCallback\(\(\) => \{/);
   assert.match(villaMap, /if \(shouldResume\) controls\?\.lock\(\);/);
+});
+
+test("player-facing copy consistently calls the collection 特殊天象", () => {
+  const villaMap = readVillaMapSource("react/VillaMap.jsx");
+  const journal = readVillaMapSource("react/ObservatoryEventJournal.jsx");
+  const world = readVillaMapSource("world.js");
+  const copy = `${villaMap}\n${journal}\n${world}`;
+  assert.match(villaMap, /特殊天象：/);
+  assert.match(journal, /种特殊天象/);
+  assert.match(world, /每一种特殊天象/);
+  assert.doesNotMatch(copy, /稀有天象/);
 });

@@ -393,6 +393,7 @@ export function Scene({
   observatoryLightsOn = true,
   observatoryRiftOpen = false,
   observatoryLensActive = false,
+  observatorySuspended = false,
   observatoryAudioMuted = false,
   onObservatoryHiddenEffectsReset,
   observatoryQualityPreference = "auto",
@@ -414,7 +415,7 @@ export function Scene({
   // mounts the resulting Object3D instances through <primitive>.
   const built = useMemo(() => {
     const materials = createMaterials();
-    // The rare-event layer (meteor shower / comet) rides inside the sky group
+    // The special-event layer (meteor shower / comet) rides inside the sky group
     // so it inherits the camera-centred position and the sky's visibility
     // gate: lights-on steady state still draws zero cosmos objects.
     const mushroomSky = createMushroomSky();
@@ -544,6 +545,7 @@ export function Scene({
         skyEventsVisual={built.observatorySkyEvents}
         riftOpen={observatoryRiftOpen}
         lensActive={observatoryLensActive}
+        suspended={observatorySuspended}
         audioFrameRef={observatoryAudioFrameRef}
         onHiddenEffectsReset={onObservatoryHiddenEffectsReset}
         onRareEventChange={onObservatoryRareEventChange}

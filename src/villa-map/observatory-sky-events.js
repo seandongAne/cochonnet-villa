@@ -1,4 +1,4 @@
-// Rare-event sky layers: meteors, a comet, a supernova, a bolide with its
+// Special-event sky layers: meteors, a comet, a supernova, a bolide with its
 // persistent train, a satellite train, a planetary conjunction, aurora
 // curtains, seeded stick-figure constellations, a phased moon, a kilonova
 // ripple and a darting UFO — all drawn on the same camera-centred 80 m shell
@@ -16,6 +16,7 @@
 import * as THREE from "three";
 
 import { configureSkyStencil, MUSHROOM_SKY_RADIUS } from "./mushroom-sky.js";
+import { OBSERVATORY_RARE_EVENTS } from "./observatory-events.js";
 
 export const OBSERVATORY_SKY_EVENTS_NAME = "mushroom-observatory-sky-events";
 export const OBSERVATORY_METEORS_NAME = "mushroom-observatory-meteor-shower";
@@ -44,11 +45,26 @@ export const OBSERVATORY_SATELLITE_COUNT = 8;
 // (a frozen streak or a frozen dash reads as a glitch, not a sight); the
 // slow progress-driven crossings and static glows stay.
 export const OBSERVATORY_MOTION_SUPPRESSED_CHANNELS = Object.freeze([
-  "meteor",
-  "bolide",
-  "satellites",
-  "ufo"
+  ...Object.values(OBSERVATORY_RARE_EVENTS)
+    .filter((definition) => definition.requiresMotion === true)
+    .map((definition) => definition.channel)
 ]);
+const EVENT_OBJECT_KEYS_BY_CHANNEL = Object.freeze({
+  meteor: Object.freeze(["meteors"]),
+  comet: Object.freeze(["comet"]),
+  supernova: Object.freeze(["supernova"]),
+  bolide: Object.freeze(["bolide"]),
+  satellites: Object.freeze(["satellites"]),
+  planets: Object.freeze(["planets"]),
+  aurora: Object.freeze(["aurora"]),
+  constellation: Object.freeze([
+    "constellationLines",
+    "constellationStars"
+  ]),
+  moon: Object.freeze(["moon"]),
+  kilonova: Object.freeze(["kilonova"]),
+  ufo: Object.freeze(["ufo"])
+});
 // Between the hero stars (-900) and any translucent room decor: event layers
 // paint over stars but stay behind future glass, matching the stars' rationale.
 const EVENT_RENDER_ORDER = -899;
@@ -1271,6 +1287,7 @@ export function createObservatorySkyEventsVisual({
   group.userData.kilonova = kilonova;
   group.userData.ufo = ufo;
   group.userData.appliedSeeds = {};
+  group.userData.disabledEventIds = new Set();
   group.userData.ufoPath = null;
   group.userData.disposed = false;
   return group;
@@ -1449,16 +1466,16 @@ export function updateObservatorySkyEventsVisual(
 
   const meteors = group.userData.meteors;
   const meteorIntensity = level("meteor", true);
-  meteors.visible = meteorIntensity > 0.001;
-  if (meteors.visible) {
+  if (meteors) meteors.visible = meteorIntensity > 0.001;
+  if (meteors?.visible) {
     meteors.material.uniforms.uTime.value = timeSeconds;
     meteors.material.uniforms.uIntensity.value = meteorIntensity;
   }
 
   const comet = group.userData.comet;
   const cometIntensity = level("comet");
-  comet.visible = cometIntensity > 0.001;
-  if (comet.visible) {
+  if (comet) comet.visible = cometIntensity > 0.001;
+  if (comet?.visible) {
     seedApplied(group, "comet", seed, () => applyCometPath(group, seed));
     comet.material.uniforms.uIntensity.value = cometIntensity;
     // Apex-centred crossing: rise through the first half, set through the
@@ -1469,8 +1486,8 @@ export function updateObservatorySkyEventsVisual(
 
   const supernova = group.userData.supernova;
   const supernovaIntensity = level("supernova");
-  supernova.visible = supernovaIntensity > 0.001;
-  if (supernova.visible) {
+  if (supernova) supernova.visible = supernovaIntensity > 0.001;
+  if (supernova?.visible) {
     seedApplied(group, "supernova", seed, () => {
       applyAnchoredDirection(supernova.material, seed, 0x5a97, 0.45, 1.15);
     });
@@ -1480,8 +1497,8 @@ export function updateObservatorySkyEventsVisual(
 
   const bolide = group.userData.bolide;
   const bolideIntensity = level("bolide", true);
-  bolide.visible = bolideIntensity > 0.001;
-  if (bolide.visible) {
+  if (bolide) bolide.visible = bolideIntensity > 0.001;
+  if (bolide?.visible) {
     seedApplied(group, "bolide", seed, () => {
       applyGreatCirclePath(bolide.material, seed, 0xb011);
     });
@@ -1491,8 +1508,8 @@ export function updateObservatorySkyEventsVisual(
 
   const satellites = group.userData.satellites;
   const satelliteIntensity = level("satellites", true);
-  satellites.visible = satelliteIntensity > 0.001;
-  if (satellites.visible) {
+  if (satellites) satellites.visible = satelliteIntensity > 0.001;
+  if (satellites?.visible) {
     seedApplied(group, "satellites", seed, () => {
       applyGreatCirclePath(satellites.material, seed, 0x5a7e);
     });
@@ -1502,8 +1519,8 @@ export function updateObservatorySkyEventsVisual(
 
   const planets = group.userData.planets;
   const planetIntensity = level("planets");
-  planets.visible = planetIntensity > 0.001;
-  if (planets.visible) {
+  if (planets) planets.visible = planetIntensity > 0.001;
+  if (planets?.visible) {
     seedApplied(group, "planets", seed, () => {
       applyAnchoredDirection(planets.material, seed, 0x91a7, 0.4, 1.0);
     });
@@ -1515,8 +1532,8 @@ export function updateObservatorySkyEventsVisual(
 
   const aurora = group.userData.aurora;
   const auroraIntensity = level("aurora");
-  aurora.visible = auroraIntensity > 0.001;
-  if (aurora.visible) {
+  if (aurora) aurora.visible = auroraIntensity > 0.001;
+  if (aurora?.visible) {
     seedApplied(group, "aurora", seed, () => {
       const random = seededRandom(seedInteger(seed, 0xa42a));
       aurora.material.uniforms.uCenterAz.value = random() * Math.PI * 2;
@@ -1528,8 +1545,8 @@ export function updateObservatorySkyEventsVisual(
 
   const constellation = group.userData.constellation;
   const constellationIntensity = level("constellation");
-  constellation.visible = constellationIntensity > 0.001;
-  if (constellation.visible) {
+  if (constellation) constellation.visible = constellationIntensity > 0.001;
+  if (constellation?.visible) {
     seedApplied(group, "constellation", seed, () => {
       applyConstellation(group, seed);
     });
@@ -1541,8 +1558,8 @@ export function updateObservatorySkyEventsVisual(
 
   const moon = group.userData.moon;
   const moonIntensity = level("moon");
-  moon.visible = moonIntensity > 0.001;
-  if (moon.visible) {
+  if (moon) moon.visible = moonIntensity > 0.001;
+  if (moon?.visible) {
     seedApplied(group, "moon", seed, () => {
       const random = applyGreatCirclePath(moon.material, seed, 0x300d);
       moon.material.uniforms.uPhase.value = random() * Math.PI * 2;
@@ -1554,8 +1571,8 @@ export function updateObservatorySkyEventsVisual(
 
   const kilonova = group.userData.kilonova;
   const kilonovaIntensity = level("kilonova");
-  kilonova.visible = kilonovaIntensity > 0.001;
-  if (kilonova.visible) {
+  if (kilonova) kilonova.visible = kilonovaIntensity > 0.001;
+  if (kilonova?.visible) {
     seedApplied(group, "kilonova", seed, () => {
       applyAnchoredDirection(kilonova.material, seed, 0x717a, 0.55, 1.1);
     });
@@ -1565,37 +1582,65 @@ export function updateObservatorySkyEventsVisual(
 
   const ufo = group.userData.ufo;
   const ufoIntensity = level("ufo", true);
-  ufo.visible = ufoIntensity > 0.001;
-  if (ufo.visible) {
+  if (ufo) ufo.visible = ufoIntensity > 0.001;
+  if (ufo?.visible) {
     seedApplied(group, "ufo", seed, () => applyUfoPath(group, seed));
     updateUfoDirection(group, progress);
     ufo.material.uniforms.uIntensity.value = ufoIntensity;
     ufo.material.uniforms.uTime.value = timeSeconds;
   }
 
-  group.visible = meteors.visible
-    || comet.visible
-    || supernova.visible
-    || bolide.visible
-    || satellites.visible
-    || planets.visible
-    || aurora.visible
-    || constellation.visible
-    || moon.visible
-    || kilonova.visible
-    || ufo.visible;
+  group.visible = meteors?.visible === true
+    || comet?.visible === true
+    || supernova?.visible === true
+    || bolide?.visible === true
+    || satellites?.visible === true
+    || planets?.visible === true
+    || aurora?.visible === true
+    || constellation?.visible === true
+    || moon?.visible === true
+    || kilonova?.visible === true
+    || ufo?.visible === true;
   return group.visible;
+}
+
+function disposeSkyEventObject(object) {
+  if (!object) return;
+  object.geometry?.dispose();
+  object.material?.dispose();
+  object.removeFromParent();
+}
+
+/**
+ * Fail one event layer closed without taking the other special phenomena down.
+ * Returns false for an unknown/already-disabled event so callers stay idempotent.
+ */
+export function disableObservatorySkyEventVisual(group, eventId) {
+  if (!group || group.userData.disposed) return false;
+  const definition = OBSERVATORY_RARE_EVENTS[eventId];
+  const objectKeys = EVENT_OBJECT_KEYS_BY_CHANNEL[definition?.channel];
+  if (!definition || !objectKeys || group.userData.disabledEventIds.has(eventId)) {
+    return false;
+  }
+
+  for (const key of objectKeys) {
+    disposeSkyEventObject(group.userData[key]);
+    group.userData[key] = null;
+  }
+  if (definition.channel === "constellation") {
+    group.userData.constellation?.removeFromParent();
+    group.userData.constellation = null;
+  }
+  if (definition.channel === "ufo") group.userData.ufoPath = null;
+  delete group.userData.appliedSeeds[definition.channel];
+  group.userData.disabledEventIds.add(eventId);
+  group.visible = group.children.some((child) => child.visible === true);
+  return true;
 }
 
 export function disposeObservatorySkyEventsVisual(group) {
   if (!group || group.userData.disposed) return;
   group.userData.disposed = true;
-  const disposeObject = (object) => {
-    if (!object) return;
-    object.geometry?.dispose();
-    object.material?.dispose();
-    object.removeFromParent();
-  };
   for (const key of [
     "meteors",
     "comet",
@@ -1610,11 +1655,12 @@ export function disposeObservatorySkyEventsVisual(group) {
     "kilonova",
     "ufo"
   ]) {
-    disposeObject(group.userData[key]);
+    disposeSkyEventObject(group.userData[key]);
     group.userData[key] = null;
   }
   group.userData.constellation?.removeFromParent();
   group.userData.constellation = null;
+  group.userData.disabledEventIds?.clear();
   group.userData.ufoPath = null;
   group.remove(...group.children);
   group.removeFromParent();

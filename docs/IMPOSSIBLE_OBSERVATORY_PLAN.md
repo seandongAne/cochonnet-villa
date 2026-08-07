@@ -555,13 +555,17 @@ Phase 6 仍不是普通访问的必经体验。首版使用实体开关上的隐
 
 按第 8 节矩阵人工检查开灯原色、0.5/2/10 秒 reveal、穹顶边缘、R/F 横移视差、快速环视和 wow factor，并录制固定 20 秒路线；再按第 7 节在目标 GPU 上各记录三轮 p95。resize、连续切灯、context loss/restore、reduced-motion 和隐藏机制功能已有浏览器证据，但仍可随路线复核。若验收发现问题，优先调参数或降级策略，不在验收前引入 Bloom、temporal accumulation、头部追踪、WebXR 或 WebGPU 迁移。
 
-## 11.5 稀有天象（2026-08 追加，同日扩至 13 种 + 图鉴）
+## 11.5 特殊天象（2026-08 追加，同日扩至 13 种 + 图鉴）
 
-关灯观星时（星光 reveal ≥ 0.5、天空可渲染），`observatory-events.js` 以帧率无关的每秒 3% 概率（`1-(1-p)^dt`）均匀随机触发一种稀有天象（无稀有度加权），共 13 种：流星雨 / 彗星经过 / 星云增强 / 黑洞凌日 / 超新星爆发 / 火流星（含余迹）/ 卫星列车 / 行星合 / 极光 / 星座连线（北斗、猪猪、蘑菇、爱心四种手绘图形）/ 月亮过境（月光真实压暗英雄星 ×0.65、Gaia 暗星 ×0.2）/ 千新星涟漪 / 不明飞行物，各自 18–55 秒 smootherstep 包络 + 40 秒冷却。导演只在 runtime 的 -1 帧循环内步进；11 种由 `observatory-sky-events.js` 在天空组内绘制（共享 stencil ref 7；**所有 billboard 材质必须 DoubleSide**——切向基朝外，FrontSide 会被中心视点整体背面剔除），星云增强放大 Portal emission，黑洞凌日复用隐藏 F 的阻尼 lens target（继承整条 fail-soft 降级链与音频），不触碰 React R/F 状态。reduced-motion 只禁用运动主导层（流星/火流星/卫星/UFO）。开灯 / 离开 L3 / 可用性丢失走 0.45 秒 release 淡出且不复活。
+关灯观星时（星光 reveal ≥ 0.5、天空可渲染），`observatory-events.js` 以帧率无关的每秒 3% 概率（`1-(1-p)^dt`）触发一种特殊天象，共 13 种：流星雨 / 彗星经过 / 星云增强 / 黑洞凌日 / 超新星爆发 / 火流星（含余迹）/ 卫星列车 / 行星合 / 极光 / 星座连线（北斗、猪猪、蘑菇、爱心四种手绘图形）/ 月亮过境（月光真实压暗英雄星 ×0.65、Gaia 暗星 ×0.2）/ 千新星涟漪 / 不明飞行物，各自 18–55 秒 smootherstep 包络 + 40 秒冷却。测试阶段保留高触发率，13 个定义均显式写 `weight: 1`，导演按权重抽取；以后只需改定义数据即可单独决定黑洞、UFO、千新星等是否更少见。
 
-**天象图鉴**：每次事件开始都会记入 `observatory-event-journal.js` 的版本化 localStorage（次数 + 初见日期）。L3 西墙书架上的 KayKit 实体书（`m3-journal-shelf`/`m3-journal-book`）挂 E 交互（world.js `observatory-event-journal`），打开 `ObservatoryEventJournal.jsx` 模态图鉴——未目击条目显示为「？？？」剪影；面板沿用 Q 面板的指针锁释放/暂停纪律。
+导演只在 runtime 的 -1 帧循环内步进；事件时钟使用实际可观看帧间隔，不受普通动画防跳帧的 0.1 秒上限影响。打开 Q 画质面板或天象图鉴、页面进入后台、以及手动 R/F Observatory Lab 生效期间，事件进度、冷却和随机抽取全部冻结，画面与 HUD 暂时隐藏；恢复后从原位置继续且不会重复记入图鉴。reduced-motion 会在抽取前排除运动主导的流星 / 火流星 / 卫星 / UFO，而不是抽中后播放一场不可见事件。开灯 / 离开 L3 / 可用性丢失仍走 0.45 秒 release 淡出且不复活。
 
-诊断模式下随机滚动关闭（chance 0），用 `event=<13 个 id 之一>` 固定复现（默认种子 0.5，结束后自动重启），`eventseed=0..1` 可把该次天象的天区/路径瞄准某个固定机位（在 Node 里对机位四元数扫描种子即可）。HUD 顶部出现「稀有天象：…」小字提示。测试：`tests/observatory-events.test.mjs`、`tests/observatory-sky-events.test.mjs`、`tests/observatory-event-journal.test.mjs`。
+11 种由 `observatory-sky-events.js` 在天空组内绘制（共享 stencil ref 7；**所有 billboard 材质必须 DoubleSide**——切向基朝外，FrontSide 会被中心视点整体背面剔除），星云增强放大 Portal emission，黑洞凌日复用隐藏 F 的阻尼 lens target（继承整条 fail-soft 降级链与音频），不触碰 React R/F 状态。天空事件的 shader 故障按单个天象隔离并从权重池剔除；只有 11 层全部失效时才关闭整个 sky-event 能力，某个火流星 shader 失败不会再连带移除其余十种。
+
+**天象图鉴**：事件包络实际展开到可见阈值（≥ 0.5）后才记入 `observatory-event-journal.js` 的版本化 localStorage（次数 + 初见日期）。L3 西墙书架上的 KayKit 实体书（`m3-journal-shelf`/`m3-journal-book`）挂 E 交互（world.js `observatory-event-journal`），打开 `ObservatoryEventJournal.jsx` 模态图鉴——未目击条目显示为「？？？」剪影；面板沿用 Q 面板的指针锁释放/暂停纪律。
+
+诊断模式下随机滚动关闭（chance 0），用 `event=<13 个 id 之一>` 固定复现（默认种子 0.5，结束后自动重启），`eventseed=0..1` 可把该次天象的天区/路径瞄准某个固定机位（在 Node 里对机位四元数扫描种子即可）。reduced-motion 下若固定的是四种运动主导事件，该事件会按生产规则从池中排除。HUD 顶部出现「特殊天象：…」小字提示。测试：`tests/observatory-events.test.mjs`、`tests/observatory-sky-events.test.mjs`、`tests/observatory-event-journal.test.mjs`、`tests/observatory-runtime.test.mjs`。
 
 ## 12. 技术参考
 
