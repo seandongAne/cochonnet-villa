@@ -1,9 +1,10 @@
 # Cochonnet Villa
 
-Static Astro site about 15 pet pigs. Two features:
+Static Astro site about 15 pet pigs. Three features:
 
-1. **Landing site** — `src/pages/index.astro` rendered from `content/site.json` via `src/render-site.js`. Admin at `/admin/` edits the JSON through GitHub OAuth (Decap CMS, no backend).
+1. **Landing site** — `src/pages/index.astro` rendered from `content/site.json` via `src/render-site.js`. Admin at `/admin/` edits the JSON in-browser and commits via the GitHub Contents API with a fine-grained token kept in localStorage (`cochonnetvilla_github_token`) — no backend, no OAuth.
 2. **3D Villa Map** (`/villa-map/`) — React Three Fiber (Three.js / WebGL) scene, mounted as a client-only Astro React island.
+3. **猪猪小记 blog** (`/notes/`) — posts live in `content/notes.json`, rendered at build time by node-pure `src/render-notes.js` (markdown-lite: blank-line paragraphs, `## `, `- `, `**bold**`, `*italic*`; always HTML-escaped first) into `/notes/`, `/notes/<slug>/` (`getStaticPaths`) and a latest-3 landing teaser (`id="notes"`, i18n keys `nav.notes`/`notes.*`; teaser is bilingual, the /notes/ pages are Chinese-first). Writing UI at `/admin/notes/` (`src/pages/admin/notes.astro` + `src/notes-admin.js`, Astro-bundled so the live preview shares the same renderer): same localStorage token as `/admin/`, local draft autosave, publish = Contents-API commit of `notes.json` (Pages redeploys in ~1–2 min). **Guard:** publish requires known remote state (successful read or definite 404) and merges remote-only slugs first — a failed initial read must never clobber published notes. `normalizeNotes` sorts newest-first, drops empty entries, dedupes slugs (date-based, `-2` suffixes). Pinned by `tests/notes.test.mjs`.
 
 ## Commands
 

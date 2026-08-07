@@ -1,0 +1,415 @@
+---
+const title = "猪猪小记编辑室 | Cochonnet Villa";
+---
+
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="notes-studio">
+    <div class="shell">
+      <section class="masthead">
+        <p class="eyebrow">猪猪小记 · 编辑室</p>
+        <h1>写一篇随笔，保存后直接发布到网站。</h1>
+        <p>
+          发布会把 <code>content/notes.json</code> 提交到 GitHub，网站在 1–2 分钟后自动更新。
+          正文支持简单排版：空行分段、<code>## 小标题</code>、<code>- 列表</code>、<code>**加粗**</code>、<code>*斜体*</code>。
+        </p>
+        <div class="hero-links">
+          <a class="button button-primary" href="/notes/">打开小记页面</a>
+          <a class="button button-muted" href="/admin/">返回内容工作室</a>
+        </div>
+      </section>
+
+      <div class="layout">
+        <div class="stack">
+          <section class="card">
+            <h2>登录（GitHub token）</h2>
+            <p class="helper">
+              和 <code>/admin/</code> 共用同一个 fine-grained token（需要
+              <code>Contents: Read and write</code> 权限）。保存一次，两个编辑器都算登录。
+            </p>
+            <div style="margin-top: 1rem;">
+              <label for="token-input">GitHub token</label>
+              <input id="token-input" type="password" placeholder="粘贴 token 后点保存" autocomplete="off" />
+            </div>
+            <div class="token-actions" style="margin-top: 0.9rem;">
+              <button class="button button-primary" id="save-token-button" type="button">保存 token</button>
+              <button class="button button-muted" id="clear-token-button" type="button">清除 token</button>
+            </div>
+            <div class="status" id="auth-status">正在检查……</div>
+          </section>
+
+          <section class="card">
+            <h2>小记列表</h2>
+            <div class="token-actions" style="margin-top: 0.9rem;">
+              <button class="button button-primary" id="new-note-button" type="button">写新的一篇</button>
+              <button class="button button-muted" id="reload-button" type="button">重新读取</button>
+            </div>
+            <div class="note-list" id="notes-list"></div>
+            <div class="status" id="list-status">正在读取……</div>
+          </section>
+
+          <section class="card">
+            <h2>发布</h2>
+            <div>
+              <label for="commit-message-input">提交说明</label>
+              <input id="commit-message-input" type="text" value="更新猪猪小记" />
+            </div>
+            <div class="token-actions" style="margin-top: 0.9rem;">
+              <button class="button button-primary" id="publish-button" type="button">发布到 GitHub</button>
+            </div>
+            <div class="status" id="publish-status">列表和网站保持一致。</div>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="card">
+            <h2>编辑器</h2>
+            <div class="field-grid">
+              <div>
+                <label for="title-input">标题</label>
+                <input id="title-input" type="text" placeholder="今天想记点什么？" />
+              </div>
+              <div class="field-row">
+                <div>
+                  <label for="date-input">日期</label>
+                  <input id="date-input" type="date" />
+                </div>
+                <div>
+                  <label for="mood-input">心情（可选）</label>
+                  <input id="mood-input" type="text" placeholder="🐷" maxlength="8" />
+                </div>
+              </div>
+              <div>
+                <label for="body-input">正文</label>
+                <textarea id="body-input" spellcheck="false" placeholder="空行分段；## 小标题；- 列表；**加粗**；*斜体*"></textarea>
+              </div>
+            </div>
+            <div class="studio-actions" style="margin-top: 1rem;">
+              <button class="button button-primary" id="save-note-button" type="button">收进列表</button>
+              <button class="button button-muted" id="delete-note-button" type="button">清空重写</button>
+            </div>
+            <div class="status" id="editor-status">草稿会自动保存在本浏览器，不怕误关页面。</div>
+          </section>
+
+          <section class="card">
+            <h2>预览</h2>
+            <div class="preview">
+              <p class="preview-meta" id="preview-meta"></p>
+              <h3 class="preview-title" id="preview-title">（还没有标题）</h3>
+              <div class="preview-body note-body" id="preview-body"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --paper: #fff8ef;
+    --shell: rgba(255, 252, 246, 0.86);
+    --ink: #4e2f33;
+    --ink-soft: #71535d;
+    --rose: #f8a6ba;
+    --rose-deep: #d86b8d;
+    --peach: #f5b57e;
+    --line: rgba(120, 76, 78, 0.14);
+    --shadow: 0 24px 80px rgba(104, 63, 45, 0.14);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body.notes-studio {
+    margin: 0;
+    min-width: 320px;
+    font-family: "Trebuchet MS", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top left, rgba(248, 166, 186, 0.42), transparent 26%),
+      radial-gradient(circle at 85% 12%, rgba(245, 181, 126, 0.3), transparent 22%),
+      linear-gradient(180deg, #fffaf3 0%, #fff0dc 55%, #fffaf2 100%);
+  }
+
+  .notes-studio a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .notes-studio .shell {
+    width: min(1180px, calc(100% - 1.25rem));
+    margin: 0 auto;
+    padding: 1rem 0 3rem;
+  }
+
+  .notes-studio .masthead,
+  .notes-studio .card {
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: var(--shell);
+    box-shadow: var(--shadow);
+  }
+
+  .notes-studio .masthead {
+    display: grid;
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .notes-studio .eyebrow {
+    margin: 0;
+    color: var(--rose-deep);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+
+  .notes-studio h1,
+  .notes-studio h2 {
+    margin: 0;
+    font-family: Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  .notes-studio h1 {
+    font-size: clamp(1.7rem, 4vw, 2.7rem);
+    line-height: 1.15;
+  }
+
+  .notes-studio h2 {
+    font-size: 1.25rem;
+  }
+
+  .notes-studio p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+
+  .notes-studio .hero-links,
+  .notes-studio .studio-actions,
+  .notes-studio .token-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .notes-studio .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.7rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: white;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .notes-studio .button-primary {
+    color: #fff9f6;
+    background: linear-gradient(135deg, var(--rose-deep), #dd8b56);
+    box-shadow: 0 14px 32px rgba(216, 107, 141, 0.28);
+  }
+
+  .notes-studio .button-muted {
+    border-color: var(--line);
+    background: rgba(255, 255, 255, 0.76);
+  }
+
+  .notes-studio .layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+    gap: 1rem;
+    margin-top: 1rem;
+    align-items: start;
+  }
+
+  .notes-studio .stack {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .notes-studio .card {
+    padding: 1.25rem;
+  }
+
+  .notes-studio label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+  }
+
+  .notes-studio input,
+  .notes-studio textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--ink);
+    font: inherit;
+  }
+
+  .notes-studio input {
+    min-height: 2.9rem;
+    padding: 0.75rem 0.9rem;
+  }
+
+  .notes-studio textarea {
+    min-height: 18rem;
+    padding: 1rem;
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  .notes-studio .field-grid {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 0.9rem;
+  }
+
+  .notes-studio .field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .notes-studio .status {
+    margin-top: 0.9rem;
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--ink-soft);
+  }
+
+  .notes-studio .status[data-tone="success"] {
+    background: rgba(173, 199, 138, 0.22);
+    color: #36512f;
+  }
+
+  .notes-studio .status[data-tone="warning"] {
+    background: rgba(245, 181, 126, 0.22);
+    color: #6f4a20;
+  }
+
+  .notes-studio .status[data-tone="error"] {
+    background: rgba(216, 107, 141, 0.18);
+    color: #762a44;
+  }
+
+  .notes-studio code {
+    padding: 0.12rem 0.32rem;
+    border-radius: 0.35rem;
+    background: rgba(255, 255, 255, 0.76);
+  }
+
+  .notes-studio .note-list {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 1rem;
+  }
+
+  .notes-studio .list-empty {
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .notes-studio .note-item {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .notes-studio .note-item.is-editing {
+    border-color: var(--rose-deep);
+    box-shadow: 0 10px 26px rgba(216, 107, 141, 0.18);
+  }
+
+  .notes-studio .note-item-meta {
+    color: var(--rose-deep);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .notes-studio .note-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+  }
+
+  .notes-studio .note-item-actions .button {
+    min-height: 2.1rem;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.9rem;
+  }
+
+  .notes-studio .preview {
+    display: grid;
+    gap: 0.6rem;
+    padding: 1.1rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .notes-studio .preview-meta {
+    min-height: 1.2rem;
+    color: var(--rose-deep);
+    font-size: 0.86rem;
+    font-weight: 700;
+  }
+
+  .notes-studio .preview-title {
+    margin: 0;
+    font-family: Georgia, serif;
+    font-size: 1.5rem;
+  }
+
+  .notes-studio .preview-body {
+    display: grid;
+    gap: 0.8rem;
+    line-height: 1.8;
+  }
+
+  .notes-studio .preview-body p,
+  .notes-studio .preview-body ul {
+    margin: 0;
+  }
+
+  .notes-studio .preview-body h3 {
+    margin: 0.4rem 0 0;
+    font-family: Georgia, serif;
+    font-size: 1.15rem;
+  }
+
+  @media (max-width: 900px) {
+    .notes-studio .layout {
+      grid-template-columns: 1fr;
+    }
+
+    .notes-studio .button {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  import { initNotesAdmin } from "../../notes-admin.js";
+
+  initNotesAdmin();
+</script>

@@ -1,12 +1,14 @@
 ---
 import site from "../../content/site.json";
+import notesData from "../../content/notes.json";
 import "../styles.css";
 import { renderSite } from "../render-site.js";
+import { normalizeNotes } from "../render-notes.js";
 
 const siteUrl = "https://www.cochonnetvilla.ca";
 const title = site?.seo?.title || "Cochonnet Villa";
 const description = site?.seo?.description || "";
-const appHtml = renderSite(site);
+const appHtml = renderSite(site, normalizeNotes(notesData));
 ---
 
 <!doctype html>

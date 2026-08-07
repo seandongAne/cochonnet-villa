@@ -1,3 +1,5 @@
+import { renderNotesTeaser } from "./render-notes.js";
+
 const DEFAULT_SITE_NAME = "Cochonnet Villa";
 const DEFAULT_COLOR = "#f8a6ba";
 
@@ -71,6 +73,12 @@ const LANGUAGE_TEXT = {
     "villa.rhythm.1.body": "慢慢散步、一起乘凉，13个差不多大小的午睡姿势排成一排。",
     "villa.rhythm.2.title": "夜晚",
     "villa.rhythm.2.body": "温暖的毯子、困困的哼声、一只摊开的大家伙，还有一只窝在角落的小小睡猪。",
+    "nav.notes": "小记",
+    "notes.eyebrow": "猪猪小记",
+    "notes.title": "山庄里的随笔，都记在这本小本子上。",
+    "notes.text": "猪猪山庄的日常、小猪们的新鲜事，和一些突然想说的话。",
+    "notes.readMore": "读全文",
+    "notes.viewAll": "看全部小记",
     "footer.text": "15只快乐小猪，安全又舒服地住在猪猪山庄。",
     "footer.manage": "管理内容"
   }
@@ -166,7 +174,7 @@ function renderNavigation(items) {
     .map((item, index) => {
       const label = escapeHtml(item?.label || "");
       const href = escapeHtml(sanitizeHref(item?.href));
-      const key = ["nav.story", "nav.porkies", "nav.villa"][index];
+      const key = ["nav.story", "nav.porkies", "nav.villa", "nav.notes"][index];
       return `<a href="${href}"${i18nAttribute(key)}>${label}</a>`;
     })
     .join("");
@@ -404,7 +412,7 @@ function renderSprite() {
   `;
 }
 
-export function renderSite(site) {
+export function renderSite(site, notes = []) {
   const siteName = escapeHtml(site?.siteName || DEFAULT_SITE_NAME);
   const hero = site?.hero || {};
   const story = site?.story || {};
@@ -520,6 +528,8 @@ export function renderSite(site) {
             </div>
           </div>
         </section>
+
+        ${renderNotesTeaser(notes)}
       </main>
 
       <footer class="site-footer">

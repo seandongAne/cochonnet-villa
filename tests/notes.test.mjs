@@ -1,0 +1,169 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+
+import {
+  deriveNoteSlug,
+  formatNoteDate,
+  isValidNoteDate,
+  normalizeNotes,
+  noteExcerpt,
+  renderNoteBody,
+  renderNotePage,
+  renderNotesPage,
+  renderNotesTeaser,
+  sanitizeNoteSlug
+} from "../src/render-notes.js";
+import { renderSite } from "../src/render-site.js";
+
+const notesData = JSON.parse(
+  await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
+);
+const siteData = JSON.parse(
+  await readFile(new URL("../content/site.json", import.meta.url), "utf8")
+);
+
+test("content/notes.json normalizes into at least one valid, uniquely slugged note", () => {
+  const notes = normalizeNotes(notesData);
+
+  assert.ok(notes.length >= 1, "the journal ships with at least one note");
+
+  const slugs = notes.map((note) => note.slug);
+  assert.equal(new Set(slugs).size, slugs.length, "slugs must be unique");
+
+  for (const note of notes) {
+    assert.match(note.slug, /^[a-z0-9][a-z0-9-]*$/);
+    assert.ok(note.title.length > 0);
+    assert.ok(note.body.length > 0);
+    assert.ok(note.date === "" || isValidNoteDate(note.date));
+  }
+});
+
+test("normalizeNotes sorts newest first, drops empty entries, and dedupes slugs", () => {
+  const notes = normalizeNotes({
+    notes: [
+      { title: "old", date: "2024-01-01", body: "a" },
+      { title: "", date: "2026-01-01", body: "dropped: no title" },
+      { title: "dropped: no body", date: "2026-01-01", body: "   " },
+      { title: "new", date: "2026-05-05", body: "b" },
+      { title: "same day twin", date: "2026-05-05", body: "c" },
+      { title: "bad date", date: "yesterday", body: "d" }
+    ]
+  });
+
+  assert.deepEqual(
+    notes.map((note) => note.title),
+    ["new", "same day twin", "old", "bad date"]
+  );
+  assert.deepEqual(
+    notes.map((note) => note.slug),
+    ["2026-05-05", "2026-05-05-2", "2024-01-01", "note-6"]
+  );
+  assert.equal(notes.at(-1).date, "", "invalid dates are cleared and sink to the end");
+});
+
+test("deriveNoteSlug and sanitizeNoteSlug stay url-safe", () => {
+  assert.equal(sanitizeNoteSlug("  Hello World! 猪 "), "hello-world");
+  assert.equal(deriveNoteSlug({ date: "2026-08-07" }, new Set(["2026-08-07"])), "2026-08-07-2");
+  assert.equal(deriveNoteSlug({ slug: "自定义" , date: "bad" , fallback: "note-3" }), "note-3");
+});
+
+test("renderNoteBody escapes HTML before applying markdown-lite", () => {
+  const html = renderNoteBody('<script>alert("x")</script>\n\n**bold** and *soft*');
+
+  assert.ok(!html.includes("<script>"), "raw tags must never survive");
+  assert.ok(html.includes("&lt;script&gt;"));
+  assert.ok(html.includes("<strong>bold</strong>"));
+  assert.ok(html.includes("<em>soft</em>"));
+});
+
+test("renderNoteBody handles paragraphs, headings, lists, and line breaks", () => {
+  const html = renderNoteBody("第一段\n第二行\n\n## 小标题\n\n- 一\n- 二\n\n结尾");
+
+  assert.ok(html.includes("<p>第一段<br />第二行</p>"));
+  assert.ok(html.includes("<h3>小标题</h3>"));
+  assert.ok(html.includes("<ul><li>一</li><li>二</li></ul>"));
+  assert.ok(html.includes("<p>结尾</p>"));
+});
+
+test("noteExcerpt strips markup and truncates with an ellipsis", () => {
+  assert.equal(noteExcerpt("## 标题\n\n- **重点**内容"), "标题 重点内容");
+
+  const long = noteExcerpt("字".repeat(100), 10);
+  assert.equal(long.length, 11);
+  assert.ok(long.endsWith("…"));
+});
+
+test("formatNoteDate renders Chinese dates and rejects invalid input", () => {
+  assert.equal(formatNoteDate("2026-08-07"), "2026年8月7日");
+  assert.equal(formatNoteDate("not-a-date"), "");
+});
+
+test("notes index page links every note and escapes titles", () => {
+  const notes = normalizeNotes({
+    notes: [{ title: '<b>脏脏猪</b>', date: "2026-08-01", body: "正文" }]
+  });
+  const html = renderNotesPage(notes);
+
+  assert.ok(html.includes('href="/notes/2026-08-01/"'));
+  assert.ok(html.includes("&lt;b&gt;脏脏猪&lt;/b&gt;"));
+  assert.ok(!html.includes("<b>脏脏猪</b>"));
+});
+
+test("empty journal renders the empty state instead of a list", () => {
+  const html = renderNotesPage([]);
+
+  assert.ok(html.includes("notes-empty"));
+  assert.ok(!html.includes("notes-list"));
+});
+
+test("note detail page renders body and adjacent-note pager", () => {
+  const [note] = normalizeNotes({
+    notes: [{ title: "标题", date: "2026-08-01", mood: "🐷", body: "## 段落\n\n内容" }]
+  });
+  const html = renderNotePage(note, {
+    previousNote: { slug: "newer", title: "较新" },
+    nextNote: { slug: "older", title: "较早" }
+  });
+
+  assert.ok(html.includes("<h3>段落</h3>"));
+  assert.ok(html.includes('href="/notes/newer/"'));
+  assert.ok(html.includes('href="/notes/older/"'));
+  assert.ok(html.includes("note-mood"));
+});
+
+test("landing teaser shows at most three notes and renders nothing when empty", () => {
+  const notes = normalizeNotes({
+    notes: [1, 2, 3, 4, 5].map((n) => ({
+      title: `note ${n}`,
+      date: `2026-01-0${n}`,
+      body: "body"
+    }))
+  });
+  const teaser = renderNotesTeaser(notes);
+
+  assert.equal((teaser.match(/class="note-card"/g) || []).length, 3);
+  assert.ok(teaser.includes('id="notes"'));
+  assert.ok(teaser.includes('href="/notes/"'));
+
+  assert.equal(renderNotesTeaser([]), "");
+  assert.equal(renderNotesTeaser(undefined), "");
+});
+
+test("renderSite keeps working without notes and embeds the teaser with them", () => {
+  const bare = renderSite(siteData);
+  assert.ok(!bare.includes('id="notes"'), "no teaser without notes");
+
+  const withNotes = renderSite(siteData, normalizeNotes(notesData));
+  assert.ok(withNotes.includes('id="notes"'));
+  assert.ok(withNotes.includes('data-i18n="notes.eyebrow"'));
+});
+
+test("site navigation links to the notes page with a zh i18n key slot", () => {
+  const navItem = siteData.navigation.find((item) => item.href === "/notes/");
+  assert.ok(navItem, "site.json navigation includes the notes link");
+
+  const html = renderSite(siteData, normalizeNotes(notesData));
+  assert.ok(html.includes('data-i18n="nav.notes"'));
+  assert.ok(html.includes('"nav.notes": "小记"') || html.includes("nav.notes"));
+});
