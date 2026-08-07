@@ -1,0 +1,43 @@
+---
+import notesData from "../../../content/notes.json";
+import "../../styles.css";
+import { normalizeNotes, renderNotePage, noteExcerpt } from "../../render-notes.js";
+
+export function getStaticPaths() {
+  const notes = normalizeNotes(notesData);
+
+  return notes.map((note, index) => ({
+    params: { slug: note.slug },
+    props: {
+      note,
+      previousNote: notes[index - 1] ?? null,
+      nextNote: notes[index + 1] ?? null
+    }
+  }));
+}
+
+const { note, previousNote, nextNote } = Astro.props;
+const pageHtml = renderNotePage(note, { previousNote, nextNote });
+const title = `${note.title} | 猪猪小记`;
+const description = noteExcerpt(note.body, 90);
+---
+
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f8c2ba" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="article" />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <Fragment set:html={pageHtml} />
+  </body>
+</html>
