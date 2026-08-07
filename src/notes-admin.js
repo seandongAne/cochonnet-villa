@@ -5,10 +5,11 @@
 // Pages redeploys the static site automatically.
 
 import {
+  applyNoteEdit,
+  mergeRemoteNotes,
   normalizeNotes,
   renderNoteBody,
-  formatNoteDate,
-  deriveNoteSlug
+  formatNoteDate
 } from "./render-notes.js";
 
 const OWNER = "seandongAne";
@@ -267,18 +268,12 @@ export function initNotesAdmin() {
       return;
     }
 
-    if (state.editingSlug) {
-      state.notes = state.notes.map((note) =>
-        note.slug === state.editingSlug ? { ...note, title, date, mood, body } : note
-      );
-    } else {
-      const taken = new Set(state.notes.map((note) => note.slug));
-      const slug = deriveNoteSlug({ date }, taken);
-      state.notes.unshift({ slug, title, date, mood, body });
-      state.editingSlug = slug;
-    }
-
-    state.notes = normalizeNotes({ notes: state.notes });
+    // applyNoteEdit also handles a restored draft whose editingSlug is not in
+    // the list (never published): the save inserts instead of silently
+    // mapping over nothing.
+    const result = applyNoteEdit(state.notes, state.editingSlug, { title, date, mood, body });
+    state.notes = result.notes;
+    state.editingSlug = result.slug;
     markDirty();
     renderList();
     saveDraft();
@@ -323,7 +318,7 @@ export function initNotesAdmin() {
     };
   }
 
-  async function fetchNotes() {
+  async function fetchNotes({ discardLocal = false } = {}) {
     setStatus(elements.listStatus, "正在从 GitHub 读取小记……");
 
     let remote;
@@ -335,9 +330,23 @@ export function initNotesAdmin() {
     }
 
     state.sha = remote.sha;
+    state.remoteKnown = true;
+
+    if (state.dirty && !discardLocal) {
+      // The author staged edits while this request was in flight — merge the
+      // remote list underneath instead of clobbering them, and stay dirty.
+      state.notes = mergeRemoteNotes(state.notes, remote.notes);
+      renderList();
+      setStatus(
+        elements.listStatus,
+        `已读取远端小记，并保留了你还没发布的修改（共 ${state.notes.length} 篇）。`,
+        "warning"
+      );
+      return;
+    }
+
     state.notes = remote.notes;
     state.dirty = false;
-    state.remoteKnown = true;
     renderList();
 
     if (!remote.exists) {
@@ -372,10 +381,7 @@ export function initNotesAdmin() {
         return;
       }
 
-      const localSlugs = new Set(state.notes.map((note) => note.slug));
-      state.notes = normalizeNotes({
-        notes: [...state.notes, ...remote.notes.filter((note) => !localSlugs.has(note.slug))]
-      });
+      state.notes = mergeRemoteNotes(state.notes, remote.notes);
       state.sha = remote.sha;
       state.remoteKnown = true;
       renderList();
@@ -459,7 +465,9 @@ export function initNotesAdmin() {
     }
 
     try {
-      await fetchNotes();
+      // The author just confirmed discarding staged edits, so this reload
+      // replaces the list outright instead of merging.
+      await fetchNotes({ discardLocal: true });
     } catch (error) {
       console.error(error);
       setStatus(elements.listStatus, error.message, "error");

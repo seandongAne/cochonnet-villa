@@ -3,9 +3,11 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
+  applyNoteEdit,
   deriveNoteSlug,
   formatNoteDate,
   isValidNoteDate,
+  mergeRemoteNotes,
   normalizeNotes,
   noteExcerpt,
   renderNoteBody,
@@ -159,6 +161,75 @@ test("renderSite keeps working without notes and embeds the teaser with them", (
   const withNotes = renderSite(siteData, normalizeNotes(notesData));
   assert.ok(withNotes.includes('id="notes"'));
   assert.ok(withNotes.includes('data-i18n="notes.eyebrow"'));
+});
+
+test("applyNoteEdit updates an existing slug in place and keeps its art", () => {
+  const existing = normalizeNotes({
+    notes: [
+      { title: "老标题", date: "2026-06-01", body: "旧正文", image: "/notes-art/2026-06-01.webp" },
+      { title: "别的", date: "2026-05-01", body: "b" }
+    ]
+  });
+
+  const { notes, slug } = applyNoteEdit(existing, "2026-06-01", {
+    title: "新标题",
+    date: "2026-06-01",
+    mood: "🐷",
+    body: "新正文"
+  });
+
+  assert.equal(slug, "2026-06-01");
+  assert.equal(notes.length, 2);
+  const edited = notes.find((note) => note.slug === "2026-06-01");
+  assert.equal(edited.title, "新标题");
+  assert.equal(edited.image, "/notes-art/2026-06-01.webp", "art survives an edit");
+});
+
+test("applyNoteEdit inserts a restored draft whose slug is absent (never published)", () => {
+  // Regression: a draft saved with editingSlug from an unpublished note must
+  // land in the list after reload, not silently map over nothing.
+  const remoteOnly = normalizeNotes({
+    notes: [{ title: "远端", date: "2026-04-01", body: "a" }]
+  });
+
+  const { notes, slug } = applyNoteEdit(remoteOnly, "2026-08-07-2", {
+    title: "恢复的草稿",
+    date: "2026-08-07",
+    mood: "",
+    body: "找回来了"
+  });
+
+  assert.equal(slug, "2026-08-07-2", "the drafted slug is reused when free");
+  assert.equal(notes.length, 2);
+  assert.equal(notes[0].title, "恢复的草稿", "inserted and sorted newest-first");
+
+  const noSlug = applyNoteEdit(remoteOnly, null, {
+    title: "全新",
+    date: "2026-04-01",
+    mood: "",
+    body: "b"
+  });
+  assert.equal(noSlug.slug, "2026-04-01-2", "new note without a draft slug derives and dedupes");
+});
+
+test("mergeRemoteNotes keeps local edits on clashes and appends remote-only notes", () => {
+  // Regression: staging a note while the initial fetch is in flight must not
+  // be clobbered when the response lands.
+  const local = normalizeNotes({
+    notes: [{ title: "本地已改", date: "2026-07-01", body: "本地版本" }]
+  });
+  const remote = normalizeNotes({
+    notes: [
+      { title: "远端旧版", date: "2026-07-01", body: "远端版本" },
+      { title: "远端独有", date: "2026-06-01", body: "b" }
+    ]
+  });
+
+  const merged = mergeRemoteNotes(local, remote);
+
+  assert.equal(merged.length, 2);
+  assert.equal(merged.find((note) => note.slug === "2026-07-01").body, "本地版本", "local wins");
+  assert.ok(merged.some((note) => note.title === "远端独有"), "remote-only appended");
 });
 
 test("normalizeNotes preserves safe art images and drops unsafe ones", () => {

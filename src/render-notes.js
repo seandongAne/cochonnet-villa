@@ -108,6 +108,48 @@ export function normalizeNotes(data) {
   return notes.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
+// Editor-save semantics (node-pure so the data-loss paths stay unit-tested).
+// Updates the note matching editingSlug, or inserts a new one when the slug
+// is absent — a restored draft can carry an editingSlug that was never
+// published, and that save must still land in the list, reusing the drafted
+// slug when it is free.
+export function applyNoteEdit(notes, editingSlug, { title, date, mood, body }) {
+  const list = Array.isArray(notes) ? notes : [];
+  const wanted = sanitizeNoteSlug(editingSlug);
+
+  if (wanted && list.some((note) => note.slug === wanted)) {
+    return {
+      notes: normalizeNotes({
+        notes: list.map((note) =>
+          note.slug === wanted ? { ...note, title, date, mood, body } : note
+        )
+      }),
+      slug: wanted
+    };
+  }
+
+  const taken = new Set(list.map((note) => note.slug));
+  const slug = wanted && !taken.has(wanted) ? wanted : deriveNoteSlug({ date }, taken);
+
+  return {
+    notes: normalizeNotes({ notes: [{ slug, title, date, mood, body }, ...list] }),
+    slug
+  };
+}
+
+// Remote-sync semantics: local (possibly unpublished) notes win on slug
+// clashes; remote-only notes are appended. Used both when a fetch completes
+// over unpublished local edits and by the pre-publish safety sync.
+export function mergeRemoteNotes(localNotes, remoteNotes) {
+  const local = Array.isArray(localNotes) ? localNotes : [];
+  const remote = Array.isArray(remoteNotes) ? remoteNotes : [];
+  const localSlugs = new Set(local.map((note) => note.slug));
+
+  return normalizeNotes({
+    notes: [...local, ...remote.filter((note) => !localSlugs.has(note.slug))]
+  });
+}
+
 export function formatNoteDate(date) {
   if (!isValidNoteDate(date)) {
     return "";
