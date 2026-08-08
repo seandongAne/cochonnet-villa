@@ -15,6 +15,11 @@ on:
     branches: ["main"]
     paths: ["content/notes.json"]
   workflow_dispatch:
+    inputs:
+      force_slug:
+        description: "Existing note slug to regenerate (blank generates missing art only)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -42,6 +47,7 @@ jobs:
       - name: Generate missing note art
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NOTE_ART_FORCE_SLUG: ${{ github.event_name == 'workflow_dispatch' && inputs.force_slug || '' }}
         run: node scripts/generate-note-art.mjs
 
       - name: Collect generated art for recovery
