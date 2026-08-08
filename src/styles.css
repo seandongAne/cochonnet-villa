@@ -977,11 +977,12 @@ html[lang="zh-Hans"] .size-tag {
   margin: 0;
 }
 
-.note-body h3 {
+.note-body h2 {
   margin: 0.6rem 0 0;
   font-family: "Fraunces", Georgia, serif;
   font-size: 1.35rem;
   letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .note-body ul {

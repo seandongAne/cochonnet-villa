@@ -85,9 +85,28 @@ test("renderNoteBody handles paragraphs, headings, lists, and line breaks", () =
   const html = renderNoteBody("第一段\n第二行\n\n## 小标题\n\n- 一\n- 二\n\n结尾");
 
   assert.ok(html.includes("<p>第一段<br />第二行</p>"));
-  assert.ok(html.includes("<h3>小标题</h3>"));
+  assert.ok(html.includes("<h2>小标题</h2>"));
   assert.ok(html.includes("<ul><li>一</li><li>二</li></ul>"));
   assert.ok(html.includes("<p>结尾</p>"));
+});
+
+test("renderNoteBody keeps headings as Markdown blocks without blank lines", () => {
+  const html = renderNoteBody("开头\n## 一\n正文一\n## 二\n正文二");
+
+  assert.equal(
+    html,
+    "<p>开头</p>\n<h2>一</h2>\n<p>正文一</p>\n<h2>二</h2>\n<p>正文二</p>"
+  );
+  assert.doesNotMatch(html, /(?:^|<br \/>)## /);
+});
+
+test("every heading in the stored notes renders as a heading", () => {
+  for (const note of normalizeNotes(notesData)) {
+    const sourceHeadingCount = note.body.match(/^##[ \t]+.+$/gm)?.length ?? 0;
+    const renderedHeadingCount = renderNoteBody(note.body).match(/<h2>/g)?.length ?? 0;
+
+    assert.equal(renderedHeadingCount, sourceHeadingCount, note.slug);
+  }
 });
 
 test("noteExcerpt strips markup and truncates with an ellipsis", () => {
@@ -130,7 +149,7 @@ test("note detail page renders body and adjacent-note pager", () => {
     nextNote: { slug: "older", title: "较早" }
   });
 
-  assert.ok(html.includes("<h3>段落</h3>"));
+  assert.ok(html.includes("<h2>段落</h2>"));
   assert.ok(html.includes('href="/notes/newer/"'));
   assert.ok(html.includes('href="/notes/older/"'));
   assert.ok(html.includes("note-mood"));

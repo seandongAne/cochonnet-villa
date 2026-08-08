@@ -173,39 +173,66 @@ function renderInline(text) {
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
 }
 
-// Markdown-lite: blank lines split blocks; "## " headings, "- " lists,
-// **bold**, *italic*. Everything is HTML-escaped before markup is applied,
-// so raw note text can never inject tags.
+// Markdown-lite: "## " headings and "- " lists start blocks even without
+// surrounding blank lines; blank lines still split paragraphs. **bold** and
+// *italic* are supported inline. Everything is HTML-escaped before markup is
+// applied, so raw note text can never inject tags.
 export function renderNoteBody(body) {
-  const blocks = String(body ?? "").replace(/\r\n?/g, "\n").split(/\n{2,}/);
+  const lines = String(body ?? "").replace(/\r\n?/g, "\n").split("\n");
   const html = [];
+  let paragraphLines = [];
+  let listItems = [];
 
-  for (const block of blocks) {
-    const lines = block
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+  const flushParagraph = () => {
+    if (!paragraphLines.length) {
+      return;
+    }
 
-    if (!lines.length) {
+    html.push(`<p>${paragraphLines.map((line) => renderInline(line)).join("<br />")}</p>`);
+    paragraphLines = [];
+  };
+
+  const flushList = () => {
+    if (!listItems.length) {
+      return;
+    }
+
+    html.push(`<ul>${listItems.map((item) => `<li>${renderInline(item)}</li>`).join("")}</ul>`);
+    listItems = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      flushList();
       continue;
     }
 
-    if (lines.every((line) => line.startsWith("- "))) {
-      html.push(`<ul>${lines.map((line) => `<li>${renderInline(line.slice(2))}</li>`).join("")}</ul>`);
+    const heading = line.match(/^##[ \t]+(.+)$/);
+
+    if (heading) {
+      flushParagraph();
+      flushList();
+      html.push(`<h2>${renderInline(heading[1])}</h2>`);
       continue;
     }
 
-    let rest = lines;
+    const listItem = line.match(/^-[ \t]+(.+)$/);
 
-    if (lines[0].startsWith("## ")) {
-      html.push(`<h3>${renderInline(lines[0].slice(3))}</h3>`);
-      rest = lines.slice(1);
+    if (listItem) {
+      flushParagraph();
+      listItems.push(listItem[1]);
+      continue;
     }
 
-    if (rest.length) {
-      html.push(`<p>${rest.map((line) => renderInline(line)).join("<br />")}</p>`);
-    }
+    flushList();
+    paragraphLines.push(line);
   }
+
+  flushParagraph();
+  flushList();
 
   return html.join("\n");
 }
