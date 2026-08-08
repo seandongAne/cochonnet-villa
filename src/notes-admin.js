@@ -93,6 +93,7 @@ export function initNotesAdmin() {
     sha: "",
     notes: [],
     dirty: false,
+    publishing: false,
     editingSlug: null,
     // True once we know the remote state (a successful read, or a definite
     // 404). Publishing without it could clobber notes we never saw.
@@ -583,78 +584,104 @@ export function initNotesAdmin() {
   }
 
   async function publish() {
+    if (state.publishing) {
+      return;
+    }
+
     if (!state.token) {
       setStatus(elements.publishStatus, "先在上面保存一个 GitHub token 才能发布。", "warning");
       return;
     }
 
-    if (!state.remoteKnown) {
-      // The initial read failed, so the local list may be missing notes that
-      // already live on GitHub. Sync first; local edits win on slug clashes.
-      setStatus(elements.publishStatus, "先和 GitHub 同步一次，避免覆盖已发布的小记……");
+    if (!state.dirty) {
+      setStatus(elements.publishStatus, "没有需要发布的修改，网站已经是最新的。", "success");
+      return;
+    }
 
-      let remote;
+    const publishButtonLabel = elements.publishButton?.textContent || "发布到 GitHub";
+    state.publishing = true;
 
-      try {
-        remote = await fetchRemote();
-      } catch {
-        setStatus(
-          elements.publishStatus,
-          "现在连不上 GitHub，为了不覆盖网站上已有的小记，这次没有发布。稍后再试试。",
-          "error"
-        );
-        return;
+    if (elements.publishButton) {
+      elements.publishButton.disabled = true;
+      elements.publishButton.textContent = "正在发布……";
+    }
+
+    try {
+      if (!state.remoteKnown) {
+        // The initial read failed, so the local list may be missing notes that
+        // already live on GitHub. Sync first; local edits win on slug clashes.
+        setStatus(elements.publishStatus, "先和 GitHub 同步一次，避免覆盖已发布的小记……");
+
+        let remote;
+
+        try {
+          remote = await fetchRemote();
+        } catch {
+          setStatus(
+            elements.publishStatus,
+            "现在连不上 GitHub，为了不覆盖网站上已有的小记，这次没有发布。稍后再试试。",
+            "error"
+          );
+          return;
+        }
+
+        state.notes = mergeRemoteNotes(state.notes, remote.notes);
+        state.sha = remote.sha;
+        state.remoteKnown = true;
+        renderList();
       }
 
-      state.notes = mergeRemoteNotes(state.notes, remote.notes);
-      state.sha = remote.sha;
-      state.remoteKnown = true;
-      renderList();
-    }
+      setStatus(elements.publishStatus, "正在提交到 GitHub……");
 
-    setStatus(elements.publishStatus, "正在提交到 GitHub……");
+      const body = {
+        message: elements.commitMessageInput.value.trim() || "更新猪猪小记",
+        content: toBase64(`${JSON.stringify({ notes: state.notes }, null, 2)}\n`),
+        branch: BRANCH
+      };
 
-    const body = {
-      message: elements.commitMessageInput.value.trim() || "更新猪猪小记",
-      content: toBase64(`${JSON.stringify({ notes: state.notes }, null, 2)}\n`),
-      branch: BRANCH
-    };
-
-    if (state.sha) {
-      body.sha = state.sha;
-    }
-
-    const response = await fetch(apiBase, {
-      method: "PUT",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${state.token}`,
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28"
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const errorPayload = await response.json().catch(() => ({}));
-      const detail = errorPayload?.message || `GitHub 返回 ${response.status}。`;
-
-      if (response.status === 409 || response.status === 422) {
-        throw new Error(`${detail} 可能有别处的修改，点「重新读取」后再试。`);
+      if (state.sha) {
+        body.sha = state.sha;
       }
 
-      throw new Error(detail);
-    }
+      const response = await fetch(apiBase, {
+        method: "PUT",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${state.token}`,
+          "Content-Type": "application/json",
+          "X-GitHub-Api-Version": "2022-11-28"
+        },
+        body: JSON.stringify(body)
+      });
 
-    const payload = await response.json();
-    state.sha = payload.content?.sha || state.sha;
-    state.dirty = false;
-    clearDraft();
-    setStatus(
-      elements.publishStatus,
-      `已发布！GitHub Pages 部署大约需要 1–2 分钟，之后就能在 ${LIVE_NOTES_URL} 看到。`,
-      "success"
-    );
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        const detail = errorPayload?.message || `GitHub 返回 ${response.status}。`;
+
+        if (response.status === 409 || response.status === 422) {
+          throw new Error(`${detail} 可能有别处的修改，点「重新读取」后再试。`);
+        }
+
+        throw new Error(detail);
+      }
+
+      const payload = await response.json();
+      state.sha = payload.content?.sha || state.sha;
+      state.dirty = false;
+      clearDraft();
+      setStatus(
+        elements.publishStatus,
+        `已发布！GitHub Pages 部署大约需要 1–2 分钟，之后就能在 ${LIVE_NOTES_URL} 看到。`,
+        "success"
+      );
+    } finally {
+      state.publishing = false;
+
+      if (elements.publishButton) {
+        elements.publishButton.disabled = false;
+        elements.publishButton.textContent = publishButtonLabel;
+      }
+    }
   }
 
   async function restoreDraft() {

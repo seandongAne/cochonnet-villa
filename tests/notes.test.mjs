@@ -312,7 +312,36 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
   assert.ok(workflow.includes("content/notes.json"), "triggers on notes content changes");
   assert.ok(workflow.includes("scripts/generate-note-art.mjs"), "runs the generator");
   assert.ok(workflow.includes("secrets.OPENAI_API_KEY"), "uses the Actions secret");
+  assert.match(workflow, /ref:\s*main/, "starts from the latest main branch");
+  assert.match(workflow, /fetch-depth:\s*0/, "has enough history to rebase generated art");
+  assert.ok(workflow.includes("actions/upload-artifact@v7"), "keeps generated WebP files recoverable");
+  assert.ok(workflow.includes("for attempt in 1 2 3"), "bounds stale-main retries");
+  assert.ok(workflow.includes("git rebase origin/main"), "integrates main before pushing art");
+  assert.doesNotMatch(workflow, /git push[^\n]*--force/, "never force-pushes generated art");
+  assert.ok(
+    workflow.indexOf("actions/upload-artifact@v7") < workflow.indexOf("git push origin HEAD:main"),
+    "uploads the exact generated image before any push can fail"
+  );
   assert.ok(workflow.includes("deploy-pages.yml"), "re-dispatches the Pages deploy");
+});
+
+test("the notes studio blocks duplicate and no-op Publish requests", async () => {
+  const admin = await readFile(new URL("../src/notes-admin.js", import.meta.url), "utf8");
+  const publish = admin.slice(
+    admin.indexOf("async function publish()"),
+    admin.indexOf("async function restoreDraft()")
+  );
+
+  assert.ok(admin.includes("publishing: false"), "tracks an in-flight Publish request");
+  assert.match(publish, /if \(state\.publishing\)/, "ignores a repeated in-flight click");
+  assert.match(publish, /if \(!state\.dirty\)/, "does not publish an unchanged list");
+  assert.ok(publish.includes("elements.publishButton.disabled = true"), "disables Publish in flight");
+  assert.match(publish, /finally \{/, "restores the Publish control after every outcome");
+  assert.ok(
+    publish.indexOf("if (state.publishing)") < publish.indexOf('method: "PUT"') &&
+      publish.indexOf("if (!state.dirty)") < publish.indexOf('method: "PUT"'),
+    "rejects duplicate/no-op requests before calling the Contents API"
+  );
 });
 
 test("site navigation links to the notes page with a zh i18n key slot", () => {

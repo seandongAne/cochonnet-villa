@@ -30,6 +30,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -41,6 +44,40 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node scripts/generate-note-art.mjs
 
+      - name: Collect generated art for recovery
+        id: recovery
+        run: |
+          recovery_dir="$RUNNER_TEMP/note-art-recovery"
+          generated_files=()
+
+          while IFS= read -r -d '' file; do
+            [[ "$file" == *.webp ]] && generated_files+=("$file")
+          done < <(
+            git diff --name-only --diff-filter=AM -z -- public/notes-art
+            git ls-files --others --exclude-standard -z -- public/notes-art
+          )
+
+          if (( ${#generated_files[@]} == 0 )); then
+            echo "has_art=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p "$recovery_dir"
+          for file in "${generated_files[@]}"; do
+            cp --parents -- "$file" "$recovery_dir"
+          done
+          echo "has_art=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload generated art recovery artifact
+        if: steps.recovery.outputs.has_art == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: note-art-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/note-art-recovery
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
       - name: Commit art and redeploy
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,7 +87,37 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add content/notes.json public/notes-art
             git commit -m "小记配图: auto-generate note art"
-            git push
+
+            for attempt in 1 2 3; do
+              git fetch origin main
+
+              if ! git rebase origin/main; then
+                git rebase --abort
+                echo "::error::Generated art conflicts with newer content on main. Recover the exact WebP from this run's note-art-recovery artifact."
+                exit 1
+              fi
+
+              if push_output="$(git push origin HEAD:main 2>&1)"; then
+                echo "$push_output"
+                break
+              else
+                push_status=$?
+              fi
+
+              echo "$push_output"
+
+              if [[ "$push_output" != *"(fetch first)"* && "$push_output" != *"non-fast-forward"* ]]; then
+                exit "$push_status"
+              fi
+
+              if (( attempt == 3 )); then
+                echo "::error::main kept advancing; stopped after 3 safe push attempts. Recover the exact WebP from this run's note-art-recovery artifact."
+                exit "$push_status"
+              fi
+
+              echo "main advanced during push; retrying safely ($attempt/3)."
+            done
+
             gh workflow run deploy-pages.yml --ref main
           else
             echo "No new art to commit."
