@@ -29,6 +29,7 @@ test("the note-art prompt fixes the cast at three rows of five without clones", 
   assert.match(prompt, /15张脸、15个完整猪鼻子/);
   assert.match(prompt, /不得把任何角色画成克隆/);
   assert.match(prompt, /演员表的编号和名字仅供理解，绝不能画进画面/);
+  assert.match(prompt, /墙面不得悬挂任何照片、相框、海报、画作或壁画/);
   assert.match(prompt, /1536x1024|宽幅/);
   assert.ok(prompt.includes("想要一个抱抱，也想去攀岩"));
 
