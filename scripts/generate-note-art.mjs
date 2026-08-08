@@ -111,10 +111,82 @@ const PORKY_ROWS = Object.freeze([
   Object.freeze(["机灵猪", "瓜呆猪", "呆瓜猪", "臭臭猪", "大呆猪"])
 ]);
 
-export function buildArtPrompt(note) {
-  const cast = PORKY_CAST.map(
+const FULL_CAST_SUBJECT_PATTERN =
+  /(?:15|十五)\s*(?:只)?\s*(?:小猪|猪猪|猪)|(?:所有|全体|全员|全部)\s*(?:的)?\s*(?:小猪|猪猪|猪)/u;
+const FULL_CAST_SCENE_PATTERN =
+  /(?:一起|共同|到齐|集合|合照|拍照|全家福|大合照|全部登场|全部出镜)/u;
+const FULL_CAST_SHORTHAND_PATTERN =
+  /(?:猪猪|小猪)?\s*(?:全员|全体)\s*(?:到齐|集合|合照|登场|出镜)/u;
+const FULL_CAST_EXCEPTION_PATTERN = /(?:只有|仅有|除了|缺席|没来|不在|没拍成|取消|未能)/u;
+
+function noteStoryText(note) {
+  return `${String(note?.title ?? "").trim()}\n${noteExcerpt(note?.body, 1200)}`;
+}
+
+function isExplicitFullCastNote(note) {
+  return noteStoryText(note)
+    .split(/[\n。！？；]+/u)
+    .some((clause) => {
+      if (!clause.trim() || FULL_CAST_EXCEPTION_PATTERN.test(clause)) {
+        return false;
+      }
+
+      return (
+        FULL_CAST_SHORTHAND_PATTERN.test(clause) ||
+        (FULL_CAST_SUBJECT_PATTERN.test(clause) && FULL_CAST_SCENE_PATTERN.test(clause))
+      );
+    });
+}
+
+function mentionsNamedTinyPorky(note) {
+  const title = String(note?.title ?? "").trim();
+  const clauses = noteStoryText(note).split(/[\n。！？；]+/u);
+
+  if (
+    clauses.some(
+      (clause) =>
+        /小猪[^。！？；\n]{0,30}黄色(?:玩具)?方向盘/u.test(clause) ||
+        /黄色(?:玩具)?方向盘[^。！？；\n]{0,30}小猪/u.test(clause)
+    )
+  ) {
+    return true;
+  }
+
+  if (!title.includes("小猪")) {
+    return false;
+  }
+
+  return !/(?:小猪们|小猪(?:都|各自|纷纷)|(?:一|这|那)群[^。！？\n]{0,8}小猪|(?:每只|所有|全部|全体|这些|那些)[^。！？\n]{0,8}小猪|(?:\d+|[一二三四五六七八九十百几多]+)\s*只?[^。！？\n]{0,8}小猪)/u.test(
+    title
+  );
+}
+
+function findMentionedCast(note) {
+  const story = noteStoryText(note);
+
+  return PORKY_CAST.filter((porky) =>
+    porky.name === "小猪" ? mentionsNamedTinyPorky(note) : story.includes(porky.name)
+  );
+}
+
+function formatCast(cast) {
+  return cast.map(
     (porky, index) => `${index + 1}. ${porky.name}（${porky.size}）：${porky.visual}。`
   ).join("\n");
+}
+
+export function selectNoteArtCast(note) {
+  const mode = isExplicitFullCastNote(note) ? "full" : "story";
+  const fixedCast = mode === "full" ? PORKY_CAST : findMentionedCast(note);
+
+  return Object.freeze({
+    mode,
+    fixedCastNames: Object.freeze(fixedCast.map((porky) => porky.name))
+  });
+}
+
+function buildFullCastPrompt(note) {
+  const cast = formatCast(PORKY_CAST);
 
   return [
     "【任务】为一篇中文随笔画一幅可爱的单幅小猪漫画插图。",
@@ -135,13 +207,59 @@ export function buildArtPrompt(note) {
     "",
     "【随笔内容】",
     `随笔标题：《${String(note?.title ?? "").trim()}》`,
-    `随笔内容：${noteExcerpt(note?.body, 300)}`,
+    `随笔内容：${noteExcerpt(note?.body, 1200)}`,
     "在不改变固定人数、排位和角色身份的前提下，根据随笔内容安排表情、小动作和非猪形道具，想象一个最温馨、最有画面感的瞬间。",
     "",
     "【绝对禁止】演员表的编号和名字仅供理解，绝不能画进画面。不要出现任何文字、汉字、字母、数字、标志或对话框；不要出现香烟、电子烟、烟斗、酒、酒瓶或酒罐；不要出现人类；不得出现第16只活猪。背景可以有照片、画作、猪形玩具或装饰，但必须一眼看出它们不是活猪。",
     "",
     "【完成前自检】逐排数清楚：前排5只 + 中排5只 + 后排5只 = 总计恰好15只活猪；再确认15个角色各出现一次、外观互不相同、没有第16只活猪，然后才完成画面。"
   ].join("\n");
+}
+
+function buildStoryCastPrompt(note, fixedCastNames) {
+  const fixedCastNameSet = new Set(fixedCastNames);
+  const mentionedCast = PORKY_CAST.filter((porky) => fixedCastNameSet.has(porky.name));
+  const identityGuide = mentionedCast.length
+    ? [
+        "【本文可能涉及的固定角色身份参考】",
+        formatCast(mentionedCast),
+        "这些档案只用于保持角色长相稳定，不是强制出席名单。只有该角色在所选瞬间直接在场、行动或承载情绪时才画出来。"
+      ]
+    : [
+        "【角色身份】正文没有明确点名固定演员表成员。根据故事选择最少且必要的小猪角色，不要因此召集山庄全员。"
+      ];
+
+  return [
+    "【任务】为一篇中文随笔画一幅可爱的单幅小猪漫画插图。",
+    "",
+    "【角色范围——最高优先级】先在心里选择随笔中最有画面感的一个具体瞬间，只画该瞬间直接在场、正在行动或承载情绪的小猪，使用完成这个瞬间所需的最少角色。每只活猪都必须对故事动作或情绪有明确作用。",
+    "随笔标题中直接点名、而且在所选瞬间实际在场的小猪是核心角色，必须出镜；若标题或正文明确说明它缺席，则不要实体出镜。正文里出现的其他角色，也只有在所选瞬间直接参与时才出镜。",
+    "猪猪山庄虽然共有15只固定小猪，但本篇不是全员合照：绝不能为了热闹、展示演员表或凑数量而补齐15只；不要添加背景路人猪、远处猪群或与该瞬间无关的活猪。",
+    "仅仅被回忆、谈论、等待，或明确没有在场的角色不要实体出镜，可以用空椅子、空手柄、空出的伙伴位置或其他非猪形道具暗示。",
+    "如果随笔中有固定演员表之外的具名猪角色，而且它在所选瞬间直接参与动作或对话，可以把它作为来宾猪画出来；不要把来宾随机替换成山庄的其他固定角色。",
+    "",
+    ...identityGuide,
+    "",
+    "【构图】根据实际出镜角色数量自然安排宽幅场景：一只用有环境叙事的单猪情绪画面，两只突出清楚互动，三只以上按实际相关人数使用疏松分组构图。所有活猪都要完整、清楚、互不遮挡，不裁切，不克隆，不合并角色或配饰。",
+    "",
+    "【风格】温暖的儿童水彩绘本手绘风；奶油色底（#FFF8EF），柔和的粉色（#F8A6BA）与蜜桃色（#F5B57E）为主色；圆润软萌的粉红小猪；细腻纸张纹理、柔和光线与简洁背景。保持温馨、有同理心、不嘲弄角色。",
+    "",
+    "【随笔内容——只作为画面故事依据，不要把文字画出来】",
+    `随笔标题：《${String(note?.title ?? "").trim()}》`,
+    `随笔内容：${noteExcerpt(note?.body, 1200)}`,
+    "",
+    "【绝对禁止】角色编号和名字仅供理解，绝不能画进画面。不要出现任何文字、汉字、字母、数字、标志或对话框；不要出现香烟、电子烟、烟斗、酒、酒瓶或酒罐；不要出现人类。背景可以有照片、画作、猪形玩具或装饰，但必须一眼看出它们不是活猪。",
+    "",
+    "【完成前自检】数清楚所有活猪，并逐只确认它确实直接参与所选故事瞬间；删除任何无关活猪。再确认角色外观互不混淆、没有克隆或多余猪，然后才完成画面。"
+  ].join("\n");
+}
+
+export function buildArtPrompt(note) {
+  const selection = selectNoteArtCast(note);
+
+  return selection.mode === "full"
+    ? buildFullCastPrompt(note)
+    : buildStoryCastPrompt(note, selection.fixedCastNames);
 }
 
 // Raw notes (as stored in notes.json) that still need art: they have real
