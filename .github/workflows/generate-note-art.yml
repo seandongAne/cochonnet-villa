@@ -4,16 +4,24 @@ name: Generate note art
 # post that doesn't have one yet (scripts/generate-note-art.mjs, gpt-image-2),
 # commit the art + stamped notes.json, and kick the Pages deploy.
 #
-# Requires the repo Actions secret OPENAI_API_KEY. Without it the run is a
-# clearly-logged no-op, so the workflow is safe to merge before the secret
-# exists. The art commit is made with GITHUB_TOKEN, which cannot re-trigger
-# this workflow (GitHub's recursion guard), so we dispatch the deploy
-# workflow explicitly.
+# Requires the repo Actions secret OPENAI_API_KEY whenever a note still needs
+# art. The art commit is made with GITHUB_TOKEN, which cannot re-trigger this
+# workflow (GitHub's recursion guard), so we dispatch both the deploy and any
+# required continuation batch explicitly.
 
 on:
   push:
     branches: ["main"]
-    paths: ["content/notes.json"]
+    paths:
+      - "content/notes.json"
+      - "public/notes-art/**"
+      - "scripts/generate-note-art.mjs"
+      - "scripts/note-art-runtime.mjs"
+      - "src/render-notes.js"
+      - "src/note-markdown.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/generate-note-art.yml"
   workflow_dispatch:
     inputs:
       force_slug:
@@ -27,11 +35,12 @@ permissions:
 
 concurrency:
   group: note-art
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   art:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -43,15 +52,25 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: lts/*
+          cache: npm
+
+      - name: Install runtime dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Generate missing note art
+        id: generate
+        continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NOTE_ART_FORCE_SLUG: ${{ github.event_name == 'workflow_dispatch' && inputs.force_slug || '' }}
+          NOTE_ART_SOURCE_MANIFEST: ${{ runner.temp }}/note-art-source-manifest.json
         run: node scripts/generate-note-art.mjs
 
       - name: Collect generated art for recovery
         id: recovery
+        if: ${{ !cancelled() }}
+        env:
+          NOTE_ART_SOURCE_MANIFEST: ${{ runner.temp }}/note-art-source-manifest.json
         run: |
           recovery_dir="$RUNNER_TEMP/note-art-recovery"
           generated_files=()
@@ -72,10 +91,14 @@ jobs:
           for file in "${generated_files[@]}"; do
             cp --parents -- "$file" "$recovery_dir"
           done
+          if [[ -s "$NOTE_ART_SOURCE_MANIFEST" ]]; then
+            cp -- "$NOTE_ART_SOURCE_MANIFEST" \
+              "$recovery_dir/note-art-source-manifest.json"
+          fi
           echo "has_art=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload generated art recovery artifact
-        if: steps.recovery.outputs.has_art == 'true'
+        if: ${{ !cancelled() && steps.recovery.outputs.has_art == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: note-art-recovery-${{ github.run_id }}-${{ github.run_attempt }}
@@ -85,8 +108,11 @@ jobs:
           compression-level: 0
 
       - name: Commit art and redeploy
+        if: ${{ success() && steps.generate.outputs.has_changes == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
+          NOTE_ART_GENERATED_COUNT: ${{ steps.generate.outputs.generated_count }}
+          NOTE_ART_SOURCE_MANIFEST: ${{ runner.temp }}/note-art-source-manifest.json
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             git config user.name "github-actions[bot]"
@@ -97,10 +123,29 @@ jobs:
             for attempt in 1 2 3; do
               git fetch origin main
 
+              if [[ "${NOTE_ART_GENERATED_COUNT:-0}" != "0" ]]; then
+                if [[ ! -s "$NOTE_ART_SOURCE_MANIFEST" ]]; then
+                  echo "::error::Generated art is missing its source fingerprint manifest; refusing an unverifiable push."
+                  exit 1
+                fi
+                remote_notes="$RUNNER_TEMP/note-art-origin-main.json"
+                git show origin/main:content/notes.json > "$remote_notes"
+                node scripts/generate-note-art.mjs \
+                  --verify-source-manifest \
+                  "$NOTE_ART_SOURCE_MANIFEST" "$remote_notes" "$NOTE_ART_GENERATED_COUNT"
+              fi
+
               if ! git rebase origin/main; then
                 git rebase --abort
                 echo "::error::Generated art conflicts with newer content on main. Recover the exact WebP from this run's note-art-recovery artifact."
                 exit 1
+              fi
+
+              if [[ "${NOTE_ART_GENERATED_COUNT:-0}" != "0" ]]; then
+                node scripts/generate-note-art.mjs \
+                  --verify-source-manifest \
+                  "$NOTE_ART_SOURCE_MANIFEST" content/notes.json "$NOTE_ART_GENERATED_COUNT" \
+                  --require-image-reference
               fi
 
               if push_output="$(git push origin HEAD:main 2>&1)"; then
@@ -125,6 +170,15 @@ jobs:
             done
 
             gh workflow run deploy-pages.yml --ref main
+            if [[ "${{ steps.generate.outputs.needs_followup }}" == "true" ]]; then
+              gh workflow run generate-note-art.yml --ref main
+            fi
           else
             echo "No new art to commit."
           fi
+
+      - name: Surface generation failures
+        if: ${{ !cancelled() && steps.generate.outcome == 'failure' }}
+        run: |
+          echo "::error::One or more note-art operations failed. See the job summary and recovery artifact."
+          exit 1

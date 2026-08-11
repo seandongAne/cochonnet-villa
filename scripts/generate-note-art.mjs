@@ -4,14 +4,21 @@
 // the note's `image` field. Runs in GitHub Actions (see
 // .github/workflows/generate-note-art.yml); the workflow commits the results.
 //
-// Pure helpers (buildArtPrompt / pickPendingNotes) are exported for the node
-// test suite; nothing below performs I/O at import time.
+// Testable helpers are exported for the node suite; main performs no I/O when
+// this module is imported.
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { appendFile, readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
-import { deriveNoteSlug, noteExcerpt } from "../src/render-notes.js";
+import { deriveNoteSlug, noteExcerpt, sanitizeNoteImage } from "../src/render-notes.js";
+import {
+  assertValidWebp,
+  parseBoundedPositiveInteger,
+  requestGeneratedWebp,
+  writeFileAtomically
+} from "./note-art-runtime.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const NOTES_PATH = path.join(ROOT, "content", "notes.json");
@@ -22,7 +29,21 @@ const API_URL = "https://api.openai.com/v1/images/generations";
 const MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const QUALITY = process.env.OPENAI_IMAGE_QUALITY || "medium";
 const SIZE = process.env.OPENAI_IMAGE_SIZE || "1536x1024";
-const MAX_PER_RUN = Number(process.env.NOTE_ART_MAX_PER_RUN || 4);
+const MAX_PER_RUN = parseBoundedPositiveInteger(process.env.NOTE_ART_MAX_PER_RUN, {
+  name: "NOTE_ART_MAX_PER_RUN",
+  fallback: 4,
+  maximum: 20
+});
+const REQUEST_TIMEOUT_MS = parseBoundedPositiveInteger(process.env.NOTE_ART_REQUEST_TIMEOUT_MS, {
+  name: "NOTE_ART_REQUEST_TIMEOUT_MS",
+  fallback: 300_000,
+  maximum: 900_000
+});
+const MAXIMUM_API_ATTEMPTS = parseBoundedPositiveInteger(process.env.NOTE_ART_API_ATTEMPTS, {
+  name: "NOTE_ART_API_ATTEMPTS",
+  fallback: 2,
+  maximum: 3
+});
 
 // The recurring cast must remain visually stable from note to note. Each pig
 // has at least two non-text cues so the image model does not collapse the herd
@@ -262,6 +283,14 @@ export function buildArtPrompt(note) {
     : buildStoryCastPrompt(note, selection.fixedCastNames);
 }
 
+function artPromptFingerprint(prompt) {
+  return createHash("sha256").update(prompt, "utf8").digest("hex");
+}
+
+export function noteArtSourceFingerprint(note) {
+  return artPromptFingerprint(buildArtPrompt(note));
+}
+
 // Raw notes (as stored in notes.json) that still need art: they have real
 // content and no image yet. Returns [{ note, slug }] with collision-safe
 // slugs mirroring normalizeNotes' derivation, so filenames match page URLs.
@@ -285,7 +314,7 @@ export function pickPendingNotes(rawNotes, forceSlug = "") {
     const slug = deriveNoteSlug({ slug: note?.slug, date, fallback: `note-${index + 1}` }, taken);
     taken.add(slug);
 
-    if (requestedSlug ? slug === requestedSlug : !String(note?.image ?? "").trim()) {
+    if (requestedSlug ? slug === requestedSlug : !sanitizeNoteImage(note?.image)) {
       pending.push({ note, slug });
     }
   });
@@ -297,101 +326,439 @@ export function pickPendingNotes(rawNotes, forceSlug = "") {
   return pending;
 }
 
-async function generateImage(prompt, apiKey) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      prompt,
-      size: SIZE,
-      quality: QUALITY,
-      output_format: "webp",
-      output_compression: 85,
-      n: 1
-    })
+export function validateNotesDocument(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.notes)) {
+    throw new Error("content/notes.json must contain a top-level notes array");
+  }
+
+  return value;
+}
+
+export function buildNoteArtSourceManifest(sources) {
+  return {
+    version: 1,
+    sources: sources.map(({ slug, fingerprint }) => ({ slug, fingerprint }))
+  };
+}
+
+export function verifyNoteArtSourceManifest(
+  manifest,
+  notesDocument,
+  { expectedCount, requireImageReferences = false } = {}
+) {
+  validateNotesDocument(notesDocument);
+
+  if (manifest?.version !== 1 || !Array.isArray(manifest.sources)) {
+    throw new Error("note-art source manifest must contain a version 1 sources array");
+  }
+
+  if (expectedCount !== undefined) {
+    const parsedCount = Number(expectedCount);
+    if (!Number.isSafeInteger(parsedCount) || parsedCount < 0) {
+      throw new Error(`generated source count is invalid: ${expectedCount}`);
+    }
+    if (manifest.sources.length !== parsedCount) {
+      throw new Error(
+        `note-art source manifest has ${manifest.sources.length} source(s), expected ${parsedCount}`
+      );
+    }
+  }
+
+  const seen = new Set();
+  for (const source of manifest.sources) {
+    const slug = String(source?.slug ?? "");
+    const fingerprint = String(source?.fingerprint ?? "");
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !/^[a-f0-9]{64}$/.test(fingerprint)) {
+      throw new Error("note-art source manifest contains an invalid slug or fingerprint");
+    }
+    if (seen.has(slug)) {
+      throw new Error(`note-art source manifest repeats slug ${slug}`);
+    }
+    seen.add(slug);
+
+    let entry;
+    try {
+      [entry] = pickPendingNotes(notesDocument.notes, slug);
+    } catch {
+      throw new Error(`note ${slug} no longer exists in the latest notes.json`);
+    }
+
+    const currentFingerprint = noteArtSourceFingerprint(entry.note);
+    if (currentFingerprint !== fingerprint) {
+      throw new Error(`note ${slug} changed while its art was being generated`);
+    }
+
+    if (requireImageReferences) {
+      const expectedImage = `${ART_URL_PREFIX}${slug}.webp`;
+      if (entry.note.image !== expectedImage) {
+        throw new Error(
+          `note ${slug} no longer references its generated art at ${expectedImage}`
+        );
+      }
+    }
+  }
+
+  return true;
+}
+
+export function deriveRunStatus({ pendingCount, generatedCount }) {
+  const remainingCount = Math.max(0, pendingCount - generatedCount);
+
+  return Object.freeze({
+    remainingCount,
+    needsFollowup: remainingCount > 0 && generatedCount > 0
+  });
+}
+
+function actionMessage(value) {
+  return String(value).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
+function warn(message) {
+  console.warn(`::warning::${actionMessage(message)}`);
+}
+
+function localArtFilename(image) {
+  if (!image.startsWith(ART_URL_PREFIX)) {
+    return null;
+  }
+
+  const filename = image.slice(ART_URL_PREFIX.length);
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*\.webp$/.test(filename) ? filename : "";
+}
+
+export async function reconcileConfiguredArt(
+  rawNotes,
+  { artDirectory = ART_DIR, readImage = readFile, warning = warn } = {}
+) {
+  let changed = false;
+
+  for (const note of rawNotes) {
+    const rawImage = String(note?.image ?? "").trim();
+    const image = sanitizeNoteImage(rawImage);
+
+    if (rawImage && !image) {
+      warning(`Ignoring invalid note image reference ${JSON.stringify(rawImage)}; it will be regenerated.`);
+      note.image = "";
+      changed = true;
+      continue;
+    }
+
+    const filename = localArtFilename(image);
+    if (filename === null) {
+      continue;
+    }
+
+    if (!filename) {
+      warning(`Ignoring unsafe local note-art path ${JSON.stringify(image)}; it will be regenerated.`);
+      note.image = "";
+      changed = true;
+      continue;
+    }
+
+    try {
+      assertValidWebp(await readImage(path.join(artDirectory, filename)));
+    } catch (error) {
+      if (error?.code && error.code !== "ENOENT") {
+        throw error;
+      }
+
+      warning(`Configured art ${image} is missing or invalid; it will be regenerated.`);
+      note.image = "";
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+export async function generateNoteArtBatch(
+  batch,
+  apiKey,
+  {
+    apiUrl = API_URL,
+    artDirectory = ART_DIR,
+    model = MODEL,
+    quality = QUALITY,
+    size = SIZE,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+    maximumAttempts = MAXIMUM_API_ATTEMPTS,
+    requestImage = requestGeneratedWebp,
+    writeImage = writeFileAtomically,
+    logger = console,
+    warning = warn
+  } = {}
+) {
+  const generated = [];
+  const generatedSources = [];
+  const failures = [];
+
+  for (const entry of batch) {
+    try {
+      logger.log(`Generating art for "${entry.note.title}" (${entry.slug})…`);
+      const prompt = buildArtPrompt(entry.note);
+      const image = assertValidWebp(
+        await requestImage({
+          apiUrl,
+          apiKey,
+          model,
+          prompt,
+          quality,
+          size,
+          timeoutMs,
+          maximumAttempts,
+          logger
+        }),
+        { expectedSize: size }
+      );
+      await writeImage(path.join(artDirectory, `${entry.slug}.webp`), image);
+      entry.note.image = `${ART_URL_PREFIX}${entry.slug}.webp`;
+      generated.push(entry.slug);
+      generatedSources.push({ slug: entry.slug, fingerprint: artPromptFingerprint(prompt) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push({ slug: entry.slug, message });
+      logger.error(`Failed for "${entry.note.title}" (${entry.slug}): ${message}`);
+      warning(`Note art failed for ${entry.slug}: ${message}`);
+    }
+  }
+
+  return { generated, generatedSources, failures };
+}
+
+async function appendActionFile(filePath, contents) {
+  if (filePath) {
+    await appendFile(filePath, contents, "utf8");
+  }
+}
+
+export async function writeNoteArtSourceManifest(filePath, sources) {
+  if (filePath && sources.length > 0) {
+    const manifest = buildNoteArtSourceManifest(sources);
+    await writeFileAtomically(filePath, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+}
+
+export async function writeRunReport(
+  {
+    selectedCount,
+    attemptedCount,
+    generatedCount,
+    failed,
+    remainingCount,
+    hasChanges,
+    needsFollowup
+  },
+  {
+    outputPath = process.env.GITHUB_OUTPUT,
+    summaryPath = process.env.GITHUB_STEP_SUMMARY
+  } = {}
+) {
+  await appendActionFile(
+    outputPath,
+    [
+      `selected_count=${selectedCount}`,
+      `attempted_count=${attemptedCount}`,
+      `generated_count=${generatedCount}`,
+      `failed_count=${failed.length}`,
+      `remaining_count=${remainingCount}`,
+      `has_changes=${hasChanges}`,
+      `needs_followup=${needsFollowup}`,
+      ""
+    ].join("\n")
+  );
+
+  const summary = [
+    "## Piglet note art",
+    "",
+    "| Selected | Attempted | Generated | Failed | Remaining |",
+    "| ---: | ---: | ---: | ---: | ---: |",
+    `| ${selectedCount} | ${attemptedCount} | ${generatedCount} | ${failed.length} | ${remainingCount} |`,
+    ""
+  ];
+
+  if (failed.length) {
+    summary.push("Failed slugs:", "", ...failed.map(({ slug }) => `- \`${slug}\``), "");
+  }
+
+  await appendActionFile(summaryPath, summary.join("\n")).catch((error) => {
+    console.warn(`Could not write GitHub job summary: ${error.message}`);
+  });
+}
+
+export async function runNoteArt({
+  data,
+  apiKey = "",
+  forceSlug = "",
+  artDirectory = ART_DIR,
+  maxPerRun = MAX_PER_RUN,
+  expectedSize = SIZE,
+  readImage = readFile,
+  requestImage = requestGeneratedWebp,
+  writeImage = writeFileAtomically,
+  logger = console,
+  warning = warn
+}) {
+  validateNotesDocument(data);
+
+  let hasChanges = await reconcileConfiguredArt(data.notes, {
+    artDirectory,
+    readImage,
+    warning
+  });
+  const selected = pickPendingNotes(data.notes, forceSlug);
+  const pending = selected;
+
+  if (!pending.length) {
+    return {
+      selectedCount: selected.length,
+      attemptedCount: 0,
+      generatedCount: 0,
+      generatedSources: [],
+      failed: [],
+      remainingCount: 0,
+      hasChanges,
+      needsFollowup: false,
+      fatalError: null
+    };
+  }
+
+  if (!apiKey) {
+    return {
+      selectedCount: selected.length,
+      attemptedCount: 0,
+      generatedCount: 0,
+      generatedSources: [],
+      failed: pending.map(({ slug }) => ({ slug, message: "OPENAI_API_KEY is not set" })),
+      remainingCount: pending.length,
+      hasChanges,
+      needsFollowup: false,
+      fatalError: new Error(
+        `OPENAI_API_KEY is required while ${pending.length} note(s) still need art`
+      )
+    };
+  }
+
+  const batch = pending.slice(0, maxPerRun);
+  if (batch.length < pending.length) {
+    logger.log(
+      `Capping this run at ${maxPerRun} image(s); ${pending.length - batch.length} more will be queued after this batch is committed.`
+    );
+  }
+
+  const result = await generateNoteArtBatch(batch, apiKey, {
+    artDirectory,
+    size: expectedSize,
+    requestImage,
+    writeImage,
+    logger,
+    warning
+  });
+  hasChanges ||= result.generated.length > 0;
+
+  const { remainingCount, needsFollowup } = deriveRunStatus({
+    pendingCount: pending.length,
+    generatedCount: result.generated.length
   });
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`images API ${response.status}: ${detail.slice(0, 300)}`);
-  }
-
-  const payload = await response.json();
-  const b64 = payload?.data?.[0]?.b64_json;
-
-  if (!b64) {
-    throw new Error("images API returned no b64_json");
-  }
-
-  return Buffer.from(b64, "base64");
+  return {
+    selectedCount: selected.length,
+    attemptedCount: batch.length,
+    generatedCount: result.generated.length,
+    generatedSources: result.generatedSources,
+    failed: result.failures,
+    remainingCount,
+    hasChanges,
+    needsFollowup,
+    fatalError: null
+  };
 }
 
 async function main() {
-  const data = JSON.parse(await readFile(NOTES_PATH, "utf8"));
-  const forceSlug = String(process.env.NOTE_ART_FORCE_SLUG || "").trim();
-  const pending = pickPendingNotes(data?.notes, forceSlug);
+  const data = validateNotesDocument(JSON.parse(await readFile(NOTES_PATH, "utf8")));
+  const result = await runNoteArt({
+    data,
+    apiKey: process.env.OPENAI_API_KEY,
+    forceSlug: String(process.env.NOTE_ART_FORCE_SLUG || "").trim()
+  });
 
-  if (!pending.length) {
-    console.log("All notes already have art. Nothing to do.");
-    return;
+  if (result.hasChanges) {
+    await writeFileAtomically(NOTES_PATH, `${JSON.stringify(data, null, 2)}\n`);
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  await writeNoteArtSourceManifest(
+    process.env.NOTE_ART_SOURCE_MANIFEST,
+    result.generatedSources
+  );
+  await writeRunReport(result);
 
-  if (!apiKey) {
-    if (forceSlug) {
-      throw new Error("OPENAI_API_KEY is required when NOTE_ART_FORCE_SLUG is set");
-    }
-
+  if (result.selectedCount === 0) {
+    console.log(data.notes.length ? "All notes have valid art. Nothing to generate." : "No notes found.");
+  } else if (result.attemptedCount === 0) {
+    console.log(`${result.remainingCount} note(s) still need art.`);
+  } else {
     console.log(
-      `${pending.length} note(s) selected for art, but OPENAI_API_KEY is not set — skipping. ` +
-        "Add the repo Actions secret to enable art generation."
-    );
-    return;
-  }
-
-  const batch = pending.slice(0, MAX_PER_RUN);
-
-  if (batch.length < pending.length) {
-    console.log(
-      `Capping this run at ${MAX_PER_RUN} image(s); ${pending.length - batch.length} more will be generated on the next run.`
+      `Done: ${result.generatedCount}/${result.attemptedCount} generated, ` +
+        `${result.failed.length} failed, ${result.remainingCount} remaining.`
     );
   }
 
-  await mkdir(ART_DIR, { recursive: true });
-
-  let generated = 0;
-
-  for (const { note, slug } of batch) {
-    try {
-      console.log(`Generating art for "${note.title}" (${slug})…`);
-      const image = await generateImage(buildArtPrompt(note), apiKey);
-      await writeFile(path.join(ART_DIR, `${slug}.webp`), image);
-      note.image = `${ART_URL_PREFIX}${slug}.webp`;
-      generated += 1;
-    } catch (error) {
-      console.error(`Failed for "${note.title}": ${error.message}`);
-    }
+  if (result.fatalError) {
+    throw result.fatalError;
   }
 
-  if (generated > 0) {
-    await writeFile(NOTES_PATH, `${JSON.stringify(data, null, 2)}\n`);
-    console.log(`Done: ${generated}/${batch.length} image(s) generated and stamped into notes.json.`);
-  }
-
-  if (generated === 0) {
-    // Every attempt failed — likely a bad key or API outage; fail the run so
-    // it shows up red instead of silently doing nothing forever.
+  if (result.failed.length > 0) {
     process.exitCode = 1;
   }
 }
 
+export async function verifyNoteArtSourceFiles(
+  manifestPath,
+  notesPath,
+  expectedCount,
+  { requireImageReferences = false } = {}
+) {
+  if (!manifestPath || !notesPath || expectedCount === undefined) {
+    throw new Error(
+      "--verify-source-manifest requires manifest path, notes JSON path, and generated count"
+    );
+  }
+
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const notesDocument = JSON.parse(await readFile(notesPath, "utf8"));
+  verifyNoteArtSourceManifest(manifest, notesDocument, {
+    expectedCount,
+    requireImageReferences
+  });
+}
+
+async function runCli() {
+  if (process.argv[2] === "--verify-source-manifest") {
+    const referenceFlag = process.argv[6];
+    if (
+      (referenceFlag && referenceFlag !== "--require-image-reference") ||
+      process.argv.length > 7
+    ) {
+      throw new Error(`Unknown source-manifest verification option: ${referenceFlag ?? ""}`);
+    }
+
+    await verifyNoteArtSourceFiles(process.argv[3], process.argv[4], process.argv[5], {
+      requireImageReferences: referenceFlag === "--require-image-reference"
+    });
+    console.log("Generated note art still matches its latest source and expected reference.");
+    return;
+  }
+
+  if (process.argv.length > 2) {
+    throw new Error(`Unknown argument: ${process.argv[2]}`);
+  }
+
+  await main();
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
+  runCli().catch((error) => {
     console.error(error);
     process.exitCode = 1;
   });

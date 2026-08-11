@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
@@ -22,6 +22,7 @@ import {
 } from "../src/render-notes.js";
 import { renderSite } from "../src/render-site.js";
 import { buildArtPrompt, pickPendingNotes } from "../scripts/generate-note-art.mjs";
+import { assertValidWebp } from "../scripts/note-art-runtime.mjs";
 
 const notesData = JSON.parse(
   await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
@@ -346,6 +347,26 @@ test("normalizeNotes preserves safe art images and drops unsafe ones", () => {
   assert.equal(sanitizeNoteImage("data:text/html,x"), "");
 });
 
+test("every configured local note image exists, is valid WebP, and has no orphan peer", async () => {
+  const artDirectory = new URL("../public/notes-art/", import.meta.url);
+  const notes = normalizeNotes(notesData);
+  const expected = notes
+    .map(({ image }) => image)
+    .filter((image) => image?.startsWith("/notes-art/"))
+    .map((image) => image.slice("/notes-art/".length))
+    .sort();
+  const actual = (await readdir(artDirectory)).filter((name) => name.endsWith(".webp")).sort();
+
+  assert.deepEqual(actual, expected);
+  for (const note of notes.filter(({ image }) => image?.startsWith("/notes-art/"))) {
+    assert.equal(note.image, `/notes-art/${note.slug}.webp`);
+  }
+  for (const filename of actual) {
+    const bytes = await readFile(new URL(filename, artDirectory));
+    assert.doesNotThrow(() => assertValidWebp(bytes));
+  }
+});
+
 test("note pages and cards render the art image with an escaped src", () => {
   const [note] = normalizeNotes({
     notes: [{ title: "带图", date: "2026-03-01", body: "正文", image: '/notes-art/a".webp' }]
@@ -386,18 +407,84 @@ test("pickPendingNotes selects only real notes without art, with page-matching s
 });
 
 test("the note-art workflow wires the script to notes.json pushes and the API secret", async () => {
-  const workflow = await readFile(
-    new URL("../.github/workflows/generate-note-art.yml", import.meta.url),
-    "utf8"
+  const workflow = (
+    await readFile(
+      new URL("../.github/workflows/generate-note-art.yml", import.meta.url),
+      "utf8"
+    )
+  ).replace(/\r\n?/g, "\n");
+  const installIndex = workflow.indexOf(
+    "run: npm ci --ignore-scripts --no-audit --no-fund"
   );
+  const generatorIndex = workflow.indexOf("run: node scripts/generate-note-art.mjs");
 
-  assert.ok(workflow.includes("content/notes.json"), "triggers on notes content changes");
-  assert.ok(workflow.includes("scripts/generate-note-art.mjs"), "runs the generator");
+  const pushTrigger = workflow.match(/on:\n([\s\S]*?)\n  workflow_dispatch:/)?.[1] ?? "";
+  const commitStep = workflow.match(
+    /- name: Commit art and redeploy\n([\s\S]*?)\n      - name: Surface generation failures/
+  )?.[1] ?? "";
+  const failureStep = workflow.match(/- name: Surface generation failures\n([\s\S]*)$/)?.[1] ?? "";
+
+  assert.ok(pushTrigger.includes('"content/notes.json"'), "triggers on notes content changes");
+  assert.ok(pushTrigger.includes('"public/notes-art/**"'), "repairs direct local-art changes");
+  assert.ok(generatorIndex >= 0, "runs the generator in an executable step");
+  assert.ok(installIndex >= 0, "installs locked runtime dependencies on the clean runner");
+  assert.ok(installIndex < generatorIndex, "installs dependencies before importing the generator");
   assert.ok(workflow.includes("secrets.OPENAI_API_KEY"), "uses the Actions secret");
-  assert.match(workflow, /ref:\s*main/, "starts from the latest main branch");
-  assert.match(workflow, /fetch-depth:\s*0/, "has enough history to rebase generated art");
+  assert.match(
+    workflow,
+    /uses: actions\/checkout@v6[\s\S]*?with:\n\s+ref: main\n\s+fetch-depth: 0/,
+    "starts from the latest main branch with enough history to rebase"
+  );
+  assert.match(workflow, /concurrency:\n\s+group: note-art\n\s+queue: max/, "queues every run");
+  assert.match(
+    workflow,
+    /name: Generate missing note art\n\s+id: generate\n\s+continue-on-error: true/,
+    "keeps the job alive long enough to preserve partial output"
+  );
   assert.ok(workflow.includes("actions/upload-artifact@v7"), "keeps generated WebP files recoverable");
+  assert.match(
+    workflow,
+    /name: Collect generated art for recovery\n\s+id: recovery\n\s+if: \$\{\{ !cancelled\(\) \}\}/,
+    "collects recovery files after generator failure"
+  );
+  assert.match(
+    workflow,
+    /name: Collect generated art for recovery[\s\S]*?cp -- "\$NOTE_ART_SOURCE_MANIFEST"[\s\S]*?note-art-source-manifest\.json/,
+    "bundles prompt fingerprints with recoverable generated images"
+  );
   assert.ok(workflow.includes("for attempt in 1 2 3"), "bounds stale-main retries");
+  const sourceCheckIndex = commitStep.indexOf("--verify-source-manifest");
+  const rebaseIndex = commitStep.indexOf("git rebase origin/main");
+  assert.equal(
+    workflow.match(
+      /NOTE_ART_SOURCE_MANIFEST: \$\{\{ runner\.temp \}\}\/note-art-source-manifest\.json/g
+    )?.length,
+    3,
+    "shares the generated-source manifest across generator, recovery, and commit steps"
+  );
+  assert.ok(sourceCheckIndex >= 0, "checks generated-note prompt fingerprints");
+  assert.ok(sourceCheckIndex < rebaseIndex, "rejects stale art before rebasing it onto new text");
+  assert.ok(
+    commitStep.includes(
+      '"$NOTE_ART_SOURCE_MANIFEST" "$remote_notes" "$NOTE_ART_GENERATED_COUNT"'
+    ),
+    "verifies one prompt fingerprint for every generated image"
+  );
+  assert.match(
+    commitStep,
+    /git rebase origin\/main[\s\S]*?--verify-source-manifest[\s\S]*?content\/notes\.json "\$NOTE_ART_GENERATED_COUNT"[\s\S]*?--require-image-reference[\s\S]*?git push origin HEAD:main/,
+    "rechecks prompt provenance and final image references after every rebase"
+  );
+  assert.match(
+    commitStep,
+    /NOTE_ART_GENERATED_COUNT: \$\{\{ steps\.generate\.outputs\.generated_count \}\}[\s\S]*?if \[\[ ! -s "\$NOTE_ART_SOURCE_MANIFEST" \]\]; then/,
+    "refuses to push generated art when its source manifest is missing"
+  );
+  assert.doesNotMatch(
+    commitStep,
+    /git diff --quiet .*content\/notes\.json/,
+    "does not discard paid art when only an unrelated note changed"
+  );
   assert.ok(workflow.includes("git rebase origin/main"), "integrates main before pushing art");
   assert.doesNotMatch(workflow, /git push[^\n]*--force/, "never force-pushes generated art");
   assert.ok(
@@ -405,6 +492,21 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
     "uploads the exact generated image before any push can fail"
   );
   assert.ok(workflow.includes("deploy-pages.yml"), "re-dispatches the Pages deploy");
+  assert.match(
+    commitStep,
+    /if: \$\{\{ success\(\) && steps\.generate\.outputs\.has_changes == 'true' \}\}/,
+    "commits recoverable changes even when generation only partially succeeded"
+  );
+  assert.match(
+    commitStep,
+    /if \[\[ "\$\{\{ steps\.generate\.outputs\.needs_followup \}\}" == "true" \]\]; then\n\s+gh workflow run generate-note-art\.yml --ref main/,
+    "explicitly queues the next capped or partial batch"
+  );
+  assert.match(
+    failureStep,
+    /if: \$\{\{ !cancelled\(\) && steps\.generate\.outcome == 'failure' \}\}[\s\S]*?exit 1/,
+    "surfaces partial generation failures after preserving successful output"
+  );
 });
 
 test("the notes studio blocks duplicate and no-op Publish requests", async () => {
