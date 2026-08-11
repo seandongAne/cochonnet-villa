@@ -455,6 +455,11 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
   assert.ok(workflow.includes("for attempt in 1 2 3"), "bounds stale-main retries");
   const sourceCheckIndex = commitStep.indexOf("--verify-source-manifest");
   const rebaseIndex = commitStep.indexOf("git rebase origin/main");
+  const postRebaseInstallIndex = commitStep.indexOf(
+    "npm ci --ignore-scripts --no-audit --no-fund",
+    rebaseIndex
+  );
+  const postRebaseReferenceIndex = commitStep.indexOf("--require-image-reference");
   assert.equal(
     workflow.match(
       /NOTE_ART_SOURCE_MANIFEST: \$\{\{ runner\.temp \}\}\/note-art-source-manifest\.json/g
@@ -464,6 +469,11 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
   );
   assert.ok(sourceCheckIndex >= 0, "checks generated-note prompt fingerprints");
   assert.ok(sourceCheckIndex < rebaseIndex, "rejects stale art before rebasing it onto new text");
+  assert.ok(postRebaseInstallIndex > rebaseIndex, "syncs dependencies after rebasing onto new code");
+  assert.ok(
+    postRebaseInstallIndex < postRebaseReferenceIndex,
+    "uses the rebased lockfile before validating the final prompt fingerprint"
+  );
   assert.ok(
     commitStep.includes(
       '"$NOTE_ART_SOURCE_MANIFEST" "$remote_notes" "$NOTE_ART_GENERATED_COUNT"'

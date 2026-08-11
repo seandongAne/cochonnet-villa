@@ -142,6 +142,7 @@ jobs:
               fi
 
               if [[ "${NOTE_ART_GENERATED_COUNT:-0}" != "0" ]]; then
+                npm ci --ignore-scripts --no-audit --no-fund
                 node scripts/generate-note-art.mjs \
                   --verify-source-manifest \
                   "$NOTE_ART_SOURCE_MANIFEST" content/notes.json "$NOTE_ART_GENERATED_COUNT" \
