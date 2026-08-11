@@ -7,7 +7,6 @@
 // Testable helpers are exported for the node suite; main performs no I/O when
 // this module is imported.
 
-import { createHash } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
@@ -283,14 +282,6 @@ export function buildArtPrompt(note) {
     : buildStoryCastPrompt(note, selection.fixedCastNames);
 }
 
-function artPromptFingerprint(prompt) {
-  return createHash("sha256").update(prompt, "utf8").digest("hex");
-}
-
-export function noteArtSourceFingerprint(note) {
-  return artPromptFingerprint(buildArtPrompt(note));
-}
-
 // Raw notes (as stored in notes.json) that still need art: they have real
 // content and no image yet. Returns [{ note, slug }] with collision-safe
 // slugs mirroring normalizeNotes' derivation, so filenames match page URLs.
@@ -332,74 +323,6 @@ export function validateNotesDocument(value) {
   }
 
   return value;
-}
-
-export function buildNoteArtSourceManifest(sources) {
-  return {
-    version: 1,
-    sources: sources.map(({ slug, fingerprint }) => ({ slug, fingerprint }))
-  };
-}
-
-export function verifyNoteArtSourceManifest(
-  manifest,
-  notesDocument,
-  { expectedCount, requireImageReferences = false } = {}
-) {
-  validateNotesDocument(notesDocument);
-
-  if (manifest?.version !== 1 || !Array.isArray(manifest.sources)) {
-    throw new Error("note-art source manifest must contain a version 1 sources array");
-  }
-
-  if (expectedCount !== undefined) {
-    const parsedCount = Number(expectedCount);
-    if (!Number.isSafeInteger(parsedCount) || parsedCount < 0) {
-      throw new Error(`generated source count is invalid: ${expectedCount}`);
-    }
-    if (manifest.sources.length !== parsedCount) {
-      throw new Error(
-        `note-art source manifest has ${manifest.sources.length} source(s), expected ${parsedCount}`
-      );
-    }
-  }
-
-  const seen = new Set();
-  for (const source of manifest.sources) {
-    const slug = String(source?.slug ?? "");
-    const fingerprint = String(source?.fingerprint ?? "");
-
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !/^[a-f0-9]{64}$/.test(fingerprint)) {
-      throw new Error("note-art source manifest contains an invalid slug or fingerprint");
-    }
-    if (seen.has(slug)) {
-      throw new Error(`note-art source manifest repeats slug ${slug}`);
-    }
-    seen.add(slug);
-
-    let entry;
-    try {
-      [entry] = pickPendingNotes(notesDocument.notes, slug);
-    } catch {
-      throw new Error(`note ${slug} no longer exists in the latest notes.json`);
-    }
-
-    const currentFingerprint = noteArtSourceFingerprint(entry.note);
-    if (currentFingerprint !== fingerprint) {
-      throw new Error(`note ${slug} changed while its art was being generated`);
-    }
-
-    if (requireImageReferences) {
-      const expectedImage = `${ART_URL_PREFIX}${slug}.webp`;
-      if (entry.note.image !== expectedImage) {
-        throw new Error(
-          `note ${slug} no longer references its generated art at ${expectedImage}`
-        );
-      }
-    }
-  }
-
-  return true;
 }
 
 export function deriveRunStatus({ pendingCount, generatedCount }) {
@@ -491,7 +414,6 @@ export async function generateNoteArtBatch(
   } = {}
 ) {
   const generated = [];
-  const generatedSources = [];
   const failures = [];
 
   for (const entry of batch) {
@@ -515,7 +437,6 @@ export async function generateNoteArtBatch(
       await writeImage(path.join(artDirectory, `${entry.slug}.webp`), image);
       entry.note.image = `${ART_URL_PREFIX}${entry.slug}.webp`;
       generated.push(entry.slug);
-      generatedSources.push({ slug: entry.slug, fingerprint: artPromptFingerprint(prompt) });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       failures.push({ slug: entry.slug, message });
@@ -524,19 +445,12 @@ export async function generateNoteArtBatch(
     }
   }
 
-  return { generated, generatedSources, failures };
+  return { generated, failures };
 }
 
 async function appendActionFile(filePath, contents) {
   if (filePath) {
     await appendFile(filePath, contents, "utf8");
-  }
-}
-
-export async function writeNoteArtSourceManifest(filePath, sources) {
-  if (filePath && sources.length > 0) {
-    const manifest = buildNoteArtSourceManifest(sources);
-    await writeFileAtomically(filePath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
 }
 
@@ -615,7 +529,6 @@ export async function runNoteArt({
       selectedCount: selected.length,
       attemptedCount: 0,
       generatedCount: 0,
-      generatedSources: [],
       failed: [],
       remainingCount: 0,
       hasChanges,
@@ -629,7 +542,6 @@ export async function runNoteArt({
       selectedCount: selected.length,
       attemptedCount: 0,
       generatedCount: 0,
-      generatedSources: [],
       failed: pending.map(({ slug }) => ({ slug, message: "OPENAI_API_KEY is not set" })),
       remainingCount: pending.length,
       hasChanges,
@@ -666,7 +578,6 @@ export async function runNoteArt({
     selectedCount: selected.length,
     attemptedCount: batch.length,
     generatedCount: result.generated.length,
-    generatedSources: result.generatedSources,
     failed: result.failures,
     remainingCount,
     hasChanges,
@@ -687,10 +598,6 @@ async function main() {
     await writeFileAtomically(NOTES_PATH, `${JSON.stringify(data, null, 2)}\n`);
   }
 
-  await writeNoteArtSourceManifest(
-    process.env.NOTE_ART_SOURCE_MANIFEST,
-    result.generatedSources
-  );
   await writeRunReport(result);
 
   if (result.selectedCount === 0) {
@@ -713,43 +620,7 @@ async function main() {
   }
 }
 
-export async function verifyNoteArtSourceFiles(
-  manifestPath,
-  notesPath,
-  expectedCount,
-  { requireImageReferences = false } = {}
-) {
-  if (!manifestPath || !notesPath || expectedCount === undefined) {
-    throw new Error(
-      "--verify-source-manifest requires manifest path, notes JSON path, and generated count"
-    );
-  }
-
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  const notesDocument = JSON.parse(await readFile(notesPath, "utf8"));
-  verifyNoteArtSourceManifest(manifest, notesDocument, {
-    expectedCount,
-    requireImageReferences
-  });
-}
-
 async function runCli() {
-  if (process.argv[2] === "--verify-source-manifest") {
-    const referenceFlag = process.argv[6];
-    if (
-      (referenceFlag && referenceFlag !== "--require-image-reference") ||
-      process.argv.length > 7
-    ) {
-      throw new Error(`Unknown source-manifest verification option: ${referenceFlag ?? ""}`);
-    }
-
-    await verifyNoteArtSourceFiles(process.argv[3], process.argv[4], process.argv[5], {
-      requireImageReferences: referenceFlag === "--require-image-reference"
-    });
-    console.log("Generated note art still matches its latest source and expected reference.");
-    return;
-  }
-
   if (process.argv.length > 2) {
     throw new Error(`Unknown argument: ${process.argv[2]}`);
   }

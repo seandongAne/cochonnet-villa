@@ -66,7 +66,9 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
             <div class="token-actions" style="margin-top: 0.9rem;">
               <button class="button button-primary" id="publish-button" type="button">发布到 GitHub</button>
             </div>
-            <div class="status" id="publish-status">列表和网站保持一致。</div>
+            <div class="status" id="publish-status" role="status" aria-live="polite" aria-atomic="true">
+              列表和网站保持一致。
+            </div>
           </section>
         </div>
 
@@ -118,6 +120,26 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
         </div>
       </div>
     </div>
+
+    <dialog
+      class="publish-success-dialog"
+      id="publish-success-dialog"
+      aria-labelledby="publish-success-title"
+      aria-describedby="publish-success-description"
+    >
+      <div class="publish-success-card">
+        <div class="publish-success-mark" aria-hidden="true">✓</div>
+        <p class="eyebrow">已经交给 GitHub</p>
+        <h2 id="publish-success-title">发布成功</h2>
+        <p id="publish-success-description">
+          小记已经成功提交。网站正在重新部署，通常会在 1–2 分钟后更新。
+        </p>
+        <form class="publish-success-actions" method="dialog">
+          <button class="button button-primary" type="submit" autofocus>继续编辑</button>
+          <a class="button button-muted" href="/notes/" target="_blank" rel="noopener">打开小记页面</a>
+        </form>
+      </div>
+    </dialog>
   </body>
 </html>
 
@@ -236,6 +258,63 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   .notes-studio .button-muted {
     border-color: var(--line);
     background: rgba(255, 255, 255, 0.76);
+  }
+
+  .notes-studio .button:disabled {
+    cursor: wait;
+    opacity: 0.58;
+    box-shadow: none;
+  }
+
+  .notes-studio .publish-success-dialog {
+    width: min(31rem, calc(100% - 2rem));
+    max-height: calc(100dvh - 2rem);
+    padding: 0;
+    border: 0;
+    border-radius: 28px;
+    background: transparent;
+    color: var(--ink);
+    overflow: auto;
+  }
+
+  .notes-studio .publish-success-dialog::backdrop {
+    background: rgba(78, 47, 51, 0.38);
+    backdrop-filter: blur(4px);
+  }
+
+  .notes-studio .publish-success-card {
+    display: grid;
+    justify-items: center;
+    gap: 0.8rem;
+    padding: 2rem;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: #fffaf3;
+    box-shadow: 0 28px 90px rgba(78, 47, 51, 0.28);
+    text-align: center;
+  }
+
+  .notes-studio .publish-success-mark {
+    display: grid;
+    width: 3.6rem;
+    height: 3.6rem;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(173, 199, 138, 0.28);
+    color: #36512f;
+    font-size: 2rem;
+    font-weight: 900;
+  }
+
+  .notes-studio .publish-success-actions {
+    display: flex;
+    width: 100%;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .notes-studio .publish-success-actions .button {
+    flex: 1;
   }
 
   .notes-studio .layout {

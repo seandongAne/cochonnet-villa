@@ -432,8 +432,8 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
   assert.ok(workflow.includes("secrets.OPENAI_API_KEY"), "uses the Actions secret");
   assert.match(
     workflow,
-    /uses: actions\/checkout@v6[\s\S]*?with:\n\s+ref: main\n\s+fetch-depth: 0/,
-    "starts from the latest main branch with enough history to rebase"
+    /uses: actions\/checkout@v6[\s\S]*?with:\n\s+ref: main/,
+    "starts from the latest main branch"
   );
   assert.match(workflow, /concurrency:\n\s+group: note-art\n\s+queue: max/, "queues every run");
   assert.match(
@@ -447,55 +447,23 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
     /name: Collect generated art for recovery\n\s+id: recovery\n\s+if: \$\{\{ !cancelled\(\) \}\}/,
     "collects recovery files after generator failure"
   );
-  assert.match(
-    workflow,
-    /name: Collect generated art for recovery[\s\S]*?cp -- "\$NOTE_ART_SOURCE_MANIFEST"[\s\S]*?note-art-source-manifest\.json/,
-    "bundles prompt fingerprints with recoverable generated images"
-  );
-  assert.ok(workflow.includes("for attempt in 1 2 3"), "bounds stale-main retries");
-  const sourceCheckIndex = commitStep.indexOf("--verify-source-manifest");
-  const rebaseIndex = commitStep.indexOf("git rebase origin/main");
-  const postRebaseInstallIndex = commitStep.indexOf(
-    "npm ci --ignore-scripts --no-audit --no-fund",
-    rebaseIndex
-  );
-  const postRebaseReferenceIndex = commitStep.indexOf("--require-image-reference");
-  assert.equal(
-    workflow.match(
-      /NOTE_ART_SOURCE_MANIFEST: \$\{\{ runner\.temp \}\}\/note-art-source-manifest\.json/g
-    )?.length,
-    3,
-    "shares the generated-source manifest across generator, recovery, and commit steps"
-  );
-  assert.ok(sourceCheckIndex >= 0, "checks generated-note prompt fingerprints");
-  assert.ok(sourceCheckIndex < rebaseIndex, "rejects stale art before rebasing it onto new text");
-  assert.ok(postRebaseInstallIndex > rebaseIndex, "syncs dependencies after rebasing onto new code");
+  const baseIndex = commitStep.indexOf('base_sha="$(git rev-parse HEAD)"');
+  const fetchIndex = commitStep.indexOf("git fetch origin main");
+  const freshnessIndex = commitStep.indexOf('"$(git rev-parse FETCH_HEAD)" != "$base_sha"');
+  const commitIndex = commitStep.indexOf('git commit -m "小记配图: auto-generate note art"');
+  const pushIndex = commitStep.indexOf("git push origin HEAD:main");
+  assert.ok(baseIndex >= 0, "records the exact checked-out main revision");
   assert.ok(
-    postRebaseInstallIndex < postRebaseReferenceIndex,
-    "uses the rebased lockfile before validating the final prompt fingerprint"
+    baseIndex < fetchIndex && fetchIndex < freshnessIndex && freshnessIndex < commitIndex,
+    "stops before committing when main advanced during generation"
   );
-  assert.ok(
-    commitStep.includes(
-      '"$NOTE_ART_SOURCE_MANIFEST" "$remote_notes" "$NOTE_ART_GENERATED_COUNT"'
-    ),
-    "verifies one prompt fingerprint for every generated image"
-  );
+  assert.ok(commitIndex < pushIndex, "pushes only after the coarse main revision gate passes");
   assert.match(
     commitStep,
-    /git rebase origin\/main[\s\S]*?--verify-source-manifest[\s\S]*?content\/notes\.json "\$NOTE_ART_GENERATED_COUNT"[\s\S]*?--require-image-reference[\s\S]*?git push origin HEAD:main/,
-    "rechecks prompt provenance and final image references after every rebase"
+    /main changed while art was being generated[\s\S]*?exit 1/,
+    "fails visibly instead of rebasing potentially stale art"
   );
-  assert.match(
-    commitStep,
-    /NOTE_ART_GENERATED_COUNT: \$\{\{ steps\.generate\.outputs\.generated_count \}\}[\s\S]*?if \[\[ ! -s "\$NOTE_ART_SOURCE_MANIFEST" \]\]; then/,
-    "refuses to push generated art when its source manifest is missing"
-  );
-  assert.doesNotMatch(
-    commitStep,
-    /git diff --quiet .*content\/notes\.json/,
-    "does not discard paid art when only an unrelated note changed"
-  );
-  assert.ok(workflow.includes("git rebase origin/main"), "integrates main before pushing art");
+  assert.doesNotMatch(workflow, /git rebase|source-manifest|NOTE_ART_SOURCE_MANIFEST/);
   assert.doesNotMatch(workflow, /git push[^\n]*--force/, "never force-pushes generated art");
   assert.ok(
     workflow.indexOf("actions/upload-artifact@v7") < workflow.indexOf("git push origin HEAD:main"),
@@ -521,6 +489,7 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
 
 test("the notes studio blocks duplicate and no-op Publish requests", async () => {
   const admin = await readFile(new URL("../src/notes-admin.js", import.meta.url), "utf8");
+  const page = await readFile(new URL("../src/pages/admin/notes.astro", import.meta.url), "utf8");
   const publish = admin.slice(
     admin.indexOf("async function publish()"),
     admin.indexOf("async function restoreDraft()")
@@ -530,11 +499,30 @@ test("the notes studio blocks duplicate and no-op Publish requests", async () =>
   assert.match(publish, /if \(state\.publishing\)/, "ignores a repeated in-flight click");
   assert.match(publish, /if \(!state\.dirty\)/, "does not publish an unchanged list");
   assert.ok(publish.includes("elements.publishButton.disabled = true"), "disables Publish in flight");
+  assert.ok(publish.includes('setAttribute("aria-busy", "true")'), "announces Publish as busy");
+  assert.ok(publish.includes('removeAttribute("aria-busy")'), "clears the busy state afterward");
   assert.match(publish, /finally \{/, "restores the Publish control after every outcome");
   assert.ok(
     publish.indexOf("if (state.publishing)") < publish.indexOf('method: "PUT"') &&
       publish.indexOf("if (!state.dirty)") < publish.indexOf('method: "PUT"'),
     "rejects duplicate/no-op requests before calling the Contents API"
+  );
+  assert.match(
+    page,
+    /id="publish-status" role="status" aria-live="polite" aria-atomic="true"/,
+    "announces publish status changes to assistive technology"
+  );
+  assert.match(
+    page,
+    /<dialog[\s\S]*?id="publish-success-dialog"[\s\S]*?aria-labelledby="publish-success-title"[\s\S]*?aria-describedby="publish-success-description"/,
+    "provides an accessible native success dialog"
+  );
+  assert.match(page, /method="dialog"[\s\S]*?>继续编辑</, "offers an obvious modal close action");
+  assert.ok(admin.includes("dialog.showModal();"), "opens the success dialog modally");
+  assert.ok(
+    publish.indexOf("state.dirty = false") < publish.indexOf("clearDraft();") &&
+      publish.indexOf("clearDraft();") < publish.indexOf("showPublishSuccess();"),
+    "shows success only after GitHub accepted the publish and drafts were cleared"
   );
 });
 

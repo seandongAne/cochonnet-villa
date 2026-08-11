@@ -85,6 +85,7 @@ export function initNotesAdmin() {
     commitMessageInput: document.querySelector("#commit-message-input"),
     publishButton: document.querySelector("#publish-button"),
     publishStatus: document.querySelector("#publish-status"),
+    publishSuccessDialog: document.querySelector("#publish-success-dialog"),
     backupDraftButton: document.querySelector("#backup-draft-button"),
     draftStatus: document.querySelector("#draft-status"),
     previewTitle: document.querySelector("#preview-title"),
@@ -122,6 +123,14 @@ export function initNotesAdmin() {
     }
 
     element.setAttribute("data-tone", tone);
+  }
+
+  function showPublishSuccess() {
+    const dialog = elements.publishSuccessDialog;
+
+    if (dialog && typeof dialog.showModal === "function" && !dialog.open) {
+      dialog.showModal();
+    }
   }
 
   function loadToken() {
@@ -632,6 +641,7 @@ export function initNotesAdmin() {
     if (elements.publishButton) {
       elements.publishButton.disabled = true;
       elements.publishButton.textContent = "正在发布……";
+      elements.publishButton.setAttribute("aria-busy", "true");
     }
 
     try {
@@ -705,12 +715,14 @@ export function initNotesAdmin() {
         `已发布！GitHub Pages 部署大约需要 1–2 分钟，之后就能在 ${LIVE_NOTES_URL} 看到。`,
         "success"
       );
+      showPublishSuccess();
     } finally {
       state.publishing = false;
 
       if (elements.publishButton) {
         elements.publishButton.disabled = false;
         elements.publishButton.textContent = publishButtonLabel;
+        elements.publishButton.removeAttribute("aria-busy");
       }
     }
   }

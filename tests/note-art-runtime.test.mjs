@@ -12,15 +12,11 @@ import {
   writeFileAtomically
 } from "../scripts/note-art-runtime.mjs";
 import {
-  buildNoteArtSourceManifest,
   deriveRunStatus,
   generateNoteArtBatch,
-  noteArtSourceFingerprint,
   pickPendingNotes,
   reconcileConfiguredArt,
   runNoteArt,
-  verifyNoteArtSourceManifest,
-  writeNoteArtSourceManifest,
   writeRunReport,
   validateNotesDocument
 } from "../scripts/generate-note-art.mjs";
@@ -330,12 +326,6 @@ test("partial batches retain successes and report every failed slug", async () =
   });
 
   assert.deepEqual(result.generated, ["2026-08-11"]);
-  assert.deepEqual(result.generatedSources, [
-    {
-      slug: "2026-08-11",
-      fingerprint: noteArtSourceFingerprint(notes[0])
-    }
-  ]);
   assert.deepEqual(result.failures, [{ slug: "2026-08-12", message: "simulated outage" }]);
   assert.equal(writes.length, 1);
   assert.equal(notes[0].image, "/notes-art/2026-08-11.webp");
@@ -440,19 +430,15 @@ test("the run state persists partial progress, reports it, and requests a follow
   const directory = await mkdtemp(path.join(tmpdir(), "cochonnet-note-report-"));
   const outputPath = path.join(directory, "output.txt");
   const summaryPath = path.join(directory, "summary.md");
-  const manifestPath = path.join(directory, "sources.json");
   try {
-    await writeNoteArtSourceManifest(manifestPath, result.generatedSources);
     await writeRunReport(result, { outputPath, summaryPath });
     const output = await readFile(outputPath, "utf8");
     const summary = await readFile(summaryPath, "utf8");
-    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
     assert.match(output, /^generated_count=1$/m);
     assert.match(output, /^failed_count=1$/m);
     assert.match(output, /^has_changes=true$/m);
     assert.match(output, /^needs_followup=true$/m);
     assert.match(summary, /2026-09-02/);
-    assert.equal(verifyNoteArtSourceManifest(manifest, data), true);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -540,54 +526,4 @@ test("missing art is regenerated instead of reusing an unproven same-slug file",
   assert.equal(requests, 1);
   assert.equal(result.generatedCount, 1);
   assert.equal(data.notes[0].image, "/notes-art/2026-09-01.webp");
-});
-
-test("source manifests ignore unrelated edits but reject generated-note drift", () => {
-  const original = pendingDocument(2);
-  const manifest = buildNoteArtSourceManifest([
-    {
-      slug: "2026-09-01",
-      fingerprint: noteArtSourceFingerprint(original.notes[0])
-    }
-  ]);
-  const unrelatedEdit = structuredClone(original);
-  unrelatedEdit.notes[1].body = "An unrelated newer story";
-  assert.equal(verifyNoteArtSourceManifest(manifest, unrelatedEdit), true);
-  assert.throws(
-    () => verifyNoteArtSourceManifest(manifest, unrelatedEdit, { expectedCount: 2 }),
-    /has 1 source\(s\), expected 2/
-  );
-
-  const generatedNoteEdit = structuredClone(original);
-  generatedNoteEdit.notes[0].title = "Changed while generating";
-  assert.throws(
-    () => verifyNoteArtSourceManifest(manifest, generatedNoteEdit),
-    /changed while its art was being generated/
-  );
-
-  const correctlyLinked = structuredClone(original);
-  correctlyLinked.notes[0].image = "/notes-art/2026-09-01.webp";
-  assert.equal(
-    verifyNoteArtSourceManifest(manifest, correctlyLinked, {
-      expectedCount: 1,
-      requireImageReferences: true
-    }),
-    true
-  );
-
-  const changedImageReference = structuredClone(correctlyLinked);
-  changedImageReference.notes[0].image = "https://example.com/replacement.webp";
-  assert.throws(
-    () =>
-      verifyNoteArtSourceManifest(manifest, changedImageReference, {
-        expectedCount: 1,
-        requireImageReferences: true
-      }),
-    /no longer references its generated art/
-  );
-
-  assert.throws(
-    () => verifyNoteArtSourceManifest({ version: 1, sources: [] }, { notes: {} }),
-    /top-level notes array/
-  );
 });
