@@ -4,7 +4,10 @@ import { test } from "node:test";
 
 import {
   applyNoteEdit,
+  canonicalizeNoteMarkdown,
+  canonicalizeNotesMarkdown,
   deriveNoteSlug,
+  findNoteMarkdownIssues,
   formatNoteDate,
   isValidNoteDate,
   mergeRemoteNotes,
@@ -72,22 +75,31 @@ test("deriveNoteSlug and sanitizeNoteSlug stay url-safe", () => {
   assert.equal(deriveNoteSlug({ slug: "自定义" , date: "bad" , fallback: "note-3" }), "note-3");
 });
 
-test("renderNoteBody escapes HTML before applying markdown-lite", () => {
-  const html = renderNoteBody('<script>alert("x")</script>\n\n**bold** and *soft*');
+test("renderNoteBody uses safe Markdown with raw HTML and unsafe links disabled", () => {
+  const html = renderNoteBody(
+    '<script>alert("x")</script>\n\n**bold** and *soft*\n\n[unsafe](javascript:alert(1))'
+  );
 
   assert.ok(!html.includes("<script>"), "raw tags must never survive");
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(html.includes("<strong>bold</strong>"));
   assert.ok(html.includes("<em>soft</em>"));
+  assert.ok(!html.includes('href="javascript:'), "unsafe protocols must never become links");
 });
 
-test("renderNoteBody handles paragraphs, headings, lists, and line breaks", () => {
-  const html = renderNoteBody("第一段\n第二行\n\n## 小标题\n\n- 一\n- 二\n\n结尾");
+test("renderNoteBody supports standard Markdown blocks and inline syntax", () => {
+  const html = renderNoteBody(
+    "第一段\n第二行\n\n## 小标题\n\n### 次级标题\n\n- 一\n- 二\n\n1. 甲\n2. 乙\n\n> 引用\n\n`代码`与[链接](https://example.com)"
+  );
 
-  assert.ok(html.includes("<p>第一段<br />第二行</p>"));
+  assert.match(html, /<p>第一段<br \/>\s*第二行<\/p>/);
   assert.ok(html.includes("<h2>小标题</h2>"));
-  assert.ok(html.includes("<ul><li>一</li><li>二</li></ul>"));
-  assert.ok(html.includes("<p>结尾</p>"));
+  assert.ok(html.includes("<h3>次级标题</h3>"));
+  assert.match(html, /<ul>[\s\S]*<li>一<\/li>[\s\S]*<li>二<\/li>[\s\S]*<\/ul>/);
+  assert.match(html, /<ol>[\s\S]*<li>甲<\/li>[\s\S]*<li>乙<\/li>[\s\S]*<\/ol>/);
+  assert.ok(html.includes("<blockquote>"));
+  assert.ok(html.includes("<code>代码</code>"));
+  assert.ok(html.includes('<a href="https://example.com">链接</a>'));
 });
 
 test("renderNoteBody keeps headings as Markdown blocks without blank lines", () => {
@@ -100,17 +112,52 @@ test("renderNoteBody keeps headings as Markdown blocks without blank lines", () 
   assert.doesNotMatch(html, /(?:^|<br \/>)## /);
 });
 
-test("every heading in the stored notes renders as a heading", () => {
-  for (const note of normalizeNotes(notesData)) {
-    const sourceHeadingCount = note.body.match(/^##[ \t]+.+$/gm)?.length ?? 0;
-    const renderedHeadingCount = renderNoteBody(note.body).match(/<h2>/g)?.length ?? 0;
+test("compact legacy headings are diagnosed and canonicalized before Markdown parsing", () => {
+  const compact = "##紧凑标题\n正文\n###次级标题";
+  const issues = findNoteMarkdownIssues(compact);
 
+  assert.deepEqual(
+    issues.map(({ code, line }) => ({ code, line })),
+    [
+      { code: "compact-heading", line: 1 },
+      { code: "compact-heading", line: 3 }
+    ]
+  );
+  assert.match(renderNoteBody(compact), /<p>##紧凑标题/);
+
+  const canonical = canonicalizeNoteMarkdown(compact);
+  assert.equal(canonical, "## 紧凑标题\n正文\n### 次级标题");
+  assert.equal(findNoteMarkdownIssues(canonical).length, 0);
+  assert.match(renderNoteBody(canonical), /<h2>紧凑标题<\/h2>/);
+  assert.match(renderNoteBody(canonical), /<h3>次级标题<\/h3>/);
+});
+
+test("Markdown canonicalization never rewrites fenced code or single-hash tags", () => {
+  const source = "#话题\n\n```md\n##代码示例\n```\n\n##正文标题";
+
+  assert.equal(
+    canonicalizeNoteMarkdown(source),
+    "#话题\n\n```md\n##代码示例\n```\n\n## 正文标题"
+  );
+  assert.deepEqual(findNoteMarkdownIssues(source).map((issue) => issue.line), [7]);
+});
+
+test("every stored note is canonical Markdown and all headings render", () => {
+  for (const note of normalizeNotes(notesData)) {
+    const sourceHeadingCount = note.body.match(/^ {0,3}#{1,6}[ \t]+\S.*$/gm)?.length ?? 0;
+    const renderedHeadingCount = renderNoteBody(note.body).match(/<h[1-6]>/g)?.length ?? 0;
+
+    assert.deepEqual(findNoteMarkdownIssues(note.body), [], note.slug);
+    assert.equal(canonicalizeNoteMarkdown(note.body), note.body, note.slug);
     assert.equal(renderedHeadingCount, sourceHeadingCount, note.slug);
   }
 });
 
 test("noteExcerpt strips markup and truncates with an ellipsis", () => {
-  assert.equal(noteExcerpt("## 标题\n\n- **重点**内容"), "标题 重点内容");
+  assert.equal(
+    noteExcerpt("## 标题\n\n- **重点**内容\n\n[链接](https://example.com)与`代码`"),
+    "标题 重点内容 链接与代码"
+  );
 
   const long = noteExcerpt("字".repeat(100), 10);
   assert.equal(long.length, 11);
@@ -194,14 +241,30 @@ test("applyNoteEdit updates an existing slug in place and keeps its art", () => 
     title: "新标题",
     date: "2026-06-01",
     mood: "🐷",
-    body: "新正文"
+    body: "##新小标题\n新正文"
   });
 
   assert.equal(slug, "2026-06-01");
   assert.equal(notes.length, 2);
   const edited = notes.find((note) => note.slug === "2026-06-01");
   assert.equal(edited.title, "新标题");
+  assert.equal(edited.body, "## 新小标题\n新正文", "editor saves canonical Markdown");
   assert.equal(edited.image, "/notes-art/2026-06-01.webp", "art survives an edit");
+});
+
+test("canonicalizeNotesMarkdown upgrades legacy staged drafts before publish", () => {
+  const notes = canonicalizeNotesMarkdown([
+    {
+      slug: "legacy-draft",
+      title: "旧草稿",
+      date: "2026-06-02",
+      body: "##旧标题\n正文",
+      image: "/notes-art/legacy-draft.webp"
+    }
+  ]);
+
+  assert.equal(notes[0].body, "## 旧标题\n正文");
+  assert.equal(notes[0].image, "/notes-art/legacy-draft.webp");
 });
 
 test("applyNoteEdit inserts a restored draft whose slug is absent (never published)", () => {

@@ -2,6 +2,16 @@
 // build, the landing-page teaser, the /admin/notes/ browser editor, and the
 // node test suite. No window/document access at import time.
 
+import {
+  canonicalizeNoteMarkdown,
+  findNoteMarkdownIssues,
+  normalizeNoteMarkdownSource,
+  noteMarkdownToPlainText,
+  renderNoteMarkdown
+} from "./note-markdown.js";
+
+export { canonicalizeNoteMarkdown, findNoteMarkdownIssues };
+
 const NOTE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const NOTES_INDEX_URL = "/notes/";
@@ -79,7 +89,7 @@ export function normalizeNotes(data) {
 
   rawList.forEach((raw, index) => {
     const title = String(raw?.title ?? "").trim();
-    const body = String(raw?.body ?? "").replace(/\r\n?/g, "\n").trim();
+    const body = normalizeNoteMarkdownSource(raw?.body);
 
     if (!title || !body) {
       return;
@@ -108,6 +118,17 @@ export function normalizeNotes(data) {
   return notes.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
+export function canonicalizeNotesMarkdown(notes) {
+  const list = Array.isArray(notes) ? notes : [];
+
+  return normalizeNotes({
+    notes: list.map((note) => ({
+      ...note,
+      body: canonicalizeNoteMarkdown(note.body)
+    }))
+  });
+}
+
 // Editor-save semantics (node-pure so the data-loss paths stay unit-tested).
 // Updates the note matching editingSlug, or inserts a new one when the slug
 // is absent — a restored draft can carry an editingSlug that was never
@@ -116,12 +137,13 @@ export function normalizeNotes(data) {
 export function applyNoteEdit(notes, editingSlug, { title, date, mood, body }) {
   const list = Array.isArray(notes) ? notes : [];
   const wanted = sanitizeNoteSlug(editingSlug);
+  const canonicalBody = canonicalizeNoteMarkdown(body);
 
   if (wanted && list.some((note) => note.slug === wanted)) {
     return {
       notes: normalizeNotes({
         notes: list.map((note) =>
-          note.slug === wanted ? { ...note, title, date, mood, body } : note
+          note.slug === wanted ? { ...note, title, date, mood, body: canonicalBody } : note
         )
       }),
       slug: wanted
@@ -132,7 +154,7 @@ export function applyNoteEdit(notes, editingSlug, { title, date, mood, body }) {
   const slug = wanted && !taken.has(wanted) ? wanted : deriveNoteSlug({ date }, taken);
 
   return {
-    notes: normalizeNotes({ notes: [{ slug, title, date, mood, body }, ...list] }),
+    notes: normalizeNotes({ notes: [{ slug, title, date, mood, body: canonicalBody }, ...list] }),
     slug
   };
 }
@@ -167,85 +189,12 @@ export function formatNoteDate(date) {
   return `${year}年${month}月${day}日`;
 }
 
-function renderInline(text) {
-  return escapeHtml(text)
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
-}
-
-// Markdown-lite: "## " headings and "- " lists start blocks even without
-// surrounding blank lines; blank lines still split paragraphs. **bold** and
-// *italic* are supported inline. Everything is HTML-escaped before markup is
-// applied, so raw note text can never inject tags.
 export function renderNoteBody(body) {
-  const lines = String(body ?? "").replace(/\r\n?/g, "\n").split("\n");
-  const html = [];
-  let paragraphLines = [];
-  let listItems = [];
-
-  const flushParagraph = () => {
-    if (!paragraphLines.length) {
-      return;
-    }
-
-    html.push(`<p>${paragraphLines.map((line) => renderInline(line)).join("<br />")}</p>`);
-    paragraphLines = [];
-  };
-
-  const flushList = () => {
-    if (!listItems.length) {
-      return;
-    }
-
-    html.push(`<ul>${listItems.map((item) => `<li>${renderInline(item)}</li>`).join("")}</ul>`);
-    listItems = [];
-  };
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (!line) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-
-    const heading = line.match(/^##[ \t]+(.+)$/);
-
-    if (heading) {
-      flushParagraph();
-      flushList();
-      html.push(`<h2>${renderInline(heading[1])}</h2>`);
-      continue;
-    }
-
-    const listItem = line.match(/^-[ \t]+(.+)$/);
-
-    if (listItem) {
-      flushParagraph();
-      listItems.push(listItem[1]);
-      continue;
-    }
-
-    flushList();
-    paragraphLines.push(line);
-  }
-
-  flushParagraph();
-  flushList();
-
-  return html.join("\n");
+  return renderNoteMarkdown(body);
 }
 
 export function noteExcerpt(body, maxLength = 72) {
-  const plain = String(body ?? "")
-    .replace(/\r\n?/g, "\n")
-    .replace(/^##\s+/gm, "")
-    .replace(/^-\s+/gm, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
+  const plain = noteMarkdownToPlainText(body);
 
   if (plain.length <= maxLength) {
     return plain;

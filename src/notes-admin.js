@@ -6,6 +6,9 @@
 
 import {
   applyNoteEdit,
+  canonicalizeNoteMarkdown,
+  canonicalizeNotesMarkdown,
+  findNoteMarkdownIssues,
   mergeRemoteNotes,
   normalizeNotes,
   renderNoteBody,
@@ -78,6 +81,7 @@ export function initNotesAdmin() {
     saveNoteButton: document.querySelector("#save-note-button"),
     deleteNoteButton: document.querySelector("#delete-note-button"),
     editorStatus: document.querySelector("#editor-status"),
+    markdownStatus: document.querySelector("#markdown-status"),
     commitMessageInput: document.querySelector("#commit-message-input"),
     publishButton: document.querySelector("#publish-button"),
     publishStatus: document.querySelector("#publish-status"),
@@ -398,6 +402,18 @@ export function initNotesAdmin() {
     elements.previewTitle.textContent = title || "（还没有标题）";
     elements.previewMeta.textContent = [formatNoteDate(date), mood].filter(Boolean).join(" · ");
     elements.previewBody.innerHTML = renderNoteBody(elements.bodyInput.value);
+
+    const issues = findNoteMarkdownIssues(elements.bodyInput.value);
+
+    if (issues.length) {
+      setStatus(
+        elements.markdownStatus,
+        `${issues.map((issue) => issue.message).join(" ")} 收进列表时会自动补齐。`,
+        "warning"
+      );
+    } else {
+      setStatus(elements.markdownStatus, "Markdown 格式正常；预览与正式页面使用同一套规则。", "success");
+    }
   }
 
   function fillForm(note) {
@@ -484,13 +500,19 @@ export function initNotesAdmin() {
 
   function saveCurrent() {
     const title = elements.titleInput.value.trim();
-    const body = elements.bodyInput.value.replace(/\r\n?/g, "\n").trim();
+    const markdownIssues = findNoteMarkdownIssues(elements.bodyInput.value);
+    const body = canonicalizeNoteMarkdown(elements.bodyInput.value);
     const date = elements.dateInput.value.trim() || todayString();
     const mood = elements.moodInput.value.trim();
 
     if (!title || !body) {
       setStatus(elements.editorStatus, "标题和正文都写一点再收进列表哦。", "warning");
       return;
+    }
+
+    if (markdownIssues.length) {
+      elements.bodyInput.value = body;
+      updatePreview();
     }
 
     // applyNoteEdit also handles a restored draft whose editingSlug is not in
@@ -501,7 +523,13 @@ export function initNotesAdmin() {
     state.editingSlug = result.slug;
     markDirty();
     renderList();
-    setStatus(elements.editorStatus, `《${title}》已收进列表。点「发布到 GitHub」让它上线。`, "success");
+    setStatus(
+      elements.editorStatus,
+      `《${title}》已收进列表。${
+        markdownIssues.length ? `已自动规范 ${markdownIssues.length} 处标题格式。` : ""
+      }点「发布到 GitHub」让它上线。`,
+      "success"
+    );
   }
 
   function startNewNote() {
@@ -631,6 +659,9 @@ export function initNotesAdmin() {
         renderList();
       }
 
+      // A restored draft can contain a staged list created by an older editor.
+      // Canonicalize the whole outgoing collection, not only the open form.
+      state.notes = canonicalizeNotesMarkdown(state.notes);
       setStatus(elements.publishStatus, "正在提交到 GitHub……");
 
       const body = {

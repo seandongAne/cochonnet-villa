@@ -56,6 +56,10 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function canonicalTextBytes(bytes) {
+  return Buffer.from(bytes.toString("utf8").replace(/\r\n?/g, "\n"), "utf8");
+}
+
 function decodeAtlas(bytes, channels) {
   const width = bytes.readUInt32LE(0);
   const height = bytes.readUInt32LE(4);
@@ -124,7 +128,7 @@ test("Kerr v1 atlas retains exact dimensions, hashes, fixed physics, and provena
   assert.match(licence, /SPDX-License-Identifier: CC0-1.0/);
   assert.match(licence, /No source code or precomputed data from AART/i);
 
-  assert.equal(sha256(script), metadata.generator.sha256);
+  assert.equal(sha256(canonicalTextBytes(script)), metadata.generator.sha256);
   for (const [index, [key, definition]] of Object.entries(EXPECTED).entries()) {
     const fileMetadata = metadata.files.find((file) => file.key === key);
     assert.ok(fileMetadata, `missing metadata for ${key}`);

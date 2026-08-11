@@ -18,7 +18,9 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
         <h1>写一篇随笔，保存后直接发布到网站。</h1>
         <p>
           发布会把 <code>content/notes.json</code> 提交到 GitHub，网站在 1–2 分钟后自动更新。
-          正文支持简单排版：空行分段、<code>## 小标题</code>、<code>- 列表</code>、<code>**加粗**</code>、<code>*斜体*</code>。
+          正文使用标准 Markdown：空行分段、<code>## 小标题</code>、<code>- 列表</code>、<code>1. 有序列表</code>、
+          <code>&gt; 引用</code>、<code>[链接](网址)</code>、<code>**加粗**</code>、<code>*斜体*</code> 和代码块。
+          标记符号后要留一个空格；旧式 <code>##小标题</code> 会在保存时自动规范。原始 HTML 不会执行。
         </p>
         <div class="hero-links">
           <a class="button button-primary" href="/notes/">打开小记页面</a>
@@ -88,7 +90,10 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
               </div>
               <div>
                 <label for="body-input">正文</label>
-                <textarea id="body-input" spellcheck="false" placeholder="空行分段；## 小标题；- 列表；**加粗**；*斜体*"></textarea>
+                <textarea id="body-input" spellcheck="false" placeholder="## 小标题\n\n正文使用标准 Markdown……"></textarea>
+                <div class="status" id="markdown-status" aria-live="polite">
+                  Markdown 格式正常；预览与正式页面使用同一套规则。
+                </div>
               </div>
             </div>
             <div class="studio-actions" style="margin-top: 1rem;">
@@ -391,15 +396,82 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   }
 
   .notes-studio .preview-body p,
-  .notes-studio .preview-body ul {
+  .notes-studio .preview-body ul,
+  .notes-studio .preview-body ol,
+  .notes-studio .preview-body blockquote,
+  .notes-studio .preview-body pre,
+  .notes-studio .preview-body table {
     margin: 0;
   }
 
-  .notes-studio .preview-body h2 {
+  .notes-studio .preview-body h1,
+  .notes-studio .preview-body h2,
+  .notes-studio .preview-body h3,
+  .notes-studio .preview-body h4,
+  .notes-studio .preview-body h5,
+  .notes-studio .preview-body h6 {
     margin: 0.4rem 0 0;
     font-family: Georgia, serif;
-    font-size: 1.15rem;
     line-height: 1.25;
+  }
+
+  .notes-studio .preview-body h1,
+  .notes-studio .preview-body h2 {
+    font-size: 1.15rem;
+  }
+
+  .notes-studio .preview-body h3 {
+    font-size: 1.05rem;
+  }
+
+  .notes-studio .preview-body h4,
+  .notes-studio .preview-body h5,
+  .notes-studio .preview-body h6 {
+    font-size: 1rem;
+  }
+
+  .notes-studio .preview-body ul,
+  .notes-studio .preview-body ol {
+    padding-left: 1.3rem;
+  }
+
+  .notes-studio .preview-body a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .notes-studio .preview-body blockquote {
+    padding-left: 0.8rem;
+    border-left: 3px solid rgba(216, 107, 141, 0.45);
+    color: var(--ink-soft);
+  }
+
+  .notes-studio .preview-body pre {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 0.8rem;
+    border-radius: 12px;
+    background: rgba(78, 47, 51, 0.08);
+  }
+
+  .notes-studio .preview-body pre code {
+    padding: 0;
+    background: transparent;
+  }
+
+  .notes-studio .preview-body table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+
+  .notes-studio .preview-body th,
+  .notes-studio .preview-body td {
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--line);
+    text-align: left;
   }
 
   @media (max-width: 900px) {

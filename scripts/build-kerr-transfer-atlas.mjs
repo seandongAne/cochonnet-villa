@@ -642,6 +642,10 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function canonicalTextBytes(bytes) {
+  return Buffer.from(bytes.toString("utf8").replace(/\r\n?/g, "\n"), "utf8");
+}
+
 function parseIntegerFlag(value, fallback) {
   if (value === undefined) return fallback;
   const number = Number.parseInt(value, 10);
@@ -834,7 +838,7 @@ export async function buildKerrTransferAtlas(options = {}) {
     },
     generator: {
       path: "scripts/build-kerr-transfer-atlas.mjs",
-      sha256: sha256(scriptBytes),
+      sha256: sha256(canonicalTextBytes(scriptBytes)),
       workersDoNotAffectResults: true,
       command: "node scripts/build-kerr-transfer-atlas.mjs"
     },

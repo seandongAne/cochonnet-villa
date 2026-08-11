@@ -198,10 +198,12 @@ test("forced note art selects only the exact derived slug, including notes with 
 });
 
 test("manual workflow dispatch passes a force slug without interpolating it into shell", async () => {
-  const workflow = await readFile(
-    new URL("../.github/workflows/generate-note-art.yml", import.meta.url),
-    "utf8"
-  );
+  const workflow = (
+    await readFile(
+      new URL("../.github/workflows/generate-note-art.yml", import.meta.url),
+      "utf8"
+    )
+  ).replace(/\r\n?/g, "\n");
   const generator = await readFile(
     new URL("../scripts/generate-note-art.mjs", import.meta.url),
     "utf8"

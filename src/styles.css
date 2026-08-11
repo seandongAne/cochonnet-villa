@@ -977,21 +977,106 @@ html[lang="zh-Hans"] .size-tag {
   margin: 0;
 }
 
-.note-body h2 {
+.note-body h1,
+.note-body h2,
+.note-body h3,
+.note-body h4,
+.note-body h5,
+.note-body h6 {
   margin: 0.6rem 0 0;
   font-family: "Fraunces", Georgia, serif;
-  font-size: 1.35rem;
   letter-spacing: -0.02em;
   line-height: 1.25;
 }
 
-.note-body ul {
+.note-body h1,
+.note-body h2 {
+  font-size: 1.35rem;
+}
+
+.note-body h3 {
+  font-size: 1.2rem;
+}
+
+.note-body h4,
+.note-body h5,
+.note-body h6 {
+  font-size: 1.05rem;
+}
+
+.note-body ul,
+.note-body ol {
   margin: 0;
   padding-left: 1.3rem;
 }
 
 .note-body li {
   margin: 0.25rem 0;
+}
+
+.note-body a {
+  color: var(--berry);
+  text-decoration: underline;
+  text-decoration-color: rgba(140, 77, 100, 0.4);
+  text-underline-offset: 0.18em;
+}
+
+.note-body blockquote {
+  margin: 0;
+  padding: 0.2rem 0 0.2rem 1rem;
+  border-left: 4px solid rgba(216, 107, 141, 0.48);
+  color: var(--ink-soft);
+}
+
+.note-body code {
+  padding: 0.12rem 0.32rem;
+  border-radius: 0.35rem;
+  background: rgba(216, 107, 141, 0.12);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+}
+
+.note-body pre {
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(78, 47, 51, 0.08);
+  line-height: 1.55;
+}
+
+.note-body pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.note-body table {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.note-body th,
+.note-body td {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(140, 77, 100, 0.2);
+  text-align: left;
+}
+
+.note-body hr {
+  width: 100%;
+  margin: 0.4rem 0;
+  border: 0;
+  border-top: 1px solid rgba(140, 77, 100, 0.24);
+}
+
+.note-body img {
+  max-height: 36rem;
+  margin: 0 auto;
+  border-radius: 14px;
 }
 
 .note-pager {

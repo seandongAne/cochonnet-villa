@@ -1,0 +1,4 @@
+# Keep provenance-hashed source and GitHub workflows byte-stable across platforms.
+/scripts/build-kerr-transfer-atlas.mjs text eol=lf
+/.github/workflows/*.yml text eol=lf
+/.github/workflows/*.yaml text eol=lf
