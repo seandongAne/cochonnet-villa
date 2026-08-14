@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "characterId": "baibaicai",
+  "displayName": "白白菜",
+  "aliases": ["白菜"],
+  "role": "猪猪们的好朋友",
+  "status": "selected",
+  "selectedCandidate": 4,
+  "selectedAt": "2026-08-14",
+  "canonicalReference": "/characters/baibaicai/baibaicai-reference.png",
+  "visualIdentity": {
+    "species": "napa cabbage",
+    "proportions": "紧凑的中等身高，圆润下窄，保留清楚的直立大白菜轮廓",
+    "leafSilhouette": "浅色菜心占主体，外叶层层包裹，顶部有自然偏向一侧的灵动上扬叶尖",
+    "face": "菜心上的小圆黑眼、细小眉毛、开口微笑和淡桃色脸颊",
+    "limbs": "两只叶片手臂和两只很小的叶片脚；姿势可随故事变化",
+    "palette": ["暖象牙白", "芹菜绿", "柔和鼠尾草绿", "淡桃粉"],
+    "medium": "温暖儿童水彩绘本，奶油纸底、柔和铅笔线、细腻纸纹和低对比光线",
+    "baseWardrobe": "none"
+  },
+  "identityInvariants": [
+    "必须一眼看出是直立的 napa cabbage，不画成圆生菜、青江菜、西兰花或普通绿色团子",
+    "五官直接长在浅色菜心上，不增加独立的人头或猪鼻子",
+    "保持紧凑体型、浅色大菜心、分层外叶和偏向一侧的上扬叶冠",
+    "保持小圆黑眼、温和亲切的整体气质和猪猪小记水彩画风",
+    "眼镜、衣服、帽子和 cosplay 只能作为可变装扮，不能替代或永久改变基础轮廓"
+  ],
+  "mutableStoryFeatures": [
+    "表情和动作",
+    "眼镜",
+    "衣服",
+    "帽子",
+    "cosplay",
+    "符合小记情节的道具"
+  ],
+  "candidates": [
+    {
+      "number": 1,
+      "label": "圆糯经典型",
+      "path": "/characters/baibaicai/candidates/baibaicai-candidate-01-round-classic.png",
+      "selected": false
+    },
+    {
+      "number": 2,
+      "label": "高挑文静型",
+      "path": "/characters/baibaicai/candidates/baibaicai-candidate-02-tall-quiet.png",
+      "selected": false
+    },
+    {
+      "number": 3,
+      "label": "胖软治愈型",
+      "path": "/characters/baibaicai/candidates/baibaicai-candidate-03-soft-healing.png",
+      "selected": false
+    },
+    {
+      "number": 4,
+      "label": "灵动小精灵型（挥手白菜）",
+      "path": "/characters/baibaicai/baibaicai-reference.png",
+      "selected": true
+    },
+    {
+      "number": 5,
+      "label": "淡定冷幽默型",
+      "path": "/characters/baibaicai/candidates/baibaicai-candidate-05-deadpan-gentle.png",
+      "selected": false
+    }
+  ],
+  "generation": {
+    "date": "2026-08-14",
+    "mode": "OpenAI built-in imagegen",
+    "styleReferences": [
+      "/notes-art/2026-08-08.webp",
+      "/notes-art/2026-08-07.webp"
+    ],
+    "promptArchive": "docs/character-references/baibaicai.md"
+  }
+}
