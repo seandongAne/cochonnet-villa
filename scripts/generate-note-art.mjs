@@ -106,7 +106,7 @@ export const PORKY_CAST = Object.freeze([
   Object.freeze({
     name: "小猪",
     size: "特别小，身高约为普通猪的一半",
-    visual: "扶着一个黄色玩具方向盘，身体轮廓必须完整可见"
+    visual: "棕色齐肩波波头带整齐平刘海、黑色无袖高领上衣，身体轮廓必须完整可见"
   }),
   Object.freeze({
     name: "臭臭猪",
@@ -129,6 +129,19 @@ const PORKY_ROWS = Object.freeze([
   Object.freeze(["小猪", "懒蛋猪", "呆呆猪", "贪吃猪", "勤劳猪"]),
   Object.freeze(["脏脏猪", "乖乖猪", "呱呱猪", "小色猪", "香香猪"]),
   Object.freeze(["机灵猪", "瓜呆猪", "呆瓜猪", "臭臭猪", "大呆猪"])
+]);
+
+// Recurring non-pig friends. The generation request is text-only, so each
+// entry mirrors its reference archive (public/characters/<id>/manifest.json)
+// in prompt-ready text; the reference image itself is never uploaded.
+export const GUEST_CAST = Object.freeze([
+  Object.freeze({
+    name: "白白菜",
+    aliases: Object.freeze(["白菜"]),
+    size: "和普通小猪差不多高",
+    visual:
+      "一棵直立的拟人化大白菜：浅色菜心上长着小圆黑眼、开口微笑和淡桃色脸颊，浅绿外叶分层包裹，顶部叶尖偏向一侧上扬，叶片手臂和小叶脚，不加猪鼻子"
+  })
 ]);
 
 const FULL_CAST_SUBJECT_PATTERN =
@@ -165,8 +178,8 @@ function mentionsNamedTinyPorky(note) {
   if (
     clauses.some(
       (clause) =>
-        /小猪[^。！？；\n]{0,30}黄色(?:玩具)?方向盘/u.test(clause) ||
-        /黄色(?:玩具)?方向盘[^。！？；\n]{0,30}小猪/u.test(clause)
+        /小猪(?!们)[^。！？；\n]{0,30}(?:开车|方向盘)/u.test(clause) ||
+        /(?:开车|方向盘)[^。！？；\n]{0,30}小猪(?!们)/u.test(clause)
     )
   ) {
     return true;
@@ -189,6 +202,32 @@ function findMentionedCast(note) {
   );
 }
 
+function findMentionedGuests(note) {
+  const story = noteStoryText(note);
+
+  return GUEST_CAST.filter((guest) =>
+    [guest.name, ...guest.aliases].some((alias) => story.includes(alias))
+  );
+}
+
+function guestIdentitySection(guests, mode) {
+  if (!guests.length) {
+    return [];
+  }
+
+  return [
+    "",
+    "【来宾朋友的身份参考】",
+    ...guests.map(
+      (guest) =>
+        `${guest.name}（${guest.aliases.length ? `也叫${guest.aliases.join("、")}，` : ""}${guest.size}）：${guest.visual}。`
+    ),
+    mode === "full"
+      ? "来宾朋友不是小猪，不占用15只小猪的名额，也不改变三排构图；只有随笔明确写到它在场时才出现。"
+      : "来宾朋友和小猪遵守同样的出场规则，不要把它替换成任何小猪。"
+  ];
+}
+
 function formatCast(cast) {
   return cast.map(
     (porky, index) => `${index + 1}. ${porky.name}（${porky.size}）：${porky.visual}。`
@@ -198,14 +237,16 @@ function formatCast(cast) {
 export function selectNoteArtCast(note) {
   const mode = isExplicitFullCastNote(note) ? "full" : "story";
   const fixedCast = mode === "full" ? PORKY_CAST : findMentionedCast(note);
+  const guestCast = findMentionedGuests(note);
 
   return Object.freeze({
     mode,
-    fixedCastNames: Object.freeze(fixedCast.map((porky) => porky.name))
+    fixedCastNames: Object.freeze(fixedCast.map((porky) => porky.name)),
+    guestCastNames: Object.freeze(guestCast.map((guest) => guest.name))
   });
 }
 
-function buildFullCastPrompt(note) {
+function buildFullCastPrompt(note, guests) {
   const cast = formatCast(PORKY_CAST);
 
   return [
@@ -222,6 +263,7 @@ function buildFullCastPrompt(note) {
     `后排从左到右：${PORKY_ROWS[2].join("、")}。`,
     "采用轻微俯视的宽幅合照式场景。三排之间留出清楚的空隙，不得互相遮挡；15张脸、15个完整猪鼻子和每只猪的身份配饰都必须清楚可见，任何小猪都不能被裁切、藏在另一只身后或只露出局部。",
     "每只猪要有不同的脸型、眼型、耳朵姿态、身体轮廓、表情和动作；严格保持各自配饰，不能互换、合并或重复配饰。",
+    ...guestIdentitySection(guests, "full"),
     "",
     "【风格】温暖的儿童水彩绘本手绘风；奶油色底（#FFF8EF），柔和的粉色（#F8A6BA）与蜜桃色（#F5B57E）为主色；圆润软萌的粉红小猪；细腻纸张纹理、柔和光线与简洁背景。保持温馨、有同理心、不嘲弄角色。",
     "",
@@ -236,7 +278,7 @@ function buildFullCastPrompt(note) {
   ].join("\n");
 }
 
-function buildStoryCastPrompt(note, fixedCastNames) {
+function buildStoryCastPrompt(note, fixedCastNames, guests) {
   const fixedCastNameSet = new Set(fixedCastNames);
   const mentionedCast = PORKY_CAST.filter((porky) => fixedCastNameSet.has(porky.name));
   const identityGuide = mentionedCast.length
@@ -259,6 +301,7 @@ function buildStoryCastPrompt(note, fixedCastNames) {
     "如果随笔中有固定演员表之外的具名猪角色，而且它在所选瞬间直接参与动作或对话，可以把它作为来宾猪画出来；不要把来宾随机替换成山庄的其他固定角色。",
     "",
     ...identityGuide,
+    ...guestIdentitySection(guests, "story"),
     "",
     "【构图】根据实际出镜角色数量自然安排宽幅场景：一只用有环境叙事的单猪情绪画面，两只突出清楚互动，三只以上按实际相关人数使用疏松分组构图。所有活猪都要完整、清楚、互不遮挡，不裁切，不克隆，不合并角色或配饰。",
     "",
@@ -276,10 +319,12 @@ function buildStoryCastPrompt(note, fixedCastNames) {
 
 export function buildArtPrompt(note) {
   const selection = selectNoteArtCast(note);
+  const guestNameSet = new Set(selection.guestCastNames);
+  const guests = GUEST_CAST.filter((guest) => guestNameSet.has(guest.name));
 
   return selection.mode === "full"
-    ? buildFullCastPrompt(note)
-    : buildStoryCastPrompt(note, selection.fixedCastNames);
+    ? buildFullCastPrompt(note, guests)
+    : buildStoryCastPrompt(note, selection.fixedCastNames, guests);
 }
 
 // Raw notes (as stored in notes.json) that still need art: they have real

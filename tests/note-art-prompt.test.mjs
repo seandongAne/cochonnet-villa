@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
+  GUEST_CAST,
   PORKY_CAST,
   buildArtPrompt,
   pickPendingNotes,
@@ -41,6 +42,10 @@ test("a single-protagonist note only injects that porky's identity", () => {
 
   for (const porky of PORKY_CAST.filter((entry) => entry.name !== "呆呆猪")) {
     assert.ok(!prompt.includes(porky.visual), `${porky.name} is not injected`);
+  }
+
+  for (const guest of GUEST_CAST) {
+    assert.ok(!prompt.includes(guest.name), `${guest.name} is not injected`);
   }
 });
 
@@ -165,6 +170,64 @@ test("cast selection is exact for fixed names and conservative for the ambiguous
     selectNoteArtCast({ title: "小猪纷纷回家", body: "天快黑了。" }).fixedCastNames,
     []
   );
+});
+
+test("the named tiny porky is summoned by driving context but not by plural piglets", () => {
+  assert.deepEqual(
+    selectNoteArtCast({
+      title: "周末兜风",
+      body: "小猪开车带大家去看海。"
+    }).fixedCastNames,
+    ["小猪"]
+  );
+  assert.deepEqual(
+    selectNoteArtCast({
+      title: "司机就位",
+      body: "握住方向盘的小猪出发啦。"
+    }).fixedCastNames,
+    ["小猪"]
+  );
+  assert.deepEqual(
+    selectNoteArtCast({
+      title: "郊游",
+      body: "小猪们开车去郊游。"
+    }).fixedCastNames,
+    []
+  );
+});
+
+test("the guest cast is frozen and mentioning 白菜 injects the cabbage identity", () => {
+  assert.ok(Object.isFrozen(GUEST_CAST));
+  assert.ok(GUEST_CAST.every(Object.isFrozen));
+
+  const note = { title: "看流星雨", body: "呆呆猪和白菜一起看流星雨。" };
+  const selection = selectNoteArtCast(note);
+
+  assert.deepEqual(selection.guestCastNames, ["白白菜"]);
+  assert.deepEqual(selection.fixedCastNames, ["呆呆猪"]);
+
+  const prompt = buildArtPrompt(note);
+  assert.match(prompt, /白白菜/);
+  assert.match(prompt, /直立的拟人化大白菜/);
+  assert.match(prompt, /不加猪鼻子/);
+  assert.match(prompt, /不要把它替换成任何小猪/);
+
+  const fullNameSelection = selectNoteArtCast({
+    title: "白白菜来做客",
+    body: "白白菜今天来山庄玩。"
+  });
+  assert.deepEqual(fullNameSelection.guestCastNames, ["白白菜"]);
+});
+
+test("a full-cast note can bring 白白菜 along without breaking the 15-pig contract", () => {
+  const prompt = buildArtPrompt({
+    title: "全员到齐",
+    body: "十五只小猪一起拍全家福，白白菜也来了。"
+  });
+
+  assert.match(prompt, /必须恰好有15只/);
+  assert.match(prompt, /白白菜/);
+  assert.match(prompt, /不占用15只小猪的名额/);
 });
 
 test("forced note art selects only the exact derived slug, including notes with art", () => {
