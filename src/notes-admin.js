@@ -677,6 +677,17 @@ export function initNotesAdmin() {
       return;
     }
 
+    // The staged list is publishable, but the open form still holds edits
+    // that this publish would NOT include — make that explicit instead of
+    // letting the success dialog imply everything went live.
+    if (
+      formIsUnstaged() &&
+      !window.confirm("当前正文还没收进列表，这次发布不会包含它。仍然只发布列表里已收进的修改吗？")
+    ) {
+      setPublishStatus("先点「收进列表」再发布，正文就会一起上线。", "warning");
+      return;
+    }
+
     const publishButtonLabel = elements.publishButton?.textContent || "发布到 GitHub";
     const publishButtonTopLabel = elements.publishButtonTop?.textContent || "发布到 GitHub";
     state.publishing = true;
@@ -704,8 +715,7 @@ export function initNotesAdmin() {
         try {
           remote = await fetchRemote();
         } catch {
-          setStatus(
-            elements.publishStatus,
+          setPublishStatus(
             "现在连不上 GitHub，为了不覆盖网站上已有的小记，这次没有发布。稍后再试试。",
             "error"
           );
@@ -759,6 +769,13 @@ export function initNotesAdmin() {
       state.sha = payload.content?.sha || state.sha;
       state.dirty = false;
       clearDraft();
+
+      if (formIsUnstaged()) {
+        // The open form's uncollected edits were not part of this publish —
+        // re-save them as a draft so closing the page can't lose them.
+        saveDraft();
+      }
+
       setPublishStatus(
         `已发布！GitHub Pages 部署大约需要 1–2 分钟，之后就能在 ${LIVE_NOTES_URL} 看到。`,
         "success"

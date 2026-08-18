@@ -59,6 +59,21 @@ test("resizeWindowRect anchors the opposite edge when dragging west past the min
   assert.equal(resized.x + resized.width, rightEdge);
 });
 
+test("resizeWindowRect stops a dragged edge at the viewport instead of moving the anchor", () => {
+  const rect = { x: 200, y: 100, width: 600, height: 500 };
+
+  // Drag the east edge far past the right margin: the west edge must not move
+  // and the east edge stops at the viewport margin.
+  const east = resizeWindowRect(rect, "e", 5000, 0, VIEWPORT);
+  assert.equal(east.x, rect.x);
+  assert.equal(east.x + east.width, VIEWPORT.width - EDITOR_WINDOW_MARGIN);
+
+  // Same for the south edge: the top edge stays anchored.
+  const south = resizeWindowRect(rect, "s", 0, 5000, VIEWPORT);
+  assert.equal(south.y, rect.y);
+  assert.equal(south.y + south.height, VIEWPORT.height - EDITOR_WINDOW_MARGIN);
+});
+
 test("resizeWindowRect north drag moves y and keeps the bottom edge anchored", () => {
   const rect = { x: 200, y: 300, width: 600, height: 500 };
   const bottomEdge = rect.y + rect.height;

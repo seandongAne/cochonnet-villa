@@ -524,6 +524,19 @@ test("the notes studio blocks duplicate and no-op Publish requests", async () =>
       publish.indexOf("clearDraft();") < publish.indexOf("showPublishSuccess();"),
     "shows success only after GitHub accepted the publish and drafts were cleared"
   );
+
+  // An open form that was never 收进列表 must not be silently excluded from a
+  // publish (confirm first), and must survive the post-publish draft clearing.
+  assert.ok(
+    publish.indexOf("formIsUnstaged()") < publish.indexOf('method: "PUT"'),
+    "asks about an unstaged open form before calling the Contents API"
+  );
+  assert.match(publish, /window\.confirm/, "publishing past an unstaged form needs explicit consent");
+  assert.ok(
+    publish.indexOf("clearDraft();") < publish.indexOf("saveDraft();") &&
+      publish.indexOf("saveDraft();") < publish.indexOf("showPublishSuccess();"),
+    "re-saves the unstaged form as a draft after the publish cleared both tiers"
+  );
 });
 
 test("site navigation links to the notes page with a zh i18n key slot", () => {

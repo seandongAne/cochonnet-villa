@@ -32,8 +32,9 @@ export function clampWindowRect(
 }
 
 // Apply a pointer delta to one edge/corner ("n", "s", "e", "w", "ne", "nw",
-// "se", "sw"). The opposite edge stays anchored, minimum size is enforced,
-// and the result is clamped to the viewport.
+// "se", "sw"). The opposite edge stays anchored — including at the viewport
+// limits: a dragged edge stops at the margin instead of letting the generic
+// clamp shove the anchored edge across the screen.
 export function resizeWindowRect(
   rect,
   edge,
@@ -46,35 +47,25 @@ export function resizeWindowRect(
   let { x, y, width, height } = rect;
 
   if (edge.includes("e")) {
-    width += dx;
+    const maxWidth = Math.max(viewport.width - margin - x, min.width);
+    width = Math.min(Math.max(width + dx, min.width), maxWidth);
   }
 
   if (edge.includes("w")) {
-    width -= dx;
-    x += dx;
+    const right = x + width;
+    x = Math.min(Math.max(x + dx, margin), right - min.width);
+    width = right - x;
   }
 
   if (edge.includes("s")) {
-    height += dy;
+    const maxHeight = Math.max(viewport.height - margin - y, min.height);
+    height = Math.min(Math.max(height + dy, min.height), maxHeight);
   }
 
   if (edge.includes("n")) {
-    height -= dy;
-    y += dy;
-  }
-
-  if (width < min.width) {
-    if (edge.includes("w")) {
-      x -= min.width - width;
-    }
-    width = min.width;
-  }
-
-  if (height < min.height) {
-    if (edge.includes("n")) {
-      y -= min.height - height;
-    }
-    height = min.height;
+    const bottom = y + height;
+    y = Math.min(Math.max(y + dy, margin), bottom - min.height);
+    height = bottom - y;
   }
 
   return clampWindowRect({ x, y, width, height }, viewport, min, margin);
