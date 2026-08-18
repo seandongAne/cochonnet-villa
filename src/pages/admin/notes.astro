@@ -73,8 +73,17 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
         </div>
 
         <div class="stack">
-          <section class="card">
-            <h2>编辑器</h2>
+          <section class="card editor-card" id="editor-card">
+            <div class="editor-topbar">
+              <div class="editor-topbar-row">
+                <h2>编辑器</h2>
+                <div class="editor-topbar-buttons">
+                  <button class="button button-muted" id="editor-float-button" type="button">弹出窗口</button>
+                  <button class="button button-primary" id="publish-button-top" type="button">发布到 GitHub</button>
+                </div>
+              </div>
+              <div class="status" id="publish-status-top" aria-hidden="true">列表和网站保持一致。</div>
+            </div>
             <div class="field-grid">
               <div>
                 <label for="title-input">标题</label>
@@ -90,7 +99,7 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
                   <input id="mood-input" type="text" placeholder="🐷" maxlength="8" />
                 </div>
               </div>
-              <div>
+              <div class="field-body">
                 <label for="body-input">正文</label>
                 <textarea id="body-input" spellcheck="false" placeholder="## 小标题\n\n正文使用标准 Markdown……"></textarea>
                 <div class="status" id="markdown-status" aria-live="polite">
@@ -109,6 +118,16 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
             </div>
           </section>
 
+          <section class="card editor-placeholder" id="editor-placeholder" hidden>
+            <h2>编辑器</h2>
+            <p style="margin-top: 0.6rem;">
+              编辑器已经弹出为浮动窗口：拖标题栏移动，拉边缘和四角改大小，双击标题栏最大化。
+            </p>
+            <div class="token-actions" style="margin-top: 0.9rem;">
+              <button class="button button-muted" id="editor-dock-button" type="button">收回到页面</button>
+            </div>
+          </section>
+
           <section class="card">
             <h2>预览</h2>
             <div class="preview">
@@ -119,6 +138,17 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
           </section>
         </div>
       </div>
+    </div>
+
+    <div class="editor-window" id="editor-window" aria-label="浮动编辑器窗口" hidden>
+      <div class="editor-window-handle" data-edge="n"></div>
+      <div class="editor-window-handle" data-edge="s"></div>
+      <div class="editor-window-handle" data-edge="e"></div>
+      <div class="editor-window-handle" data-edge="w"></div>
+      <div class="editor-window-handle" data-edge="ne"></div>
+      <div class="editor-window-handle" data-edge="nw"></div>
+      <div class="editor-window-handle" data-edge="se"></div>
+      <div class="editor-window-handle" data-edge="sw"></div>
     </div>
 
     <dialog
@@ -331,7 +361,162 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   }
 
   .notes-studio .card {
-    padding: 1.25rem;
+    padding: clamp(1rem, 1.8vw, 1.5rem);
+  }
+
+  .notes-studio .editor-topbar {
+    position: sticky;
+    top: 0.6rem;
+    z-index: 5;
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: rgba(255, 250, 243, 0.94);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 30px rgba(104, 63, 45, 0.1);
+  }
+
+  .notes-studio .editor-topbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .notes-studio .editor-topbar .status {
+    margin-top: 0;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .notes-studio .editor-topbar-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---- 浮动编辑器窗口 ---- */
+
+  .notes-studio .editor-window {
+    position: fixed;
+    z-index: 40;
+  }
+
+  .notes-studio .editor-window[hidden] {
+    display: none;
+  }
+
+  .notes-studio .editor-window .editor-card {
+    height: 100%;
+    margin: 0;
+    overflow: auto;
+    border-color: rgba(216, 107, 141, 0.4);
+    box-shadow: 0 42px 120px rgba(78, 47, 51, 0.34);
+  }
+
+  .notes-studio .editor-card.is-floating .editor-topbar {
+    position: static;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .notes-studio .editor-card.is-floating .editor-topbar.is-dragging {
+    cursor: grabbing;
+  }
+
+  /* 浮动时正文框高度由 JS 按窗口剩余空间分配（fitEditorHeight）；
+     手动拖拽高度的需求交给窗口边缘手柄，避免两套调节互相打架 */
+  .notes-studio .editor-card.is-floating textarea {
+    min-height: 8rem;
+    resize: none;
+  }
+
+  /* 浮动模式压缩表头：标题和日期/心情并排一行，把高度让给正文 */
+  .notes-studio .editor-card.is-floating .field-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+
+  .notes-studio .editor-card.is-floating .field-body {
+    grid-column: 1 / -1;
+  }
+
+  /* 静态说明文字在浮动窗里省下来给正文；收回页面后仍然可见 */
+  .notes-studio .editor-card.is-floating #draft-status {
+    display: none;
+  }
+
+  .notes-studio .editor-window-handle {
+    position: absolute;
+    z-index: 3;
+    touch-action: none;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="n"],
+  .notes-studio .editor-window-handle[data-edge="s"] {
+    left: 14px;
+    right: 14px;
+    height: 12px;
+    cursor: ns-resize;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="n"] {
+    top: -6px;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="s"] {
+    bottom: -6px;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="e"],
+  .notes-studio .editor-window-handle[data-edge="w"] {
+    top: 14px;
+    bottom: 14px;
+    width: 12px;
+    cursor: ew-resize;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="e"] {
+    right: -6px;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="w"] {
+    left: -6px;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="ne"],
+  .notes-studio .editor-window-handle[data-edge="nw"],
+  .notes-studio .editor-window-handle[data-edge="se"],
+  .notes-studio .editor-window-handle[data-edge="sw"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="ne"] {
+    top: -7px;
+    right: -7px;
+    cursor: nesw-resize;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="nw"] {
+    top: -7px;
+    left: -7px;
+    cursor: nwse-resize;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="se"] {
+    bottom: -7px;
+    right: -7px;
+    cursor: nwse-resize;
+  }
+
+  .notes-studio .editor-window-handle[data-edge="sw"] {
+    bottom: -7px;
+    left: -7px;
+    cursor: nesw-resize;
   }
 
   .notes-studio label {
@@ -356,7 +541,7 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   }
 
   .notes-studio textarea {
-    min-height: 18rem;
+    min-height: clamp(16rem, 42dvh, 34rem);
     padding: 1rem;
     line-height: 1.6;
     resize: vertical;
@@ -558,14 +743,26 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
       grid-template-columns: 1fr;
     }
 
+    /* 窄屏优先写作：编辑器/预览排在 token、列表卡片前面 */
+    .notes-studio .layout > .stack:last-child {
+      order: -1;
+    }
+
     .notes-studio .button {
       width: 100%;
+    }
+
+    /* 窄屏没有浮动窗口的空间：隐藏入口（JS 也会自动收回） */
+    .notes-studio #editor-float-button {
+      display: none;
     }
   }
 </style>
 
 <script>
   import { initNotesAdmin } from "../../notes-admin.js";
+  import { initNotesEditorWindow } from "../../notes-window.js";
 
   initNotesAdmin();
+  initNotesEditorWindow();
 </script>

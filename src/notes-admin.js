@@ -84,7 +84,9 @@ export function initNotesAdmin() {
     markdownStatus: document.querySelector("#markdown-status"),
     commitMessageInput: document.querySelector("#commit-message-input"),
     publishButton: document.querySelector("#publish-button"),
+    publishButtonTop: document.querySelector("#publish-button-top"),
     publishStatus: document.querySelector("#publish-status"),
+    publishStatusTop: document.querySelector("#publish-status-top"),
     publishSuccessDialog: document.querySelector("#publish-success-dialog"),
     backupDraftButton: document.querySelector("#backup-draft-button"),
     draftStatus: document.querySelector("#draft-status"),
@@ -123,6 +125,14 @@ export function initNotesAdmin() {
     }
 
     element.setAttribute("data-tone", tone);
+  }
+
+  // The publish status lives in the 发布 card and is mirrored (visually only —
+  // the aria-live announcement stays single) into the editor's sticky topbar,
+  // so feedback is visible no matter which publish button was clicked.
+  function setPublishStatus(message, tone = "default") {
+    setStatus(elements.publishStatus, message, tone);
+    setStatus(elements.publishStatusTop, message, tone);
   }
 
   function showPublishSuccess() {
@@ -435,8 +445,36 @@ export function initNotesAdmin() {
 
   function markDirty() {
     state.dirty = true;
-    setStatus(elements.publishStatus, "列表里有还没发布的修改，记得点「发布到 GitHub」。", "warning");
+    setPublishStatus("列表里有还没发布的修改，记得点「发布到 GitHub」。", "warning");
     saveDraft();
+  }
+
+  // True when the open form holds a publishable note that differs from its
+  // staged twin — i.e. the author wrote/edited something but hasn't clicked
+  // 收进列表 yet, so publishing now would not include it.
+  function formIsUnstaged() {
+    const title = elements.titleInput.value.trim();
+    const body = canonicalizeNoteMarkdown(elements.bodyInput.value);
+
+    if (!title || !body.trim()) {
+      return false;
+    }
+
+    const staged = state.notes.find((note) => note.slug === state.editingSlug);
+
+    if (!staged) {
+      return true;
+    }
+
+    const date = elements.dateInput.value.trim() || todayString();
+    const mood = elements.moodInput.value.trim();
+
+    return (
+      staged.title !== title ||
+      staged.body !== body ||
+      staged.date !== date ||
+      (staged.mood || "") !== mood
+    );
   }
 
   function renderList() {
@@ -626,16 +664,21 @@ export function initNotesAdmin() {
     }
 
     if (!state.token) {
-      setStatus(elements.publishStatus, "先在上面保存一个 GitHub token 才能发布。", "warning");
+      setPublishStatus("先在「登录」卡片里保存一个 GitHub token 才能发布。", "warning");
       return;
     }
 
     if (!state.dirty) {
-      setStatus(elements.publishStatus, "没有需要发布的修改，网站已经是最新的。", "success");
+      if (formIsUnstaged()) {
+        setPublishStatus("正文还没收进列表：先点「收进列表」，再点「发布到 GitHub」。", "warning");
+      } else {
+        setPublishStatus("没有需要发布的修改，网站已经是最新的。", "success");
+      }
       return;
     }
 
     const publishButtonLabel = elements.publishButton?.textContent || "发布到 GitHub";
+    const publishButtonTopLabel = elements.publishButtonTop?.textContent || "发布到 GitHub";
     state.publishing = true;
 
     if (elements.publishButton) {
@@ -644,11 +687,17 @@ export function initNotesAdmin() {
       elements.publishButton.setAttribute("aria-busy", "true");
     }
 
+    if (elements.publishButtonTop) {
+      elements.publishButtonTop.disabled = true;
+      elements.publishButtonTop.textContent = "正在发布……";
+      elements.publishButtonTop.setAttribute("aria-busy", "true");
+    }
+
     try {
       if (!state.remoteKnown) {
         // The initial read failed, so the local list may be missing notes that
         // already live on GitHub. Sync first; local edits win on slug clashes.
-        setStatus(elements.publishStatus, "先和 GitHub 同步一次，避免覆盖已发布的小记……");
+        setPublishStatus("先和 GitHub 同步一次，避免覆盖已发布的小记……");
 
         let remote;
 
@@ -672,7 +721,7 @@ export function initNotesAdmin() {
       // A restored draft can contain a staged list created by an older editor.
       // Canonicalize the whole outgoing collection, not only the open form.
       state.notes = canonicalizeNotesMarkdown(state.notes);
-      setStatus(elements.publishStatus, "正在提交到 GitHub……");
+      setPublishStatus("正在提交到 GitHub……");
 
       const body = {
         message: elements.commitMessageInput.value.trim() || "更新猪猪小记",
@@ -710,8 +759,7 @@ export function initNotesAdmin() {
       state.sha = payload.content?.sha || state.sha;
       state.dirty = false;
       clearDraft();
-      setStatus(
-        elements.publishStatus,
+      setPublishStatus(
         `已发布！GitHub Pages 部署大约需要 1–2 分钟，之后就能在 ${LIVE_NOTES_URL} 看到。`,
         "success"
       );
@@ -723,6 +771,12 @@ export function initNotesAdmin() {
         elements.publishButton.disabled = false;
         elements.publishButton.textContent = publishButtonLabel;
         elements.publishButton.removeAttribute("aria-busy");
+      }
+
+      if (elements.publishButtonTop) {
+        elements.publishButtonTop.disabled = false;
+        elements.publishButtonTop.textContent = publishButtonTopLabel;
+        elements.publishButtonTop.removeAttribute("aria-busy");
       }
     }
   }
@@ -759,7 +813,7 @@ export function initNotesAdmin() {
       state.notes = draft.stagedNotes;
       state.dirty = true;
       renderList();
-      setStatus(elements.publishStatus, "恢复了还没发布的列表修改，记得点「发布到 GitHub」。", "warning");
+      setPublishStatus("恢复了还没发布的列表修改，记得点「发布到 GitHub」。", "warning");
     }
 
     setStatus(
@@ -795,14 +849,17 @@ export function initNotesAdmin() {
       setStatus(elements.listStatus, error.message, "error");
     }
   });
-  elements.publishButton?.addEventListener("click", async () => {
+  async function handlePublishClick() {
     try {
       await publish();
     } catch (error) {
       console.error(error);
-      setStatus(elements.publishStatus, error.message, "error");
+      setPublishStatus(error.message, "error");
     }
-  });
+  }
+
+  elements.publishButton?.addEventListener("click", handlePublishClick);
+  elements.publishButtonTop?.addEventListener("click", handlePublishClick);
 
   for (const field of [elements.titleInput, elements.dateInput, elements.moodInput, elements.bodyInput]) {
     field?.addEventListener("input", () => {
