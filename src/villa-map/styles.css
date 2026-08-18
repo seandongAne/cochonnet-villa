@@ -24,7 +24,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  width: min(1180px, 100%);
+  width: min(var(--shell-max, 73.75rem), 100%);
   margin: 0 auto 1rem;
   padding: 0.85rem 1rem;
   border: 1px solid rgba(120, 76, 78, 0.13);
@@ -68,8 +68,8 @@
 .villa-map-root {
   position: relative;
   overflow: hidden;
-  width: min(1180px, 100%);
-  min-height: min(720px, calc(100vh - 7rem));
+  width: min(var(--shell-max, 73.75rem), 100%);
+  min-height: min(45rem, calc(100vh - 7rem));
   margin: 0 auto;
   border: 1px solid rgba(120, 76, 78, 0.14);
   border-radius: 36px;

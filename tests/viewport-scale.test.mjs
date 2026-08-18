@@ -78,16 +78,30 @@ test("every page ships the ladder, and no shell hard-codes its own width", async
   for (const [file, pattern] of [
     ["../src/styles.css", /width: min\(var\(--shell-max, 73\.75rem\), calc\(100% - var\(--shell-gutter, 2rem\)\)\);/],
     ["../src/pages/admin/notes.astro", /width: min\(var\(--shell-max, 73\.75rem\), calc\(100% - var\(--shell-gutter-tight/],
-    ["../admin/index.html", /width: min\(var\(--shell-max-narrow, 70rem\), calc\(100% - var\(--shell-gutter-tight/]
+    ["../admin/index.html", /width: min\(var\(--shell-max-narrow, 70rem\), calc\(100% - var\(--shell-gutter-tight/],
+    // The map card is the shell that decides the R3F canvas aspect: pinned at
+    // 1180px it would keep the canvas near 16:10 on any screen, which silently
+    // makes the ultra-wide FOV clamp unreachable in production.
+    ["../src/villa-map/styles.css", /\.villa-map-root \{[\s\S]*?width: min\(var\(--shell-max, 73\.75rem\), 100%\);/],
+    ["../src/villa-map/styles.css", /\.villa-map-header \{[\s\S]*?width: min\(var\(--shell-max, 73\.75rem\), 100%\);/]
   ]) {
     assert.match(await read(file), pattern, `${file} follows the ladder`);
   }
 
-  // A px width here would pin that column at laptop size while everything
-  // around it zoomed.
-  const styles = await read("../src/styles.css");
-  assert.doesNotMatch(styles, /1180px/, "no leftover hard-coded content band");
-  assert.doesNotMatch(styles, /minmax\(\d+px/, "grid minimums scale with the root font size");
+  // A px width in any of these would pin that box at laptop size while
+  // everything around it zoomed.
+  for (const file of ["../src/styles.css", "../src/villa-map/styles.css"]) {
+    const css = await read(file);
+    assert.doesNotMatch(css, /1180px/, `${file}: no leftover hard-coded content band`);
+    assert.doesNotMatch(css, /minmax\(\d+px/, `${file}: grid minimums scale with the root font size`);
+    // Line-anchored so `min-width: 320px` (a small-screen floor, not a cap)
+    // is not mistaken for a width that must zoom.
+    assert.doesNotMatch(
+      css,
+      /^\s*(width|min-height|max-height):[^;]*\b[3-9]\d{2,}px/m,
+      `${file}: sizing boxes are rem/var so they zoom`
+    );
+  }
 });
 
 test("the design viewport stays laptop-shaped on every target screen", () => {

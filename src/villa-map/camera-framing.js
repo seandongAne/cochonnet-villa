@@ -9,6 +9,12 @@
 // So: keep the authored vertical FOV exactly as-is up to HOR_FOV_MAX (16:9,
 // 16:10 and 21:9 are all below it, i.e. unchanged), and only past that hold
 // the horizontal FOV steady by narrowing the vertical one.
+//
+// Note this is a GUARD, not a fix for a defect the current page has: the map
+// mounts as a centred card whose height tracks the viewport, so even on a 32:9
+// screen the canvas measures ~1.97 (2557x1295 at 5120x1440) and stays below
+// the cap. It earns its place if the canvas ever goes full-bleed — which is
+// exactly when an unbounded fov would smear the frame.
 
 export const BASE_VERTICAL_FOV = 70;
 export const HOR_FOV_MAX = 120;
