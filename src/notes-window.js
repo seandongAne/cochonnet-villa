@@ -208,7 +208,11 @@ export function initNotesEditorWindow() {
     // The author's intent; the applied mode also depends on viewport width.
     floating: false,
     maximized: false,
-    rect: null
+    rect: null,
+    // The root font size `rect` is expressed in. Tracked rather than read live,
+    // because persisting a stale rect under the current scale would corrupt the
+    // record for every future session.
+    scale: null
   };
 
   function viewport() {
@@ -228,6 +232,24 @@ export function initNotesEditorWindow() {
     return Math.round(EDITOR_WINDOW_PREFERRED_REM * rootFontSize());
   }
 
+  // Bring state.rect into the current root scale. Safe to call at any time:
+  // an unchanged scale is a no-op, and a rect-less state just records the
+  // scale a future default rect will be built at.
+  function syncScale() {
+    const scale = rootFontSize();
+
+    if (state.scale === scale) {
+      return false;
+    }
+
+    if (state.rect && state.scale) {
+      state.rect = clampWindowRect(scaleWindowRect(state.rect, state.scale, scale), viewport());
+    }
+
+    state.scale = scale;
+    return true;
+  }
+
   function readStoredState() {
     try {
       return parseEditorWindowState(window.localStorage.getItem(EDITOR_WINDOW_STORAGE_KEY));
@@ -240,7 +262,9 @@ export function initNotesEditorWindow() {
     try {
       window.localStorage.setItem(
         EDITOR_WINDOW_STORAGE_KEY,
-        serializeEditorWindowState({ ...state, scale: rootFontSize() })
+        // state.scale, not the live root size: the rect must be tagged with
+        // the scale it is actually expressed in.
+        serializeEditorWindowState(state)
       );
     } catch {
       // Storage full/blocked — the window still works, it just won't remember.
@@ -482,6 +506,11 @@ export function initNotesEditorWindow() {
   }
 
   window.addEventListener("resize", () => {
+    // Moving the page to another display — or crossing a viewport-scale tier —
+    // changes the root font size while the rect still holds the old screen's
+    // pixels. Convert before anything reads or persists it.
+    syncScale();
+
     if (state.floating && window.innerWidth >= EDITOR_WINDOW_MIN_VIEWPORT && state.rect) {
       state.rect = clampWindowRect(state.rect, viewport());
     }
@@ -498,10 +527,13 @@ export function initNotesEditorWindow() {
   if (stored) {
     state.floating = stored.floating;
     state.maximized = stored.maximized;
-    // Re-express the saved rect in this screen's pixels before it is used (a
-    // v1 record, or a session on a differently scaled display).
-    state.rect = scaleWindowRect(stored.rect, stored.scale, rootFontSize());
+    state.rect = stored.rect;
+    state.scale = stored.scale;
   }
+
+  // Re-express the saved rect in this screen's pixels before it is used (a v1
+  // record, or a session on a differently scaled display).
+  syncScale();
 
   applyMode();
 }

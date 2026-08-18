@@ -214,18 +214,33 @@ test("v1 window records migrate as 16px-scale records", () => {
   assert.equal(badScale.scale, EDITOR_WINDOW_BASE_SCALE);
 });
 
-test("the studio rescales a restored rect instead of only new windows", async () => {
+test("a live scale change converts the rect before anything reads or saves it", async () => {
   const source = await readFile(new URL("../src/notes-window.js", import.meta.url), "utf8");
   const boot = source.slice(source.indexOf("const stored = readStoredState();"));
+  const onResize = source.slice(source.indexOf('window.addEventListener("resize"'));
 
-  assert.match(
-    boot,
-    /state\.rect = scaleWindowRect\(stored\.rect, stored\.scale, rootFontSize\(\)\);/,
-    "restored rects are converted; preferredWidth() alone only helps first-time floats"
+  // Restoring: preferredWidth() alone only ever helps a first-time float.
+  assert.match(boot, /state\.scale = stored\.scale;/, "the restored rect keeps the scale it was saved in");
+  assert.match(boot, /syncScale\(\);/, "…and is converted before use");
+
+  // Living: dragged to another display, or resized across a tier. Without
+  // this the window is proportionally wrong until reload — and a later drag
+  // would persist the stale rect under the new scale, corrupting the record
+  // for every future session.
+  assert.ok(
+    onResize.indexOf("syncScale();") < onResize.indexOf("clampWindowRect"),
+    "resize converts the rect before clamping it"
   );
+
+  // Saving: the tag must be the scale the rect is actually in.
   assert.match(
     source,
-    /serializeEditorWindowState\(\{ \.\.\.state, scale: rootFontSize\(\) \}\)/,
-    "and every save records the scale it was written at"
+    /serializeEditorWindowState\(state\)/,
+    "persist saves state.scale, never the live root size"
+  );
+  assert.doesNotMatch(
+    source,
+    /serializeEditorWindowState\(\{[^}]*rootFontSize\(\)/,
+    "…so a stale rect can never be tagged with a fresh scale"
   );
 });
