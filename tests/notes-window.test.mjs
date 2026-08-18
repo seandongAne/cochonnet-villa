@@ -7,15 +7,18 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import {
+  EDITOR_WINDOW_BASE_SCALE,
   EDITOR_WINDOW_MARGIN,
   EDITOR_WINDOW_MIN,
   EDITOR_WINDOW_MIN_VIEWPORT,
   EDITOR_WINDOW_STORAGE_KEY,
+  EDITOR_WINDOW_VERSION,
   clampWindowRect,
   defaultWindowRect,
   maximizedWindowRect,
   parseEditorWindowState,
   resizeWindowRect,
+  scaleWindowRect,
   serializeEditorWindowState
 } from "../src/notes-window.js";
 
@@ -153,4 +156,76 @@ test("narrow viewports keep the docked layout (breakpoint stays in sync)", async
   assert.equal(EDITOR_WINDOW_MIN_VIEWPORT, 900, "matches the page's single-column breakpoint");
   assert.match(source, /EDITOR_WINDOW_MIN_VIEWPORT/, "the module gates floating on viewport width");
   assert.equal(typeof EDITOR_WINDOW_STORAGE_KEY, "string");
+});
+
+test("a rect saved at another root scale is re-expressed in this screen's pixels", () => {
+  const laptop = { x: 290, y: 63, width: 860, height: 774 };
+
+  // 1440x900 laptop (16px root) -> 5120x1440 ultra-wide (21.312px root):
+  // the window grows with the UI instead of holding laptop pixels while its
+  // rem-sized contents inflate around them.
+  const ultrawide = scaleWindowRect(laptop, 16, 21.312);
+  assert.equal(ultrawide.width, 1146);
+  assert.equal(ultrawide.height, 1031);
+  assert.ok(
+    Math.abs(ultrawide.width / laptop.width - 21.312 / 16) < 0.001,
+    "uniform scale, so the author's proportions survive"
+  );
+
+  // Same screen, same scale: a size the author dragged here is untouched.
+  assert.equal(scaleWindowRect(laptop, 21.312, 21.312), laptop);
+  assert.equal(scaleWindowRect(laptop, 16, 16), laptop);
+
+  // Degenerate inputs must never produce NaN geometry.
+  for (const [from, to] of [[0, 16], [16, 0], [Number.NaN, 16], [16, Number.NaN]]) {
+    assert.equal(scaleWindowRect(laptop, from, to), laptop);
+  }
+  assert.equal(scaleWindowRect(null, 16, 32), null);
+});
+
+test("v1 window records migrate as 16px-scale records", () => {
+  const v1 = JSON.stringify({
+    version: 1,
+    floating: true,
+    maximized: false,
+    rect: { x: 40, y: 60, width: 860, height: 640 }
+  });
+
+  const parsed = parseEditorWindowState(v1);
+
+  assert.equal(parsed.version, EDITOR_WINDOW_VERSION, "migrated forward");
+  assert.equal(
+    parsed.scale,
+    EDITOR_WINDOW_BASE_SCALE,
+    "v1 predates the viewport ladder, so it was written at 16px"
+  );
+  assert.deepEqual(parsed.rect, { x: 40, y: 60, width: 860, height: 640 });
+
+  // A v2 record keeps the scale it was written at.
+  const v2 = parseEditorWindowState(
+    serializeEditorWindowState({ floating: true, rect: { x: 1, y: 2, width: 3, height: 4 }, scale: 32 })
+  );
+  assert.equal(v2.scale, 32);
+
+  // A malformed scale falls back rather than poisoning the rect.
+  const badScale = parseEditorWindowState(
+    JSON.stringify({ version: 2, floating: true, rect: { x: 1, y: 2, width: 3, height: 4 }, scale: "big" })
+  );
+  assert.equal(badScale.scale, EDITOR_WINDOW_BASE_SCALE);
+});
+
+test("the studio rescales a restored rect instead of only new windows", async () => {
+  const source = await readFile(new URL("../src/notes-window.js", import.meta.url), "utf8");
+  const boot = source.slice(source.indexOf("const stored = readStoredState();"));
+
+  assert.match(
+    boot,
+    /state\.rect = scaleWindowRect\(stored\.rect, stored\.scale, rootFontSize\(\)\);/,
+    "restored rects are converted; preferredWidth() alone only helps first-time floats"
+  );
+  assert.match(
+    source,
+    /serializeEditorWindowState\(\{ \.\.\.state, scale: rootFontSize\(\) \}\)/,
+    "and every save records the scale it was written at"
+  );
 });

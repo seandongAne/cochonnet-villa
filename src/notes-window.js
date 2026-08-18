@@ -6,7 +6,11 @@
 // touches the DOM.
 
 export const EDITOR_WINDOW_STORAGE_KEY = "cochonnetvilla_notes_editor_window";
-export const EDITOR_WINDOW_VERSION = 1;
+export const EDITOR_WINDOW_VERSION = 2;
+// Root font size the layout is authored at. v1 records were written before
+// viewport-scale.css existed, when the root was always 16px — so a record
+// without a scale is definitionally a 16px one.
+export const EDITOR_WINDOW_BASE_SCALE = 16;
 export const EDITOR_WINDOW_MIN = { width: 380, height: 420 };
 export const EDITOR_WINDOW_MARGIN = 12;
 // Below this viewport width the page collapses to one column; a floating
@@ -71,6 +75,32 @@ export function resizeWindowRect(
   return clampWindowRect({ x, y, width, height }, viewport, min, margin);
 }
 
+// A rect saved on one screen is in that screen's CSS pixels. When the root
+// font size changes between sessions (different monitor, OS scaling, browser
+// zoom), the window's rem-sized contents grow but a stored px rect would not —
+// an 860px window saved on a laptop would hold 1.33x larger text at 5120x1440,
+// i.e. a NARROWER writing area. Rescaling keeps the author's chosen size
+// relative to the UI; an equal scale is left untouched, so a size deliberately
+// dragged on this screen survives verbatim.
+export function scaleWindowRect(rect, fromScale, toScale) {
+  if (
+    !rect ||
+    ![fromScale, toScale].every((value) => Number.isFinite(value) && value > 0) ||
+    fromScale === toScale
+  ) {
+    return rect;
+  }
+
+  const ratio = toScale / fromScale;
+
+  return {
+    x: Math.round(rect.x * ratio),
+    y: Math.round(rect.y * ratio),
+    width: Math.round(rect.width * ratio),
+    height: Math.round(rect.height * ratio)
+  };
+}
+
 export function maximizedWindowRect(viewport, margin = EDITOR_WINDOW_MARGIN) {
   return {
     x: margin,
@@ -120,7 +150,13 @@ export function parseEditorWindowState(raw) {
     return null;
   }
 
-  if (!payload || payload.version !== EDITOR_WINDOW_VERSION || typeof payload.floating !== "boolean") {
+  // v1 records stay readable: they carry no scale, and 16px is what they were
+  // written at.
+  if (
+    !payload ||
+    ![1, EDITOR_WINDOW_VERSION].includes(payload.version) ||
+    typeof payload.floating !== "boolean"
+  ) {
     return null;
   }
 
@@ -133,7 +169,11 @@ export function parseEditorWindowState(raw) {
     version: EDITOR_WINDOW_VERSION,
     floating: payload.floating,
     maximized: payload.maximized === true,
-    rect: rectValid ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null
+    rect: rectValid ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+    scale:
+      Number.isFinite(payload.scale) && payload.scale > 0
+        ? payload.scale
+        : EDITOR_WINDOW_BASE_SCALE
   };
 }
 
@@ -142,7 +182,11 @@ export function serializeEditorWindowState(state) {
     version: EDITOR_WINDOW_VERSION,
     floating: state.floating === true,
     maximized: state.maximized === true,
-    rect: state.rect || null
+    rect: state.rect || null,
+    scale:
+      Number.isFinite(state.scale) && state.scale > 0
+        ? state.scale
+        : EDITOR_WINDOW_BASE_SCALE
   });
 }
 
@@ -172,14 +216,16 @@ export function initNotesEditorWindow() {
   }
 
   // The page zooms with the root font size on wide screens; the window follows.
-  function preferredWidth() {
-    const rootFontSize = Number.parseFloat(
+  function rootFontSize() {
+    const size = Number.parseFloat(
       window.getComputedStyle(document.documentElement).fontSize
     );
 
-    return Number.isFinite(rootFontSize) && rootFontSize > 0
-      ? Math.round(EDITOR_WINDOW_PREFERRED_REM * rootFontSize)
-      : 860;
+    return Number.isFinite(size) && size > 0 ? size : EDITOR_WINDOW_BASE_SCALE;
+  }
+
+  function preferredWidth() {
+    return Math.round(EDITOR_WINDOW_PREFERRED_REM * rootFontSize());
   }
 
   function readStoredState() {
@@ -192,7 +238,10 @@ export function initNotesEditorWindow() {
 
   function persist() {
     try {
-      window.localStorage.setItem(EDITOR_WINDOW_STORAGE_KEY, serializeEditorWindowState(state));
+      window.localStorage.setItem(
+        EDITOR_WINDOW_STORAGE_KEY,
+        serializeEditorWindowState({ ...state, scale: rootFontSize() })
+      );
     } catch {
       // Storage full/blocked — the window still works, it just won't remember.
     }
@@ -449,7 +498,9 @@ export function initNotesEditorWindow() {
   if (stored) {
     state.floating = stored.floating;
     state.maximized = stored.maximized;
-    state.rect = stored.rect;
+    // Re-express the saved rect in this screen's pixels before it is used (a
+    // v1 record, or a session on a differently scaled display).
+    state.rect = scaleWindowRect(stored.rect, stored.scale, rootFontSize());
   }
 
   applyMode();
