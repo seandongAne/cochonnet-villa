@@ -547,3 +547,58 @@ test("site navigation links to the notes page with a zh i18n key slot", () => {
   assert.ok(html.includes('data-i18n="nav.notes"'));
   assert.ok(html.includes('"nav.notes": "小记"') || html.includes("nav.notes"));
 });
+
+test("the studio list collapses to the newest few notes with an expand toggle", async () => {
+  const page = await readFile(new URL("../src/pages/admin/notes.astro", import.meta.url), "utf8");
+  const { visibleNoteList, LIST_COLLAPSED_COUNT } = await import("../src/notes-admin.js");
+
+  const notes = Array.from({ length: 10 }, (_, index) => ({
+    slug: `note-${index}`,
+    title: `第 ${index} 篇`,
+    date: "2026-08-18",
+    body: "正文"
+  }));
+
+  assert.equal(
+    visibleNoteList(notes, {}).length,
+    LIST_COLLAPSED_COUNT,
+    "collapsed shows only the newest few"
+  );
+  assert.equal(visibleNoteList(notes, { expanded: true }).length, notes.length, "expanded shows all");
+  assert.deepEqual(
+    visibleNoteList(notes.slice(0, 2), {}).map((note) => note.slug),
+    ["note-0", "note-1"],
+    "a short list needs no truncation"
+  );
+
+  // A restored draft can point at an older note: the 编辑中 entry stays visible.
+  const withEditing = visibleNoteList(notes, { editingSlug: "note-7" });
+  assert.equal(withEditing.length, LIST_COLLAPSED_COUNT + 1);
+  assert.equal(withEditing.at(-1).slug, "note-7");
+  assert.equal(
+    visibleNoteList(notes, { editingSlug: "note-1" }).length,
+    LIST_COLLAPSED_COUNT,
+    "an already-visible editing target is not duplicated"
+  );
+
+  assert.match(page, /id="toggle-list-button"/, "the list card offers the toggle");
+  assert.match(page, /aria-controls="notes-list"[\s\S]{0,80}aria-expanded/, "the toggle is announced as a disclosure");
+  assert.match(page, /\.notes-studio \.button\[hidden\][\s\S]*?display: none;/, "hiding the toggle beats display:inline-flex");
+  assert.match(page, /\.notes-studio \.note-list\.is-expanded[\s\S]*?overflow-y: auto;/, "an expanded list scrolls inside the card");
+});
+
+test("the floating editor window paints on an opaque background", async () => {
+  const page = await readFile(new URL("../src/pages/admin/notes.astro", import.meta.url), "utf8");
+
+  assert.match(page, /--shell-solid:\s*#fffcf6;/, "defines the opaque companion to --shell");
+  assert.match(
+    page,
+    /\.notes-studio \.editor-window \.editor-card \{[\s\S]*?background: var\(--shell-solid\);/,
+    "the floating card itself is opaque"
+  );
+  assert.match(
+    page,
+    /\.notes-studio \.editor-card\.is-floating \.editor-topbar \{[\s\S]*?background: var\(--shell-solid\);[\s\S]*?backdrop-filter: none;/,
+    "the floating topbar drops the translucent blur"
+  );
+});

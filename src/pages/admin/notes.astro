@@ -1,4 +1,5 @@
 ---
+import "../../viewport-scale.css";
 const title = "猪猪小记编辑室 | Cochonnet Villa";
 ---
 
@@ -52,6 +53,14 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
             <div class="token-actions" style="margin-top: 0.9rem;">
               <button class="button button-primary" id="new-note-button" type="button">写新的一篇</button>
               <button class="button button-muted" id="reload-button" type="button">重新读取</button>
+              <button
+                class="button button-muted"
+                id="toggle-list-button"
+                type="button"
+                aria-controls="notes-list"
+                aria-expanded="false"
+                hidden
+              >展开全部</button>
             </div>
             <div class="note-list" id="notes-list"></div>
             <div class="status" id="list-status">正在读取……</div>
@@ -177,6 +186,8 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   :root {
     --paper: #fff8ef;
     --shell: rgba(255, 252, 246, 0.86);
+    /* 浮动窗口用的实色版本：窗口浮在页面上，透明会把背后的卡片透出来 */
+    --shell-solid: #fffcf6;
     --ink: #4e2f33;
     --ink-soft: #71535d;
     --rose: #f8a6ba;
@@ -207,7 +218,7 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   }
 
   .notes-studio .shell {
-    width: min(1180px, calc(100% - 1.25rem));
+    width: min(var(--shell-max, 73.75rem), calc(100% - var(--shell-gutter-tight, 1.25rem)));
     margin: 0 auto;
     padding: 1rem 0 3rem;
   }
@@ -288,6 +299,10 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   .notes-studio .button-muted {
     border-color: var(--line);
     background: rgba(255, 255, 255, 0.76);
+  }
+
+  .notes-studio .button[hidden] {
+    display: none;
   }
 
   .notes-studio .button:disabled {
@@ -414,11 +429,15 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
     margin: 0;
     overflow: auto;
     border-color: rgba(216, 107, 141, 0.4);
+    background: var(--shell-solid);
     box-shadow: 0 42px 120px rgba(78, 47, 51, 0.34);
   }
 
   .notes-studio .editor-card.is-floating .editor-topbar {
     position: static;
+    /* 吸顶条在窗口里不需要毛玻璃：实色才不会透出下面的页面 */
+    background: var(--shell-solid);
+    backdrop-filter: none;
     cursor: grab;
     user-select: none;
     touch-action: none;
@@ -592,6 +611,13 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
     display: grid;
     gap: 0.7rem;
     margin-top: 1rem;
+  }
+
+  /* 展开后仍然给列表封顶：十几篇小记不该把整页撑长，卡片内部自己滚动 */
+  .notes-studio .note-list.is-expanded {
+    max-height: min(26rem, 46dvh);
+    overflow-y: auto;
+    padding: 0.2rem 0.4rem 0.2rem 0.2rem;
   }
 
   .notes-studio .list-empty {

@@ -1,10 +1,13 @@
 ---
+import viewportScaleCss from "../../viewport-scale.css?raw";
 import adminHtmlSource from "../../../admin/index.html?raw";
 
-const adminHtml = adminHtmlSource.replace(
-  'src="/src/admin.js"',
-  'src="/admin/admin.js"'
-);
+// The content studio is a standalone HTML document rendered through
+// <Fragment set:html>, so Astro cannot inject the bundled stylesheet into its
+// head — inline the shared viewport ladder instead of forking a copy of it.
+const adminHtml = adminHtmlSource
+  .replace('src="/src/admin.js"', 'src="/admin/admin.js"')
+  .replace("</head>", `<style>${viewportScaleCss}</style></head>`);
 ---
 
 <Fragment set:html={adminHtml} />

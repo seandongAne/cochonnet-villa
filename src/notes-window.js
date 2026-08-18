@@ -80,9 +80,19 @@ export function maximizedWindowRect(viewport, margin = EDITOR_WINDOW_MARGIN) {
   };
 }
 
+// A comfortable writing column, expressed in root-font units so an ultra-wide
+// screen (where viewport-scale.css zooms the whole UI) gets a proportionally
+// larger window instead of a laptop-sized one stranded in the middle.
+export const EDITOR_WINDOW_PREFERRED_REM = 53.75;
+
 // First-time float: a comfortable document-window size, centered.
-export function defaultWindowRect(viewport, min = EDITOR_WINDOW_MIN, margin = EDITOR_WINDOW_MARGIN) {
-  const width = Math.max(Math.min(860, viewport.width - margin * 2), min.width);
+export function defaultWindowRect(
+  viewport,
+  min = EDITOR_WINDOW_MIN,
+  margin = EDITOR_WINDOW_MARGIN,
+  preferredWidth = 860
+) {
+  const width = Math.max(Math.min(preferredWidth, viewport.width - margin * 2), min.width);
   const height = Math.max(Math.min(Math.round(viewport.height * 0.86), viewport.height - margin * 2), min.height);
   return clampWindowRect(
     {
@@ -161,6 +171,17 @@ export function initNotesEditorWindow() {
     return { width: window.innerWidth, height: window.innerHeight };
   }
 
+  // The page zooms with the root font size on wide screens; the window follows.
+  function preferredWidth() {
+    const rootFontSize = Number.parseFloat(
+      window.getComputedStyle(document.documentElement).fontSize
+    );
+
+    return Number.isFinite(rootFontSize) && rootFontSize > 0
+      ? Math.round(EDITOR_WINDOW_PREFERRED_REM * rootFontSize)
+      : 860;
+  }
+
   function readStoredState() {
     try {
       return parseEditorWindowState(window.localStorage.getItem(EDITOR_WINDOW_STORAGE_KEY));
@@ -222,7 +243,7 @@ export function initNotesEditorWindow() {
 
   function mountFloating() {
     if (!state.rect) {
-      state.rect = defaultWindowRect(viewport());
+      state.rect = defaultWindowRect(viewport(), EDITOR_WINDOW_MIN, EDITOR_WINDOW_MARGIN, preferredWidth());
     }
 
     state.rect = clampWindowRect(state.rect, viewport());
