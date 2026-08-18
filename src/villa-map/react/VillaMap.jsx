@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
+import { BASE_VERTICAL_FOV } from "../camera-framing.js";
 import { createVillaWorld } from "../world.js";
 import { isTypingTarget } from "../controls.js";
 import {
@@ -19,6 +20,7 @@ import { PlayerControls } from "./PlayerControls.jsx";
 import { EditControls } from "./EditControls.jsx";
 import { ObservatoryDiagnostics } from "./ObservatoryDiagnostics.jsx";
 import { ObservatoryQualityPanel } from "./ObservatoryQualityPanel.jsx";
+import { UltraWideFraming } from "./UltraWideFraming.jsx";
 
 const CONTROL_KEYS = ["W", "A", "S", "D", "Mouse", "E", "Q", "M", "Esc"];
 
@@ -474,7 +476,7 @@ export default function VillaMap() {
         dpr={[1, 1.8]}
         gl={{ antialias: true, stencil: true }}
         camera={{
-          fov: 70,
+          fov: BASE_VERTICAL_FOV,
           near: 0.1,
           far: 200,
           position: [start.x, start.y, start.z]
@@ -482,6 +484,7 @@ export default function VillaMap() {
         onCreated={() => setLoading(false)}
         onPointerMissed={editMode ? () => setSelected(null) : undefined}
       >
+        <UltraWideFraming baseFov={BASE_VERTICAL_FOV} />
         <Scene
           world={world}
           editMode={editMode}

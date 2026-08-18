@@ -37,7 +37,7 @@
       }
 
       .shell {
-        width: min(1120px, calc(100% - 1.25rem));
+        width: min(var(--shell-max-narrow, 70rem), calc(100% - var(--shell-gutter-tight, 1.25rem)));
         margin: 0 auto;
         padding: 1rem 0 3rem;
       }

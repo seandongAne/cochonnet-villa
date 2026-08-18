@@ -36,6 +36,11 @@ const DRAFT_BRANCH = "notes-drafts";
 const DRAFT_PATH = "content/notes-draft.json";
 const CLOUD_DRAFT_IDLE_MS = 5 * 60 * 1000;
 
+// The list card shows only the newest few notes until the author expands it:
+// a dozen entries otherwise push Publish and the editor far down the page.
+export const LIST_COLLAPSED_COUNT = 3;
+const LIST_EXPANDED_STORAGE_KEY = "cochonnetvilla_notes_list_expanded";
+
 const apiBase = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CONTENT_PATH}`;
 const draftApiBase = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DRAFT_PATH}`;
 const refsApiBase = `https://api.github.com/repos/${OWNER}/${REPO}/git`;
@@ -57,6 +62,27 @@ function fromBase64(base64Text) {
   return new TextDecoder().decode(bytes);
 }
 
+// Node-pure: the entries a collapsed list renders. Newest N, plus the note
+// being edited — a restored draft can point at an older one, and the 编辑中
+// highlight must never hide behind the toggle.
+export function visibleNoteList(notes, { expanded = false, editingSlug = null, limit = LIST_COLLAPSED_COUNT } = {}) {
+  if (expanded || notes.length <= limit) {
+    return notes.slice();
+  }
+
+  const visible = notes.slice(0, limit);
+
+  if (editingSlug && !visible.some((note) => note.slug === editingSlug)) {
+    const editing = notes.find((note) => note.slug === editingSlug);
+
+    if (editing) {
+      visible.push(editing);
+    }
+  }
+
+  return visible;
+}
+
 function todayString() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -74,6 +100,7 @@ export function initNotesAdmin() {
     listStatus: document.querySelector("#list-status"),
     newNoteButton: document.querySelector("#new-note-button"),
     reloadButton: document.querySelector("#reload-button"),
+    toggleListButton: document.querySelector("#toggle-list-button"),
     titleInput: document.querySelector("#title-input"),
     dateInput: document.querySelector("#date-input"),
     moodInput: document.querySelector("#mood-input"),
@@ -102,6 +129,7 @@ export function initNotesAdmin() {
     dirty: false,
     publishing: false,
     editingSlug: null,
+    listExpanded: false,
     // True once we know the remote state (a successful read, or a definite
     // 404). Publishing without it could clobber notes we never saw.
     remoteKnown: false,
@@ -477,8 +505,38 @@ export function initNotesAdmin() {
     );
   }
 
+  function persistListExpanded() {
+    try {
+      window.localStorage.setItem(LIST_EXPANDED_STORAGE_KEY, state.listExpanded ? "1" : "0");
+    } catch {
+      // Storage blocked — the toggle still works for this session.
+    }
+  }
+
+  function renderListToggle() {
+    const button = elements.toggleListButton;
+
+    if (!button) {
+      return;
+    }
+
+    const collapsible = state.notes.length > LIST_COLLAPSED_COUNT;
+    button.hidden = !collapsible;
+
+    if (!collapsible) {
+      return;
+    }
+
+    button.textContent = state.listExpanded ? "收起列表" : `展开全部（${state.notes.length} 篇）`;
+    button.setAttribute("aria-expanded", state.listExpanded ? "true" : "false");
+  }
+
   function renderList() {
     elements.notesList.innerHTML = "";
+    renderListToggle();
+
+    const expanded = state.listExpanded && state.notes.length > LIST_COLLAPSED_COUNT;
+    elements.notesList.classList.toggle("is-expanded", expanded);
 
     if (!state.notes.length) {
       const empty = document.createElement("p");
@@ -488,7 +546,12 @@ export function initNotesAdmin() {
       return;
     }
 
-    for (const note of state.notes) {
+    const visible = visibleNoteList(state.notes, {
+      expanded: state.listExpanded,
+      editingSlug: state.editingSlug
+    });
+
+    for (const note of visible) {
       const item = document.createElement("div");
       item.className = "note-item";
 
@@ -849,6 +912,11 @@ export function initNotesAdmin() {
   elements.deleteNoteButton?.addEventListener("click", () => {
     startNewNote();
   });
+  elements.toggleListButton?.addEventListener("click", () => {
+    state.listExpanded = !state.listExpanded;
+    persistListExpanded();
+    renderList();
+  });
   elements.reloadButton?.addEventListener("click", async () => {
     if (
       state.dirty &&
@@ -904,6 +972,12 @@ export function initNotesAdmin() {
       event.returnValue = "";
     }
   });
+
+  try {
+    state.listExpanded = window.localStorage.getItem(LIST_EXPANDED_STORAGE_KEY) === "1";
+  } catch {
+    // Storage blocked — start collapsed.
+  }
 
   loadToken();
   (async () => {

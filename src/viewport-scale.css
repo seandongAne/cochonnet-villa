@@ -1,0 +1,67 @@
+/* Viewport-shape adaptation, shared by every page.
+ *
+ * The site is authored for a ~16:9/16:10 laptop and that stays the baseline:
+ * below the tiers here nothing changes at all. Ultra-wide monitors are handled
+ * by *zooming and widening the same layout* — never by adding columns — so the
+ * page a 32:9 desktop shows is recognizably the page a laptop shows.
+ *
+ * Zoom: the root font size tracks viewport HEIGHT (1.48vh ≈ 16px at 1080px
+ * tall), which keeps the "design viewport" near 1080 design px tall on every
+ * screen. Because the layout is rem-authored, one root font size scales type,
+ * spacing, cards and the shell together.
+ *
+ *   3840 x 1080  →  16.0px  (design 3840 x 1080)
+ *   5120 x 1440  →  21.3px  (design 3840 x 1080)
+ *   7680 x 2160  →  32.0px  (design 3840 x 1080)
+ *
+ * The two 32:9 targets therefore land on the *same* design-space layout; the
+ * 7680 panel simply draws it twice as large. `clamp(1rem, …)` keeps a reader's
+ * larger default font size as the floor instead of overriding it.
+ *
+ * Widen: --shell-max is rem-based, so it zooms too; the tiers additionally
+ * raise it, taking the content band from ~31% of an ultra-wide screen to ~50%.
+ * Wider than that and a line of text would span half a metre of glass.
+ */
+
+:root {
+  --shell-max: 73.75rem; /* 1180px @16px — the historical cap */
+  --shell-max-narrow: 70rem; /* 1120px @16px — /admin/ content studio */
+  --shell-gutter: 2rem;
+  --shell-gutter-tight: 1.25rem;
+}
+
+/* 21:9 (3440x1440, 2560x1080) — zoom with height, widen to ~57% */
+@media (min-width: 2400px) and (min-aspect-ratio: 2/1) {
+  html {
+    font-size: clamp(1rem, 1.48vh, 1.75rem);
+  }
+
+  :root {
+    --shell-max: 92rem;
+    --shell-max-narrow: 88rem;
+    --shell-gutter: 3rem;
+    --shell-gutter-tight: 3rem;
+  }
+}
+
+/* 32:9 (7680x2160, 5120x1440, 3840x1080) — zoom with height, widen to ~50% */
+@media (min-width: 3600px) and (min-aspect-ratio: 3/1) {
+  html {
+    font-size: clamp(1rem, 1.48vh, 2rem);
+  }
+
+  :root {
+    --shell-max: 120rem;
+    --shell-max-narrow: 114rem;
+    --shell-gutter: 4rem;
+    --shell-gutter-tight: 4rem;
+  }
+}
+
+/* Very large 16:9/16:10 (4K/5K at 100% OS scaling): text would be tiny, but
+ * the band width is already right — zoom only, never widen. */
+@media (min-width: 3000px) and (max-aspect-ratio: 2/1) {
+  html {
+    font-size: clamp(1rem, 1.34vh, 1.5rem);
+  }
+}
