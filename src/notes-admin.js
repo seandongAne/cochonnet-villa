@@ -24,6 +24,7 @@ import {
 import {
   shouldCheckRemoteSha,
   deriveRemoteFreshness,
+  findMergeConflicts,
   describeStaleNotice
 } from "./notes-staleness.js";
 
@@ -149,7 +150,13 @@ export function initNotesAdmin() {
     // Stale-tab detection (see notes-staleness.js).
     lastRemoteCheckAt: 0,
     checkingRemote: false,
-    stale: false
+    stale: false,
+    // Titles of slugs this tab and the remote both changed; a sync resolves
+    // them local-wins, so the banner names them.
+    staleConflicts: [],
+    // Remote list from the last freshness check, kept so the banner can
+    // recompute conflicts when the author stages a further edit.
+    staleRemoteNotes: []
   };
 
   function setStatus(element, message, tone = "default") {
@@ -747,9 +754,16 @@ export function initNotesAdmin() {
     }
 
     if (elements.staleBannerText) {
-      // Re-read `dirty` on every render: staging an edit changes whether the
-      // sync merges or replaces, and the notice promises one of the two.
-      elements.staleBannerText.textContent = describeStaleNotice({ dirty: state.dirty });
+      // Recompute on every render: staging a further edit can newly contest a
+      // slug, and the notice must name exactly what a sync would overwrite.
+      state.staleConflicts = state.dirty
+        ? findMergeConflicts(state.notes, state.staleRemoteNotes)
+        : [];
+
+      elements.staleBannerText.textContent = describeStaleNotice({
+        dirty: state.dirty,
+        conflicts: state.staleConflicts
+      });
     }
 
     elements.staleBanner.hidden = false;
@@ -758,6 +772,8 @@ export function initNotesAdmin() {
   // Any successful read or publish re-anchors this tab to the remote sha.
   function markRemoteFresh() {
     state.stale = false;
+    state.staleConflicts = [];
+    state.staleRemoteNotes = [];
     state.lastRemoteCheckAt = Date.now();
     renderStaleBanner();
   }
@@ -800,6 +816,7 @@ export function initNotesAdmin() {
     }
 
     state.stale = freshness === "stale";
+    state.staleRemoteNotes = state.stale ? remote?.notes ?? [] : [];
     renderStaleBanner();
   }
 
