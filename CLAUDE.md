@@ -40,7 +40,9 @@ Both editors are backend-free: they commit through the GitHub Contents API with 
 
 **Editor** — `/admin/notes/` = `src/pages/admin/notes.astro` + `src/notes-admin.js`, Astro-bundled so the live preview runs the real renderer. List collapses to the newest 3 (`visibleNoteList` always keeps the 编辑中 entry visible; expanded state persisted, expanded list scrolls inside the card). Pop-out editor window is painted opaque (`--shell-solid`).
 
-**Publish guard (non-negotiable)** — publish requires known remote state (a successful read *or* a definite 404) and merges remote-only slugs first. A failed initial read must never clobber published notes.
+**Publish guard (non-negotiable)** — publish requires known remote state (a successful read *or* a definite 404) and merges remote-only slugs first. A failed initial read must never clobber published notes. A tab that already read successfully keeps its `sha`, so a publish from a stale tab is refused by GitHub with a 409 rather than merged — the guard, not the banner below, is what protects the data.
+
+**Stale-tab banner** (`src/notes-staleness.js`, node-pure) — a tab left open holds the `sha` it last read; if anyone publishes meanwhile (another device, or a plain `git push`) that sha goes stale. On `visibilitychange` back to the foreground the editor spends one throttled GET (2 min) to compare shas and, on a mismatch, shows a banner offering 「同步最新内容」 → `fetchNotes({ discardLocal: false })`, which merges the remote list *underneath* unpublished local edits (unlike 「重新读取」, which discards them). Courtesy only: it is fail-soft (a failed request never raises a false alarm) and gates nothing — the 409 above is the real protection.
 
 **`normalizeNotes`** — sorts newest-first, drops empty entries, dedupes slugs (date-based, `-2` suffixes), and **preserves the sanitized `image` field** so the editor never strips generated art.
 

@@ -21,6 +21,11 @@ import {
   chooseDraftSource,
   draftContentKey
 } from "./notes-draft.js";
+import {
+  shouldCheckRemoteSha,
+  deriveRemoteFreshness,
+  describeStaleNotice
+} from "./notes-staleness.js";
 
 const OWNER = "seandongAne";
 const REPO = "cochonnet-villa";
@@ -119,7 +124,10 @@ export function initNotesAdmin() {
     draftStatus: document.querySelector("#draft-status"),
     previewTitle: document.querySelector("#preview-title"),
     previewMeta: document.querySelector("#preview-meta"),
-    previewBody: document.querySelector("#preview-body")
+    previewBody: document.querySelector("#preview-body"),
+    staleBanner: document.querySelector("#stale-banner"),
+    staleBannerText: document.querySelector("#stale-banner-text"),
+    staleSyncButton: document.querySelector("#stale-sync-button")
   };
 
   const state = {
@@ -137,7 +145,11 @@ export function initNotesAdmin() {
     cloudDraftSha: "",
     cloudTimer: null,
     cloudDirty: false,
-    lastCloudKey: ""
+    lastCloudKey: "",
+    // Stale-tab detection (see notes-staleness.js).
+    lastRemoteCheckAt: 0,
+    checkingRemote: false,
+    stale: false
   };
 
   function setStatus(element, message, tone = "default") {
@@ -475,6 +487,8 @@ export function initNotesAdmin() {
     state.dirty = true;
     setPublishStatus("列表里有还没发布的修改，记得点「发布到 GitHub」。", "warning");
     saveDraft();
+    // Staging an edit flips the banner from "replace" wording to "merge".
+    renderStaleBanner();
   }
 
   // True when the open form holds a publishable note that differs from its
@@ -693,6 +707,7 @@ export function initNotesAdmin() {
 
     state.sha = remote.sha;
     state.remoteKnown = true;
+    markRemoteFresh();
 
     if (state.dirty && !discardLocal) {
       // The author staged edits while this request was in flight — merge the
@@ -719,6 +734,73 @@ export function initNotesAdmin() {
     }
 
     setStatus(elements.listStatus, `已读取 ${state.notes.length} 篇小记。`, "success");
+  }
+
+  function renderStaleBanner() {
+    if (!elements.staleBanner) {
+      return;
+    }
+
+    if (!state.stale) {
+      elements.staleBanner.hidden = true;
+      return;
+    }
+
+    if (elements.staleBannerText) {
+      // Re-read `dirty` on every render: staging an edit changes whether the
+      // sync merges or replaces, and the notice promises one of the two.
+      elements.staleBannerText.textContent = describeStaleNotice({ dirty: state.dirty });
+    }
+
+    elements.staleBanner.hidden = false;
+  }
+
+  // Any successful read or publish re-anchors this tab to the remote sha.
+  function markRemoteFresh() {
+    state.stale = false;
+    state.lastRemoteCheckAt = Date.now();
+    renderStaleBanner();
+  }
+
+  // Cheap foreground check: one GET, compared by sha. Purely a courtesy so a
+  // tab left open overnight says something *before* the author writes an
+  // entry — publishing already refuses a stale sha on its own (GitHub answers
+  // 409), so this never gates anything.
+  async function checkRemoteFreshness() {
+    if (
+      !shouldCheckRemoteSha({
+        now: Date.now(),
+        lastCheckedAt: state.lastRemoteCheckAt,
+        remoteKnown: state.remoteKnown,
+        localSha: state.sha,
+        publishing: state.publishing,
+        checking: state.checkingRemote
+      })
+    ) {
+      return;
+    }
+
+    state.checkingRemote = true;
+
+    let remote = null;
+
+    try {
+      remote = await fetchRemote();
+    } catch {
+      // Fail-soft: a flaky network must not raise a false alarm.
+    }
+
+    state.checkingRemote = false;
+    state.lastRemoteCheckAt = Date.now();
+
+    const freshness = deriveRemoteFreshness({ localSha: state.sha, remote });
+
+    if (freshness === "unknown") {
+      return;
+    }
+
+    state.stale = freshness === "stale";
+    renderStaleBanner();
   }
 
   async function publish() {
@@ -831,6 +913,7 @@ export function initNotesAdmin() {
       const payload = await response.json();
       state.sha = payload.content?.sha || state.sha;
       state.dirty = false;
+      markRemoteFresh();
       clearDraft();
 
       if (formIsUnstaged()) {
@@ -934,6 +1017,39 @@ export function initNotesAdmin() {
       setStatus(elements.listStatus, error.message, "error");
     }
   });
+
+  // Unlike 「重新读取」 this never discards: staged-but-unpublished edits stay
+  // on top and the remote list is merged underneath, which is exactly what the
+  // banner promises.
+  elements.staleSyncButton?.addEventListener("click", async () => {
+    if (elements.staleSyncButton.disabled) {
+      return;
+    }
+
+    elements.staleSyncButton.disabled = true;
+    elements.staleSyncButton.setAttribute("aria-busy", "true");
+
+    try {
+      await fetchNotes({ discardLocal: false });
+    } catch (error) {
+      console.error(error);
+      setStatus(elements.listStatus, error.message, "error");
+    } finally {
+      elements.staleSyncButton.disabled = false;
+      elements.staleSyncButton.removeAttribute("aria-busy");
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+
+    checkRemoteFreshness().catch((error) => {
+      console.error(error);
+    });
+  });
+
   async function handlePublishClick() {
     try {
       await publish();
