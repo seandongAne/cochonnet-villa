@@ -14,6 +14,11 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   </head>
   <body class="notes-studio">
     <div class="shell">
+      <div class="stale-banner" id="stale-banner" role="status" hidden>
+        <p class="stale-banner-text" id="stale-banner-text"></p>
+        <button class="button button-primary" id="stale-sync-button" type="button">同步最新内容</button>
+      </div>
+
       <section class="masthead">
         <p class="eyebrow">猪猪小记 · 编辑室</p>
         <h1>写一篇随笔，保存后直接发布到网站。</h1>
@@ -235,6 +240,33 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
     display: grid;
     gap: 1rem;
     padding: 1.5rem;
+  }
+
+  /* Shown only when a background tab comes back holding an outdated sha. */
+  .notes-studio .stale-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    padding: 0.9rem 1.2rem;
+    border: 1px solid rgba(245, 181, 126, 0.55);
+    border-radius: 20px;
+    background: rgba(245, 181, 126, 0.22);
+    box-shadow: var(--shadow);
+  }
+
+  .notes-studio .stale-banner[hidden] {
+    display: none;
+  }
+
+  .notes-studio .stale-banner-text {
+    flex: 1 1 18rem;
+    margin: 0;
+    color: #6f4a20;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.5;
   }
 
   .notes-studio .eyebrow {
