@@ -1,9 +1,12 @@
 # Cochonnet Villa
 
-Static Astro site about 15 pet pigs. Two features:
+Static Astro site about 15 pet pigs. Three features:
 
-1. **Landing site** — `src/pages/index.astro` rendered from `content/site.json` via `src/render-site.js`. Admin at `/admin/` edits the JSON through GitHub OAuth (Decap CMS, no backend).
-2. **3D Villa Map** (`/villa-map/`) — React Three Fiber (Three.js / WebGL) scene, mounted as a client-only Astro React island.
+1. **Landing site** — `src/pages/index.astro` rendered from `content/site.json` via `src/render-site.js`. Edited at `/admin/`.
+2. **猪猪小记 blog** — `/notes/` rendered by `src/render-notes.js` (node-pure, build time) from `content/notes.json`. Edited at `/admin/notes/`.
+3. **3D Villa Map** (`/villa-map/`) — React Three Fiber (Three.js / WebGL) scene, mounted as a client-only Astro React island.
+
+Both editors are backend-free: they commit through the GitHub Contents API with a fine-grained token kept in localStorage (`cochonnetvilla_github_token`) — no OAuth, no server.
 
 ## Commands
 
@@ -11,6 +14,23 @@ Static Astro site about 15 pet pigs. Two features:
 - `npm run build` — production build
 - `npm run preview` — serve the production build (full-speed; dev is slow to first-compile the three/drei bundle)
 - `npm test` — Node.js built-in `node:test` runner
+
+## 猪猪小记 blog
+
+**Rendering** — `src/render-notes.js` escapes HTML first, then applies markdown-lite. Emits `/notes/`, `/notes/<slug>/` and the latest-3 landing teaser. `normalizeNotes` sorts newest-first, dedupes slugs, and **preserves the sanitized `image` field** so the editor never strips generated art.
+
+**Publish guard (non-negotiable)** — publish requires known remote state (a successful read *or* a definite 404) and merges remote-only slugs first; a failed initial read must never clobber published notes. A tab that already read successfully keeps its `sha`, so a publish from a stale tab is refused by GitHub with a 409 rather than merged — that 409, not the banner below, is what protects the data.
+
+**Stale-tab banner** (`src/notes-staleness.js`, node-pure) — on `visibilitychange` back to the foreground the editor spends one throttled GET (2 min) to compare its `sha` against the remote and, on a mismatch, offers 「同步最新内容」 → `fetchNotes({ discardLocal: false })`, which merges the remote list *underneath* unpublished local edits (unlike 「重新读取」, which discards them). Fail-soft: a failed request never raises a false alarm.
+
+Two invariants hold here:
+
+- **The banner must not over-promise.** `mergeRemoteNotes` is *local-wins* on same-slug clashes, so syncing a slug both sides edited means the next publish overwrites the other device's version. `findMergeConflicts` (comparing `title`/`date`/`mood`/`body`, never `image`) makes the notice name those entries instead of claiming nothing is lost. A remote *deletion* is deliberately not detected — the editor keeps no record of which local entries came from a past read, so it is indistinguishable from a local draft.
+- **One snapshot, judged and merged.** The banner is drawn against a *past* read, so the sync button fetches first and re-judges the snapshot it is **about to merge** (`applyRemote`, split out of `fetchNotes` for this). An unannounced conflict (`findUnacknowledgedConflicts`, keyed by slug — titles repeat) redraws and refuses to merge: merging would both overwrite an unmentioned edit *and* adopt the new `sha`, removing the 409. Likewise `checkRemoteFreshness` drops its own answer if `state.sha` moved while the GET was in flight.
+
+**Two-tier drafts** (`src/notes-draft.js`, node-pure) — every keystroke persists the full editor state to localStorage; 5-min idle / tab hidden / manual「备份草稿」commits it to `content/notes-draft.json` on the **`notes-drafts` branch** (live data — never prune it). Publish clears both tiers.
+
+**Auto note-art** — `.github/workflows/generate-note-art.yml` fires on `content/notes.json` pushes to main → `scripts/generate-note-art.mjs` calls the OpenAI Image API for notes without `image`, stamps the field, commits, then explicitly dispatches `deploy-pages.yml` (a GITHUB_TOKEN push cannot retrigger workflows). Prompts are text-only; reference images are never uploaded.
 
 ## 3D scene (`src/villa-map/`)
 

@@ -18,6 +18,9 @@ The hosted editor is intentionally simple so it works on GitHub Pages without re
 - Publishing commits `content/notes.json` through the GitHub Contents API; GitHub Pages redeploys automatically, so a new post appears on the site about 1–2 minutes after publishing.
 - Post body supports simple formatting: blank line = new paragraph, `## heading`, `- list item`, `**bold**`, `*italic*`. Raw HTML is always escaped.
 - **Drafts are double-protected:** every keystroke saves the full editor state (including staged-but-unpublished list changes) to the browser; after 5 idle minutes (or when leaving the tab, or via the「备份草稿」button) the draft is also committed to the repo's `notes-drafts` branch, so it survives cleared browser data and follows you across devices. Opening the editor restores whichever copy is newer. Publishing clears both. Note: the draft branch is as visible as the repository itself.
+- **A tab left open tells you when it has fallen behind.** If you publish from another device (or just `git push`) while an editor tab sits in the background, that tab is now looking at an old copy. Coming back to it checks once and, if the site moved on, shows a banner with a「同步最新内容」button. Syncing keeps anything you have written but not yet published, and merges the newer site content underneath it — unlike「重新读取」, which throws your unpublished list changes away.
+  - If you and the other device both edited **the same post**, the banner names it: syncing keeps *your* version, so the other device's edit to that post is what your next publish overwrites. Open `/notes/` in another tab and look before deciding.
+  - Nothing is lost if you ignore the banner. Publishing from a tab that has fallen behind is refused by GitHub outright — the banner just saves you from finding that out after writing a whole entry.
 
 ### Automatic piglet comic art
 
