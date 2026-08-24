@@ -6,6 +6,7 @@ import {
   shouldCheckRemoteSha,
   deriveRemoteFreshness,
   findMergeConflicts,
+  findUnacknowledgedConflicts,
   describeStaleNotice
 } from "../src/notes-staleness.js";
 
@@ -110,7 +111,7 @@ test("a slug both sides edited is reported as contested, by title", () => {
   const local = [{ slug: "2026-08-23", title: "周末", date: "2026-08-23", mood: "", body: "我改的" }];
   const remote = [{ slug: "2026-08-23", title: "周末", date: "2026-08-23", mood: "", body: "别处改的" }];
 
-  assert.deepEqual(findMergeConflicts(local, remote), ["周末"]);
+  assert.deepEqual(findMergeConflicts(local, remote), [{ slug: "2026-08-23", title: "周末" }]);
 });
 
 test("untouched twins, local-only drafts and remote-only notes are not conflicts", () => {
@@ -143,7 +144,13 @@ test("a differing image alone is never a conflict — the art workflow stamps it
 });
 
 test("contested slugs are named in the notice instead of promising nothing is lost", () => {
-  const notice = describeStaleNotice({ dirty: true, conflicts: ["周末", "唱歌记"] });
+  const notice = describeStaleNotice({
+    dirty: true,
+    conflicts: [
+      { slug: "2026-08-23", title: "周末" },
+      { slug: "2026-08-21", title: "唱歌记" }
+    ]
+  });
 
   assert.match(notice, /《周末》/);
   assert.match(notice, /《唱歌记》/);
@@ -154,7 +161,47 @@ test("contested slugs are named in the notice instead of promising nothing is lo
 
 test("conflicts are ignored for a clean tab, which is replaced outright", () => {
   assert.equal(
-    describeStaleNotice({ dirty: false, conflicts: ["周末"] }),
+    describeStaleNotice({ dirty: false, conflicts: [{ slug: "2026-08-23", title: "周末" }] }),
     describeStaleNotice({ dirty: false })
   );
+});
+
+// The banner is drawn against one snapshot; the sync button fetches another.
+// If the remote moved again in between, the newly contested slug was never
+// shown, and merging it silently would also adopt a sha that removes the 409.
+test("a conflict the notice never showed counts as unacknowledged", () => {
+  const conflicts = [
+    { slug: "2026-08-23", title: "周末" },
+    { slug: "2026-08-21", title: "唱歌记" }
+  ];
+
+  assert.deepEqual(
+    findUnacknowledgedConflicts(conflicts, ["2026-08-23"]),
+    [{ slug: "2026-08-21", title: "唱歌记" }],
+    "only the slug the author already read about is cleared"
+  );
+  assert.deepEqual(
+    findUnacknowledgedConflicts(conflicts, ["2026-08-23", "2026-08-21"]),
+    [],
+    "once both were shown, syncing may proceed"
+  );
+  assert.deepEqual(
+    findUnacknowledgedConflicts(conflicts, []),
+    conflicts,
+    "nothing acknowledged yet means nothing may pass silently"
+  );
+  assert.deepEqual(findUnacknowledgedConflicts([], ["2026-08-23"]), []);
+});
+
+// Two notes can legitimately carry the same title, so acknowledgement is
+// keyed by slug — matching on title would let one clear the other.
+test("acknowledgement is keyed by slug, not by title", () => {
+  const conflicts = [
+    { slug: "2026-08-23", title: "快乐的周末" },
+    { slug: "2026-08-16", title: "快乐的周末" }
+  ];
+
+  assert.deepEqual(findUnacknowledgedConflicts(conflicts, ["2026-08-23"]), [
+    { slug: "2026-08-16", title: "快乐的周末" }
+  ]);
 });

@@ -25,6 +25,7 @@ import {
   shouldCheckRemoteSha,
   deriveRemoteFreshness,
   findMergeConflicts,
+  findUnacknowledgedConflicts,
   describeStaleNotice
 } from "./notes-staleness.js";
 
@@ -151,12 +152,15 @@ export function initNotesAdmin() {
     lastRemoteCheckAt: 0,
     checkingRemote: false,
     stale: false,
-    // Titles of slugs this tab and the remote both changed; a sync resolves
-    // them local-wins, so the banner names them.
+    // Slugs this tab and the remote both changed; a sync resolves them
+    // local-wins, so the banner names them.
     staleConflicts: [],
     // Remote list from the last freshness check, kept so the banner can
     // recompute conflicts when the author stages a further edit.
-    staleRemoteNotes: []
+    staleRemoteNotes: [],
+    // Conflict slugs the banner has actually shown. Syncing is only allowed to
+    // proceed silently over conflicts the author has already read about.
+    acknowledgedConflicts: []
   };
 
   function setStatus(element, message, tone = "default") {
@@ -701,17 +705,10 @@ export function initNotesAdmin() {
     };
   }
 
-  async function fetchNotes({ discardLocal = false } = {}) {
-    setStatus(elements.listStatus, "正在从 GitHub 读取小记……");
-
-    let remote;
-
-    try {
-      remote = await fetchRemote();
-    } catch (error) {
-      throw new Error(`读取失败：${error.message} 你的草稿不受影响；发布前会再次尝试同步，避免覆盖网站上的内容。`);
-    }
-
+  // Adopt an already-fetched remote snapshot. Split out of fetchNotes so the
+  // stale-tab sync can inspect the very snapshot it is about to merge before
+  // committing to it — the banner's promise has to be about *this* snapshot.
+  function applyRemote(remote, { discardLocal = false } = {}) {
     state.sha = remote.sha;
     state.remoteKnown = true;
     markRemoteFresh();
@@ -743,6 +740,20 @@ export function initNotesAdmin() {
     setStatus(elements.listStatus, `已读取 ${state.notes.length} 篇小记。`, "success");
   }
 
+  async function fetchNotes({ discardLocal = false } = {}) {
+    setStatus(elements.listStatus, "正在从 GitHub 读取小记……");
+
+    let remote;
+
+    try {
+      remote = await fetchRemote();
+    } catch (error) {
+      throw new Error(`读取失败：${error.message} 你的草稿不受影响；发布前会再次尝试同步，避免覆盖网站上的内容。`);
+    }
+
+    applyRemote(remote, { discardLocal });
+  }
+
   function renderStaleBanner() {
     if (!elements.staleBanner) {
       return;
@@ -760,6 +771,14 @@ export function initNotesAdmin() {
         ? findMergeConflicts(state.notes, state.staleRemoteNotes)
         : [];
 
+      // Whatever the notice names is, from here on, something the author has
+      // been told about.
+      for (const conflict of state.staleConflicts) {
+        if (!state.acknowledgedConflicts.includes(conflict.slug)) {
+          state.acknowledgedConflicts.push(conflict.slug);
+        }
+      }
+
       elements.staleBannerText.textContent = describeStaleNotice({
         dirty: state.dirty,
         conflicts: state.staleConflicts
@@ -774,6 +793,7 @@ export function initNotesAdmin() {
     state.stale = false;
     state.staleConflicts = [];
     state.staleRemoteNotes = [];
+    state.acknowledgedConflicts = [];
     state.lastRemoteCheckAt = Date.now();
     renderStaleBanner();
   }
@@ -797,6 +817,10 @@ export function initNotesAdmin() {
     }
 
     state.checkingRemote = true;
+    // The sha this check is asking about. A publish or a read that lands while
+    // the GET is in flight moves it, which makes the answer we get back an
+    // answer to a question nobody is asking any more.
+    const checkedLocalSha = state.sha;
 
     let remote = null;
 
@@ -808,6 +832,13 @@ export function initNotesAdmin() {
 
     state.checkingRemote = false;
     state.lastRemoteCheckAt = Date.now();
+
+    // Stale response: e.g. a publish completed while we waited, so it read the
+    // pre-publish file and would now "discover" that the remote differs from
+    // the sha the publish just wrote. Dropping it avoids that false alarm.
+    if (state.sha !== checkedLocalSha || state.publishing) {
+      return;
+    }
 
     const freshness = deriveRemoteFreshness({ localSha: state.sha, remote });
 
@@ -1045,12 +1076,38 @@ export function initNotesAdmin() {
 
     elements.staleSyncButton.disabled = true;
     elements.staleSyncButton.setAttribute("aria-busy", "true");
+    setStatus(elements.listStatus, "正在从 GitHub 读取小记……");
 
     try {
-      await fetchNotes({ discardLocal: false });
+      // Fetch first and judge *this* snapshot. The banner may have been drawn
+      // against an older read, and the remote can move again in between — if
+      // that introduced a conflict the notice never named, merging now would
+      // overwrite it silently, and worse, adopting the new sha would remove
+      // the 409 that would otherwise have stopped the publish.
+      const remote = await fetchRemote();
+      const conflicts = state.dirty ? findMergeConflicts(state.notes, remote.notes) : [];
+      const unseen = findUnacknowledgedConflicts(conflicts, state.acknowledgedConflicts);
+
+      if (unseen.length) {
+        state.stale = true;
+        state.staleRemoteNotes = remote.notes;
+        renderStaleBanner();
+        setStatus(
+          elements.listStatus,
+          "刚才网站上又有了新的改动，已更新上面的提示：确认过再点一次「同步最新内容」。",
+          "warning"
+        );
+        return;
+      }
+
+      applyRemote(remote, { discardLocal: false });
     } catch (error) {
       console.error(error);
-      setStatus(elements.listStatus, error.message, "error");
+      setStatus(
+        elements.listStatus,
+        `读取失败：${error.message} 你的草稿不受影响；发布前会再次尝试同步，避免覆盖网站上的内容。`,
+        "error"
+      );
     } finally {
       elements.staleSyncButton.disabled = false;
       elements.staleSyncButton.removeAttribute("aria-busy");

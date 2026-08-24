@@ -95,7 +95,24 @@ export function findMergeConflicts(localNotes, remoteNotes) {
         (field) => String(note?.[field] ?? "") !== String(twin?.[field] ?? "")
       );
     })
-    .map((note) => String(note?.title ?? "").trim() || String(note?.slug ?? ""));
+    .map((note) => ({
+      // slug identifies the conflict (two notes can share a title); the title
+      // is only what the banner shows.
+      slug: String(note?.slug ?? ""),
+      title: String(note?.title ?? "").trim() || String(note?.slug ?? "")
+    }));
+}
+
+// Conflicts the author has not been shown yet. The sync button re-checks
+// against the snapshot it is *about to merge*, and anything unseen there means
+// the remote moved again after the banner was drawn — merging then would
+// silently overwrite an edit the notice never mentioned, so the button stops
+// and redraws instead.
+export function findUnacknowledgedConflicts(conflicts, acknowledgedSlugs) {
+  const list = Array.isArray(conflicts) ? conflicts : [];
+  const seen = new Set(Array.isArray(acknowledgedSlugs) ? acknowledgedSlugs : []);
+
+  return list.filter((conflict) => !seen.has(conflict?.slug));
 }
 
 // The notice has to survive the author acting on it, so it promises only what
@@ -109,7 +126,9 @@ export function describeStaleNotice({ dirty = false, conflicts = [] } = {}) {
   const contested = (Array.isArray(conflicts) ? conflicts : []).filter(Boolean);
 
   if (dirty && contested.length) {
-    const names = contested.map((title) => `《${title}》`).join("、");
+    const names = contested
+      .map((conflict) => `《${conflict?.title ?? conflict?.slug ?? ""}》`)
+      .join("、");
     return `网站上的小记在别处更新过，其中 ${names} 你这边也改过。点「同步最新内容」会以你的版本为准，别处对这几篇的改动会在你发布时被覆盖——要留着它们，先去网站上看一眼再决定。`;
   }
 
