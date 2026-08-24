@@ -6,6 +6,8 @@
 
 **评审** — **不要手动 @codex review。** 它会无限挖边际问题，并把场景推到不真实的使用假设上，我们已经踩过坑。需要复查时跑 `npm test` + 本地 preview，或者直接让我做针对性 review。
 
+**`CLAUDE.md` 与 `AGENTS.md` 是同一份文档的两个文件名**（不同 agent 找不同的文件），必须逐字一致 —— 改一个就把另一个覆盖过去。`tests/docs.test.mjs` 会把这条钉住：两者一旦分叉，`npm test` 直接失败。它们曾经悄悄分叉三周，AGENTS.md 漏掉了整个小记功能，还把 `/admin/` 的鉴权写成早就不用的 Decap OAuth。
+
 ## What this is
 
 Static Astro site about 15 pet pigs, built to GitHub Pages. Three features:
