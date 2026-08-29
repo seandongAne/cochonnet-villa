@@ -140,7 +140,7 @@ test("only collective scenes without an exception enable full-cast mode", () => 
   }
 });
 
-test("cast selection is exact for fixed names and conservative for the ambiguous named tiny pig", () => {
+test("cast selection keeps exact legacy names but never guesses the ambiguous bare 小猪", () => {
   assert.deepEqual(
     selectNoteArtCast({
       title: "一起整理房间",
@@ -153,7 +153,7 @@ test("cast selection is exact for fixed names and conservative for the ambiguous
       title: "方向盘找到了",
       body: "最小的那只小猪抱着黄色玩具方向盘。"
     }).fixedCastNames,
-    ["小猪"]
+    []
   );
   assert.deepEqual(
     selectNoteArtCast({
@@ -172,28 +172,46 @@ test("cast selection is exact for fixed names and conservative for the ambiguous
   );
 });
 
-test("the named tiny porky is summoned by driving context but not by plural piglets", () => {
+test("the hidden marker deterministically summons 小猪 without leaking into the prompt", () => {
+  const note = {
+    title: "属于自己的时间",
+    body: "## [[小猪]]躺尸\n\n可怜的小猪吃了药，只想躺着休息。"
+  };
+  const selection = selectNoteArtCast(note);
+  const namedTinyPorky = PORKY_CAST.find((porky) => porky.name === "小猪");
+  const prompt = buildArtPrompt(note);
+
+  assert.deepEqual(selection.fixedCastNames, ["小猪"]);
+  assert.deepEqual(selection.characterMarkers, ["小猪"]);
+  assert.deepEqual(selection.unknownCharacterMarkers, []);
+  assert.ok(prompt.includes(namedTinyPorky.visual));
+  assert.ok(prompt.includes("小猪躺尸"));
+  assert.doesNotMatch(prompt, /\[\[小猪\]\]/);
+
   assert.deepEqual(
-    selectNoteArtCast({
-      title: "周末兜风",
-      body: "小猪开车带大家去看海。"
-    }).fixedCastNames,
-    ["小猪"]
+    selectNoteArtCast({ title: "周末兜风", body: "小猪开车带大家去看海。" })
+      .fixedCastNames,
+    [],
+    "driving prose no longer doubles as an identity heuristic"
   );
-  assert.deepEqual(
-    selectNoteArtCast({
-      title: "司机就位",
-      body: "握住方向盘的小猪出发啦。"
-    }).fixedCastNames,
-    ["小猪"]
+
+  assert.throws(
+    () => buildArtPrompt({ title: "拼错名字", body: "[[小豬]]今天来玩。" }),
+    /Unknown note character marker\(s\): 小豬/
   );
-  assert.deepEqual(
-    selectNoteArtCast({
-      title: "郊游",
-      body: "小猪们开车去郊游。"
-    }).fixedCastNames,
-    []
+});
+
+test("the published 2026-08-28 note explicitly invokes the named 小猪", async () => {
+  const data = JSON.parse(
+    await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
   );
+  const note = data.notes.find(({ slug }) => slug === "2026-08-28");
+  const selection = selectNoteArtCast(note);
+
+  assert.ok(note, "the published note exists");
+  assert.deepEqual(selection.fixedCastNames, ["小猪"]);
+  assert.deepEqual(selection.characterMarkers, ["小猪"]);
+  assert.ok(buildArtPrompt(note).includes("棕色齐肩波波头带整齐平刘海"));
 });
 
 test("the guest cast is frozen and mentioning 白菜 injects the cabbage identity", () => {

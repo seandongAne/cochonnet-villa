@@ -4,13 +4,14 @@
 
 import {
   canonicalizeNoteMarkdown,
+  extractNoteCharacterMarkers,
   findNoteMarkdownIssues,
   normalizeNoteMarkdownSource,
   noteMarkdownToPlainText,
   renderNoteMarkdown
 } from "./note-markdown.js";
 
-export { canonicalizeNoteMarkdown, findNoteMarkdownIssues };
+export { canonicalizeNoteMarkdown, extractNoteCharacterMarkers, findNoteMarkdownIssues };
 
 const NOTE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -15,6 +15,42 @@ const markdown = new MarkdownIt({
   typographer: false
 });
 
+// `[[character name]]` is an author-only identity marker. It renders as plain
+// text while remaining machine-readable in the parsed token stream. Keeping it
+// as an inline rule means code spans and fenced code retain their literal
+// brackets instead of accidentally summoning a note-art character.
+function noteCharacterMarkerRule(state, silent) {
+  const start = state.pos;
+
+  if (!state.src.startsWith("[[", start)) {
+    return false;
+  }
+
+  const end = state.src.indexOf("]]", start + 2);
+  if (end < 0 || end >= state.posMax) {
+    return false;
+  }
+
+  const source = state.src.slice(start + 2, end);
+  const name = source.trim();
+  if (!name || name.length > 64 || /[\[\]\r\n]/u.test(source)) {
+    return false;
+  }
+
+  if (!silent) {
+    const token = state.push("note_character_marker", "", 0);
+    token.content = name;
+    token.markup = "[[…]]";
+  }
+
+  state.pos = end + 2;
+  return true;
+}
+
+markdown.inline.ruler.before("link", "note_character_marker", noteCharacterMarkerRule);
+markdown.renderer.rules.note_character_marker = (tokens, index) =>
+  markdown.utils.escapeHtml(tokens[index].content);
+
 function normalizeLineEndings(value) {
   return String(value ?? "").replace(/\r\n?/g, "\n");
 }
@@ -110,6 +146,7 @@ function inlineTokenText(token) {
     case "code_block":
     case "fence":
     case "image":
+    case "note_character_marker":
       return token.content;
     case "softbreak":
     case "hardbreak":
@@ -117,6 +154,25 @@ function inlineTokenText(token) {
     default:
       return "";
   }
+}
+
+export function extractNoteCharacterMarkers(value) {
+  const names = [];
+  const seen = new Set();
+
+  function visit(token) {
+    if (token.type === "note_character_marker" && !seen.has(token.content)) {
+      seen.add(token.content);
+      names.push(token.content);
+    }
+
+    if (Array.isArray(token.children)) {
+      token.children.forEach(visit);
+    }
+  }
+
+  markdown.parse(normalizeLineEndings(value), {}).forEach(visit);
+  return names;
 }
 
 export function noteMarkdownToPlainText(value) {

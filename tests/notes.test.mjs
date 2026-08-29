@@ -7,6 +7,7 @@ import {
   canonicalizeNoteMarkdown,
   canonicalizeNotesMarkdown,
   deriveNoteSlug,
+  extractNoteCharacterMarkers,
   findNoteMarkdownIssues,
   formatNoteDate,
   isValidNoteDate,
@@ -101,6 +102,25 @@ test("renderNoteBody supports standard Markdown blocks and inline syntax", () =>
   assert.ok(html.includes("<blockquote>"));
   assert.ok(html.includes("<code>代码</code>"));
   assert.ok(html.includes('<a href="https://example.com">链接</a>'));
+});
+
+test("hidden character markers render and excerpt as plain names", async () => {
+  const source = "## [[小猪]]躺尸\n\n和[[白白菜]]一起看书，[[小猪]]睡着了。";
+  const html = renderNoteBody(source);
+
+  assert.ok(html.includes("<h2>小猪躺尸</h2>"));
+  assert.ok(html.includes("和白白菜一起看书，小猪睡着了。"));
+  assert.doesNotMatch(html, /\[\[/);
+  assert.equal(noteExcerpt(source), "小猪躺尸 和白白菜一起看书，小猪睡着了。");
+  assert.deepEqual(extractNoteCharacterMarkers(source), ["小猪", "白白菜"]);
+
+  const codeOnly = "`[[小猪]]`\n\n```text\n[[白白菜]]\n```";
+  assert.deepEqual(extractNoteCharacterMarkers(codeOnly), []);
+  assert.match(renderNoteBody(codeOnly), /<code>\[\[小猪\]\]<\/code>/);
+  assert.match(renderNoteBody(codeOnly), /<code class="language-text">\[\[白白菜\]\]/);
+
+  const page = await readFile(new URL("../src/pages/admin/notes.astro", import.meta.url), "utf8");
+  assert.ok(page.includes("[[小猪]]"), "the writing studio documents the hidden marker");
 });
 
 test("renderNoteBody keeps headings as Markdown blocks without blank lines", () => {

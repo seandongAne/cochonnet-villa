@@ -11,7 +11,12 @@ import { appendFile, readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
-import { deriveNoteSlug, noteExcerpt, sanitizeNoteImage } from "../src/render-notes.js";
+import {
+  deriveNoteSlug,
+  extractNoteCharacterMarkers,
+  noteExcerpt,
+  sanitizeNoteImage
+} from "../src/render-notes.js";
 import {
   assertValidWebp,
   parseBoundedPositiveInteger,
@@ -171,43 +176,31 @@ function isExplicitFullCastNote(note) {
     });
 }
 
-function mentionsNamedTinyPorky(note) {
-  const title = String(note?.title ?? "").trim();
-  const clauses = noteStoryText(note).split(/[\n。！？；]+/u);
-
-  if (
-    clauses.some(
-      (clause) =>
-        /小猪(?!们)[^。！？；\n]{0,30}(?:开车|方向盘)/u.test(clause) ||
-        /(?:开车|方向盘)[^。！？；\n]{0,30}小猪(?!们)/u.test(clause)
-    )
-  ) {
-    return true;
-  }
-
-  if (!title.includes("小猪")) {
-    return false;
-  }
-
-  return !/(?:小猪们|小猪(?:都|各自|纷纷)|(?:一|这|那)群[^。！？\n]{0,8}小猪|(?:每只|所有|全部|全体|这些|那些)[^。！？\n]{0,8}小猪|(?:\d+|[一二三四五六七八九十百几多]+)\s*只?[^。！？\n]{0,8}小猪)/u.test(
-    title
-  );
-}
-
-function findMentionedCast(note) {
+function findMentionedCast(note, markerNames) {
   const story = noteStoryText(note);
 
   return PORKY_CAST.filter((porky) =>
-    porky.name === "小猪" ? mentionsNamedTinyPorky(note) : story.includes(porky.name)
+    markerNames.has(porky.name) || (porky.name !== "小猪" && story.includes(porky.name))
   );
 }
 
-function findMentionedGuests(note) {
+function findMentionedGuests(note, markerNames) {
   const story = noteStoryText(note);
 
   return GUEST_CAST.filter((guest) =>
-    [guest.name, ...guest.aliases].some((alias) => story.includes(alias))
+    [guest.name, ...guest.aliases].some(
+      (alias) => markerNames.has(alias) || story.includes(alias)
+    )
   );
+}
+
+function findUnknownCharacterMarkers(markerNames) {
+  const knownNames = new Set([
+    ...PORKY_CAST.map((porky) => porky.name),
+    ...GUEST_CAST.flatMap((guest) => [guest.name, ...guest.aliases])
+  ]);
+
+  return [...markerNames].filter((name) => !knownNames.has(name));
 }
 
 function guestIdentitySection(guests, mode) {
@@ -236,13 +229,17 @@ function formatCast(cast) {
 
 export function selectNoteArtCast(note) {
   const mode = isExplicitFullCastNote(note) ? "full" : "story";
-  const fixedCast = mode === "full" ? PORKY_CAST : findMentionedCast(note);
-  const guestCast = findMentionedGuests(note);
+  const characterMarkers = new Set(extractNoteCharacterMarkers(note?.body));
+  const fixedCast =
+    mode === "full" ? PORKY_CAST : findMentionedCast(note, characterMarkers);
+  const guestCast = findMentionedGuests(note, characterMarkers);
 
   return Object.freeze({
     mode,
     fixedCastNames: Object.freeze(fixedCast.map((porky) => porky.name)),
-    guestCastNames: Object.freeze(guestCast.map((guest) => guest.name))
+    guestCastNames: Object.freeze(guestCast.map((guest) => guest.name)),
+    characterMarkers: Object.freeze([...characterMarkers]),
+    unknownCharacterMarkers: Object.freeze(findUnknownCharacterMarkers(characterMarkers))
   });
 }
 
@@ -319,6 +316,12 @@ function buildStoryCastPrompt(note, fixedCastNames, guests) {
 
 export function buildArtPrompt(note) {
   const selection = selectNoteArtCast(note);
+  if (selection.unknownCharacterMarkers.length) {
+    throw new Error(
+      `Unknown note character marker(s): ${selection.unknownCharacterMarkers.join(", ")}`
+    );
+  }
+
   const guestNameSet = new Set(selection.guestCastNames);
   const guests = GUEST_CAST.filter((guest) => guestNameSet.has(guest.name));
 

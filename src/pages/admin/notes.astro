@@ -116,6 +116,10 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
               <div class="field-body">
                 <label for="body-input">正文</label>
                 <textarea id="body-input" spellcheck="false" placeholder="## 小标题\n\n正文使用标准 Markdown……"></textarea>
+                <p class="helper">
+                  需要让配图认出固定角色时，请在正文第一次出现处写隐藏标记，例如
+                  <code>[[小猪]]</code>。预览和正式页面只会显示“小猪”；裸写“小猪”会被当作普通描述，不会套用刘海小猪的角色档案。
+                </p>
                 <div class="status" id="markdown-status" aria-live="polite">
                   Markdown 格式正常；预览与正式页面使用同一套规则。
                 </div>
