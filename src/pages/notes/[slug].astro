@@ -5,7 +5,7 @@ import "../../styles.css";
 import SeoHead from "../../components/SeoHead.astro";
 import Fonts from "../../components/Fonts.astro";
 import { normalizeNotes, renderNotePage, noteExcerpt } from "../../render-notes.js";
-import { blogPostingJsonLd, breadcrumbJsonLd, notePath, noteShareImage } from "../../seo.js";
+import { blogPostingJsonLd, breadcrumbJsonLd, noteDateTime, notePath, noteShareImage } from "../../seo.js";
 
 export function getStaticPaths() {
   const notes = normalizeNotes(notesData);
@@ -50,7 +50,7 @@ const jsonLd = [
       path={path}
       type="article"
       image={noteShareImage(note, site)}
-      publishedTime={note.date || undefined}
+      publishedTime={noteDateTime(note.date) || undefined}
       jsonLd={jsonLd}
     />
     <meta name="theme-color" content="#f8c2ba" />

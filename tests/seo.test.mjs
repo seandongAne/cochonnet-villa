@@ -9,6 +9,7 @@ import { normalizeNotes, noteArtDimensions, renderNotePage, renderNotesPage } fr
 import { renderSite } from "../src/render-site.js";
 import {
   DEFAULT_SHARE_IMAGE,
+  NOTE_TIMEZONE,
   SITE_URL,
   absoluteUrl,
   blogJsonLd,
@@ -16,6 +17,7 @@ import {
   breadcrumbJsonLd,
   buildSitemapEntries,
   normalizePath,
+  noteDateTime,
   noteShareImage,
   renderRobotsTxt,
   renderSitemapXml,
@@ -161,7 +163,7 @@ test("JSON-LD: WebSite, Blog, BlogPosting and BreadcrumbList carry absolute URLs
   assert.equal(posting.headline, "快乐的周末");
   assert.equal(posting.url, `${SITE_URL}/notes/2026-08-23/`);
   assert.equal(posting.mainEntityOfPage, posting.url);
-  assert.equal(posting.datePublished, "2026-08-23");
+  assert.equal(posting.datePublished, "2026-08-23T12:00:00-04:00");
   assert.deepEqual(posting.image, [`${SITE_URL}/notes-art/2026-08-23.webp`]);
   assert.equal(posting.inLanguage, "zh-Hans");
   assert.equal(posting.publisher.url, `${SITE_URL}/`);
@@ -245,4 +247,13 @@ test("web fonts load from a head <link>, not a CSS @import chain", async () => {
     assert.match(source, /<Fonts \/>/, `${page} renders Fonts`);
     assert.doesNotMatch(source, /rel="preconnect"/, `${page} leaves the preconnects to Fonts`);
   }
+});
+
+test("note datetimes publish local noon in the villa timezone with an explicit offset", () => {
+  assert.equal(NOTE_TIMEZONE, "America/Toronto");
+  assert.equal(noteDateTime("2026-01-15"), "2026-01-15T12:00:00-05:00");
+  assert.equal(noteDateTime("2026-08-23"), "2026-08-23T12:00:00-04:00");
+  assert.equal(noteDateTime("2026-08-23", "UTC"), "2026-08-23T12:00:00+00:00");
+  assert.equal(noteDateTime(""), "");
+  assert.equal(noteDateTime("not-a-date"), "");
 });

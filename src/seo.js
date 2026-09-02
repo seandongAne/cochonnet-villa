@@ -3,7 +3,7 @@
 // window/document access. `astro.config.mjs` `site` mirrors SITE_URL — pass
 // `Astro.site` in where available so the two cannot drift silently.
 
-import { noteArtDimensions, noteExcerpt } from "./render-notes.js";
+import { isValidNoteDate, noteArtDimensions, noteExcerpt } from "./render-notes.js";
 
 export const SITE_URL = "https://www.cochonnetvilla.ca";
 export const SITE_NAME = "Cochonnet Villa";
@@ -88,6 +88,24 @@ export function noteShareImage(note, site = SITE_URL) {
 
 export function notePath(note) {
   return `/notes/${note.slug}/`;
+}
+
+// A note stores only the diarist's calendar day, but structured data wants a
+// zoned datetime (Rich Results flags a bare date). Publish local noon in the
+// villa's timezone: it reads as the same calendar day in every reader's zone,
+// DST or not.
+export const NOTE_TIMEZONE = "America/Toronto";
+
+export function noteDateTime(date, timeZone = NOTE_TIMEZONE) {
+  if (!isValidNoteDate(date)) {
+    return "";
+  }
+
+  const offset = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
+    .formatToParts(new Date(`${date}T12:00:00Z`))
+    .find((part) => part.type === "timeZoneName").value;
+
+  return `${date}T12:00:00${offset === "GMT" ? "+00:00" : offset.slice(3)}`;
 }
 
 export function buildSitemapEntries(notes, { site = SITE_URL } = {}) {
@@ -199,7 +217,7 @@ export function blogPostingJsonLd(note, { site = SITE_URL, context = true } = {}
     headline: note.title,
     url,
     mainEntityOfPage: url,
-    ...(note.date ? { datePublished: note.date } : {}),
+    ...(note.date ? { datePublished: noteDateTime(note.date) } : {}),
     description: noteExcerpt(note.body, 120),
     image: [noteShareImage(note, site).url],
     inLanguage: "zh-Hans",
