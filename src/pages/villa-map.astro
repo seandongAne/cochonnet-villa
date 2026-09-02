@@ -1,10 +1,13 @@
 ---
 import "../viewport-scale.css";
 import "../villa-map/styles.css";
+import SeoHead from "../components/SeoHead.astro";
 import VillaMap from "../villa-map/react/VillaMap.jsx";
+import { VILLA_MAP_DESCRIPTION, VILLA_MAP_TITLE, webPageJsonLd } from "../seo.js";
 
-const title = "猪猪山庄实景地图 | Cochonnet Villa";
-const description = "Explore the expanded 3D villa grounds, hot springs, mushroom house, and main hall of Cochonnet Villa.";
+const title = VILLA_MAP_TITLE;
+const description = VILLA_MAP_DESCRIPTION;
+const jsonLd = [webPageJsonLd({ site: Astro.site, path: "/villa-map/", name: title, description })];
 ---
 
 <!doctype html>
@@ -12,20 +15,32 @@ const description = "Explore the expanded 3D villa grounds, hot springs, mushroo
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    <SeoHead
+      title={title}
+      description={description}
+      path="/villa-map/"
+      localeAlternate={["en_US"]}
+      jsonLd={jsonLd}
+    />
     <meta name="theme-color" content="#ffe9d5" />
-    <link rel="canonical" href="https://www.cochonnetvilla.ca/villa-map/" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body class="villa-map-page">
     <div class="villa-map-shell">
+      <h1 class="villa-map-sr-only">猪猪山庄实景地图 · Cochonnet Villa 3D map</h1>
       <header class="villa-map-header">
         <a class="villa-map-brand" href="/">猪猪山庄实景地图</a>
         <a class="villa-map-back" href="/">返回主页</a>
       </header>
+
+      <noscript>
+        <p class="villa-map-noscript">
+          这张 3D 地图需要浏览器开启 JavaScript 才能加载：温泉、蘑菇屋、主厅，还有 15 只小猪的家都在里面。
+          The 3D map needs JavaScript to load. <a href="/">返回猪猪山庄首页</a>
+        </p>
+      </noscript>
 
       <!-- 3D villa map runs as a client-only React Three Fiber island.
            Three.js needs `window`, so there is no SSR pass. -->

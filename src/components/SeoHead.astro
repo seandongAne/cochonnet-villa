@@ -1,0 +1,49 @@
+---
+// Shared <head> SEO block: title/description, canonical, Open Graph, Twitter
+// card and JSON-LD. Every public page renders exactly one of these; the
+// admin pages pass `noindex` instead of a canonical.
+import { SITE_NAME, SITE_URL, absoluteUrl, normalizePath, serializeJsonLd, shareImage } from "../seo.js";
+
+const site = Astro.site ?? SITE_URL;
+
+const {
+  title,
+  description,
+  path,
+  type = "website",
+  image = shareImage(undefined, site),
+  locale = "zh_CN",
+  localeAlternate = [],
+  publishedTime,
+  modifiedTime,
+  jsonLd = [],
+  noindex = false
+} = Astro.props;
+
+const canonical = absoluteUrl(normalizePath(path ?? Astro.url.pathname), site);
+const schemas = (Array.isArray(jsonLd) ? jsonLd : [jsonLd]).filter(Boolean);
+const isArticle = type === "article";
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+{noindex ? <meta name="robots" content="noindex, nofollow" /> : <link rel="canonical" href={canonical} />}
+<meta property="og:site_name" content={SITE_NAME} />
+<meta property="og:type" content={type} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={image.url} />
+{image.width && <meta property="og:image:width" content={String(image.width)} />}
+{image.height && <meta property="og:image:height" content={String(image.height)} />}
+{image.alt && <meta property="og:image:alt" content={image.alt} />}
+<meta property="og:locale" content={locale} />
+{localeAlternate.map((alternate) => <meta property="og:locale:alternate" content={alternate} />)}
+{isArticle && publishedTime && <meta property="article:published_time" content={publishedTime} />}
+{isArticle && modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={image.url} />
+{image.alt && <meta name="twitter:image:alt" content={image.alt} />}
+{schemas.map((schema) => <script type="application/ld+json" is:inline set:html={serializeJsonLd(schema)}></script>)}

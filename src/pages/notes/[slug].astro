@@ -2,7 +2,9 @@
 import notesData from "../../../content/notes.json";
 import "../../viewport-scale.css";
 import "../../styles.css";
+import SeoHead from "../../components/SeoHead.astro";
 import { normalizeNotes, renderNotePage, noteExcerpt } from "../../render-notes.js";
+import { blogPostingJsonLd, breadcrumbJsonLd, notePath, noteShareImage } from "../../seo.js";
 
 export function getStaticPaths() {
   const notes = normalizeNotes(notesData);
@@ -21,6 +23,19 @@ const { note, previousNote, nextNote } = Astro.props;
 const pageHtml = renderNotePage(note, { previousNote, nextNote });
 const title = `${note.title} | 猪猪小记`;
 const description = noteExcerpt(note.body, 90);
+const site = Astro.site;
+const path = notePath(note);
+const jsonLd = [
+  blogPostingJsonLd(note, { site }),
+  breadcrumbJsonLd(
+    [
+      { name: "猪猪山庄", path: "/" },
+      { name: "猪猪小记", path: "/notes/" },
+      { name: note.title, path }
+    ],
+    { site }
+  )
+];
 ---
 
 <!doctype html>
@@ -28,12 +43,16 @@ const description = noteExcerpt(note.body, 90);
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    <SeoHead
+      title={title}
+      description={description}
+      path={path}
+      type="article"
+      image={noteShareImage(note, site)}
+      publishedTime={note.date || undefined}
+      jsonLd={jsonLd}
+    />
     <meta name="theme-color" content="#f8c2ba" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="article" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

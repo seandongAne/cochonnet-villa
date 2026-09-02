@@ -2,12 +2,23 @@
 import notesData from "../../../content/notes.json";
 import "../../viewport-scale.css";
 import "../../styles.css";
+import SeoHead from "../../components/SeoHead.astro";
 import { normalizeNotes, renderNotesPage } from "../../render-notes.js";
+import { NOTES_DESCRIPTION, NOTES_TITLE, blogJsonLd, breadcrumbJsonLd } from "../../seo.js";
 
 const notes = normalizeNotes(notesData);
 const pageHtml = renderNotesPage(notes);
-const title = "猪猪小记 | 猪猪山庄";
-const description = "猪猪山庄的随笔小本子：日常、小猪们的新鲜事，和一些突然想说的话。";
+const site = Astro.site;
+const jsonLd = [
+  blogJsonLd(notes, { site }),
+  breadcrumbJsonLd(
+    [
+      { name: "猪猪山庄", path: "/" },
+      { name: "猪猪小记", path: "/notes/" }
+    ],
+    { site }
+  )
+];
 ---
 
 <!doctype html>
@@ -15,12 +26,8 @@ const description = "猪猪山庄的随笔小本子：日常、小猪们的新�
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    <SeoHead title={NOTES_TITLE} description={NOTES_DESCRIPTION} path="/notes/" jsonLd={jsonLd} />
     <meta name="theme-color" content="#f8c2ba" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

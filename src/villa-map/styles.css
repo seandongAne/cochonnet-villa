@@ -430,3 +430,23 @@
     display: none;
   }
 }
+
+/* The 3D map is a client-only island, so the crawlable document carries its
+   own heading and a no-JS fallback. */
+.villa-map-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.villa-map-noscript {
+  width: min(var(--shell-max, 73.75rem), 100%);
+  margin: 0 auto 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: rgba(255, 252, 246, 0.88);
+  color: #4e2f33;
+}

@@ -535,7 +535,7 @@ export function renderSite(site, notes = []) {
       <footer class="site-footer">
         <p${i18nAttribute("footer.text")}>${escapeHtml(site?.footerText || "")}</p>
         <div class="footer-links">
-          <a href="${LIVE_EDITOR_URL}"${i18nAttribute("footer.manage")}>Manage content</a>
+          <a href="${LIVE_EDITOR_URL}" rel="nofollow"${i18nAttribute("footer.manage")}>Manage content</a>
           <a href="${REPOSITORY_URL}" target="_blank" rel="noreferrer">GitHub</a>
         </div>
       </footer>

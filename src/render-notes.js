@@ -18,6 +18,16 @@ const NOTE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const NOTES_INDEX_URL = "/notes/";
 const NOTES_EDITOR_URL = "/admin/notes/";
 
+// Every image the note-art workflow stamps is emitted at this size
+// (scripts/generate-note-art.mjs: 1536×1024 webp), so pages can reserve the
+// box before the file arrives. A hand-set `image` URL has unknown dimensions.
+export const NOTE_ART_PATH_PREFIX = "/notes-art/";
+export const NOTE_ART_SIZE = Object.freeze({ width: 1536, height: 1024 });
+
+export function noteArtDimensions(image) {
+  return String(image ?? "").startsWith(NOTE_ART_PATH_PREFIX) ? { ...NOTE_ART_SIZE } : null;
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => {
     switch (character) {
@@ -276,7 +286,7 @@ function renderNotesHeader() {
         <nav class="site-nav" aria-label="猪猪小记">
           <a href="/">首页</a>
           <a href="/villa-map/">山庄地图</a>
-          <a href="${NOTES_EDITOR_URL}">写小记</a>
+          <a href="${NOTES_EDITOR_URL}" rel="nofollow">写小记</a>
         </nav>
       </div>
     </header>
@@ -288,7 +298,7 @@ function renderNotesFooter() {
     <footer class="site-footer">
       <p>猪猪山庄的小本子，随手记下山庄里的日常。</p>
       <div class="footer-links">
-        <a href="${NOTES_EDITOR_URL}">写一篇</a>
+        <a href="${NOTES_EDITOR_URL}" rel="nofollow">写一篇</a>
         <a href="/">返回首页</a>
       </div>
     </footer>
@@ -308,7 +318,7 @@ export function renderNotesPage(notes) {
     `
     : `
       <div class="notes-empty">
-        <p>小本子还空着。去<a href="${NOTES_EDITOR_URL}">写下第一篇小记</a>吧。</p>
+        <p>小本子还空着。去<a href="${NOTES_EDITOR_URL}" rel="nofollow">写下第一篇小记</a>吧。</p>
       </div>
     `;
 
@@ -341,6 +351,19 @@ function renderAdjacentLink(note, className, label) {
   `;
 }
 
+// The article art sits above the fold, so it is the page's LCP candidate:
+// load it eagerly and, for workflow art, reserve its box against layout shift.
+function renderNoteArt(note) {
+  if (!note.image) {
+    return "";
+  }
+
+  const size = noteArtDimensions(note.image);
+  const dimensions = size ? ` width="${size.width}" height="${size.height}"` : "";
+
+  return `<figure class="note-art"><img src="${escapeHtml(note.image)}" alt="《${escapeHtml(note.title)}》的小猪漫画配图"${dimensions} loading="eager" fetchpriority="high" decoding="async" /></figure>`;
+}
+
 // /notes/<slug>/ detail page body fragment. previousNote = the newer note,
 // nextNote = the older one (list order is newest first).
 export function renderNotePage(note, { previousNote = null, nextNote = null } = {}) {
@@ -363,11 +386,7 @@ export function renderNotePage(note, { previousNote = null, nextNote = null } = 
             ${renderNoteMeta(note)}
             <h1>${escapeHtml(note.title)}</h1>
           </header>
-          ${
-            note.image
-              ? `<figure class="note-art"><img src="${escapeHtml(note.image)}" alt="《${escapeHtml(note.title)}》的小猪漫画配图" loading="lazy" decoding="async" /></figure>`
-              : ""
-          }
+          ${renderNoteArt(note)}
           <div class="note-body">
             ${renderNoteBody(note.body)}
           </div>

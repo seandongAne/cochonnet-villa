@@ -877,6 +877,7 @@ html[lang="zh-Hans"] .size-tag {
 
 .note-art img {
   width: 100%;
+  height: auto; /* width/height attributes reserve the box; keep the ratio */
   border-radius: var(--radius-md);
   border: 1px solid rgba(120, 76, 78, 0.11);
 }

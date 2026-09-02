@@ -30,7 +30,7 @@ Both editors are backend-free: they commit through the GitHub Contents API with 
 ## Conventions
 
 - ES modules everywhere (`"type": "module"`).
-- **Node-pure core.** Anything the tests import (all of `src/villa-map/*.js`, `render-*.js`, `notes-draft.js`) must not touch `window` / `document` / `TextureLoader` at import time. The React layer is the only browser owner.
+- **Node-pure core.** Anything the tests import (all of `src/villa-map/*.js`, `render-*.js`, `notes-draft.js`, `seo.js`) must not touch `window` / `document` / `TextureLoader` at import time. The React layer is the only browser owner.
 - React island only on `/villa-map/` (`client:only="react"`); every other page is vanilla Astro static HTML. Bilingual, content defaults to `zh`, `data-i18n` hooks.
 - Procedural geometry at runtime; pre-made GLBs (pigs / furniture / props) load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural fallback, mounted via `<primitive object={…}>` — **not** drei `useGLTF`. Keeps the core node-testable and the loader uniform.
 - **Version pins (don't bump blindly):** Astro 6 / Vite 7, `@astrojs/react@^5`, `overrides: { vite: "^7" }`. drei `<SoftShadows>` is broken with three r184 → shadows use `PCFShadowMap`.
@@ -114,6 +114,15 @@ Invariants that must hold:
 Ultra-wide **zooms and widens the same layout — it never re-columns it**, so a 32:9 desktop shows the laptop layout, larger. Root font size tracks viewport *height* (`clamp(1rem, 1.48vh, 2rem)`), keeping the design viewport ~1080 design px tall; `--shell-max` / `--shell-max-narrow` / `--shell-gutter(-tight)` widen the content band from ~31% to ~50% of the screen. 5120×1440 and 7680×2160 therefore resolve to the *same* 3840×1080 design layout (root 21.3px / 32px). `tests/viewport-scale.test.mjs` guards this and the no-reflow rule.
 
 3D: `camera-framing.js` + `react/UltraWideFraming.jsx` hold horizontal FOV at ≤ 120° past ~21:9 by narrowing the vertical one. 16:9/16:10/21:9 keep the authored 70° vertical FOV; only 32:9 changes (136° → 120°).
+
+## SEO
+
+`src/components/SeoHead.astro` is the only `<head>` SEO block: every public page renders exactly one, passes an explicit `path`, and gets `<title>` / description / canonical / Open Graph / Twitter card / JSON-LD from it. Canonicals are `Astro.site` + trailing-slash path, so `astro.config.mjs` `site` and `SITE_URL` in `src/seo.js` must match (pinned by `tests/seo.test.mjs`). `src/seo.js` is node-pure and shared with the `/sitemap.xml` and `/robots.txt` endpoints (`src/pages/*.js`) and the tests.
+
+- **Share image** — `public/assets/og-cover.jpg` (1200×630) is the default card, generated once by `scripts/generate-og-cover.py` (Pillow + macOS system fonts; re-run only to restyle). Notes share their own art (`/notes-art/<slug>.webp`, always 1536×1024 → `noteArtDimensions`) and fall back to the card while the art workflow hasn't stamped one yet.
+- **JSON-LD** — `WebSite` (home), `Blog` + `BreadcrumbList` (`/notes/`), `BlogPosting` + `BreadcrumbList` (each note), `WebPage` (villa map). `serializeJsonLd` escapes `<` so note text can never close the script tag.
+- **Sitemap / robots** — `/sitemap.xml` lists home, `/notes/`, every note (`lastmod` = note date) and `/villa-map/`. `/robots.txt` points at it and deliberately does **not** `Disallow: /admin/`: the editors rely on `<meta name="robots" content="noindex, nofollow">`, which a Disallow would hide from the crawler (the URL could then be indexed title-less from the footer link). Internal links into `/admin/` carry `rel="nofollow"`.
+- **Core Web Vitals** — the note detail art is the LCP image: `loading="eager" fetchpriority="high"` with `width`/`height` reserved (`.note-art img { height: auto }` keeps the ratio). Card art keeps `aspect-ratio` in CSS instead. `/villa-map/` carries a visually-hidden `<h1>` and a `<noscript>` fallback because the island renders nothing server-side.
 
 ## Workflows
 
