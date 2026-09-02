@@ -4,6 +4,7 @@ import notesData from "../../content/notes.json";
 import "../viewport-scale.css";
 import "../styles.css";
 import SeoHead from "../components/SeoHead.astro";
+import Fonts from "../components/Fonts.astro";
 import { renderSite } from "../render-site.js";
 import { normalizeNotes } from "../render-notes.js";
 import { websiteJsonLd } from "../seo.js";
@@ -28,8 +29,7 @@ const appHtml = renderSite(site, normalizeNotes(notesData));
     />
     <meta name="theme-color" content="#f8c2ba" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <Fonts />
   </head>
   <body>
     <Fragment set:html={appHtml} />

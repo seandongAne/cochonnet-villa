@@ -2,7 +2,7 @@
 // JSON-LD shapes, and the noindex on the editors. Node-pure — the Astro pages
 // are read as text; the built HTML is checked by `npm run build` + preview.
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import { normalizeNotes, noteArtDimensions, renderNotePage, renderNotesPage } from "../src/render-notes.js";
@@ -213,5 +213,36 @@ test("every public page renders SeoHead with an explicit canonical path", async 
     'type="application/ld+json" is:inline set:html='
   ]) {
     assert.ok(head.includes(tag), `SeoHead emits ${tag}`);
+  }
+});
+
+test("landing portraits are served as lean WebP, with the PNG originals kept for the share card", async () => {
+  const site = JSON.parse(await read("../content/site.json"));
+  const porkies = site.porkies.filter((porky) => porky.image);
+  assert.equal(porkies.length, 15);
+
+  for (const porky of porkies) {
+    assert.match(porky.image, /^\/porkies\/[a-z]+\.webp$/, `${porky.name} serves WebP`);
+    const bytes = await readFile(new URL(`../public${porky.image}`, import.meta.url));
+    assert.equal(bytes.toString("ascii", 0, 4), "RIFF", `${porky.image} is a RIFF container`);
+    assert.equal(bytes.toString("ascii", 8, 12), "WEBP", `${porky.image} is WebP`);
+    assert.ok(bytes.length < 160 * 1024, `${porky.image} stays lean (${bytes.length} bytes)`);
+    await access(new URL(`../public${porky.image.replace(/\.webp$/, ".png")}`, import.meta.url));
+  }
+});
+
+test("web fonts load from a head <link>, not a CSS @import chain", async () => {
+  assert.doesNotMatch(await read("../src/styles.css"), /@import\s+url\(/, "no render-blocking @import chain");
+
+  const fonts = await read("../src/components/Fonts.astro");
+  assert.match(fonts, /<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin \/>/);
+  assert.match(fonts, /<link rel="stylesheet" href=\{FONTS_URL\} \/>/);
+  assert.match(fonts, /fonts\.googleapis\.com\/css2\?family=Fraunces[^"]*Plus\+Jakarta\+Sans[^"]*display=swap/);
+
+  for (const page of ["../src/pages/index.astro", "../src/pages/notes/index.astro", "../src/pages/notes/[slug].astro"]) {
+    const source = await read(page);
+    assert.match(source, /import Fonts from "[./]+components\/Fonts\.astro"/, `${page} imports Fonts`);
+    assert.match(source, /<Fonts \/>/, `${page} renders Fonts`);
+    assert.doesNotMatch(source, /rel="preconnect"/, `${page} leaves the preconnects to Fonts`);
   }
 });

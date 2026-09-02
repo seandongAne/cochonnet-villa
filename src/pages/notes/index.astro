@@ -3,6 +3,7 @@ import notesData from "../../../content/notes.json";
 import "../../viewport-scale.css";
 import "../../styles.css";
 import SeoHead from "../../components/SeoHead.astro";
+import Fonts from "../../components/Fonts.astro";
 import { normalizeNotes, renderNotesPage } from "../../render-notes.js";
 import { NOTES_DESCRIPTION, NOTES_TITLE, blogJsonLd, breadcrumbJsonLd } from "../../seo.js";
 
@@ -29,8 +30,7 @@ const jsonLd = [
     <SeoHead title={NOTES_TITLE} description={NOTES_DESCRIPTION} path="/notes/" jsonLd={jsonLd} />
     <meta name="theme-color" content="#f8c2ba" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <Fonts />
   </head>
   <body>
     <Fragment set:html={pageHtml} />
