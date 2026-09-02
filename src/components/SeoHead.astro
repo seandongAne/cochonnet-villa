@@ -2,7 +2,15 @@
 // Shared <head> SEO block: title/description, canonical, Open Graph, Twitter
 // card and JSON-LD. Every public page renders exactly one of these; the
 // admin pages pass `noindex` instead of a canonical.
-import { SITE_NAME, SITE_URL, absoluteUrl, normalizePath, serializeJsonLd, shareImage } from "../seo.js";
+import {
+  GOOGLE_SITE_VERIFICATION,
+  SITE_NAME,
+  SITE_URL,
+  absoluteUrl,
+  normalizePath,
+  serializeJsonLd,
+  shareImage
+} from "../seo.js";
 
 const site = Astro.site ?? SITE_URL;
 
@@ -28,6 +36,7 @@ const isArticle = type === "article";
 <title>{title}</title>
 <meta name="description" content={description} />
 {noindex ? <meta name="robots" content="noindex, nofollow" /> : <link rel="canonical" href={canonical} />}
+{!noindex && GOOGLE_SITE_VERIFICATION && <meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />}
 <meta property="og:site_name" content={SITE_NAME} />
 <meta property="og:type" content={type} />
 <meta property="og:title" content={title} />

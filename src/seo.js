@@ -24,6 +24,11 @@ export const DEFAULT_SHARE_IMAGE = Object.freeze({
   alt: "猪猪山庄 Cochonnet Villa：15 只快乐小猪的家"
 });
 
+// Google Search Console ownership proof for the URL-prefix property
+// https://www.cochonnetvilla.ca/ (HTML-tag method). Not a secret, but it must
+// stay published on the home page or the property drops back to unverified.
+export const GOOGLE_SITE_VERIFICATION = "icUWbrir440YKyQSWYXCsbJ5Z_DDT0yZv5V6sK9tOMg";
+
 const SCHEMA_CONTEXT = "https://schema.org";
 
 function siteOrigin(site) {

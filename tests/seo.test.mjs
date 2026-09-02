@@ -9,6 +9,7 @@ import { normalizeNotes, noteArtDimensions, renderNotePage, renderNotesPage } fr
 import { renderSite } from "../src/render-site.js";
 import {
   DEFAULT_SHARE_IMAGE,
+  GOOGLE_SITE_VERIFICATION,
   NOTE_TIMEZONE,
   SITE_URL,
   absoluteUrl,
@@ -216,6 +217,18 @@ test("every public page renders SeoHead with an explicit canonical path", async 
   ]) {
     assert.ok(head.includes(tag), `SeoHead emits ${tag}`);
   }
+});
+
+test("indexable pages carry the Search Console ownership tag; the editors do not", async () => {
+  // The URL-prefix property is verified by the HTML-tag method, so the tag
+  // has to survive on the home page (Search Console re-checks periodically).
+  assert.match(GOOGLE_SITE_VERIFICATION, /^[A-Za-z0-9_-]{40,}$/);
+
+  const head = await read("../src/components/SeoHead.astro");
+  assert.ok(
+    head.includes('{!noindex && GOOGLE_SITE_VERIFICATION && <meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />}'),
+    "SeoHead emits the verification meta only on indexable pages"
+  );
 });
 
 test("landing portraits are served as lean WebP, with the PNG originals kept for the share card", async () => {
