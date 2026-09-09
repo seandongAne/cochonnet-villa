@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { advance, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { MAP_BENCHMARK_LAP_SECONDS,sampleBenchmarkPosition,benchmarkSummary } from '../map-benchmark.js';
+import { getAssetProgress } from '../asset-loading.js';
 
 import {
   OBSERVATORY_DIAGNOSTIC_VIEWS,
@@ -165,6 +166,45 @@ export function ObservatoryDiagnostics({
           return ext?webglContext.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unavailable';})(),
         resortAssets: Object.fromEntries(['villa','springs','mushroom'].map(kind => [kind,
           scene.getObjectByName(`resort-asset-${kind}`)?.userData.assetState ?? 'legacy'])),
+        // Streamed GLB progress (pigs, furniture, shells) as the loading veil
+        // sees it, plus whatever stand-ins are still on screen and why.
+        streamedAssets: (() => {
+          const standIns = { furniturePlaceholders: 0, porkyFallbacks: 0, loadFailed: 0, errors: [] };
+          scene.traverse((object) => {
+            if (object.name === 'furniture-placeholder') standIns.furniturePlaceholders += 1;
+            if (object.name === 'porky-procedural-fallback') standIns.porkyFallbacks += 1;
+            if (object.userData?.modelLoadFailed) {
+              standIns.loadFailed += 1;
+              const message = object.userData.modelLoadError ?? 'unknown';
+              if (standIns.errors.length < 3 && !standIns.errors.includes(message)) standIns.errors.push(message);
+            }
+          });
+          // First mushroom-furniture mesh (cottage-palette material): is the
+          // shared KayKit atlas intact, and what does its group contain?
+          let atlas = null;
+          scene.traverse((object) => {
+            if (atlas || !object.isMesh) return;
+            const material = Array.isArray(object.material) ? object.material[0] : object.material;
+            if (material?.customProgramCacheKey?.() !== 'mushroom-cottage-palette-v1') return;
+            const image = material.map?.image;
+            let group = object;
+            while (group.parent && group.parent.userData?.assetState === undefined) group = group.parent;
+            atlas = {
+              mesh: object.name,
+              vertices: object.geometry?.attributes?.position?.count ?? 0,
+              hasMap: Boolean(material.map),
+              imageType: image?.constructor?.name ?? null,
+              imageWidth: image?.width ?? null,
+              imageHeight: image?.height ?? null,
+              colorSpace: material.map?.colorSpace ?? null,
+              groupState: group.userData?.assetState ?? null,
+              groupChildren: group.children.map((child) => child.name || child.type),
+              worldY: Number(object.matrixWorld.elements[13].toFixed(2)),
+              scale: Number(object.matrixWorld.getMaxScaleOnAxis().toFixed(3))
+            };
+          });
+          return { ...getAssetProgress(), standIns, atlas };
+        })(),
         webglContext: getContextLossStatus(),
         frameTimes: summarizeObservatoryFrameTimes(samplesRef.current),
         renderer: {

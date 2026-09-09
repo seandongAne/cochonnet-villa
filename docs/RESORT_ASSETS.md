@@ -59,6 +59,16 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
   in small steps, including a temporary 32² upload pass. The target is disposed
   once warmup completes; there is no sustained extra render pass. Observatory
   roots and their descendants are explicitly excluded, regardless of world Y.
+  Once the outdoor queue drains it turns to `pocketRoots` — the buried mushroom
+  shell, its furniture, resident pigs and contact-shadow floors — a dozen meshes
+  per turn (`isPocketPrewarmMesh`: no custom-shader meshes, no observatory roots),
+  and pauses on L2/L3 where the observatory runtime spends its own budget. The
+  snapshot reports `outdoorPrewarm.pending` / `pocketPending`.
+- Every streamed GLB (resort shells, pigs, furniture) awaits `react/gpu-prepare.js`
+  before replacing its stand-in: one canvas-wide queue uploads textures one per
+  animation frame (back-to-back while the page is hidden) and `compileAsync`
+  prepares programs. The loading veil in `VillaMap.jsx` waits on the node-pure
+  `asset-loading.js` registry (`streamedAssets` in the snapshot).
 
 | Map tier | Max DPR | Sun shadow | Steam instances |
 |---|---:|---:|---:|
@@ -90,7 +100,9 @@ Run on the affected integrated GPU before claiming that its stutter is solved.
 Query-only controls: `mapquality=high|medium|low|minimum`, `mapshadows=off`,
 `resortassets=fallback`. Compare the same viewport, DPR and route. The snapshot
 reports actual GPU, drawing buffer, map tier, asset readiness and warmup queue.
-These switches are ignored outside `observatory=test|perf`.
+These switches are ignored outside `observatory=test|perf`. The panel JSON is a
+snapshot from mount: press **刷新数据** before reading asset readiness, prewarm
+counts or renderer statistics.
 
 Screenshots and measured snapshots are in `docs/resort-upgrade/`. The GLB tests
 round-trip geometry through the production loader and ray-test the open entry,

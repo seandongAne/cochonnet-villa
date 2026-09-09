@@ -4,6 +4,8 @@ import { Group } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMaterials, createModernVilla, createTieredHotSprings, createMushroomHouse } from '../assets.js';
 import { prepareResortModel, disposeOwnedObject } from '../resort-assets.js';
+import { trackAssetLoad } from '../asset-loading.js';
+import { getGpuPreparer } from './gpu-prepare.js';
 
 // Immutable cached sources. Instances share GPU resources; cleanup
 // detaches them, and disposes only the independently owned procedural fallback.
@@ -20,8 +22,7 @@ function load(url) {
 export function ResortAsset({kind,position,rotationY=0}) {
   const root=useMemo(()=>new Group(),[]);
   const gl=useThree(s=>s.gl);
-  const scene=useThree(s=>s.scene);
-  const camera=useThree(s=>s.camera);
+  const get=useThree(s=>s.get);
   useEffect(()=>{
     let cancelled=false, fallbackDisposed=false;
     const factories={villa:createModernVilla,springs:createTieredHotSprings,mushroom:createMushroomHouse};
@@ -32,36 +33,24 @@ export function ResortAsset({kind,position,rotationY=0}) {
     const params=new URLSearchParams(window.location.search);
     const forceFallback=['test','perf'].includes(params.get('observatory')) && params.get('resortassets')==='fallback';
     const sourcePromise=forceFallback?Promise.reject(new Error('QA fallback requested')):load(`/models/resort/${kind}.glb`);
-    sourcePromise.then(async source=>{
+    // Texture uploads go through the canvas-wide one-per-frame queue and shader
+    // programs compile asynchronously before the swap, so the authored shell
+    // never lands on a frame that also pays its first-use GPU cost. The chain
+    // is reported to the loading veil's progress registry.
+    const prepare=getGpuPreparer(get);
+    trackAssetLoad(sourcePromise.then(async source=>{
       if(cancelled)return;
       const model=source.clone(true);
-      const textures=new Set();
-      model.traverse(o=>{
-        for(const m of (Array.isArray(o.material)?o.material:[o.material])){
-          if(m)for(const value of Object.values(m))if(value?.isTexture)textures.add(value);
-        }
-      });
-      // Spread first GPU uploads across frames. The timeout also makes progress
-      // in throttled background QA tabs where requestAnimationFrame is stalled.
-      for(const texture of textures){
-        if(cancelled)return;
-        gl.initTexture(texture);
-        await new Promise(resolve=>{
-          const timer=window.setTimeout(resolve,40);
-          window.requestAnimationFrame(()=>{window.clearTimeout(timer);resolve();});
-        });
-      }
-      // Async shader preparation reduces first-visible compilation stalls.
-      if(gl.compileAsync) await gl.compileAsync(model,camera,scene);
+      await prepare(model);
       if(cancelled)return;
       root.remove(fallback); disposeFallback(); root.add(model);
       root.userData.assetState='ready'; gl.shadowMap.needsUpdate=true;
-    }).catch(error=>{
+    })).catch(error=>{
       if(cancelled)return;
       root.userData.assetState='fallback';
       console.warn(`Resort ${kind} asset unavailable; using procedural fallback.`,error);
     });
     return()=>{cancelled=true;root.clear();disposeFallback();};
-  },[kind,root,gl,scene,camera]);
+  },[kind,root,gl,get]);
   return <primitive object={root} position={position} rotation-y={rotationY} dispose={null} />;
 }

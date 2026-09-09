@@ -40,7 +40,16 @@ import { MushroomObservatoryRuntime } from "./MushroomObservatoryRuntime.jsx";
 import { ResortAsset } from './ResortAsset.jsx';
 import { MapRenderBudget } from './MapRenderBudget.jsx';
 import { OutdoorPrewarm } from './OutdoorPrewarm.jsx';
+import { getGpuPreparer } from './gpu-prepare.js';
 import { createResortWater } from '../resort-water.js';
+import {
+  createDaySky,
+  createHorizonTerrain,
+  createMeadowTrees,
+  createVillage,
+  SUN_POSITION,
+  SURROUNDINGS_FOG
+} from "../surroundings.js";
 import { batchContactShadows } from '../resort-assets.js';
 
 // Four broad warm pools replace nine overlapping room lights. Static contact
@@ -386,6 +395,20 @@ function MushroomObservatoryExposure({ adaptationRef }) {
   return null;
 }
 
+// The daytime dome rides on the camera so the far plane can never clip it;
+// its shader colours by view direction, so the ride adds no cloud parallax.
+// Cloud drift is frozen for visitors who prefer reduced motion.
+function DaySky({ sky }) {
+  const reducedMotion = useMemo(
+    () => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false,
+    []
+  );
+  useFrame(({ camera, clock }) => {
+    sky.userData.update(reducedMotion ? 0 : clock.elapsedTime, camera.position);
+  });
+  return <primitive object={sky} />;
+}
+
 // The source panorama is intentionally rich enough to contain thousands of
 // photographic star points. At player FOV those points become enlarged pixels
 // and read like a nearby printed image. The backdrop shader angularly softens
@@ -421,11 +444,16 @@ export function Scene({
   // were actually rendered into this transient ref; the Web Audio bridge reads
   // them later in the same frame, so sound can never outrun R/F or the switch.
   const observatoryAudioFrameRef = useRef({ audio: null });
+  const get = useThree((state) => state.get);
   // Build every procedural mesh exactly once. The assets.js / porky-models.js
   // factories are reused verbatim from the vanilla-Three implementation; R3F
   // mounts the resulting Object3D instances through <primitive>.
   const built = useMemo(() => {
     const materials = createMaterials();
+    // Streamed GLBs upload their textures and compile their programs through
+    // the canvas-wide preparer before replacing their stand-ins, so a model
+    // popping in never costs the frame it first appears on.
+    const prepare = getGpuPreparer(get);
     // The special-event layer (meteor shower / comet) rides inside the sky group
     // so it inherits the camera-centred position and the sky's visibility
     // gate: lights-on steady state still draws zero cosmos objects.
@@ -434,16 +462,20 @@ export function Scene({
     mushroomSky.add(observatorySkyEvents);
 
     return {
-      // Ground, paths, floors. [object, position] tuples. The meadow plane is
-      // oversized well past the (fence-free) world bounds so walking to an edge
-      // never shows the horizon gap — the fog eats the far rim instead.
+      // Paths and the villa floor slab. [object, position] tuples. The meadow
+      // itself is the continuous horizon terrain below: flat across the whole
+      // walkable area, rolling into hills and a hazy mountain rim beyond it.
       grounds: [
-        [createGround(120, 116, materials.outsideGrass), [2, -0.16, 1]],
-        [createGround(54, 53, materials.grass), [2, -0.08, 1]],
         [createGround(5.4, 40, materials.path), [2, 0.01, 17]],
         [createGround(14, 4.4, materials.path), [0, 0.02, 0.6]],
         [createGround(24, 20, materials.floor), [0, 0.01, -13]]
       ],
+      // Everything visible but unreachable (surroundings.js): sky dome,
+      // meadow-to-mountain terrain, the villagers' hamlet and the tree line.
+      terrain: createHorizonTerrain(),
+      daySky: createDaySky(),
+      village: createVillage(),
+      meadowTrees: createMeadowTrees(),
       resortWater: createResortWater(),
       treeA: createTree(materials, 5.6),
       treeB: createTree(materials, 5.2),
@@ -464,20 +496,20 @@ export function Scene({
       ),
       porkies: PORKY_PLACEMENTS.map((placement) => ({
         placement,
-        object: createPorkyModel(materials, placement)
+        object: createPorkyModel(materials, placement, { prepare })
       })),
       // Pre-made CC0 GLB furniture (Kenney in the villa, KayKit Furniture Bits
       // in the mushroom tower). Built once, mounted through <primitive> like
       // the porkies; each piece streams its GLB in over a placeholder.
       furniture: FURNITURE_PLACEMENTS.map((placement) => ({
         placement,
-        object: createFurniturePiece(placement)
+        object: createFurniturePiece(placement, { prepare })
       })),
       // Phase 3: CC0 GLB props for the courtyard/exterior (Kenney Nature +
       // Holiday kits). Same generic loader as the interior furniture.
       exterior: EXTERIOR_PLACEMENTS.map((placement) => ({
         placement,
-        object: createFurniturePiece(placement)
+        object: createFurniturePiece(placement, { prepare })
       })),
       // Phase 4: CC0 GLB architectural accents at the villa entrance (Kenney
       // Furniture door-arch + topiaries, City-Suburban railings + planters).
@@ -485,7 +517,7 @@ export function Scene({
       // walkable.
       architecture: ARCHITECTURE_PLACEMENTS.map((placement) => ({
         placement,
-        object: createFurniturePiece(placement)
+        object: createFurniturePiece(placement, { prepare })
       })),
       // Phase 3: soft "blob" contact shadows under interior + exterior props
       // (Phase 4 extends the list to the entrance accents).
@@ -497,12 +529,30 @@ export function Scene({
         ...ARCHITECTURE_PLACEMENTS
       ]))
     };
-  }, []);
+  }, [get]);
+  // Everything the door teleport reveals at once: the tower shell, its
+  // KayKit furniture, the resident pigs and the buried contact-shadow floors.
+  // The observatory's sky/rift roots stay out of every prewarm phase.
+  const pocketRoots = useMemo(() => [
+    built.mushroomInterior,
+    built.shadows,
+    ...built.furniture
+      .filter(({ placement }) => placement.room?.startsWith("mushroom-"))
+      .map(({ object }) => object),
+    ...built.porkies
+      .filter(({ placement }) => placement.position[1] < -20)
+      .map(({ object }) => object)
+  ], [built]);
 
   return (
     <>
-      <color attach="background" args={["#dcefcf"]} />
-      <fog attach="fog" args={["#dcefcf", 50, 130]} />
+      {/* Clear colour and fog share the sky's horizon haze, so the far
+          terrain and the dome meet without a visible seam. */}
+      <color attach="background" args={[SURROUNDINGS_FOG.color]} />
+      <fog
+        attach="fog"
+        args={[SURROUNDINGS_FOG.color, SURROUNDINGS_FOG.near, SURROUNDINGS_FOG.far]}
+      />
 
       {/* ---- Lighting ---- */}
       <hemisphereLight color="#fff5e8" groundColor="#7d9c71" intensity={2.2} />
@@ -510,7 +560,7 @@ export function Scene({
         ref={sunRef}
         color="#fff1cb"
         intensity={3.4}
-        position={[-16, 26, 22]}
+        position={[SUN_POSITION.x, SUN_POSITION.y, SUN_POSITION.z]}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-42}
@@ -521,7 +571,10 @@ export function Scene({
       <MapRenderBudget sunRef={sunRef} water={built.resortWater}
         preference={observatoryQualityPreference} onQualityChange={onMapQualityChange}
         editMode={editMode} suspended={observatorySuspended} />
-      <OutdoorPrewarm excludedRoots={[built.mushroomSky, built.observatoryRift, built.mushroomInterior]} />
+      <OutdoorPrewarm
+        excludedRoots={[built.mushroomSky, built.observatoryRift, built.mushroomInterior]}
+        pocketRoots={pocketRoots}
+      />
       {ROOM_LIGHTS.map((light, index) => (
         <pointLight
           key={index}
@@ -571,7 +624,11 @@ export function Scene({
         muted={observatoryAudioMuted}
       />
 
-      {/* ---- Terrain ---- */}
+      {/* ---- Sky, terrain and the far landscape ---- */}
+      <DaySky sky={built.daySky} />
+      <primitive object={built.terrain} />
+      <primitive object={built.village} />
+      <primitive object={built.meadowTrees} />
       {built.grounds.map(([object, position], index) => (
         <primitive key={`ground-${index}`} object={object} position={position} />
       ))}

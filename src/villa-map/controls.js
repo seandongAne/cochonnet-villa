@@ -11,6 +11,13 @@ export const EXPLORER_HIDDEN_ACTIONS = Object.freeze({
   KeyF: "lens"
 });
 
+// Chrome returns a promise from requestPointerLock; a denied or unsupported
+// lock (embedded documents, user escape) must fall through to the drag-look
+// fallback without an unhandled rejection in the console.
+function requestLockQuietly(canvas) {
+  Promise.resolve(canvas.requestPointerLock?.()).catch(() => {});
+}
+
 export function createExplorerControls({
   camera,
   canvas,
@@ -43,7 +50,7 @@ export function createExplorerControls({
     onLockChange?.(true);
 
     try {
-      canvas.requestPointerLock?.();
+      requestLockQuietly(canvas);
     } catch {
       // Pointer Lock rejected; the drag-look fallback stays active.
     }
@@ -136,7 +143,7 @@ export function createExplorerControls({
 
     // A click is a user gesture — retry the real pointer lock while we drag.
     try {
-      canvas.requestPointerLock?.();
+      requestLockQuietly(canvas);
     } catch {
       // Keep drag-look.
     }

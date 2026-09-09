@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
 import { createPorky } from "./assets.js";
+import { trackAssetLoad } from "./asset-loading.js";
 
 export const PORKY_MODEL_VARIANTS = {
   "wild-piglet": {
@@ -119,10 +121,18 @@ export const PORKY_MODEL_VARIANTS = {
   }
 };
 
+// The pig GLBs are quantised + EXT_meshopt_compression (see
+// scripts/optimize-porky-glbs.mjs); three's bundled WebAssembly decoder keeps
+// that a local dependency with no CDN fetch.
 const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
 const modelCache = new Map();
 
-export function createPorkyModel(materials, options = {}) {
+// `hooks.prepare(model)` (browser-only, optional) runs after the model is
+// fitted but before it replaces the procedural stand-in, so texture uploads and
+// shader compilation never land on the first visible frame. The whole chain is
+// reported to the shared progress registry so the loading veil can wait for it.
+export function createPorkyModel(materials, options = {}, hooks = {}) {
   const variant = PORKY_MODEL_VARIANTS[options.variant] ?? PORKY_MODEL_VARIANTS["big-ear-piglet"];
   const group = new THREE.Group();
   const targetHeight = variant.height * (options.modelScale ?? 1);
@@ -134,22 +144,28 @@ export function createPorkyModel(materials, options = {}) {
   fallback.name = "porky-procedural-fallback";
   group.add(fallback);
 
-  loadModel(variant.url)
-    .then((source) => {
+  group.userData.assetState = "loading";
+  trackAssetLoad(loadModel(variant.url)
+    .then(async (source) => {
       const model = source.clone(true);
       prepareModel(model, {
         height: targetHeight,
         rotationY: options.modelRotationY ?? variant.rotationY ?? 0
       });
+      await hooks.prepare?.(model);
       group.clear();
       group.add(model);
 
       if (options.mic) {
         group.add(createMicrophone(targetHeight));
       }
-    })
-    .catch(() => {
+      group.userData.assetState = "ready";
+    }))
+    // Outside trackAssetLoad so a failed swap counts as failed, not settled-OK.
+    .catch((error) => {
       group.userData.modelLoadFailed = true;
+      group.userData.modelLoadError = error?.message ?? String(error);
+      group.userData.assetState = "fallback";
     });
 
   return group;

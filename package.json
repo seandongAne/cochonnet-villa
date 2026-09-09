@@ -13,7 +13,8 @@
     "astro": "^6.2.2",
     "concurrently": "^9.2.1",
     "decap-cms-app": "^3.11.0",
-    "decap-server": "^3.6.0"
+    "decap-server": "^3.6.0",
+    "gltfpack": "^1.2.0"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",

@@ -10,6 +10,21 @@ export function isOutdoorPrewarmMesh(object, excludedRoots = []) {
   return !object.name.includes('placeholder');
 }
 
+// The buried mushroom pocket is the mirror image: only meshes below the meadow
+// qualify, observatory roots stay excluded, and anything driven by a custom
+// shader is left to the observatory runtime (the pocket's furniture, joinery,
+// slabs and lights-on finishes are all ordinary material programs).
+export function isPocketPrewarmMesh(object, excludedRoots = []) {
+  if (!object.isMesh || object.matrixWorld.elements[13] >= -20) return false;
+  for (let parent = object; parent; parent = parent.parent) {
+    if (excludedRoots.includes(parent)) return false;
+    if (parent.userData.assetState === 'loading') return false;
+  }
+  const materials = Array.isArray(object.material) ? object.material : [object.material];
+  if (materials.some((m) => !m || m.isShaderMaterial || m.isRawShaderMaterial)) return false;
+  return !object.name.includes('placeholder');
+}
+
 // Flatten only the contact decals, grouped by physical floor. The original
 // factory remains useful for editing / geometry tests; runtime draws five batches.
 export function batchContactShadows(root) {

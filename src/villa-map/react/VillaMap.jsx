@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
 import { BASE_VERTICAL_FOV } from "../camera-framing.js";
 import { mapDprForTier } from '../map-quality.js';
+import {
+  ASSET_WAIT_TIMEOUT_MS,
+  formatAssetProgress,
+  getAssetProgress,
+  subscribeAssetProgress
+} from "../asset-loading.js";
+import { SURROUNDINGS_CAMERA_FAR } from "../surroundings.js";
 import { createVillaWorld } from "../world.js";
 import { isTypingTarget } from "../controls.js";
 import {
@@ -128,7 +135,26 @@ export default function VillaMap() {
     exploringRef.current = Boolean(value);
     setExploring(Boolean(value));
   }, []);
-  const [loading, setLoading] = useState(true);
+  // The loading veil stays up until every streamed GLB (villa/spa/mushroom
+  // shells, pigs, furniture) has actually replaced its procedural stand-in —
+  // or until a fail-soft timeout lets a slow connection start exploring while
+  // the rest keeps streaming in behind the player.
+  const [canvasCreated, setCanvasCreated] = useState(false);
+  const [assetWaitExpired, setAssetWaitExpired] = useState(false);
+  const assetProgress = useSyncExternalStore(subscribeAssetProgress, getAssetProgress);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAssetWaitExpired(true), ASSET_WAIT_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const assetsReady = canvasCreated && (assetProgress.complete || assetWaitExpired);
+  const [veilMounted, setVeilMounted] = useState(true);
+  useEffect(() => {
+    if (!assetsReady) return undefined;
+    // Keep the veil one beat past readiness so the final swaps render behind
+    // it, then let the CSS fade finish before unmounting.
+    const timer = window.setTimeout(() => setVeilMounted(false), 700);
+    return () => window.clearTimeout(timer);
+  }, [assetsReady]);
   const [interaction, setInteraction] = useState(null);
   const [qualityPanelOpen, setQualityPanelOpen] = useState(false);
   const [mapQuality, setMapQuality] = useState('medium');
@@ -481,10 +507,10 @@ export default function VillaMap() {
         camera={{
           fov: BASE_VERTICAL_FOV,
           near: 0.1,
-          far: 200,
+          far: SURROUNDINGS_CAMERA_FAR,
           position: [start.x, start.y, start.z]
         }}
-        onCreated={() => setLoading(false)}
+        onCreated={() => setCanvasCreated(true)}
         onPointerMissed={editMode ? () => setSelected(null) : undefined}
       >
         <UltraWideFraming baseFov={BASE_VERTICAL_FOV} />
@@ -603,10 +629,13 @@ export default function VillaMap() {
             className="villa-map-start"
             type="button"
             onClick={requestLock}
+            disabled={!assetsReady}
           >
-            开始探索
+            {assetsReady ? "开始探索" : "正在搭建…"}
           </button>
-          <p className="villa-map-status">点击开始后使用 WASD + 鼠标探索</p>
+          <p className="villa-map-status">
+            {assetsReady ? "点击开始后使用 WASD + 鼠标探索" : "模型就位后即可开始探索"}
+          </p>
         </section>
       )}
 
@@ -629,7 +658,23 @@ export default function VillaMap() {
         />
       )}
 
-      {loading && <div className="villa-map-loading">正在搭建猪猪山庄...</div>}
+      {veilMounted && (
+        <div
+          className={`villa-map-loading${assetsReady ? " is-ready" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          <p className="villa-map-loading-label">{formatAssetProgress(assetProgress)}</p>
+          <div className="villa-map-loading-bar" aria-hidden="true">
+            <span style={{ width: `${Math.round(assetProgress.ratio * 100)}%` }} />
+          </div>
+          <p className="villa-map-loading-hint">
+            {assetProgress.total > 0
+              ? `${assetProgress.settled} / ${assetProgress.total} 件模型就位`
+              : "正在准备场景…"}
+          </p>
+        </div>
+      )}
 
       {!editMode
         && !observatoryDiagnosticsMode
