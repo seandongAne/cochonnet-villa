@@ -1,0 +1,13 @@
+Cochonnet Villa resort assets
+
+Original project assets, authored for Cochonnet Villa in Blender.
+The villa preserves structural geometry from this project's assets.js.
+The spa, mushroom exterior, joinery, surface textures and contact AO were authored by
+scripts/build-resort-assets.py. No third-party model or texture is included.
+
+These are first-party project assets. Rights remain with the Cochonnet Villa
+project owners; this provenance record does not grant a new redistribution
+license or relicense the existing architectural source.
+
+Source: art/resort/villa.blend, art/resort/springs.blend, art/resort/mushroom.blend
+Rebuild: scripts/export-resort-reference.mjs + scripts/build-resort-assets.py

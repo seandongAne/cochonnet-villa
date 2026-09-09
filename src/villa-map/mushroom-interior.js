@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createMushroomFinishes, createMushroomWallJoinery, setFloorGrainUV } from './mushroom-finishes.js';
 import {
   MUSHROOM_INTERIOR_LOCAL_RADIUS,
   MUSHROOM_INTERIOR_SCALE,
@@ -87,6 +88,7 @@ export const MUSHROOM_OBSERVATORY_SWITCH_ACTION_TYPE =
   "toggle-observatory-lights";
 
 export function createMushroomInterior(materials) {
+  materials = createMushroomFinishes(materials);
   const group = new THREE.Group();
   group.name = "mushroom-interior";
   group.scale.setScalar(MUSHROOM_INTERIOR_SCALE);
@@ -124,17 +126,23 @@ export function createMushroomInterior(materials) {
     })
   );
   const observatoryGlowMaterial = new THREE.MeshStandardMaterial({
-    color: "#240605",
-    emissive: "#ff2418",
+    color: "#ead9b5",
+    emissive: "#ffe6ad",
     emissiveIntensity: 0.28,
     roughness: 0.9
   });
+  observatoryGlowMaterial.userData = {
+    lightsOnColor:'#ead9b5',lightsOffColor:'#240605',
+    lightsOnEmissive:'#ffe6ad',lightsOffEmissive:'#ff2418',
+    observatoryRoomFinish:true
+  };
   // The observatory lining is a real day/night surface rather than a
   // permanently black skin. It is authored in the warm L1/L2 palette because
   // the room starts with its house lights on; Scene.jsx eases these named
   // materials toward their dark targets when the physical switch is flipped.
   const observatoryWallMaterial = new THREE.MeshStandardMaterial({
     color: wallMaterial.color,
+    map: wallMaterial.map,
     roughness: 0.98,
     metalness: 0.02,
     side: THREE.BackSide,
@@ -146,6 +154,7 @@ export function createMushroomInterior(materials) {
   observatoryWallMaterial.userData.lightsOffColor = "#01030a";
   const observatoryFloorMaterial = new THREE.MeshStandardMaterial({
     color: materials.floorPlank.color,
+    map: materials.floorPlank.map,
     roughness: 1,
     metalness: 0
   });
@@ -209,6 +218,7 @@ export function createMushroomInterior(materials) {
   base.name = "mushroom-interior-base";
   base.position.y = -0.2;
   base.receiveShadow = true;
+  setFloorGrainUV(base.geometry,'xz');
   group.add(base);
 
   const wall = new THREE.Mesh(
@@ -219,6 +229,7 @@ export function createMushroomInterior(materials) {
   wall.position.y = observatoryFloorY / 2;
   wall.receiveShadow = true;
   group.add(wall);
+  group.add(createMushroomWallJoinery(RADIUS));
 
   const upperWallMaterial = wallMaterial.clone();
   upperWallMaterial.transparent = true;
@@ -317,7 +328,7 @@ export function createMushroomInterior(materials) {
   windowSpecs.forEach((spec, level) => {
     spec.angles.forEach((angle, index) => {
       const disc = new THREE.Mesh(
-        new THREE.CircleGeometry(0.42, 20),
+        new THREE.CircleGeometry(0.42, 48),
         level === 2 ? observatoryGlowMaterial : glowMaterial
       );
       disc.name = `mushroom-interior-window-${level + 1}-${index}`;
@@ -325,7 +336,7 @@ export function createMushroomInterior(materials) {
       disc.rotation.y = angle + Math.PI;
       group.add(disc);
       // Wooden porthole trim ring.
-      const trim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.05, 8, 20), materials.wood);
+      const trim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.05, 12, 64), materials.wood);
       trim.name = `mushroom-interior-window-trim-${level + 1}-${index}`;
       trim.position.copy(disc.position);
       trim.rotation.y = angle + Math.PI;
@@ -594,6 +605,7 @@ function buildFloorShape(stairX) {
 function buildFloorOverlay(name, topY, stairX, material) {
   const { shape } = buildFloorShape(stairX);
   const overlay = new THREE.Mesh(new THREE.ShapeGeometry(shape, 48), material);
+  setFloorGrainUV(overlay.geometry);
   overlay.name = name;
   overlay.rotation.x = -Math.PI / 2;
   overlay.position.y = topY + 0.008;
@@ -608,7 +620,17 @@ function buildSlab(name, topY, stairX, materials) {
     depth: SLAB_THICKNESS,
     bevelEnabled: false
   });
-  const slab = new THREE.Mesh(geometry, materials.floorPlank);
+  setFloorGrainUV(geometry);
+  geometry.clearGroups();
+  // Separate the underside from the walking surface without changing geometry.
+  const normals=geometry.attributes.normal;
+  let start=0,last=-1;
+  for(let i=0;i<normals.count;i+=3){
+    const materialIndex=normals.getZ(i)<-.9?1:0;
+    if(materialIndex!==last){if(i>start)geometry.addGroup(start,i-start,last);start=i;last=materialIndex;}
+  }
+  geometry.addGroup(start,normals.count-start,last);
+  const slab = new THREE.Mesh(geometry, [materials.floorPlank,materials.ceiling]);
   slab.name = name;
   slab.rotation.x = -Math.PI / 2;
   slab.position.y = topY - SLAB_THICKNESS;

@@ -32,7 +32,7 @@ Both editors are backend-free: they commit through the GitHub Contents API with 
 - ES modules everywhere (`"type": "module"`).
 - **Node-pure core.** Anything the tests import (all of `src/villa-map/*.js`, `render-*.js`, `notes-draft.js`, `seo.js`) must not touch `window` / `document` / `TextureLoader` at import time. The React layer is the only browser owner.
 - React island only on `/villa-map/` (`client:only="react"`); every other page is vanilla Astro static HTML. Bilingual, content defaults to `zh`, `data-i18n` hooks.
-- Procedural geometry at runtime; pre-made GLBs (pigs / furniture / props) load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural fallback, mounted via `<primitive object={…}>` — **not** drei `useGLTF`. Keeps the core node-testable and the loader uniform.
+- Procedural geometry at runtime; pre-made GLBs (pigs / furniture / props) load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural fallback, mounted via `<primitive object={…}>` — **not** drei `useGLTF`. The authored villa/spa/mushroom-exterior GLBs in `public/models/resort/` preserve exact metre coordinates instead of bbox fitting; sources and rebuild instructions are in `docs/RESORT_ASSETS.md`.
 - **Version pins (don't bump blindly):** Astro 6 / Vite 7, `@astrojs/react@^5`, `overrides: { vite: "^7" }`. drei `<SoftShadows>` is broken with three r184 → shadows use `PCFShadowMap`.
 - Tests are behavior-pinning, not smoke tests: world/collision/interaction geometry, asset existence (GLBs, colormap atlas, observatory bins incl. SHA-256), overlap (`overlap.test.mjs`: solid non-chair clip ≤ 0.5 m²), same-model spacing (`spacing.test.mjs`: ≥ 1.8 m, chair family + railing exempt), villa shell palette, viewport scaling, and the full `observatory-*` / `mushroom-*` / `star-ceiling` suite.
 
@@ -69,6 +69,8 @@ Framework-agnostic core — pure logic + Three.js factories, reused verbatim by 
 | `porky-models.js` · `furniture-models.js` | GLB loaders: 15 pig variants with procedural fallback / generic prop loader (per-pack base scale, X/Z re-center, floor-sit, placeholder + fallback), reused for exterior & architecture props |
 | `placements.js` · `furniture-placements.js` · `exterior-placements.js` · `architecture-placements.js` | Placement data (position / rotation / variant) per room or area; stamping derives `footprint` / `floor` / `solid` / `noShadow`. Mushroom `wallMounted` decor projects tangent to the round wall; `onWallShelfId` clutter follows its shelf |
 | `shadows.js` · `furniture-colliders.js` | `createShadowBlobs()` soft radial-gradient contact shadows (skips `noShadow`) / `deriveFurnitureColliders()` rotated-AABB colliders for `solid` props (0.85 shrink, floor-scoped Y) |
+| `resort-assets.js` · `resort-water.js` · `map-quality.js` | Exact-coordinate authored assets and floor-batched contact shadows / single-surface spa water + instanced steam / whole-map DPR, shadow and steam tiers |
+| `mushroom-finishes.js` | Node-pure plaster/oak maps, shallow wall panelling, cloned furniture finishes and botanical frame inserts; L3 finishes follow the existing adaptation/Rift state |
 | `camera-framing.js` | Ultra-wide FOV math (see *Viewport*) |
 
 Observatory core — 20 further node-pure modules (`mushroom-sky`, `mushroom-nebula`, `gaia-stars`, `observatory-*`): module map in [`docs/OBSERVATORY_RUNTIME.md`](docs/OBSERVATORY_RUNTIME.md).
@@ -85,6 +87,7 @@ React layer (`src/villa-map/react/`, client-only):
 | `ObservatoryEventJournal.jsx` | 天象图鉴 modal (unseen events stay ？？？ silhouettes); follows the Q panel's pointer-lock release/suspend discipline |
 | `ObservatoryDiagnostics.jsx` · `ObservatoryQualityPanel.jsx` | Query-only fixed-camera test/perf harness / player-facing quality panel |
 | `UltraWideFraming.jsx` · `EditControls.jsx` | Ultra-wide FOV bridge / `?edit=1` furniture editor (orbit + drag gizmo + clipping plane; prints paste-ready placement records) |
+| `ResortAsset.jsx` · `MapRenderBudget.jsx` · `OutdoorPrewarm.jsx` | Authored GLBs with procedural fallback / cached sun shadows + whole-map quality / staggered above-ground GPU preparation, explicitly excluding all observatory roots |
 
 ### World facts
 
@@ -136,6 +139,8 @@ Ultra-wide **zooms and widens the same layout — it never re-columns it**, so a
 **Visual editor** — `/villa-map/?edit=1` swaps walk controls for orbit + drag gizmo with a dollhouse clipping plane (`[` / `]`); click a piece → the panel prints a paste-ready placement record (`G`/`R` translate/rotate, `Esc` deselect). Data files stay the source of truth.
 
 **Verifying the 3D scene in preview** — prefer the query-only harness above: no temporary source hooks, production start position untouched. `observatory=test` for deterministic fixed-camera screenshots, `observatory=perf` for a real frame loop.
+
+**Resort assets and whole-map performance** — `docs/RESORT_ASSETS.md` documents Blender sources, rebuilds, the Q panel's map tiers, exterior/room QA bookmarks and the two-lap camera benchmark. `world.js` remains the collision/floor source of truth. The sun shadow is cached for the static map; async mesh replacement, quality changes, context restoration and live editing invalidate it. Future moving outdoor shadow casters must request updates explicitly. AO atlases supply contact detail, not complete baked illumination.
 
 ## Gotchas — hard-won, don't relearn
 

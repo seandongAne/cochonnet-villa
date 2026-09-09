@@ -1,0 +1,9 @@
+{
+  "meshes": 30,
+  "opaqueBatches": 21,
+  "glassPanes": 9,
+  "triangles": 21516,
+  "bytes": 2829580,
+  "aoResolution": 1024,
+  "aoSamples": 64
+}

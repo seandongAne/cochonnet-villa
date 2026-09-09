@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
 import { BASE_VERTICAL_FOV } from "../camera-framing.js";
+import { mapDprForTier } from '../map-quality.js';
 import { createVillaWorld } from "../world.js";
 import { isTypingTarget } from "../controls.js";
 import {
@@ -36,6 +37,7 @@ const CLOSED_OBSERVATORY_HIDDEN_EFFECTS = Object.freeze({
   lens: false
 });
 const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze([
+  "mushroom-hearth", "mushroom-den", "mushroom-front", "mushroom-door", "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
   "l2-stair",
   "loft-center",
   "loft-edge",
@@ -129,6 +131,7 @@ export default function VillaMap() {
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState(null);
   const [qualityPanelOpen, setQualityPanelOpen] = useState(false);
+  const [mapQuality, setMapQuality] = useState('medium');
   const [observatoryAudioMuted, setObservatoryAudioMuted] = useState(false);
   const [observatoryQualityPreference, setObservatoryQualityPreference] =
     useState(() => readObservatoryQualityPreference(
@@ -473,7 +476,7 @@ export default function VillaMap() {
         className="villa-map-canvas"
         frameloop={observatoryDiagnosticsMode === "test" ? "never" : "always"}
         shadows={{ type: PCFShadowMap }}
-        dpr={[1, 1.8]}
+        dpr={mapDprForTier(mapQuality, window.devicePixelRatio)}
         gl={{ antialias: true, stencil: true }}
         camera={{
           fov: BASE_VERTICAL_FOV,
@@ -486,6 +489,7 @@ export default function VillaMap() {
       >
         <UltraWideFraming baseFov={BASE_VERTICAL_FOV} />
         <Scene
+          onMapQualityChange={setMapQuality}
           world={world}
           editMode={editMode}
           onSelectPiece={editMode ? selectPiece : undefined}
@@ -557,6 +561,7 @@ export default function VillaMap() {
 
       {!editMode && !observatoryDiagnosticsMode && qualityPanelOpen && (
         <ObservatoryQualityPanel
+          mapQuality={mapQuality}
           open
           preference={observatoryQualityPreference}
           activeQuality={observatoryQualityStatus.activeQuality}
@@ -828,6 +833,10 @@ function ObservatoryDiagnosticsPanel({ mode, api, lightsOn, hiddenEffects }) {
             +{seconds}s
           </button>
         ))}
+        {mode === "perf" && <button type="button" style={buttonStyle} disabled={!api}
+          onClick={() => run(() => api.startMapBenchmark())}>运行两圈地图路线</button>}
+        {mode === "perf" && <button type="button" style={buttonStyle} disabled={!api}
+          onClick={() => run(() => api.stopMapBenchmark())}>停止路线</button>}
         <button
           type="button"
           style={buttonStyle}

@@ -9,10 +9,7 @@ import {
   createGround,
   createHayBale,
   createMaterials,
-  createModernVilla,
-  createMushroomHouse,
   createTextBoard,
-  createTieredHotSprings,
   createTree
 } from "../assets.js";
 import {
@@ -40,20 +37,19 @@ import { createObservatoryRiftVisual } from "../observatory-rift-visual.js";
 import { createObservatoryAdaptationState } from "../observatory-adaptation.js";
 import { MushroomObservatoryAudio } from "./MushroomObservatoryAudio.jsx";
 import { MushroomObservatoryRuntime } from "./MushroomObservatoryRuntime.jsx";
+import { ResortAsset } from './ResortAsset.jsx';
+import { MapRenderBudget } from './MapRenderBudget.jsx';
+import { OutdoorPrewarm } from './OutdoorPrewarm.jsx';
+import { createResortWater } from '../resort-water.js';
+import { batchContactShadows } from '../resort-assets.js';
 
-// Soft warm interior point lights, one cluster per villa room. Mirrors the
-// roomLights array from the old scene.js. None cast shadows (kept cheap; the
-// sun is the only shadow caster).
+// Four broad warm pools replace nine overlapping room lights. Static contact
+// detail comes from the authored AO atlas; the sun is the only shadow caster.
 const VILLA_ROOM_LIGHTS = [
-  { x: 0, y: 5.2, z: -4.5, color: "#ffd2a3", intensity: 7, distance: 7 },
-  { x: -7, y: 5.2, z: -13, color: "#ffc48a", intensity: 10, distance: 11 },
-  { x: 7, y: 5.2, z: -13, color: "#ffc48a", intensity: 10, distance: 11 },
-  { x: 0, y: 5.0, z: -10, color: "#ffd9b3", intensity: 6, distance: 7 },
-  { x: -7, y: 5.2, z: -20, color: "#ffb98c", intensity: 7, distance: 9 },
-  { x: 7, y: 5.2, z: -20, color: "#ffb98c", intensity: 7, distance: 9 },
-  { x: -5.5, y: 10.6, z: -11, color: "#ffd2a3", intensity: 8, distance: 8 },
-  { x: 5.5, y: 10.6, z: -13.5, color: "#fff0d6", intensity: 7, distance: 7 },
-  { x: 5.5, y: 10.6, z: -8.5, color: "#ffd2a3", intensity: 7, distance: 7 }
+  { x: -6, y: 4.6, z: -13, color: "#ffd2a3", intensity: 24, distance: 15 },
+  { x: 6, y: 4.6, z: -13, color: "#ffd2a3", intensity: 24, distance: 15 },
+  { x: -5.5, y: 10.6, z: -11, color: "#ffd2a3", intensity: 12, distance: 10 },
+  { x: 5.5, y: 10.6, z: -11, color: "#fff0d6", intensity: 12, distance: 10 }
 ];
 
 // L1/L2 stay as fixed cosy pools. L3 is animated separately so its dim amber
@@ -207,15 +203,24 @@ function MushroomObservatoryPalette({ interior, adaptationRef }) {
   const surfacesRef = useRef([]);
 
   useEffect(() => {
-    surfacesRef.current = [
+    const surfaceMaterials = new Set([
       interior.getObjectByName(MUSHROOM_OBSERVATORY_WALL_NAME)?.material,
       interior.getObjectByName(MUSHROOM_OBSERVATORY_FLOOR_NAME)?.material
-    ]
+    ]);
+    interior.getObjectByName('mushroom-wall-joinery')?.traverse(object=>{
+      if(object.material?.userData?.lightsOffColor)surfaceMaterials.add(object.material);
+    });
+    interior.traverse(object=>{
+      if(object.material?.userData?.observatoryRoomFinish)surfaceMaterials.add(object.material);
+    });
+    surfacesRef.current = [...surfaceMaterials]
       .filter((material) => material?.color)
       .map((material) => ({
         material,
         lightsOnColor: new THREE.Color(material.userData.lightsOnColor),
-        lightsOffColor: new THREE.Color(material.userData.lightsOffColor)
+        lightsOffColor: new THREE.Color(material.userData.lightsOffColor),
+        lightsOnEmissive: material.userData.lightsOnEmissive ? new THREE.Color(material.userData.lightsOnEmissive) : null,
+        lightsOffEmissive: material.userData.lightsOffEmissive ? new THREE.Color(material.userData.lightsOffEmissive) : null
       }));
 
     return () => {
@@ -226,10 +231,14 @@ function MushroomObservatoryPalette({ interior, adaptationRef }) {
   useFrame(() => {
     const houseLight = adaptationRef.current?.channels?.houseLight ?? 1;
     for (const surface of surfacesRef.current) {
+      if(surface.material.userData.fadeWithObservatoryWall){
+        surface.material.opacity=interior.getObjectByName(MUSHROOM_OBSERVATORY_WALL_NAME)?.material.opacity??1;
+      }
       surface.material.color.copy(surface.lightsOffColor).lerp(
         surface.lightsOnColor,
         houseLight
       );
+      if(surface.lightsOnEmissive)surface.material.emissive.copy(surface.lightsOffEmissive).lerp(surface.lightsOnEmissive,houseLight);
     }
   });
 
@@ -398,8 +407,10 @@ export function Scene({
   onObservatoryHiddenEffectsReset,
   observatoryQualityPreference = "auto",
   onObservatoryQualityStatusChange,
+  onMapQualityChange,
   onObservatoryRareEventChange
 }) {
+  const sunRef = useRef(null);
   const observatoryAdaptationRef = useRef(
     createObservatoryAdaptationState({
       lightsOn: observatoryLightsOn,
@@ -433,12 +444,10 @@ export function Scene({
         [createGround(14, 4.4, materials.path), [0, 0.02, 0.6]],
         [createGround(24, 20, materials.floor), [0, 0.01, -13]]
       ],
-      villa: createModernVilla(materials),
-      hotSprings: createTieredHotSprings(materials),
+      resortWater: createResortWater(),
       treeA: createTree(materials, 5.6),
       treeB: createTree(materials, 5.2),
       dogHouse: createDogHouse(materials),
-      mushroomHouse: createMushroomHouse(materials),
       // The walkable three-storey pocket space buried beneath the mushroom
       // house — reached via the door interaction's teleport, invisible from
       // the courtyard (nothing renders below the ground plane).
@@ -482,11 +491,11 @@ export function Scene({
       // (Phase 4 extends the list to the entrance accents).
       // One group of flat radial-gradient decals; reads each piece's footprint
       // and skips the ones flagged noShadow (rugs, tabletop items).
-      shadows: createShadowBlobs([
+      shadows: batchContactShadows(createShadowBlobs([
         ...FURNITURE_PLACEMENTS,
         ...EXTERIOR_PLACEMENTS,
         ...ARCHITECTURE_PLACEMENTS
-      ])
+      ]))
     };
   }, []);
 
@@ -498,6 +507,7 @@ export function Scene({
       {/* ---- Lighting ---- */}
       <hemisphereLight color="#fff5e8" groundColor="#7d9c71" intensity={2.2} />
       <directionalLight
+        ref={sunRef}
         color="#fff1cb"
         intensity={3.4}
         position={[-16, 26, 22]}
@@ -508,6 +518,10 @@ export function Scene({
         shadow-camera-top={42}
         shadow-camera-bottom={-42}
       />
+      <MapRenderBudget sunRef={sunRef} water={built.resortWater}
+        preference={observatoryQualityPreference} onQualityChange={onMapQualityChange}
+        editMode={editMode} suspended={observatorySuspended} />
+      <OutdoorPrewarm excludedRoots={[built.mushroomSky, built.observatoryRift, built.mushroomInterior]} />
       {ROOM_LIGHTS.map((light, index) => (
         <pointLight
           key={index}
@@ -563,10 +577,11 @@ export function Scene({
       ))}
 
       {/* ---- Main villa ---- */}
-      <primitive object={built.villa} position={[0, 0, -13]} />
+      <ResortAsset kind="villa" position={[0, 0, -13]} />
 
       {/* ---- Hot springs (factory positions its own parts at world coords) ---- */}
-      <primitive object={built.hotSprings} />
+      <ResortAsset kind="springs" />
+      <primitive object={built.resortWater} />
 
       {/* ---- Scenic exterior ---- */}
       <primitive object={built.treeA} position={[-21, 0, -2]} />
@@ -574,7 +589,7 @@ export function Scene({
       <primitive object={built.dogHouse} position={[-19, 0, 24]} rotation-y={Math.PI / 2} />
 
       {/* ---- Decor ---- */}
-      <primitive object={built.mushroomHouse} position={[-6, 0, 18]} rotation-y={Math.PI} />
+      <ResortAsset kind="mushroom" position={[-6, 0, 18]} rotationY={Math.PI} />
       <primitive
         object={built.mushroomInterior}
         position={[

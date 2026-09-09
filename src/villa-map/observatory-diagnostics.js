@@ -8,6 +8,15 @@ const { center, eyeY, floorY } = MUSHROOM_INTERIOR;
 const domeTargetY = floorY[2] + 8.7;
 
 export const OBSERVATORY_DIAGNOSTIC_VIEWS = Object.freeze({
+  "mushroom-hearth": Object.freeze({ position: [-6, -46.4, 23.8], target: [-8.5, -46, 14] }),
+  "mushroom-den": Object.freeze({ position: [-6, -38.4, 22], target: [-6, -38, 11] }),
+  "mushroom-front": Object.freeze({ position: [5, 6.5, 37], target: [-6, 4.8, 18] }),
+  "mushroom-door": Object.freeze({ position: [-6, 2.5, 31], target: [-6, 3.0, 22.9] }),
+  "villa-front": Object.freeze({ position: [24, 12, 24], target: [0, 5, -9] }),
+  "villa-hall": Object.freeze({ position: [0, 2.4, -4], target: [-6, 2.8, -15] }),
+  "villa-upper": Object.freeze({ position: [0, 8.3, -12.5], target: [6, 8.8, -8] }),
+  "springs-overview": Object.freeze({ position: [10, 11, 23], target: [22, 0.7, 0] }),
+  "springs-eye": Object.freeze({ position: [16.2, 1.8, 12], target: [21, 0.7, 7] }),
   "l2-stair": Object.freeze({
     position: Object.freeze([center.x - 4, eyeY[1], center.z - 2.8]),
     target: Object.freeze([center.x, domeTargetY, center.z + 0.2])

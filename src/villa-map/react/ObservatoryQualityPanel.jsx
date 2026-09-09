@@ -11,7 +11,7 @@ const QUALITY_OPTIONS = Object.freeze([
   Object.freeze({
     id: "high",
     label: "High",
-    description: "最高星体密度、精细黑洞和体积星云。"
+    description: "精细阴影、清晰画面与完整星空特效。"
   }),
   Object.freeze({
     id: "medium",
@@ -21,12 +21,12 @@ const QUALITY_OPTIONS = Object.freeze([
   Object.freeze({
     id: "low",
     label: "Low",
-    description: "减少星体数量并关闭体积渲染，优先保持流畅。"
+    description: "降低分辨率、阴影和蒸汽细节，优先保持流畅。"
   }),
   Object.freeze({
     id: "minimum",
     label: "Minimum",
-    description: "仅保留基础高清星空，适合性能受限的设备。"
+    description: "保留烘焙明暗和基础星空，关闭实时阴影与蒸汽。"
   })
 ]);
 
@@ -64,6 +64,7 @@ export function ObservatoryQualityPanel({
   preference,
   activeQuality,
   maximumQuality,
+  mapQuality,
   onSelect,
   onClose
 }) {
@@ -90,8 +91,8 @@ export function ObservatoryQualityPanel({
       >
         <header className="observatory-quality-panel__header">
           <div>
-            <p className="observatory-quality-panel__eyebrow">OBSERVATORY DISPLAY</p>
-            <h2 id={titleId}>观星台画质</h2>
+            <p className="observatory-quality-panel__eyebrow">VILLA DISPLAY</p>
+            <h2 id={titleId}>地图画质</h2>
           </div>
           <button
             className="observatory-quality-panel__close"
@@ -105,17 +106,17 @@ export function ObservatoryQualityPanel({
         </header>
 
         <p id={descriptionId} className="observatory-quality-panel__description">
-          选择星空、R 模式与黑洞特效的渲染精度。Auto 会在画质与流畅度之间自动寻找平衡。
+          调整整张地图的清晰度、阴影、温泉蒸汽和星空效果。Auto 会分别按地面场景与观星负载调整。
         </p>
 
         <div
           className="observatory-quality-panel__choices"
           role="group"
-          aria-label="选择观星台画质"
+          aria-label="选择地图画质"
         >
           {QUALITY_OPTIONS.map((option) => {
             const selected = preference === option.id;
-            const currentlyActive = activeQuality === option.id;
+            const currentlyActive = mapQuality === option.id;
 
             return (
               <button
@@ -138,7 +139,7 @@ export function ObservatoryQualityPanel({
                 </span>
                 {currentlyActive && (
                   <span className="observatory-quality-panel__active-marker">
-                    当前正在运行
+                    地图当前正在运行
                   </span>
                 )}
               </button>
@@ -147,12 +148,13 @@ export function ObservatoryQualityPanel({
         </div>
 
         <dl className="observatory-quality-panel__status" aria-live="polite">
+          <div><dt>地图当前档位</dt><dd>{displayQuality(mapQuality)}</dd></div>
           <div>
-            <dt>当前实际档位</dt>
+            <dt>观星当前档位</dt>
             <dd>{displayQuality(activeQuality)}</dd>
           </div>
           <div>
-            <dt>设备建议上限</dt>
+            <dt>观星建议上限</dt>
             <dd>{displayQuality(maximumQuality)}</dd>
           </div>
         </dl>
@@ -164,4 +166,3 @@ export function ObservatoryQualityPanel({
     </div>
   );
 }
-

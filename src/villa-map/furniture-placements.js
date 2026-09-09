@@ -84,6 +84,11 @@ const mushroomPiece = (model, {
   onWallShelfId,
   ...overrides
 }) => {
+  // Recompose whole activity groups, keeping tabletop objects with their bases.
+  // Offsets are in the readable source plan; the pocket dimensions stay fixed.
+  if(/^m1-(dining-|chair-|table-)/.test(id)){x+=.25;z+=.30;}
+  if(/^m2-(lounge-|couch|chair-|coffee-)/.test(id))z+=.45;
+  if(id==='m2-reading-chair'){x-=.15;z+=.25;}
   const authoredPosition = mushroomFurnitureWorldPosition(x, level, z, y);
   let position = authoredPosition;
   let finalRotationY = rotationY;
@@ -424,7 +429,7 @@ const RAW_PLACEMENTS = [
   // The centre/south arrival lane and east stair remain open. The north wall is
   // a full pantry, the west half a six-seat table, and the south-west corner a
   // tiny tea chair layered with a second rug, lamp, cushions and wall shelves.
-  mushroomPiece("rug_rectangle_stripes_A", { id: "m1-dining-rug", level: 0, x: -8.05, z: 17.05, scale: 1.55 }),
+  mushroomPiece("rug_rectangle_stripes_A", { id: "m1-dining-rug", level: 0, x: -8.05, z: 17.05, scale: 1.85 }),
   mushroomPiece("table_medium_long", { id: "m1-dining-table", level: 0, x: -8.05, z: 17.05, scale: 1.08 }),
   mushroomPiece("chair_A_wood", { id: "m1-chair-nw", level: 0, x: -8.55, z: 16.55, rotationY: 0 }),
   mushroomPiece("chair_B_wood", { id: "m1-chair-ne", level: 0, x: -7.55, z: 16.55, rotationY: 0 }),
@@ -446,7 +451,7 @@ const RAW_PLACEMENTS = [
   mushroomPiece("chair_stool", { id: "m1-kitchen-stool-b", level: 0, x: -5.35, z: 15.05, rotationY: Math.PI }),
 
   mushroomPiece("rug_oval_B", { id: "m1-tea-rug", level: 0, x: -9.05, z: 20.25, rotationY: 0.28, scale: 1.22 }),
-  mushroomPiece("armchair_pillows", { id: "m1-tea-chair", level: 0, x: -9.12, z: 20.18, rotationY: 0.42, scale: 0.94 }),
+  mushroomPiece("armchair_pillows", { id: "m1-tea-chair", level: 0, x: -9.12, z: 20.18, rotationY: 1.30, scale: 0.94 }),
   mushroomPiece("table_small", { id: "m1-tea-table", level: 0, x: -8.28, z: 20.35, rotationY: 0.22, scale: 0.9 }),
   mushroomPiece("lamp_table", { id: "m1-tea-lamp", level: 0, x: -8.28, z: 20.35, y: 0.82, scale: 0.72 }),
   mushroomPiece("lamp_standing", { id: "m1-floor-lamp", level: 0, x: -9.72, z: 21.05, scale: 0.88 }),
@@ -466,10 +471,10 @@ const RAW_PLACEMENTS = [
   // immediately south of them feeds a broad centre lane between stair A and
   // stair B, so the two stair mouths are joined without threading through a
   // collider cluster. Wall-mounted pieces stay at the perimeter.
-  mushroomPiece("rug_rectangle_A", { id: "m2-lounge-rug", level: 1, x: -6.0, z: 13.8, scale: 1.55 }),
+  mushroomPiece("rug_rectangle_A", { id: "m2-lounge-rug", level: 1, x: -6.0, z: 13.8, scale: 2.10 }),
   mushroomPiece("couch_pillows", { id: "m2-couch", level: 1, x: -6.0, z: 13.45, rotationY: 0, scale: 1.05 }),
-  mushroomPiece("chair_C", { id: "m2-chair-west", level: 1, x: -7.08, z: 14.35, rotationY: -0.45, scale: 1.05 }),
-  mushroomPiece("chair_A", { id: "m2-chair-east", level: 1, x: -4.92, z: 14.35, rotationY: 0.45, scale: 1.05 }),
+  mushroomPiece("chair_C", { id: "m2-chair-west", level: 1, x: -7.08, z: 14.35, rotationY: Math.PI / 2, scale: 1.05 }),
+  mushroomPiece("chair_A", { id: "m2-chair-east", level: 1, x: -4.92, z: 14.35, rotationY: -Math.PI / 2, scale: 1.05 }),
   mushroomPiece("table_low", { id: "m2-coffee-table", level: 1, x: -6.0, z: 14.33, scale: 1.0 }),
   mushroomPiece("book_set", { id: "m2-coffee-books", level: 1, x: -6.22, z: 14.33, y: 0.47, rotationY: -0.25, scale: 0.92 }),
   mushroomPiece("cactus_small_A", { id: "m2-coffee-cactus", level: 1, x: -5.75, z: 14.33, y: 0.47, scale: 0.82 }),
@@ -492,7 +497,7 @@ const RAW_PLACEMENTS = [
   mushroomPiece("pictureframe_standing_B", { id: "m2-west-photo", level: 1, x: -9.95, z: 14.72, y: 0.92, rotationY: Math.PI / 2 }),
 
   mushroomPiece("rug_oval_A", { id: "m2-reading-rug", level: 1, x: -3.35, z: 14.55, rotationY: -0.12, scale: 1.0 }),
-  mushroomPiece("armchair_pillows", { id: "m2-reading-chair", level: 1, x: -3.1, z: 14.05, rotationY: -0.35, scale: 0.96 }),
+  mushroomPiece("armchair_pillows", { id: "m2-reading-chair", level: 1, x: -3.1, z: 14.05, rotationY: -1.10, scale: 0.96 }),
   mushroomPiece("table_small", { id: "m2-reading-table", level: 1, x: -2.65, z: 14.4, rotationY: 0.08, scale: 0.92 }),
   mushroomPiece("pictureframe_standing_A", { id: "m2-reading-photo", level: 1, x: -2.77, z: 14.4, y: 0.84, rotationY: 0.15 }),
   mushroomPiece("book_single", { id: "m2-reading-book", level: 1, x: -2.5, z: 14.4, y: 0.84, rotationY: -0.35 }),
@@ -525,8 +530,8 @@ const RAW_PLACEMENTS = [
   mushroomPiece("pictureframe_small_C", { id: "m3-east-picture-small", level: 2, x: -1.7, z: 21.45, y: 3.1, rotationY: -Math.PI / 2, scale: 1.25, wallMounted: true }),
 
   mushroomPiece("rug_oval_A", { id: "m3-reading-rug", level: 2, x: -3.45, z: 20.95, rotationY: -0.16, scale: 1.32 }),
-  mushroomPiece("armchair_pillows", { id: "m3-reading-chair", level: 2, x: -2.45, z: 21.2, rotationY: -0.45, scale: 0.98 }),
-  mushroomPiece("chair_C", { id: "m3-reading-chair-small", level: 2, x: -4.15, z: 21.35, rotationY: 0.55, scale: 1.02 }),
+  mushroomPiece("armchair_pillows", { id: "m3-reading-chair", level: 2, x: -2.45, z: 21.2, rotationY: -2.15, scale: 0.98 }),
+  mushroomPiece("chair_C", { id: "m3-reading-chair-small", level: 2, x: -4.15, z: 21.35, rotationY: 2.35, scale: 1.02 }),
   mushroomPiece("table_low", { id: "m3-reading-table", level: 2, x: -3.35, z: 20.55, rotationY: -0.12, scale: 0.92 }),
   mushroomPiece("book_set", { id: "m3-reading-books", level: 2, x: -3.53, z: 20.55, y: 0.44, rotationY: 0.25, scale: 0.9 }),
   mushroomPiece("cactus_small_B", { id: "m3-reading-cactus", level: 2, x: -3.08, z: 20.55, y: 0.44, scale: 0.82 }),

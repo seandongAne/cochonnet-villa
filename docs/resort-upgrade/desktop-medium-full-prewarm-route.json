@@ -1,0 +1,344 @@
+{
+  "mode": "perf",
+  "lightsOn": true,
+  "hiddenEffects": {
+    "rift": false,
+    "lens": false
+  },
+  "camera": {
+    "position": [
+      0,
+      1.6,
+      18
+    ],
+    "quaternion": [
+      0,
+      1,
+      0,
+      0
+    ],
+    "fov": 70,
+    "aspect": 1.3085515305043987
+  },
+  "drawingBuffer": [
+    1475,
+    1127
+  ],
+  "exposure": 1,
+  "mapQuality": {
+    "tier": "medium",
+    "dpr": 1.25,
+    "shadowSize": 1024,
+    "steam": 6,
+    "p95Ms": 0
+  },
+  "outdoorPrewarm": {
+    "pending": 0,
+    "busy": false,
+    "meshes": 947
+  },
+  "benchmark": {
+    "running": false,
+    "lap": 2,
+    "elapsedSeconds": 0,
+    "results": [
+      {
+        "count": 7773,
+        "p50Ms": 4.199999809265137,
+        "p95Ms": 4.300000190734863,
+        "p99Ms": 4.400000095367432,
+        "onePercentLowFps": 227.27272234672367,
+        "longFrames50ms": 1,
+        "longFrames100ms": 1,
+        "maxMs": 115.79999995231628
+      },
+      {
+        "count": 7801,
+        "p50Ms": 4.199999809265137,
+        "p95Ms": 4.300000190734863,
+        "p99Ms": 4.400000095367432,
+        "onePercentLowFps": 227.27272234672367,
+        "longFrames50ms": 0,
+        "longFrames100ms": 0,
+        "maxMs": 5.5
+      }
+    ]
+  },
+  "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "resortAssets": {
+    "villa": "ready",
+    "springs": "ready"
+  },
+  "webglContext": {
+    "action": "status",
+    "supported": true,
+    "requested": false,
+    "lost": false
+  },
+  "frameTimes": {
+    "count": 1800,
+    "p50Ms": 4.199999809265137,
+    "p95Ms": 4.299999952316284,
+    "p99Ms": 4.3999998569488525,
+    "onePercentLowFps": 227.27273466173307
+  },
+  "renderer": {
+    "calls": 59,
+    "triangles": 7718,
+    "points": 0,
+    "textures": 139,
+    "geometries": 1589
+  },
+  "providers": {
+    "runtime": {
+      "active": false,
+      "quality": "high",
+      "maximumQuality": "high",
+      "lockedQuality": null,
+      "requestedQuality": null,
+      "skyMode": "impossible",
+      "p95Ms": 0,
+      "adaptation": {
+        "mode": "inactive",
+        "phaseElapsedSeconds": 0,
+        "channels": {
+          "houseLight": 1,
+          "roomDarkness": 0,
+          "portalReveal": 0,
+          "brightStarReveal": 0,
+          "scotopicAdaptation": 0,
+          "nebulaReveal": 0,
+          "faintStarReveal": 0
+        },
+        "reducedMotion": false
+      },
+      "portal": {
+        "enabled": false,
+        "type": "disabled",
+        "width": 0,
+        "height": 0,
+        "estimatedTargetBytes": 0,
+        "addedDrawCalls": 0,
+        "fboPassActive": false,
+        "compositeActive": false,
+        "frames": 0,
+        "prewarmed": false,
+        "prewarmMs": 0,
+        "error": null
+      },
+      "blackHole": {
+        "ready": false,
+        "visible": false,
+        "mode": "procedural-fallback",
+        "type": "disabled",
+        "quality": "minimum",
+        "width": 0,
+        "height": 0,
+        "estimatedTargetBytes": 0,
+        "cameraDistance": null,
+        "angularRadius": 0,
+        "reveal": 0,
+        "addedDrawCalls": 0,
+        "fboPassActive": false,
+        "frames": 0,
+        "prewarmed": false,
+        "kerrPrewarmed": false,
+        "prewarmMs": 0,
+        "error": null
+      },
+      "relativisticLens": {
+        "supported": true,
+        "lutFilter": "linear",
+        "loading": false,
+        "ready": false,
+        "lutReady": false,
+        "fallback": true,
+        "fetchMs": 0,
+        "prewarmed": false,
+        "prewarmMs": 0,
+        "error": null
+      },
+      "kerrLens": {
+        "supported": true,
+        "fallback": null,
+        "loading": false,
+        "ready": false,
+        "atlasReady": false,
+        "sourceMapReady": false,
+        "sourceStarsReady": false,
+        "quality": null,
+        "spin": 0.94,
+        "inclinationDegrees": 60,
+        "fetchMs": 0,
+        "prewarmed": false,
+        "prewarmMs": 0,
+        "fallbackReason": null,
+        "error": null
+      },
+      "starVolume": {
+        "ready": false,
+        "visible": false,
+        "quality": "minimum",
+        "count": 5920,
+        "shells": 3,
+        "addedDrawCalls": 0,
+        "reveal": 0,
+        "motionFrozen": false,
+        "prewarmed": false,
+        "prewarmMs": 0,
+        "error": null
+      },
+      "gaia": {
+        "loading": false,
+        "ready": false,
+        "count": 0,
+        "lod": null,
+        "addedDrawCalls": 0,
+        "fetchMs": 0,
+        "buildMs": 0,
+        "prewarmed": false,
+        "sourceMap": {
+          "ready": false,
+          "prewarmed": false,
+          "quality": null,
+          "width": 0,
+          "height": 0,
+          "includesHeroStars": false,
+          "prewarmMs": 0,
+          "error": null
+        },
+        "error": null
+      },
+      "nativeSky": {
+        "prewarmed": false,
+        "compositePrewarmed": false,
+        "prewarmMs": 0,
+        "textureGpuReady": true,
+        "textureUploadMs": 73.5,
+        "addedDrawCalls": 0,
+        "error": null
+      },
+      "skyEvents": {
+        "ready": true,
+        "disabled": false,
+        "disabledEventIds": [],
+        "errors": {},
+        "error": null
+      },
+      "rareEvents": {
+        "mode": "idle",
+        "event": null,
+        "intensity": 0,
+        "cooldownSeconds": 0,
+        "availability": {
+          "skyLayer": true,
+          "nebula": false,
+          "blackHole": false
+        },
+        "availableEventIds": [
+          "meteor-shower",
+          "comet",
+          "supernova",
+          "bolide",
+          "satellite-train",
+          "planet-conjunction",
+          "aurora",
+          "constellation",
+          "moon-transit",
+          "kilonova",
+          "ufo"
+        ],
+        "effectiveChancePerSecond": 0,
+        "paused": false,
+        "pausedReason": null
+      },
+      "hiddenEffects": {
+        "requestedRift": false,
+        "requestedLens": false,
+        "riftMode": "closed",
+        "riftProgress": 0,
+        "riftChannels": {
+          "apertureExpansion": 0,
+          "wallDissolve": 0,
+          "foregroundDepth": 0,
+          "foregroundParallax": 0,
+          "ringFadeProgress": 0,
+          "ringIntensity": 0,
+          "backdropSuppression": 0,
+          "spatialMotionScale": 1
+        },
+        "lensAmount": 0,
+        "lensDirection": [
+          -0.09969018051484337,
+          0.8939670994154922,
+          -0.4369035283349966
+        ],
+        "lensDistance": 10.572189470167906,
+        "lensAngularScale": 1.28,
+        "portalLensVisible": false,
+        "blackHoleVisible": false,
+        "starVolumeVisible": false
+      },
+      "audio": {
+        "supported": true,
+        "contextState": "uninitialized",
+        "unlocked": false,
+        "unlockRequested": false,
+        "muted": false,
+        "muteReason": "outside-loft",
+        "active": false,
+        "pageVisible": true,
+        "webglAvailable": true,
+        "quality": "high",
+        "reducedMotion": false,
+        "spatialModel": null,
+        "graphBuilds": 0,
+        "contextCount": 0,
+        "activeOneShots": 0,
+        "targets": {
+          "master": 0,
+          "room": 0,
+          "sky": 0,
+          "rift": 0,
+          "lens": 0
+        },
+        "listener": null,
+        "sources": {
+          "switch": [
+            -15.1,
+            -30.6,
+            15.5
+          ],
+          "rift": [
+            -6,
+            -24.4,
+            18
+          ],
+          "lens": [
+            -1.0539434767181648,
+            11.051189555117013,
+            13.380973118257543
+          ]
+        },
+        "director": null,
+        "failure": null
+      },
+      "backdrop4k": {
+        "ready": true,
+        "error": false,
+        "activeTier": "4k",
+        "highLoading": false,
+        "highReady": false,
+        "highError": false
+      },
+      "capabilities": {
+        "stencil": true,
+        "halfFloat": true,
+        "webgl2": true,
+        "contextLost": false,
+        "contextLossCount": 0,
+        "contextRestoreCount": 0
+      }
+    }
+  }
+}

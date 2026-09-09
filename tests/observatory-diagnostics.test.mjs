@@ -12,6 +12,9 @@ import { MUSHROOM_INTERIOR } from "../src/villa-map/world.js";
 
 test("observatory diagnostics expose stable finite camera bookmarks", () => {
   assert.deepEqual(Object.keys(OBSERVATORY_DIAGNOSTIC_VIEWS), [
+    "mushroom-hearth", "mushroom-den",
+    "mushroom-front", "mushroom-door",
+    "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
     "l2-stair",
     "loft-center",
     "loft-edge",
@@ -23,6 +26,7 @@ test("observatory diagnostics expose stable finite camera bookmarks", () => {
     assert.equal(view.target.length, 3);
     assert.ok(view.position.every(Number.isFinite));
     assert.ok(view.target.every(Number.isFinite));
+    if (view.position[1] > -20) continue;
     assert.ok(
       Math.hypot(
         view.position[0] - MUSHROOM_INTERIOR.center.x,

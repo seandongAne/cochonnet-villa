@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { styleMushroomFurnitureMaterial, addMushroomBotanicalPrint } from './mushroom-finishes.js';
 
 // Generic GLB furniture-prop loader — the Phase 2 counterpart to
 // porky-models.js. Both share the same shape (GLTFLoader + per-URL promise
 // cache + bounding-box fit + procedural placeholder), but furniture pieces are
 // pre-made CC0 assets (Kenney Furniture Kit + KayKit Furniture Bits) that ship
-// with their own baked materials, so we never recolour them — we only scale,
-// recentre and ground.
+// with their own baked materials. Mushroom-room instances receive cloned matte
+// finishes and a muted upholstery palette; the source cache stays unchanged.
 //
 // Reused verbatim by the React layer (mounted through <primitive>) and the
 // node test suite (the placement DATA is asserted in furniture-placements.js).
@@ -50,6 +51,20 @@ export function createFurniturePiece(placement) {
   loadModel(placement.url)
     .then((source) => {
       const model = source.clone(true);
+      if(placement.room?.startsWith('mushroom-')){
+        const styled=new Map();
+        model.traverse(child=>{
+          if(!child.isMesh)return;
+          const convert=original=>{
+            if(!styled.has(original))styled.set(original,styleMushroomFurnitureMaterial(original));
+            return styled.get(original);
+          };
+          child.material=Array.isArray(child.material)?child.material.map(convert):convert(child.material);
+        });
+        if(placement.wallMounted && /pictureframe/.test(placement.url) && !/mirror/.test(placement.id)){
+          addMushroomBotanicalPrint(model,placement.id);
+        }
+      }
       prepareFurniture(model, scale);
       group.clear();
       group.add(model);

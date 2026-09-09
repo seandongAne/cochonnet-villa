@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { advance, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { MAP_BENCHMARK_LAP_SECONDS,sampleBenchmarkPosition,benchmarkSummary } from '../map-benchmark.js';
 
 import {
   OBSERVATORY_DIAGNOSTIC_VIEWS,
@@ -29,6 +30,13 @@ export function ObservatoryDiagnostics({
   // otherwise leave the query-only QA panel stuck on "loading".
   const getState = useThree((state) => state.get);
   const samplesRef = useRef([]);
+  const routeRef = useRef({running:false,lap:0,elapsed:0,samples:[],results:[],longFrames:[]});
+  const skipRouteFrameRef = useRef(false);
+  useEffect(() => {
+    const skipResume = () => { skipRouteFrameRef.current = true; };
+    document.addEventListener('visibilitychange', skipResume);
+    return () => document.removeEventListener('visibilitychange', skipResume);
+  }, []);
   const providersRef = useRef(new Map());
   const lightsOnRef = useRef(lightsOn);
   const hiddenEffectsRef = useRef(hiddenEffects);
@@ -36,7 +44,23 @@ export function ObservatoryDiagnostics({
   lightsOnRef.current = lightsOn;
   hiddenEffectsRef.current = hiddenEffects;
 
-  useFrame((_, delta) => {
+  useFrame(({camera}, delta) => {
+    const route=routeRef.current;
+    if(route.running && !document.hidden && !skipRouteFrameRef.current){
+      if(delta>.05)route.longFrames.push({lap:route.lap+1,elapsedSeconds:route.elapsed,
+        frameMs:delta*1000,position:camera.position.toArray()});
+      route.samples.push(delta*1000);route.elapsed+=delta;
+      const pose=sampleBenchmarkPosition(Math.min(route.elapsed,MAP_BENCHMARK_LAP_SECONDS));
+      camera.position.fromArray(pose.position);
+      const distance = Math.hypot(...pose.target.map((v,i)=>v-camera.position.getComponent(i)));
+      if(distance>.01)camera.lookAt(...pose.target);
+      if(route.elapsed>=MAP_BENCHMARK_LAP_SECONDS){
+        route.results.push(benchmarkSummary(route.samples));
+        route.samples=[];route.elapsed=0;route.lap++;
+        if(route.lap>=2)route.running=false;
+      }
+    }
+    skipRouteFrameRef.current = false;
     const samples = samplesRef.current;
     samples.push(delta * 1000);
     if (samples.length > MAX_FRAME_SAMPLES) {
@@ -132,6 +156,15 @@ export function ObservatoryDiagnostics({
         },
         drawingBuffer: drawingBufferSize.toArray(),
         exposure: gl.toneMappingExposure,
+        mapQuality: scene.userData.mapQuality ?? null,
+        outdoorPrewarm: scene.userData.outdoorPrewarm ?? null,
+        benchmark: {running:routeRef.current.running,lap:Math.min(2,routeRef.current.lap+1),
+          elapsedSeconds:routeRef.current.elapsed,results:routeRef.current.results,
+          longFrames:routeRef.current.longFrames},
+        gpu: (()=>{const ext=webglContext?.getExtension('WEBGL_debug_renderer_info');
+          return ext?webglContext.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unavailable';})(),
+        resortAssets: Object.fromEntries(['villa','springs','mushroom'].map(kind => [kind,
+          scene.getObjectByName(`resort-asset-${kind}`)?.userData.assetState ?? 'legacy'])),
         webglContext: getContextLossStatus(),
         frameTimes: summarizeObservatoryFrameTimes(samplesRef.current),
         renderer: {
@@ -149,6 +182,15 @@ export function ObservatoryDiagnostics({
       mode,
       views: Object.keys(OBSERVATORY_DIAGNOSTIC_VIEWS),
       setView,
+      startMapBenchmark(){
+        if(mode!=='perf')throw new Error('The map benchmark requires real frame timing (observatory=perf).');
+        routeRef.current={running:true,lap:0,elapsed:0,samples:[],results:[],longFrames:[]};
+        return getSnapshot();
+      },
+      stopMapBenchmark(){
+        routeRef.current.running=false;
+        return getSnapshot();
+      },
       setLights(value) {
         setLightsOn(Boolean(value));
       },
