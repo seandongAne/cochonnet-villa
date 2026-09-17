@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Generates a cute piglet comic illustration for every 猪猪小记 post that
-// doesn't have one yet, using the OpenAI Image API (gpt-image-2), and stamps
+// doesn't have one yet, using the OpenAI Image API (gpt-image-2.5-sunburst), and stamps
 // the note's `image` field. Runs in GitHub Actions (see
 // .github/workflows/generate-note-art.yml); the workflow commits the results.
 //
@@ -30,8 +30,8 @@ const ART_DIR = path.join(ROOT, "public", "notes-art");
 const ART_URL_PREFIX = "/notes-art/";
 
 const API_URL = "https://api.openai.com/v1/images/generations";
-const MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
-const QUALITY = process.env.OPENAI_IMAGE_QUALITY || "medium";
+const MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-sunburst";
+const QUALITY = process.env.OPENAI_IMAGE_QUALITY || "xhigh";
 const SIZE = process.env.OPENAI_IMAGE_SIZE || "1536x1024";
 const MAX_PER_RUN = parseBoundedPositiveInteger(process.env.NOTE_ART_MAX_PER_RUN, {
   name: "NOTE_ART_MAX_PER_RUN",

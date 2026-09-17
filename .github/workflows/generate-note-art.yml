@@ -1,7 +1,7 @@
 name: Generate note art
 
 # Whenever 猪猪小记 content changes on main, draw a cute piglet comic for any
-# post that doesn't have one yet (scripts/generate-note-art.mjs, gpt-image-2),
+# post that doesn't have one yet (scripts/generate-note-art.mjs, gpt-image-2.5-sunburst),
 # commit the art + stamped notes.json, and kick the Pages deploy.
 #
 # Requires the repo Actions secret OPENAI_API_KEY whenever a note still needs
