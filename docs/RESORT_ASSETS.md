@@ -16,6 +16,9 @@ ivory freckles, a sculpted plaster stem, sage arched door, round honey windows
 and radial underside gills. It uses world-scale metres directly, retaining the
 original south-facing portal after the existing group rotation. Its buried
 three-floor interior and observatory are unchanged.
+The round windows are oriented along the stem's two front diagonals. A plaster
+collar intersects the actual pinched stem profile around each frame, supporting
+the tangent-plane glazing and shutters without floating off the curved wall.
 The spa is rebuilt as continuous recessed mineral basins, weathered rocks,
 moss cushions and a low cedar boardwalk. Western pool entries remain low.
 
@@ -57,6 +60,9 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
   work. Placement rejects path edges, props, residents and the mushroom portal.
   All maps are generated locally; no new asset download or dependency is needed.
 - `resort-assets.js`: geometry-preserving contact-shadow batches per floor.
+- `dog-house.js`: a node-pure hollow kennel with an open arched doorway, floor,
+  walls and two correctly sized roof slopes joined under a ridge cap. Scene
+  turns its local -Z entrance toward the east courtyard and interaction point.
 - `map-quality.js` + `react/MapRenderBudget.jsx`: the existing persisted Q choice
   now also controls map resolution, sun shadows and steam. Map Auto starts at
   Medium, ignores startup/background/modal intervals, requires two slow windows
@@ -90,6 +96,7 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
 ## Verification
 
 The existing query-only harness adds `mushroom-front`, `mushroom-door`,
+`mushroom-window-east`, `mushroom-window-west`, `dog-house`,
 `villa-front`, `villa-hall`, `villa-upper`,
 `springs-overview` and `springs-eye` bookmarks. Production entry and controls are
 unchanged. `observatory=test` advances synthetic time and **cannot measure FPS**.
@@ -117,6 +124,9 @@ counts or renderer statistics.
 Screenshots and measured snapshots are in `docs/resort-upgrade/`. The GLB tests
 round-trip geometry through the production loader and ray-test the open entry,
 upper floor, stairwell and spa bottoms; they also enforce UV/texture/batch budgets.
+The mushroom window regression ray-tests the exported GLB's glass-to-wall gap,
+outward orientation and support around the frame circumference. The kennel
+tests check its real doorway and continuous, bounded roof silhouette.
 
 ### Courtyard finish check — 2026-09-18
 

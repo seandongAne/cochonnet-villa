@@ -649,7 +649,7 @@ export function Scene({
       {/* ---- Scenic exterior ---- */}
       <primitive object={built.treeA} position={[-21, 0, -2]} />
       <primitive object={built.treeB} position={[-21, 0, 9]} scale={0.94} />
-      <primitive object={built.dogHouse} position={[-19, 0, 24]} rotation-y={Math.PI / 2} />
+      <primitive object={built.dogHouse} position={[-19, 0, 24]} rotation-y={-Math.PI / 2} />
 
       {/* ---- Decor ---- */}
       <ResortAsset kind="mushroom" position={[-6, 0, 18]} rotationY={Math.PI} />

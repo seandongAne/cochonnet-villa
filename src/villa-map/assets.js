@@ -984,15 +984,7 @@ export function createMushroomHouse(materials) {
   return group;
 }
 
-export function createDogHouse(materials) {
-  const group = new THREE.Group();
-  addBox(group, 2.4, 1.5, 2.2, materials.dogHouse, 0, 0.75, 0);
-  addBox(group, 2.9, 0.35, 2.55, materials.roof, -0.55, 1.78, 0, { z: 0.55 });
-  addBox(group, 2.9, 0.35, 2.55, materials.roof, 0.55, 1.78, 0, { z: -0.55 });
-  addBox(group, 0.95, 1.05, 0.12, materials.pigDark, 0, 0.55, -1.15);
-  addBox(group, 2.6, 0.18, 0.14, materials.wood, 0, 1.55, -1.18);
-  return group;
-}
+export { createDogHouse } from "./dog-house.js";
 
 export function createTree(materials, height = 4.8) {
   const group = new THREE.Group();

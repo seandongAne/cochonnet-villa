@@ -44,7 +44,9 @@ const CLOSED_OBSERVATORY_HIDDEN_EFFECTS = Object.freeze({
   lens: false
 });
 const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze([
-  "mushroom-hearth", "mushroom-den", "mushroom-front", "mushroom-door", "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
+  "mushroom-hearth", "mushroom-den", "mushroom-front", "mushroom-door",
+  "mushroom-window-east", "mushroom-window-west", "dog-house",
+  "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
   "l2-stair",
   "loft-center",
   "loft-edge",

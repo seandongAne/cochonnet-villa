@@ -2,8 +2,8 @@
   "meshes": 16,
   "opaqueBatches": 16,
   "glassPanes": 0,
-  "triangles": 47040,
-  "bytes": 3302536,
+  "triangles": 48928,
+  "bytes": 3423572,
   "aoResolution": 1024,
   "aoSamples": 64
 }

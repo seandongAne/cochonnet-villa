@@ -6,7 +6,7 @@ No third-party assets. Coordinates passed to helpers are Three.js Y-up metres.
 """
 import bpy, bmesh, json, math, random
 from pathlib import Path
-from mathutils import Vector
+from mathutils import Vector, Matrix
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -304,17 +304,60 @@ def author_mushroom():
         box('Door plank joint',(x,(top+.22)/2,-5.315),(.024,top-.22,.025),'darkwood','entry',.006)
     for y in (.9,2.3):box('Door strap hinge',(-.90,y,-5.35),(.42,.10,.06),'brass','entry',.02)
     ellipsoid('Brass door handle',(.80,1.8,-5.40),(.10,.10,.10),'brass','entry')
-    # Honey-coloured round windows with sage shutters and stone ledges.
+    # Mount each window in the tangent plane of the actual sculpted stem.
+    # A flat front-facing assembly at x=+/-2.95,z=-3.68 floated off this wall.
+    def stem_radius(y,a):
+        for (r0,y0),(r1,y1) in zip(profile,profile[1:]):
+            if y0 <= y <= y1:
+                r=r0+(r1-r0)*(y-y0)/(y1-y0)
+                return r*(1+.018*math.sin(3*a)+.012*math.cos(5*a))
+        raise ValueError('Window extends beyond the authored stem profile')
+
     for side in (-1,1):
-        x=side*2.95; z=-3.68
-        ellipsoid('Circular walnut window reveal',(x,2.8,z),(.88,.88,.28),'darkwood','stem')
-        ellipsoid('Circular honey glazing',(x,2.8,z-.24),(.70,.70,.065),'window','stem')
-        beam('Round window mullion',(x-.65,2.8,z-.32),(x+.65,2.8,z-.32),.085,'cedar','stem')
-        beam('Round window mullion',(x,2.15,z-.32),(x,3.45,z-.32),.085,'cedar','stem')
-        box('Window stone ledge',(x,1.85,z-.16),(1.95,.18,.70),'stone','stem',.08)
+        # Slightly wider than 45 degrees keeps the protruding portal from
+        # hiding the glazing when the player approaches from the front.
+        theta=side*math.radians(55)
+        normal=Vector((math.sin(theta),0,-math.cos(theta)))
+        tangent=Vector((math.cos(theta),0,math.sin(theta)))
+        anchor=normal*stem_radius(2.8,theta-math.pi/2)
+
+        def wall_depth(u,y):
+            # Intersect a tangent-plane sample with the pinched, asymmetric
+            # plaster surface. The collar's back ring embeds 4 cm into it.
+            low,high=-1.0,1.0
+            for _ in range(32):
+                d=(low+high)/2; p=anchor+tangent*u+normal*d
+                if math.hypot(p.x,p.z)>stem_radius(y,math.atan2(p.z,p.x)): high=d
+                else: low=d
+            return (low+high)/2
+
+        start=len(objects)
+        verts=[]; segments=64
+        for radius,front in ((1.04,False),(.94,True),(.74,True),(.74,False)):
+            for i in range(segments):
+                a=i/segments*math.tau; u=radius*math.cos(a); y=2.8+radius*math.sin(a)
+                depth=.12 if front else wall_depth(u,y)-.04
+                verts.append((u,y,-depth))
+        faces=[(ring*segments+i,ring*segments+(i+1)%segments,
+                ((ring+1)%4)*segments+(i+1)%segments,((ring+1)%4)*segments+i)
+               for ring in range(4) for i in range(segments)]
+        collar=mesh('Wall-conforming window collar',verts,faces,'plaster','stem')
+        bm=bmesh.new();bm.from_mesh(collar.data)
+        bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(collar.data);bm.free()
+        for p in collar.data.polygons:p.use_smooth=True
+        ellipsoid('Circular walnut window reveal',(0,2.8,-.14),(.88,.88,.13),'darkwood','stem')
+        ellipsoid('Circular honey glazing',(0,2.8,-.25),(.70,.70,.03),'window','stem')
+        beam('Round window mullion',(-.65,2.8,-.30),(.65,2.8,-.30),.085,'cedar','stem')
+        beam('Round window mullion',(0,2.15,-.30),(0,3.45,-.30),.085,'cedar','stem')
+        box('Window stone ledge',(0,1.85,-.02),(1.95,.18,.70),'stone','stem',.08)
         for offset in (-1,1):
-            shutter=box('Sage window shutter',(x+offset*.94,2.80,z+.02),(.35,1.38,.16),'sage','stem',.06)
-            shutter.rotation_euler.z=side*offset*.12
+            u=offset*1.04; depth=wall_depth(u,2.8)+.04
+            box('Sage window shutter',(u,2.80,-depth),(.30,1.38,.16),'sage','stem',.04)
+            for y in (2.35,3.25):
+                box('Window shutter hinge',(offset*.88,y,-.04),(.25,.08,.26),'darkwood','stem',.02)
+        transform=Matrix.Translation(xyz(anchor)) @ Matrix.Rotation(-theta,4,'Z')
+        bpy.context.view_layer.update()
+        for obj in objects[start:]: obj.matrix_world=transform @ obj.matrix_world
     box('Low entrance threshold',(0,.08,-5.56),(3.3,.16,1.0),'stone','entry',.08)
     # Keep the approach clear; planting nestles against side foundations.
     for i in range(16):

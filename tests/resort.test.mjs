@@ -103,6 +103,43 @@ test('mushroom exterior retains its footprint and reachable south-facing portal'
   assert.equal(approach.intersectObject(house,true).length,0,'clear approach to the portal');
 });
 
+test('authored mushroom windows face the curved stem with plaster directly behind their frames', async () => {
+  const house = await geometryScene('mushroom');
+  house.updateMatrixWorld(true);
+  const meshes = [];
+  house.traverse(o => { if (o.isMesh && o.userData.zone === 'stem') meshes.push(o); });
+  const glazing = meshes.find(o => o.material.name === 'Honey window glass');
+  const plaster = meshes.find(o => o.material.name === 'Warm mineral plaster');
+  const frame = meshes.find(o => o.material.name === 'Walnut joinery');
+  assert.ok(glazing && plaster && frame, 'test the shipped GLB, not the procedural fallback');
+  for (const side of [-1, 1]) {
+    const angle = side * 55 * Math.PI / 180;
+    const normal = new THREE.Vector3(Math.sin(angle), 0, -Math.cos(angle));
+    const tangent = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+    const ray = (u, y) => {
+      const origin = normal.clone().multiplyScalar(8).addScaledVector(tangent, u);
+      origin.y = y;
+      return new THREE.Raycaster(origin, normal.clone().negate());
+    };
+    for (const [u, y] of [[-.3, 2.55], [.3, 2.55], [-.3, 3.05], [.3, 3.05]]) {
+      const r = ray(u, y), glassHit = r.intersectObject(glazing)[0], wallHit = r.intersectObject(plaster)[0];
+      assert.ok(glassHit && wallHit, 'glazing and its wall align along the outward direction');
+      const gap = wallHit.distance - glassHit.distance;
+      assert.ok(gap > .08 && gap < .42, `glass sits just in front of the wall, gap=${gap}`);
+      const glassNormal = glassHit.face.normal.clone().transformDirection(glazing.matrixWorld);
+      assert.ok(glassNormal.dot(normal) > .9, 'window turns with the curved wall');
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2;
+      const r = ray(.82 * Math.cos(a), 2.8 + .82 * Math.sin(a));
+      const trimHit = r.intersectObject(frame)[0], supportHit = r.intersectObject(plaster)[0];
+      assert.ok(trimHit && supportHit, 'continuous plaster collar supports every edge of the round frame');
+      const gap = supportHit.distance - trimHit.distance;
+      assert.ok(gap >= -.01 && gap < .14, `no unsupported frame edge, gap=${gap}`);
+    }
+  }
+});
+
 test('contact-shadow batching preserves geometry, rotations, floors and opt-outs',()=>{
   const placements=[{id:'a',position:[4,0,2],rotationY:Math.PI/3,footprint:{x:2,z:1}},
     {id:'b',position:[-3,0,4],footprint:{x:1,z:2}},
