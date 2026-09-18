@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SUN_POSITION } from './surroundings.js';
 
 export const RESORT_POOLS = Object.freeze([
   { id: 'upper', x: 20, z: -8, rx: 2.71, rz: 2.91, y: .62 },
@@ -12,39 +13,62 @@ export function createResortWater() {
   const root = new THREE.Group();
   root.name = 'resort-water';
   const water = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+      uTime: { value: 0 },
+      uSunDirection: { value: new THREE.Vector3(SUN_POSITION.x, SUN_POSITION.y, SUN_POSITION.z).normalize() }
+    }]),
+    fog: true,
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       varying vec3 vWorld;
+      #include <fog_pars_vertex>
       void main() {
         vUv = uv;
         vec4 world = modelMatrix * vec4(position, 1.0);
         vWorld = world.xyz;
-        gl_Position = projectionMatrix * viewMatrix * world;
+        vec4 mvPosition = viewMatrix * world;
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
       uniform float uTime;
+      uniform vec3 uSunDirection;
       varying vec2 vUv;
       varying vec3 vWorld;
+      #include <fog_pars_fragment>
       void main() {
         vec2 p = vWorld.xz;
         float r = length(vUv * 2.0 - 1.0);
-        float w = sin(p.x*3.1 + p.y*2.3 + uTime*.38);
-        float w2 = sin(p.x*1.7 - p.y*3.7 - uTime*.27);
-        vec3 normal = normalize(vec3(.035*w, 1.0, .035*w2));
+        float phaseA = p.x*2.4 + p.y*1.7 + uTime*.55;
+        float phaseB = p.x*1.3 - p.y*2.8 - uTime*.41;
+        float w2 = sin(phaseB);
+        // Derivatives of two crossing waves make highlights flow coherently.
+        vec2 slope = vec2(2.4,1.7)*cos(phaseA)*.012
+                   + vec2(1.3,-2.8)*cos(phaseB)*.009;
+        vec3 normal = normalize(vec3(-slope.x, 1.0, -slope.y));
         vec3 eye = normalize(cameraPosition - vWorld);
-        float fresnel = pow(1.0-max(dot(normal,eye),0.0),3.0);
-        vec3 deep = vec3(.027,.24,.25);
-        vec3 shallow = vec3(.22,.48,.40);
-        vec3 color = mix(deep, shallow, smoothstep(.3,1.0,r));
-        color = mix(color, vec3(.54,.68,.65), fresnel*.48);
-        float caustic = pow(max(0.0,w*w2),8.0)*.024;
-        float bank = smoothstep(.90,.99,r) * .07;
-        color += caustic + bank;
+        float fresnel = .025 + .975*pow(1.0-max(dot(normal,eye),0.0),5.0);
+        vec3 deep = vec3(.025,.19,.18);
+        vec3 shallow = vec3(.23,.43,.32);
+        vec3 color = mix(deep, shallow, smoothstep(.22,1.0,r));
+        // Analytic sky reflection: no second scene render or framebuffer copy.
+        vec3 reflected = reflect(-eye,normal);
+        vec3 sky = mix(vec3(.66,.77,.83),vec3(.18,.38,.62),sqrt(max(reflected.y,0.0)));
+        color = mix(color, sky, fresnel*.85);
+        float sun = max(dot(reflected,uSunDirection),0.0);
+        color += vec3(1.0,.88,.62)*(pow(sun,180.0)*.65 + pow(sun,22.0)*.035);
+        // Broad, slow light ribbons read as submerged caustics, softened before
+        // their frequency becomes sub-pixel at grazing angles.
+        float footprint = max(length(fwidth(p)),.001);
+        float caustic = pow(.5+.5*sin(phaseA+w2)*sin(phaseB+sin(phaseA*.9)),6.0);
+        color += vec3(.045,.065,.045)*caustic*(1.0-smoothstep(.08,.4,footprint))*(1.0-fresnel);
+        float bank = smoothstep(.92,.99,r) * .045;
+        color += vec3(.65,.72,.51)*bank;
         gl_FragColor = vec4(color,1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
+        #include <fog_fragment>
       }
     `
   });

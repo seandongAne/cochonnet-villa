@@ -42,6 +42,7 @@ import { MapRenderBudget } from './MapRenderBudget.jsx';
 import { OutdoorPrewarm } from './OutdoorPrewarm.jsx';
 import { getGpuPreparer } from './gpu-prepare.js';
 import { createResortWater } from '../resort-water.js';
+import { createCourtyardPaths, createGarden } from '../garden-finishes.js';
 import {
   createDaySky,
   createHorizonTerrain,
@@ -132,7 +133,10 @@ function StudioEnvironment() {
 
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
-    const envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const environment = new RoomEnvironment();
+    const envTarget = pmrem.fromScene(environment, 0.04);
+    environment.dispose();
+    const envTexture = envTarget.texture;
     const previousEnvironment = scene.environment;
     const previousIntensity = scene.environmentIntensity;
     scene.environment = envTexture;
@@ -141,7 +145,7 @@ function StudioEnvironment() {
     return () => {
       scene.environment = previousEnvironment;
       scene.environmentIntensity = previousIntensity;
-      envTexture.dispose();
+      envTarget.dispose();
       pmrem.dispose();
     };
   }, [gl, scene]);
@@ -466,10 +470,10 @@ export function Scene({
       // itself is the continuous horizon terrain below: flat across the whole
       // walkable area, rolling into hills and a hazy mountain rim beyond it.
       grounds: [
-        [createGround(5.4, 40, materials.path), [2, 0.01, 17]],
-        [createGround(14, 4.4, materials.path), [0, 0.02, 0.6]],
         [createGround(24, 20, materials.floor), [0, 0.01, -13]]
       ],
+      courtyardPaths: createCourtyardPaths(),
+      garden: createGarden(world),
       // Everything visible but unreachable (surroundings.js): sky dome,
       // meadow-to-mountain terrain, the villagers' hamlet and the tree line.
       terrain: createHorizonTerrain(),
@@ -529,7 +533,7 @@ export function Scene({
         ...ARCHITECTURE_PLACEMENTS
       ]))
     };
-  }, [get]);
+  }, [get, world]);
   // Everything the door teleport reveals at once: the tower shell, its
   // KayKit furniture, the resident pigs and the buried contact-shadow floors.
   // The observatory's sky/rift roots stay out of every prewarm phase.
@@ -629,6 +633,8 @@ export function Scene({
       <primitive object={built.terrain} />
       <primitive object={built.village} />
       <primitive object={built.meadowTrees} />
+      <primitive object={built.courtyardPaths} />
+      <primitive object={built.garden} />
       {built.grounds.map(([object, position], index) => (
         <primitive key={`ground-${index}`} object={object} position={position} />
       ))}

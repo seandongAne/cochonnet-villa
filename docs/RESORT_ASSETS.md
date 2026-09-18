@@ -44,8 +44,18 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
   A failed asset keeps the original procedural fallback. Unmount detaches cached
   GPU resources and disposes only locally owned fallback resources.
 - `resort-water.js`: one opaque depth-writing water surface per pool; analytic
-  shallow/deep colour, Fresnel highlight and slow ripple. Steam uses one instanced
+  shallow/deep colour, Fresnel sky reflection, sun-aligned highlights and slow
+  crossing ripples. Submerged light ribbons fade with pixel footprint to avoid
+  distant shimmer; the surface receives the scene fog. Steam uses one instanced
   billboard draw, with analytic soft edges. No reflection/refraction render pass.
+- `garden-finishes.js`: node-pure courtyard surface maps and planting. The path
+  keeps its existing footprint/height, with a shared world-scale limestone
+  albedo/bump map and one instanced flush edging draw. The terrain receives a
+  mipmapped 256-square grass map and denser near-field vertex colour samples.
+  Ten small planting islands supply 440 deterministic lavender/daisy clumps in
+  three instanced draws (about 68k triangles), without shadow casts or per-frame
+  work. Placement rejects path edges, props, residents and the mushroom portal.
+  All maps are generated locally; no new asset download or dependency is needed.
 - `resort-assets.js`: geometry-preserving contact-shadow batches per floor.
 - `map-quality.js` + `react/MapRenderBudget.jsx`: the existing persisted Q choice
   now also controls map resolution, sun shadows and steam. Map Auto starts at
@@ -107,3 +117,17 @@ counts or renderer statistics.
 Screenshots and measured snapshots are in `docs/resort-upgrade/`. The GLB tests
 round-trip geometry through the production loader and ray-test the open entry,
 upper floor, stairwell and spa bottoms; they also enforce UV/texture/batch budgets.
+
+### Courtyard finish check — 2026-09-18
+
+`npm test`: 454 passing; `npm run build`: passing. Browser checks covered
+`villa-front`, `villa-hall`, `mushroom-door`, `springs-eye`, and lights-off
+`loft-center`. All 188 streamed assets settled without a failure; no browser
+errors were reported. The grass map was checked at a grazing angle to remove
+visible repeating bands, and water highlights were softened after close-up QA.
+
+The two-lap route used the same Medium tier, 1475 × 763 drawing buffer and
+Apple M5 Max / ANGLE Metal renderer before and after. On the warm second lap,
+p95 was 8.7 ms before and 8.9 ms after; p99 was 9.3 ms in both. The new version
+recorded zero frames over 50 ms on both laps. This checks this desktop only;
+it is not a claim about performance on integrated or mobile GPUs.

@@ -3,6 +3,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 import { createHayBale, createMaterials, createPorky } from "./assets.js";
 import { createVillaWorld } from "./world.js";
+import { createLawnMap, setLandscapeUV } from "./garden-finishes.js";
 
 // Everything the player can see but never reach: the daytime sky with drifting
 // clouds, one continuous meadow that rolls into hills and a hazy mountain rim,
@@ -195,7 +196,9 @@ export function terrainColorAt(x, z, height, target = new THREE.Color()) {
 }
 
 function terrainRings() {
-  const rings = [12, 24, 34, 42, 48, 52];
+  // Denser near-field colour samples avoid broad triangular patches underfoot.
+  const rings = [];
+  for (let radius = 2; radius <= 52; radius += 2) rings.push(radius);
   for (let radius = 56; radius <= 132; radius += 4) rings.push(radius);
   for (let radius = 140; radius <= TERRAIN_RADIUS; radius += 8) rings.push(radius);
   if (rings[rings.length - 1] !== TERRAIN_RADIUS) rings.push(TERRAIN_RADIUS);
@@ -250,9 +253,10 @@ export function createHorizonTerrain({ bounds = DEFAULT_BOUNDS, segments = 144 }
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
+  setLandscapeUV(geometry);
   const mesh = new THREE.Mesh(
     geometry,
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97 })
+    new THREE.MeshStandardMaterial({ vertexColors: true, map: createLawnMap(), roughness: 0.97 })
   );
   mesh.name = "horizon-terrain";
   mesh.receiveShadow = true;
