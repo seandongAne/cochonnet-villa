@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { OBSERVATORY_BLACK_HOLE_FLOW_PERIODS } from "./observatory-black-hole.js";
+import { createObservatoryDiscPalette } from "./observatory-disc-palette.js";
 
 // Offline Kerr transfer-atlas renderer for the hidden Observatory lens.
 //
@@ -19,13 +20,15 @@ export const OBSERVATORY_KERR_LENS_RENDER_ORDER = -894;
 export const OBSERVATORY_KERR_LENS_DEFAULT_QUALITY = "medium";
 
 export const OBSERVATORY_KERR_LENS_SPIN = 0.94;
-export const OBSERVATORY_KERR_LENS_INCLINATION_DEGREES = 60;
+export const OBSERVATORY_KERR_LENS_INCLINATION_DEGREES = 78;
 export const OBSERVATORY_KERR_LENS_OBSERVER_RADIUS = 1_000;
-export const OBSERVATORY_KERR_LENS_ATLAS_WIDTH = 384;
+export const OBSERVATORY_KERR_LENS_ATLAS_WIDTH = 768;
 export const OBSERVATORY_KERR_LENS_ATLAS_HEIGHT = 384;
-export const OBSERVATORY_KERR_LENS_ALPHA_EXTENT = 12;
+export const OBSERVATORY_KERR_LENS_ALPHA_EXTENT = 24;
 export const OBSERVATORY_KERR_LENS_BETA_EXTENT = 12;
 export const OBSERVATORY_KERR_LENS_ISCO_RADIUS = 2.023593104700402;
+export const OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS = 5.5;
+export const OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS = 22;
 
 export const OBSERVATORY_KERR_LENS_RAY_STATUS = Object.freeze({
   escaped: 0,
@@ -98,7 +101,7 @@ export const OBSERVATORY_KERR_LENS_QUALITY_PRESETS = Object.freeze({
 const PREWARM_REVEAL = 0.01;
 const REVEAL_EPSILON = 0.001;
 const DEFAULT_MASS_WORLD_SCALE = 2;
-const DEFAULT_DISC_OUTER_RADIUS = 7.6;
+const DEFAULT_DISC_OUTER_RADIUS = OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS;
 const DEFAULT_DISC_OPACITY = 0.94;
 
 const FULLSCREEN_VERTEX_SHADER = /* glsl */ `
@@ -116,6 +119,7 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
 
   uniform sampler2D uSkyTexture;
   uniform sampler2D uStarSourceTexture;
+  uniform sampler2D uDiscPalette;
   uniform sampler2D uKerrSkyAtlas;
   uniform sampler2D uKerrDiscPrimaryAtlas;
   uniform sampler2D uKerrDiscSecondaryAtlas;
@@ -149,9 +153,12 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
 
   const float PI = 3.141592653589793;
   const float KERR_ISCO = 2.023593104700402;
+  // A truncated luminous disc gives the reference its large dark centre.
+  // The physical ISCO stays in the transfer data; only emission stops here.
+  const float DISC_INNER_RADIUS = ${OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS.toFixed(1)};
   const float STATUS_ESCAPED = 0.0;
   const float STATUS_CAPTURED = 1.0;
-  // Gas-pattern periods only: the event horizon, 60-degree Kerr frame and
+  // Gas-pattern periods only: the event horizon, 78-degree Kerr frame and
   // transfer atlas remain fixed. The middle reference completes one orbit in
   // 15 seconds, with physically legible differential flow either side.
   const float FLOW_INNER_PERIOD = ${OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner.toFixed(1)};
@@ -271,7 +278,7 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   }
 
   bool validDiscCrossing(vec4 crossing) {
-    return crossing.x >= KERR_ISCO
+    return crossing.x >= DISC_INNER_RADIUS
       && crossing.x <= uDiscOuterRadius
       && crossing.z > 0.001;
   }
@@ -323,48 +330,55 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   vec4 shadeDisc(
     vec4 crossing,
     float imageWeight,
-    float validCoverage
+    float validCoverage,
+    out float silhouette
   ) {
+    silhouette = 0.0;
     float radius = crossing.x;
     float azimuth = crossing.y;
     float redshift = crossing.z;
     float crossingTime = crossing.w;
-    bool valid = radius >= KERR_ISCO
+    bool valid = radius >= DISC_INNER_RADIUS
       && radius <= uDiscOuterRadius
       && redshift > 0.001;
     if (!valid) return vec4(0.0);
 
-    float innerEdge = smoothstep(KERR_ISCO, KERR_ISCO + 0.38, radius);
+    float innerEdge = smoothstep(DISC_INNER_RADIUS, DISC_INNER_RADIUS + 0.25, radius);
     // A broad, cool outer-disc taper is both closer to a finite thermal disc
     // and avoids presenting the atlas' r=Rout contour as a hard polygon at
     // room scale.
     float outerFadeStart = max(
-      KERR_ISCO + 0.5,
-      uDiscOuterRadius * 0.62
+      DISC_INNER_RADIUS + 0.25,
+      uDiscOuterRadius * 0.82
     );
     float outerEdge = 1.0 - smoothstep(
       outerFadeStart,
       uDiscOuterRadius,
       radius
     );
-    float noTorque = pow(
-      max(1.0 - sqrt(KERR_ISCO / max(radius, KERR_ISCO)), 0.0),
-      0.25
-    );
-    float temperature = pow(KERR_ISCO / radius, 0.75) * noTorque;
-    float observedTemperature = temperature * clamp(redshift, 0.0, 3.5);
-
-    vec3 deepGold = vec3(0.12, 0.009, 0.0004);
-    vec3 solarGold = vec3(5.8, 1.5, 0.04);
-    vec3 hotCore = vec3(11.0, 4.2, 0.55);
-    vec3 colour = mix(deepGold, solarGold, smoothstep(0.08, 0.38, observedTemperature));
-    colour = mix(colour, hotCore, smoothstep(0.42, 0.88, observedTemperature));
-    // Only the strongly blueshifted approaching inner gas crosses into a
-    // white-blue thermal tier, echoing the reference art's hot arcs while the
-    // receding side and outer lanes stay black/gold. The threshold sits above
-    // the rest-frame temperature peak, so no whole ring can reach it at once.
-    vec3 blueWhite = vec3(9.5, 10.5, 12.5);
-    colour = mix(colour, blueWhite, smoothstep(0.98, 1.42, observedTemperature));
+    // Emission is deliberately art-directed: retain the measured redshift,
+    // but compress its display contrast so the receding half remains legible.
+    // The ray paths, capture mask and both disc images remain physical.
+    float relativisticBoost = pow(clamp(redshift, 0.0, 3.5), 3.0);
+    float displayDoppler = 0.72 + 0.56 * relativisticBoost
+      / (1.0 + relativisticBoost);
+    float heatWidth = max(0.20, fwidth(radius) * 0.7);
+    float innerHeatDistance = (radius - 6.15) / heatWidth;
+    float innerHeat = exp(-innerHeatDistance * innerHeatDistance);
+    vec3 outerGold = vec3(0.46, 0.20, 0.045);
+    vec3 warmGold = vec3(1.05, 0.53, 0.18);
+    vec3 whiteGold = vec3(8.0, 7.0, 5.8);
+    vec3 colour = mix(outerGold, warmGold,
+      1.0 - smoothstep(4.0, 16.0, radius));
+    // The reference's actual emissive strip supplies ivory, rose and pale
+    // green lanes. Its lower blue region belongs to masked mesh geometry,
+    // so only the visible 0..0.60 portion is mapped onto this luminous disc.
+    float paletteRadius = smoothstep(DISC_INNER_RADIUS, 13.5, radius);
+    vec3 authoredColour = texture(uDiscPalette,
+      vec2(0.60 * (1.0 - paletteRadius), 0.5)).rgb;
+    float authoredWeight = mix(0.86, 0.20, smoothstep(11.0, 19.0, radius));
+    colour = mix(colour, authoredColour * 1.65, authoredWeight);
+    colour = mix(colour, whiteGold, innerHeat * (0.20 / heatWidth));
 
     float emissionTime = uTime - crossingTime * 0.0025;
     float normalizedFlowRadius = clamp(
@@ -401,12 +415,15 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     // The bands are azimuth-free and static in disc coordinates, so each
     // radius keeps a constant azimuthal mean over time (no ring pulsing) —
     // yet as soon as gas streaks shear across them the rotation reads.
+    // Filter the radial carriers using their projected pixel footprint;
+    // fine rings fade into their mean instead of shimmering at the far rim.
+    float radialPixel = max(fwidth(radius), 0.0001);
     float ringBands =
-        sin(radius * 14.0) * 0.45
-      + sin(radius * 23.0 + 1.7) * 0.30
-      + sin(radius * 41.0 + 4.2) * 0.25;
+        sin(radius * 14.0) * 0.45 * exp(-0.5 * radialPixel * radialPixel * 196.0)
+      + sin(radius * 23.0 + 1.7) * 0.30 * exp(-0.5 * radialPixel * radialPixel * 529.0)
+      + sin(radius * 41.0 + 4.2) * 0.25 * exp(-0.5 * radialPixel * radialPixel * 1681.0);
     float bandProfile = smoothstep(0.0, 0.35, normalizedFlowRadius);
-    float ringStructure = 1.0 + ringBands * mix(0.10, 0.34, bandProfile);
+    float ringStructure = 1.0 + ringBands * mix(0.36, 0.86, bandProfile);
     // Sheared gas streaks: high-frequency zero-mean carriers whose phase
     // advances with the local orbital rate. Differential rotation stretches
     // them into trailing spiral filaments, so motion is trackable everywhere
@@ -434,20 +451,20 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     // previous almost-full-disc window.
     // Squared by multiplication: pow(x, 2.0) is undefined for negative x in
     // GLSL ES 1.00 and can NaN inside the window on some drivers.
-    float ribbonRadialDistance = (radius - (KERR_ISCO + 1.55)) / 0.72;
+    float ribbonRadialDistance = (radius - (DISC_INNER_RADIUS + 1.55)) / 0.72;
     float ribbonRadialWindow = exp(-ribbonRadialDistance * ribbonRadialDistance);
     // Higher image orders should read only as a faint physical echo, not copy
     // the hero tracer into another set of luminous loops.
     float tracerImageWeight = mix(
       0.04,
       1.0,
-      step(0.5, imageWeight)
+      step(0.9, imageWeight)
     );
     float tracerContrastWeight = ribbonRadialWindow * tracerImageWeight;
     // Every carrier below is zero mean. Most of the old broad-band energy is
     // moved into the single long arc and its leading knot: this creates a
     // trackable direction marker instead of merely making the texture busier.
-    // the azimuthally integrated emissivity remains exactly the old value.
+    // Their azimuthally integrated contribution is time-independent.
     float flowStructure = (1.0
       + longStream * 0.10
       + filamentStream * 0.04
@@ -459,126 +476,33 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
         + (leadingHotspot - FLOW_LEADING_HOTSPOT_MEAN) * 1.50
       )) * ringStructure;
     flowStructure = max(flowStructure, 0.0);
-    // A narrow thermal crest just outside the ISCO creates the white-hot
-    // lensed inner edge. It is always present, but the leading knot pushes a
-    // small segment toward solar white rather than making a uniform neon ring.
-    float innerHeatDistance = (radius - (KERR_ISCO + 0.40)) / 0.31;
-    float innerHeat = exp(-innerHeatDistance * innerHeatDistance);
-    float platinumRibbon = ribbonRadialWindow * (
-      rotationArc * 0.68 + leadingHotspot * 0.32
-    ) * tracerImageWeight;
-    // Keep the physical inner crest warm, but do not let the moving hero arc
-    // whiten the whole Doppler crescent. Motion will receive a separate gold
-    // display tracer after the HDR shoulder below.
-    float movingWhiteHeat = innerHeat * (
-      0.02 + tracerImageWeight * (
-        rotationArc * 0.035 + leadingHotspot * 0.16
-      )
-    ) + platinumRibbon * (0.04 + leadingHotspot * 0.08);
-    vec3 whiteGold = vec3(16.0, 13.0, 8.0);
-    colour = mix(colour, whiteGold, clamp(movingWhiteHeat, 0.0, 0.48));
-    // A shallower falloff than the previous 1.72 exponent keeps the extended
-    // outer lanes glowing golden-brown (reference-style luminous ribbons)
-    // instead of collapsing into a dim translucent haze past ~2 ISCO.
-    float radialEmission = pow(KERR_ISCO / radius, 1.15) * noTorque;
-    // Liouville invariance for specific intensity: I_nu / nu^3 is conserved.
-    float relativisticBoost = pow(clamp(redshift, 0.0, 3.5), 3.0);
-    // Thermal emissivity and optical coverage are separate quantities. Using
-    // radialEmission in both radiance and alpha squared the visual falloff and
-    // left only two over-bright Doppler wedges. A gently varying optical depth
-    // keeps the full warped disc legible while emission remains physical.
-    float opticalCoverage = mix(
-      0.48,
-      0.82,
-      smoothstep(0.025, 0.42, radialEmission)
-    );
-    // The ring gaps thin the disc's optical depth as well as its emission, so
-    // lensed sky and Gaia stars graze through the darker outer lanes exactly
-    // where the reference art shows translucent ribbons.
-    float ringCoverage = clamp(
-      1.0 + ringBands * (0.10 + 0.38 * bandProfile),
-      0.34,
-      1.5
-    );
-    float alpha = innerEdge * outerEdge * opticalCoverage * ringCoverage
+    // A wide optically thick disc supplies the silhouette. Radius-only
+    // coverage separates the lanes without making the whole ring pulsate.
+    float ringCoverage = clamp(0.84 + ringBands * 0.36, 0.45, 1.0);
+    // Lane gaps thin the emission, not the sheet: higher image orders behind
+    // this crossing are hidden by its geometric cover, lanes or not.
+    silhouette = innerEdge * outerEdge * validCoverage;
+    float alpha = innerEdge * outerEdge * ringCoverage
       * validCoverage * uDiscOpacity * imageWeight;
-    alpha = clamp(alpha, 0.0, 0.97);
-    vec3 radiance = colour * radialEmission * relativisticBoost
-      * flowStructure * 0.88;
-    // The physical g^3 thermal term can almost erase a moving knot when it
-    // crosses the receding side. Keep that Doppler asymmetry in the broad
-    // disc, but give the narrow tracer a bounded optically-thick visibility
-    // floor. This is concentrated source radiance, not a screen-space ring or
-    // whole-frame gain, and keeps the same 10/15/25-second source motion.
-    float carrierRelativisticBoost = pow(
-      clamp(redshift, 0.50, 2.20),
-      1.40
-    );
-    float ribbonCarrier = ribbonRadialWindow * (
-      rotationArc * 0.78 + leadingHotspot * 0.55
-    ) * tracerImageWeight;
-    vec3 platinumRibbonColour = mix(
-      vec3(10.0, 2.4, 0.08),
-      vec3(22.0, 9.0, 0.8),
-      0.35 + leadingHotspot * 0.65
-    );
-    radiance += platinumRibbonColour
-      * radialEmission
-      * carrierRelativisticBoost
-      * ribbonCarrier
-      * 0.32;
-    // Redistribute, rather than globally add, display brightness. The broad
-    // disc gets a firmer shoulder than before, while only the narrow inner
-    // crest receives HDR-like headroom. This preserves the dark sky and black
-    // event horizon while allowing a white-hot moving segment to read.
+    alpha = clamp(alpha, 0.0, 0.98);
+    float radialEmission = pow(5.0 / max(radius, KERR_ISCO), 0.95);
+    vec3 radiance = colour * radialEmission * displayDoppler * flowStructure;
+    // Sparse ivory lanes interrupt the fine gold rings, as in the reference.
+    // Widen subpixel bands while conserving their integrated light.
+    float laneWidth = max(0.12, radialPixel * 0.7);
+    vec3 laneDistance = (vec3(radius) - vec3(8.4, 11.2, 14.6)) / laneWidth;
+    vec3 laneProfile = exp(-laneDistance * laneDistance) * (0.12 / laneWidth);
+    float ivoryLanes = dot(laneProfile, vec3(1.0, 0.72, 0.40));
+    radiance += vec3(3.8, 3.2, 2.1) * ivoryLanes
+      * radialEmission * displayDoppler * flowStructure;
+    // Compress HDR peaks without crushing the outer disc. Unlike the old
+    // 0.74 shoulder this leaves headroom for broad ivory inner ribbons.
     float discLuminance = dot(radiance, vec3(0.2126, 0.7152, 0.0722));
-    float baseShoulder = uHdrOutput > 0.5 ? 0.74 : 0.90;
-    // Half-float targets retain an intrinsic ~20x luminance ceiling for only
-    // the moving platinum tracer. The downstream low-exposure composite then
-    // has real highlight energy to work with instead of upscaling brown LDR.
-    float hotShoulder = uHdrOutput > 0.5 ? 0.05 : 0.28;
-    float highlightHeadroom = clamp(
-      max(
-        innerHeat * (
-          0.015 + tracerImageWeight * (
-            rotationArc * 0.02 + leadingHotspot * 0.15
-          )
-        ),
-        platinumRibbon * (0.10 + leadingHotspot * 0.25)
-      ),
-      0.0,
-      1.0
-    );
-    float shoulderStrength = mix(
-      baseShoulder,
-      hotShoulder,
-      highlightHeadroom
-    );
+    float shoulderStrength = uHdrOutput > 0.5 ? 0.12 : 0.45;
     radiance /= 1.0 + discLuminance * shoulderStrength;
-    // Re-inject one bounded, saturated gold source-space arc after the
-    // shoulder. The previous pre-shoulder platinum signal was compressed into
-    // the almost-static pale Doppler crescent. This post-shoulder tracer stays
-    // position-readable at low room exposure, yet its Gaussian radius,
-    // one-sided angular carrier and 4% secondary weight prevent a closed ring
-    // or a field of luminous coils.
-    float displayTracer = ribbonCarrier * mix(
-      0.78,
-      1.0,
-      smoothstep(0.20, 1.10, carrierRelativisticBoost)
-    );
-    vec3 goldTracerColour = mix(
-      vec3(2.8, 0.62, 0.025),
-      // Only the narrow leading knot reaches a near-white solar colour. The
-      // much longer carrier stays amber, so the moving cue reads as HDR
-      // without flattening into another pale crescent.
-      vec3(12.0, 9.0, 4.8),
-      smoothstep(0.08, 0.92, leadingHotspot)
-    );
-    // Final display-space lift: enough for the moving arc to read from normal
-    // viewing distance, while its narrow Gaussian footprint keeps the frame's
-    // average luminance essentially unchanged.
-    float goldTracerEnergy = 0.96 + leadingHotspot * 0.39;
-    radiance += goldTracerColour * displayTracer * goldTracerEnergy;
+    float displayTracer = ribbonRadialWindow * tracerImageWeight
+      * (rotationArc * 0.65 + leadingHotspot * 0.35);
+    radiance += vec3(1.4, 0.75, 0.22) * displayTracer;
     return vec4(radiance * alpha, alpha);
   }
 
@@ -680,6 +604,19 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       }
     }
 
+    float primaryCoverage = 0.0;
+    vec4 primaryCrossing = sampleDiscCrossing(
+      uKerrDiscPrimaryAtlas,
+      atlasUv,
+      primaryCoverage
+    );
+    float primarySilhouette = 0.0;
+    vec4 primary = shadeDisc(
+      primaryCrossing,
+      1.0,
+      primaryCoverage,
+      primarySilhouette
+    );
     if (uSecondaryDisc > 0.5) {
       float secondaryCoverage = 0.0;
       vec4 secondaryCrossing = sampleDiscCrossing(
@@ -687,24 +624,19 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
         atlasUv,
         secondaryCoverage
       );
+      float secondarySilhouette = 0.0;
       vec4 secondary = shadeDisc(
         secondaryCrossing,
-        0.26,
-        secondaryCoverage
+        0.68,
+        secondaryCoverage,
+        secondarySilhouette
       );
+      // The order-1 crossing lies further along the same ray than the direct
+      // one. Without this the white-hot rear arch showed through the near
+      // disc's lane gaps as a ring cutting across the front of the sheet.
+      secondary *= 1.0 - primarySilhouette;
       sceneColour = sceneColour * (1.0 - secondary.a) + secondary.rgb;
     }
-    float primaryCoverage = 0.0;
-    vec4 primaryCrossing = sampleDiscCrossing(
-      uKerrDiscPrimaryAtlas,
-      atlasUv,
-      primaryCoverage
-    );
-    vec4 primary = shadeDisc(
-      primaryCrossing,
-      1.0,
-      primaryCoverage
-    );
     sceneColour = sceneColour * (1.0 - primary.a) + primary.rgb;
 
     float edgeDistance = max(
@@ -993,6 +925,7 @@ export function createObservatoryKerrLensMaterial({
     uniforms: {
       uSkyTexture: { value: skyTexture },
       uStarSourceTexture: { value: starSourceTexture },
+      uDiscPalette: { value: createObservatoryDiscPalette() },
       uKerrSkyAtlas: { value: atlases?.sky ?? null },
       uKerrDiscPrimaryAtlas: { value: atlases?.discPrimary ?? null },
       uKerrDiscSecondaryAtlas: { value: atlases?.discSecondary ?? null },
@@ -1030,7 +963,7 @@ export function createObservatoryKerrLensMaterial({
       uDiscOuterRadius: {
         value: Math.max(
           finitePositive(discOuterRadius, DEFAULT_DISC_OUTER_RADIUS),
-          OBSERVATORY_KERR_LENS_ISCO_RADIUS + 0.5
+          OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS + 0.5
         )
       },
       uDiscOpacity: {
@@ -1210,7 +1143,7 @@ export function updateObservatoryKerrLens(lens, camera, {
   if (massWorldScale !== undefined) material.uniforms.uMassWorldScale.value = finitePositive(massWorldScale, DEFAULT_MASS_WORLD_SCALE);
   if (skyBrightness !== undefined) material.uniforms.uSkyBrightness.value = THREE.MathUtils.clamp(finite(skyBrightness, 0.36), 0, 4);
   if (starSourceBrightness !== undefined) material.uniforms.uStarSourceBrightness.value = THREE.MathUtils.clamp(finite(starSourceBrightness, 0.72), 0, 4);
-  if (discOuterRadius !== undefined) material.uniforms.uDiscOuterRadius.value = Math.max(finitePositive(discOuterRadius, DEFAULT_DISC_OUTER_RADIUS), OBSERVATORY_KERR_LENS_ISCO_RADIUS + 0.5);
+  if (discOuterRadius !== undefined) material.uniforms.uDiscOuterRadius.value = Math.max(finitePositive(discOuterRadius, DEFAULT_DISC_OUTER_RADIUS), OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS + 0.5);
   if (discOpacity !== undefined) material.uniforms.uDiscOpacity.value = THREE.MathUtils.clamp(finite(discOpacity, DEFAULT_DISC_OPACITY), 0, 1);
   if (hdrOutput !== undefined) material.uniforms.uHdrOutput.value = hdrOutput === false ? 0 : 1;
 
@@ -1270,6 +1203,7 @@ export function disposeObservatoryKerrLens(lens) {
   lens.userData.prewarming = false;
   const material = materialFrom(lens);
   lens.geometry?.dispose();
+  material?.uniforms?.uDiscPalette?.value?.dispose();
   material?.dispose();
   if (material) material.userData.observatoryDisposed = true;
   if (lens.userData.ownsAtlases) disposeObservatoryKerrLensAtlases(lens.userData.atlases);

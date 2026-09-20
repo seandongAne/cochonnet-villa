@@ -27,26 +27,26 @@ const EXPECTED = Object.freeze({
   sky: {
     path: "observatory-kerr-sky-v1.bin",
     channels: 4,
-    bytes: 2_359_304,
-    sha256: "ffd617c58f5d456673597f27abc2d7661ed7198354611f7a93b5fbfa5cf10c89"
+    bytes: 4_718_600,
+    sha256: "c4268fb6640f5a64373a0e33fa814d11eb3bf193a9fa8313eded05e533d0c475"
   },
   discPrimary: {
     path: "observatory-kerr-disc-primary-v1.bin",
     channels: 4,
-    bytes: 2_359_304,
-    sha256: "0871f99794fae2dbf61c8640fce2421adcd7e07d2b691ed0714a447e180566fe"
+    bytes: 4_718_600,
+    sha256: "7e3adcb64eed32944bdbd05ad201e0327042f8565e508a84e6a377473778fd3e"
   },
   discSecondary: {
     path: "observatory-kerr-disc-secondary-v1.bin",
     channels: 4,
-    bytes: 2_359_304,
-    sha256: "99a0fc3b646efd84a83da76801e559299177e4da2bed4cd8b2e18e12c0f493f9"
+    bytes: 4_718_600,
+    sha256: "719bb24a171cfeb3d6f6c858dbc75bf493edb837636a218858626f2eb86e15c2"
   },
   path: {
     path: "observatory-kerr-path-v1.bin",
     channels: 2,
-    bytes: 1_179_656,
-    sha256: "7293266fe356aa85ed7fd5fb739827e6250c7d7cac4cb971c9e0d7c54da4d4e7"
+    bytes: 2_359_304,
+    sha256: "6a99e1ed89b4622b812a37dc0cb23bdee828d3546ae20f3d906d354f853c80dd"
   }
 });
 
@@ -97,7 +97,7 @@ test("Kerr v1 atlas retains exact dimensions, hashes, fixed physics, and provena
   assert.equal(metadata.version, 1);
   assert.equal(metadata.fixedPhysicalParameters.dimensionlessSpin, 0.94);
   assert.ok(
-    Math.abs(metadata.fixedPhysicalParameters.observerInclinationDegrees - 60) < 1e-10
+    Math.abs(metadata.fixedPhysicalParameters.observerInclinationDegrees - 78) < 1e-10
   );
   assert.equal(metadata.fixedPhysicalParameters.observerBoyerLindquistRadiusM, 1_000);
   assert.equal(metadata.fixedPhysicalParameters.sourceSphereBoyerLindquistRadiusM, 1_000);
@@ -133,7 +133,7 @@ test("Kerr v1 atlas retains exact dimensions, hashes, fixed physics, and provena
     const fileMetadata = metadata.files.find((file) => file.key === key);
     assert.ok(fileMetadata, `missing metadata for ${key}`);
     assert.equal(fileMetadata.path, definition.path);
-    assert.equal(fileMetadata.width, 384);
+    assert.equal(fileMetadata.width, 768);
     assert.equal(fileMetadata.height, 384);
     assert.equal(fileMetadata.channels, definition.channels);
     assert.equal(fileMetadata.byteLength, definition.bytes);
@@ -160,7 +160,7 @@ test("physical atlas has a resolved displaced, non-circular Kerr capture region"
   for (let pixel = 0; pixel < sky.width * sky.height; pixel += 1) {
     const x = pixel % sky.width;
     const y = Math.floor(pixel / sky.width);
-    const alpha = -12 + 24 * (x + 0.5) / sky.width;
+    const alpha = -24 + 48 * (x + 0.5) / sky.width;
     const beta = 12 - 24 * (y + 0.5) / sky.height;
     const offset = pixel * 4;
     const status = sky.data[offset + 3];
@@ -191,8 +191,8 @@ test("physical atlas has a resolved displaced, non-circular Kerr capture region"
 
   const pixelCount = sky.width * sky.height;
   assert.ok(escaped > pixelCount * 0.8);
-  assert.ok(captured > pixelCount * 0.1);
-  assert.ok(captured < pixelCount * 0.2);
+  assert.ok(captured > pixelCount * 0.06);
+  assert.ok(captured < pixelCount * 0.08);
   assert.ok(unresolved / pixelCount < 0.002);
   assert.equal(invalid, 0);
   assert.ok(maximumDirectionError < 1e-6);
@@ -208,21 +208,21 @@ test("physical atlas has a resolved displaced, non-circular Kerr capture region"
     "the inclined high-spin shadow must not collapse to a shifted circle"
   );
   // Independent critical-curve values from the exact spherical-photon-orbit
-  // formula at a=0.94, theta_o=60deg.  Agreement to one 0.0625M atlas texel
+  // formula at a=0.94, theta_o=78deg.  Agreement to one 0.0625M atlas texel
   // guards against a plausible-looking but non-geodesic painted mask.
-  assert.ok(Math.abs(minAlpha - (-2.9077284251909647)) < 0.07);
-  assert.ok(Math.abs(maxAlpha - 6.645783336649286) < 0.07);
-  assert.ok(Math.abs(maxBeta - 5.129716392336909) < 0.07);
+  assert.ok(Math.abs(minAlpha - (-2.6829748757643275)) < 0.07);
+  assert.ok(Math.abs(maxAlpha - 6.858488243601173) < 0.07);
+  assert.ok(Math.abs(maxBeta - 5.185051300216724) < 0.07);
 
   assert.deepEqual(metadata.statistics, {
-    pixelCount: 147_456,
+    pixelCount: 294_912,
     escaped,
     captured,
     unresolved,
     invalid,
-    primaryDiscIntersections: 142_616,
-    secondaryDiscIntersections: 26_457,
-    raysWithPositiveCircularDiscRedshift: 140_152,
+    primaryDiscIntersections: 289_573,
+    secondaryDiscIntersections: 56_130,
+    raysWithPositiveCircularDiscRedshift: 287_565,
     maximumBackgroundImageOrder: 4
   });
 });
@@ -298,7 +298,7 @@ test("generator equations reproduce Kerr asymmetry and the circular-orbit redshi
   assert.ok(Math.abs(getKerrHorizonRadius() - 1.3411744421846397) < 1e-12);
   assert.ok(Math.abs(getProgradeKerrIscoRadius() - 2.023593104700402) < 1e-12);
   const constants = getKerrRayConstants(4, 3);
-  assert.ok(Math.abs(constants.lambda + 4 * Math.sin(Math.PI / 3)) < 1e-12);
+  assert.ok(Math.abs(constants.lambda + 4 * Math.sin(78 * Math.PI / 180)) < 1e-12);
   assert.ok(Number.isFinite(constants.eta));
 
   const centre = traceKerrRay(0, 0);

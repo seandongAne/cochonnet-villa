@@ -1,0 +1,193 @@
+{
+  "date": "2026-09-19",
+  "method": "Production build, query-only observatory=test harness; deterministic frames, not a real-time performance measurement.",
+  "high": {
+    "blackHole": {
+      "ready": true,
+      "visible": true,
+      "mode": "kerr-atlas",
+      "type": "half-float",
+      "quality": "high",
+      "width": 1920,
+      "height": 993,
+      "estimatedTargetBytes": 22878720,
+      "cameraDistance": 42,
+      "angularRadius": 0.2274247607616333,
+      "reveal": 1,
+      "addedDrawCalls": 3,
+      "fboPassActive": true,
+      "frames": 576,
+      "prewarmed": true,
+      "kerrPrewarmed": true,
+      "prewarmMs": 104.00000002980232,
+      "error": null
+    },
+    "kerrLens": {
+      "supported": true,
+      "fallback": null,
+      "loading": false,
+      "ready": true,
+      "atlasReady": true,
+      "sourceMapReady": true,
+      "sourceStarsReady": true,
+      "quality": "high",
+      "spin": 0.94,
+      "inclinationDegrees": 78,
+      "fetchMs": 276.5,
+      "prewarmed": true,
+      "prewarmMs": 86.60000002384186,
+      "fallbackReason": null,
+      "error": null
+    }
+  },
+  "mediumEvent": {
+    "hiddenEffects": {
+      "rift": false,
+      "lens": false
+    },
+    "blackHole": {
+      "ready": true,
+      "visible": true,
+      "mode": "kerr-atlas",
+      "type": "half-float",
+      "quality": "medium",
+      "width": 839,
+      "height": 720,
+      "estimatedTargetBytes": 7248960,
+      "cameraDistance": 42,
+      "angularRadius": 0.2274247607616333,
+      "reveal": 1,
+      "addedDrawCalls": 3,
+      "fboPassActive": true,
+      "frames": 473,
+      "prewarmed": true,
+      "kerrPrewarmed": true,
+      "prewarmMs": 22.799999982118607,
+      "error": null
+    },
+    "rareEvents": {
+      "mode": "active",
+      "event": "black-hole-transit",
+      "intensity": 1,
+      "cooldownSeconds": 0,
+      "availability": {
+        "skyLayer": true,
+        "nebula": true,
+        "blackHole": true
+      },
+      "availableEventIds": [
+        "meteor-shower",
+        "comet",
+        "nebula-surge",
+        "black-hole-transit",
+        "supernova",
+        "bolide",
+        "satellite-train",
+        "planet-conjunction",
+        "aurora",
+        "constellation",
+        "moon-transit",
+        "kilonova",
+        "ufo"
+      ],
+      "effectiveChancePerSecond": 0,
+      "paused": false,
+      "pausedReason": null
+    }
+  },
+  "low": {
+    "blackHole": {
+      "ready": true,
+      "visible": true,
+      "mode": "schwarzschild-lut",
+      "type": "half-float",
+      "quality": "low",
+      "width": 629,
+      "height": 540,
+      "estimatedTargetBytes": 4075920,
+      "cameraDistance": 42,
+      "angularRadius": 0.2274247607616333,
+      "reveal": 1,
+      "addedDrawCalls": 2,
+      "fboPassActive": true,
+      "frames": 473,
+      "prewarmed": true,
+      "kerrPrewarmed": false,
+      "prewarmMs": 16.69999998807907,
+      "error": null
+    },
+    "kerrLens": {
+      "supported": true,
+      "fallback": null,
+      "loading": false,
+      "ready": false,
+      "atlasReady": false,
+      "sourceMapReady": false,
+      "sourceStarsReady": false,
+      "quality": "low",
+      "spin": 0.94,
+      "inclinationDegrees": 78,
+      "fetchMs": 0,
+      "prewarmed": false,
+      "prewarmMs": 0,
+      "fallbackReason": "quality-fallback",
+      "error": null
+    },
+    "portal": {
+      "enabled": false,
+      "type": "disabled",
+      "width": 0,
+      "height": 0,
+      "estimatedTargetBytes": 0,
+      "addedDrawCalls": 0,
+      "fboPassActive": false,
+      "compositeActive": false,
+      "frames": 0,
+      "prewarmed": false,
+      "prewarmMs": 0,
+      "error": null
+    }
+  },
+  "lightsOn": {
+    "blackHole": {
+      "ready": true,
+      "visible": false,
+      "mode": "kerr-atlas",
+      "type": "half-float",
+      "quality": "high",
+      "width": 1246,
+      "height": 1080,
+      "estimatedTargetBytes": 16148160,
+      "cameraDistance": 41.86120360323269,
+      "angularRadius": 0.22815296171796665,
+      "reveal": 0,
+      "addedDrawCalls": 0,
+      "fboPassActive": false,
+      "frames": 747,
+      "prewarmed": true,
+      "kerrPrewarmed": true,
+      "prewarmMs": 104.00000002980232,
+      "error": null
+    },
+    "portal": {
+      "enabled": true,
+      "type": "half-float",
+      "width": 831,
+      "height": 720,
+      "estimatedTargetBytes": 4786560,
+      "addedDrawCalls": 0,
+      "fboPassActive": false,
+      "compositeActive": false,
+      "frames": 748,
+      "prewarmed": true,
+      "prewarmMs": 0.5,
+      "error": null
+    }
+  },
+  "browserErrors": [],
+  "validation": {
+    "observatoryTests": "222/222 passed",
+    "build": "22 pages; passed",
+    "fullSuite": "456/457 passed; resort.test.mjs mushroom-window glazing alignment also fails on unmodified HEAD"
+  }
+}

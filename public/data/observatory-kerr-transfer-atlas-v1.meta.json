@@ -5,7 +5,7 @@
   "fixedPhysicalParameters": {
     "units": "G=c=M=1",
     "dimensionlessSpin": 0.94,
-    "observerInclinationDegrees": 59.99999999999999,
+    "observerInclinationDegrees": 78,
     "observerBoyerLindquistRadiusM": 1000,
     "sourceSphereBoyerLindquistRadiusM": 1000,
     "outerHorizonRadiusM": 1.3411744421846397,
@@ -13,8 +13,8 @@
   },
   "imagePlane": {
     "convention": "Bardeen screen coordinates at a distant observer; alpha increases left-to-right, beta-positive initializes increasing Boyer-Lindquist theta",
-    "alphaMinM": -12,
-    "alphaMaxM": 12,
+    "alphaMinM": -24,
+    "alphaMaxM": 24,
     "betaMinM": -12,
     "betaMaxM": 12,
     "texelCenters": true,
@@ -73,7 +73,7 @@
   },
   "generator": {
     "path": "scripts/build-kerr-transfer-atlas.mjs",
-    "sha256": "e2736c342fa0d9ae462d62d4b6dd1d7853297cee986d84a3f076728648862ee6",
+    "sha256": "12ea541fe6ca872b9e98563733acdf254fb7b0771ff8556c3e3ab0b0fac7ca31",
     "workersDoNotAffectResults": true,
     "command": "node scripts/build-kerr-transfer-atlas.mjs"
   },
@@ -102,21 +102,21 @@
     "note": "The binary values are original generated numerical data. Equations and physical facts are cited above; no AART code or data is redistributed."
   },
   "statistics": {
-    "pixelCount": 147456,
-    "escaped": 127588,
-    "captured": 19868,
+    "pixelCount": 294912,
+    "escaped": 274798,
+    "captured": 20114,
     "unresolved": 0,
     "invalid": 0,
-    "primaryDiscIntersections": 142616,
-    "secondaryDiscIntersections": 26457,
-    "raysWithPositiveCircularDiscRedshift": 140152,
+    "primaryDiscIntersections": 289573,
+    "secondaryDiscIntersections": 56130,
+    "raysWithPositiveCircularDiscRedshift": 287565,
     "maximumBackgroundImageOrder": 4
   },
   "files": [
     {
       "key": "sky",
       "path": "observatory-kerr-sky-v1.bin",
-      "width": 384,
+      "width": 768,
       "height": 384,
       "channels": 4,
       "channelNames": [
@@ -126,13 +126,13 @@
         "status"
       ],
       "scalarType": "float32",
-      "byteLength": 2359304,
-      "sha256": "ffd617c58f5d456673597f27abc2d7661ed7198354611f7a93b5fbfa5cf10c89"
+      "byteLength": 4718600,
+      "sha256": "c4268fb6640f5a64373a0e33fa814d11eb3bf193a9fa8313eded05e533d0c475"
     },
     {
       "key": "discPrimary",
       "path": "observatory-kerr-disc-primary-v1.bin",
-      "width": 384,
+      "width": 768,
       "height": 384,
       "channels": 4,
       "channelNames": [
@@ -143,13 +143,13 @@
       ],
       "imageOrder": 0,
       "scalarType": "float32",
-      "byteLength": 2359304,
-      "sha256": "0871f99794fae2dbf61c8640fce2421adcd7e07d2b691ed0714a447e180566fe"
+      "byteLength": 4718600,
+      "sha256": "7e3adcb64eed32944bdbd05ad201e0327042f8565e508a84e6a377473778fd3e"
     },
     {
       "key": "discSecondary",
       "path": "observatory-kerr-disc-secondary-v1.bin",
-      "width": 384,
+      "width": 768,
       "height": 384,
       "channels": 4,
       "channelNames": [
@@ -160,13 +160,13 @@
       ],
       "imageOrder": 1,
       "scalarType": "float32",
-      "byteLength": 2359304,
-      "sha256": "99a0fc3b646efd84a83da76801e559299177e4da2bed4cd8b2e18e12c0f493f9"
+      "byteLength": 4718600,
+      "sha256": "719bb24a171cfeb3d6f6c858dbc75bf493edb837636a218858626f2eb86e15c2"
     },
     {
       "key": "path",
       "path": "observatory-kerr-path-v1.bin",
-      "width": 384,
+      "width": 768,
       "height": 384,
       "channels": 2,
       "channelNames": [
@@ -174,8 +174,8 @@
         "backgroundImageOrder"
       ],
       "scalarType": "float32",
-      "byteLength": 1179656,
-      "sha256": "7293266fe356aa85ed7fd5fb739827e6250c7d7cac4cb971c9e0d7c54da4d4e7"
+      "byteLength": 2359304,
+      "sha256": "6a99e1ed89b4622b812a37dc0cb23bdee828d3546ae20f3d906d354f853c80dd"
     }
   ]
 }

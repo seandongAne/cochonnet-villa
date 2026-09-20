@@ -1,0 +1,13 @@
+Black Hole emissive palette
+Author: NestaEric (https://sketchfab.com/Nestaeric)
+Source: https://sketchfab.com/3d-models/black-hole-e410da98b1e5445eae2acafaaa53587d
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Modified for Cochonnet Villa: the central vertical column of the model's
+black_hole_light1 emissive texture is transposed into a 512x1 colour lookup.
+The runtime maps part of that strip onto its dynamic Kerr accretion disc.
+Original mesh geometry is not redistributed. This attribution does not imply
+endorsement by the original author. Source hashes and regeneration instructions
+are in src/villa-map/observatory-disc-palette-data.js and
+scripts/extract-black-hole-palette.mjs.

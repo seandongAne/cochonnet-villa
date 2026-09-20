@@ -822,8 +822,15 @@ const RELATIVISTIC_FRAGMENT_SHADER = /* glsl */ `
     vec3 approachAxis = cross(discNormal, lensDirection);
     if (length(approachAxis) < 1e-6) approachAxis = tangentBasis;
     approachAxis = normalize(approachAxis);
-    float ringApproach = 0.5
-      + 0.5 * dot(radialDirection, approachAxis);
+    // Rounding puts the receding half of the line of nodes a hair below zero,
+    // and pow() of a negative base is NaN. That NaN survives a zero glint and
+    // even the opaque Kerr layer above (dst * 0), leaving a dotted black line
+    // along the major axis of the nearly edge-on disc.
+    float ringApproach = clamp(
+      0.5 + 0.5 * dot(radialDirection, approachAxis),
+      0.0,
+      1.0
+    );
     float glintGain = 0.035 + pow(ringApproach, 3.2) * 0.3;
     sceneColour += vec3(2.8, 1.5, 0.32)
       * criticalGlint

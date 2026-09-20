@@ -21,7 +21,10 @@ export const OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_NAME =
 export const OBSERVATORY_BLACK_HOLE_PASS_COMPOSITE_MATERIAL_NAME =
   "mushroom-observatory-black-hole-composite-material";
 export const OBSERVATORY_BLACK_HOLE_PASS_STENCIL_REF = 7;
-export const OBSERVATORY_BLACK_HOLE_PASS_RENDER_ORDER = -890;
+// The finite 42 m object is in front of the nebula composite (-880) and the
+// distant star shells. Dust emission must not paint over its opaque shadow
+// or extinguish its white-hot disc after the local HDR treatment.
+export const OBSERVATORY_BLACK_HOLE_PASS_RENDER_ORDER = -870;
 export const OBSERVATORY_BLACK_HOLE_PASS_DEFAULT_QUALITY = "medium";
 
 export const OBSERVATORY_BLACK_HOLE_PASS_QUALITY_PRESETS = Object.freeze({
@@ -262,6 +265,9 @@ const COMPOSITE_FRAGMENT_SHADER = /* glsl */ `
 
       vec3 smoothGold = vec3(1.18, 0.55, 0.12)
         * aureole * uHaloStrength * 0.062;
+      // Captured rays are opaque black, not a surface for the analytic halo.
+      // Preserve that black even where the projected shadow is asymmetric.
+      smoothGold *= smoothstep(0.001, 0.018, centreLuminance);
       localRadiance += min(
         smoothGold,
         vec3(0.36, 0.17, 0.045)

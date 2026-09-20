@@ -274,7 +274,7 @@ test("the Bruneton Schwarzschild layer stays hot beneath the physical Kerr path"
   assert.match(runtime, /discOpacity:\s*kerrPrimary \? 0 : 0\.94/);
   assert.match(
     runtime,
-    /RELATIVISTIC_DISC_NORMAL = new THREE\.Vector3\(0\.62, 0\.52, 0\.59\)\.normalize\(\)/
+    /RELATIVISTIC_DISC_NORMAL = new THREE\.Vector3\(0\.035, 0\.31, 0\.95\)\.normalize\(\)/
   );
   assert.match(runtime, /observatoryShaderFailure === "relativistic-lens"/);
   assert.match(

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as THREE from "three";
+import { createObservatoryPortalComposite } from "../src/villa-map/observatory-portal.js";
 
 import {
   calculateObservatoryBlackHolePassLocalHdrSettings,
@@ -256,7 +257,12 @@ test("fullscreen composite is stencil-clipped and preserves premultiplied pass s
   assert.equal(composite.geometry.attributes.position.count, 3);
   assert.equal(composite.frustumCulled, false);
   assert.equal(composite.renderOrder, OBSERVATORY_BLACK_HOLE_PASS_RENDER_ORDER);
-  assert.equal(composite.renderOrder, -890);
+  assert.equal(composite.renderOrder, -870);
+  const nebula = createObservatoryPortalComposite();
+  assert.ok(composite.renderOrder > nebula.renderOrder,
+    "foreground black hole must cover nebula emission and extinction");
+  nebula.geometry.dispose();
+  nebula.material.dispose();
   assert.equal(material.uniforms.uBlackHoleTexture.value, texture);
   assert.equal(material.uniforms.uReveal.value, 0.35);
   assert.equal(material.defines.OBSERVATORY_BH_LOCAL_HDR, 1);

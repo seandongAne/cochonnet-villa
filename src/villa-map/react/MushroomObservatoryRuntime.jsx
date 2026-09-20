@@ -94,6 +94,7 @@ import {
   isObservatoryKerrLensAtlasReady,
   loadObservatoryKerrLensAtlases,
   OBSERVATORY_KERR_LENS_ALPHA_EXTENT,
+  OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS,
   OBSERVATORY_KERR_LENS_INCLINATION_DEGREES,
   OBSERVATORY_KERR_LENS_MATERIAL_NAME,
   prewarmObservatoryKerrLens,
@@ -205,10 +206,9 @@ const OBSERVATORY_SHADER_SCAN_INTERVAL_FRAMES = 30;
 const blackHoleClearColorScratch = new THREE.Color();
 const relativisticSkyRotationScratch = new THREE.Matrix3();
 const relativisticSkyRotation4Scratch = new THREE.Matrix4();
-// Roughly 60 degrees to the centre view: inclined enough to expose distinct
-// primary/secondary arcs without compressing the receding image into a dark
-// leaf that reads as a shader seam.
-const RELATIVISTIC_DISC_NORMAL = new THREE.Vector3(0.62, 0.52, 0.59).normalize();
+// Nearly edge-on, with the spin projection along the loft's viewing vertical:
+// a wide horizontal disc and a lensed rear arch instead of a diagonal vortex.
+const RELATIVISTIC_DISC_NORMAL = new THREE.Vector3(0.035, 0.31, 0.95).normalize();
 const KERR_TARGET_SPIN_AXIS = RELATIVISTIC_DISC_NORMAL.clone().negate();
 const KERR_INCLINATION_RADIANS = THREE.MathUtils.degToRad(
   OBSERVATORY_KERR_LENS_INCLINATION_DEGREES
@@ -220,14 +220,10 @@ const KERR_INCLINATION_COS = Math.cos(KERR_INCLINATION_RADIANS);
 // scale 1. The shared presentation scale enlarges the apparent event across
 // all three render paths together (see observatory-black-hole.js).
 const KERR_MASS_WORLD_SCALE = 1 * OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE;
-// The 2026-08 restyle extends the luminous disc across most of the lensed
-// field (the transfer atlas bakes valid crossings out to ~11.7 M), so the
-// event reads as a dominant ribbon disc like the cinematic reference instead
-// of a small gold core inside a large milky sky warp. The old "two hard
-// wedges" objection to a wide disc no longer applies: the Saturn-style ring
-// gaps and sheared streaks give the outer lanes structure and translucency.
-const KERR_DISC_OUTER_RADIUS = 10.5;
-const KERR_DISC_OPACITY = 0.78;
+// The wide 78-degree atlas preserves the old 0.0625 M texel pitch around the
+// shadow while extending the outer ribbons to 22 M on either side.
+const KERR_DISC_OUTER_RADIUS = OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS;
+const KERR_DISC_OPACITY = 0.94;
 const KERR_STAR_SOURCE_BRIGHTNESS = 0.82;
 const kerrObserverOutScratch = new THREE.Vector3();
 const kerrImageRightScratch = new THREE.Vector3();
@@ -316,7 +312,7 @@ function isKerrLensPrimary(resources, quality) {
 }
 
 function updateKerrFrame(lensDirection) {
-  // The transfer atlas is baked for a fixed 60-degree observer. Preserve the
+  // The transfer atlas is baked for a fixed 78-degree observer. Preserve the
   // finite world-space disc orientation as closely as that contract allows,
   // then rebuild the exact orthonormal atlas frame around the current lens
   // direction so walking changes position/scale without shearing the shadow.
@@ -3084,9 +3080,9 @@ export function MushroomObservatoryRuntime({
             ?? MUSHROOM_SKY_IMAGE_BRIGHTNESS,
           blackHoleRadius: 1.35,
           discInnerRadius: 3.08,
-          // Matches the Kerr path's extended ribbon disc so the Low tier and
-          // the underlay keep the same dominant-disc composition.
-          discOuterRadius: KERR_DISC_OUTER_RADIUS,
+          // Schwarzschild radii are in r_s = 2M; match the Kerr disc's
+          // physical outer extent instead of doubling it on the Low tier.
+          discOuterRadius: KERR_DISC_OUTER_RADIUS / 2,
           // Kerr owns the visible disc in High/Medium. Keep the Schwarzschild
           // ray warp and shadow hot as the per-pixel underlay, but suppress its
           // larger analytic disc so it cannot protrude beyond the square Kerr

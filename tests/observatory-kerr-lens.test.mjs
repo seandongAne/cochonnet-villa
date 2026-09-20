@@ -22,6 +22,8 @@ import {
   OBSERVATORY_KERR_LENS_ATLAS_SPECS,
   OBSERVATORY_KERR_LENS_ATLAS_WIDTH,
   OBSERVATORY_KERR_LENS_BETA_EXTENT,
+  OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS,
+  OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS,
   OBSERVATORY_KERR_LENS_DISC_PRIMARY_URL,
   OBSERVATORY_KERR_LENS_DISC_SECONDARY_URL,
   OBSERVATORY_KERR_LENS_FRAGMENT_SHADER,
@@ -71,15 +73,15 @@ function createCamera() {
 
 test("Kerr v1 constants match the fixed physical atlas and quality fallback policy", () => {
   assert.equal(OBSERVATORY_KERR_LENS_SPIN, 0.94);
-  assert.equal(OBSERVATORY_KERR_LENS_INCLINATION_DEGREES, 60);
+  assert.equal(OBSERVATORY_KERR_LENS_INCLINATION_DEGREES, 78);
   assert.equal(OBSERVATORY_KERR_LENS_OBSERVER_RADIUS, 1_000);
   assert.deepEqual(
     [OBSERVATORY_KERR_LENS_ATLAS_WIDTH, OBSERVATORY_KERR_LENS_ATLAS_HEIGHT],
-    [384, 384]
+    [768, 384]
   );
   assert.deepEqual(
     [OBSERVATORY_KERR_LENS_ALPHA_EXTENT, OBSERVATORY_KERR_LENS_BETA_EXTENT],
-    [12, 12]
+    [24, 12]
   );
   assert.ok(Math.abs(OBSERVATORY_KERR_LENS_ISCO_RADIUS - 2.023593104700402) < 1e-12);
   assert.deepEqual(OBSERVATORY_KERR_LENS_RAY_STATUS, {
@@ -111,7 +113,7 @@ test("bundled RGBA/RG binaries decode to finite nearest-filter DataTextures", as
   };
   const decodedPath = decodeObservatoryKerrLensAtlas(binaries.path, "path");
   assert.equal(decodedPath.channels, 2);
-  assert.equal(decodedPath.data.length, 384 * 384 * 2);
+  assert.equal(decodedPath.data.length, 768 * 384 * 2);
   assert.ok(decodedPath.data.every(Number.isFinite));
   assert.throws(
     () => decodeObservatoryKerrLensAtlas(binaries.path.slice(0, -4), "path"),
@@ -132,7 +134,7 @@ test("bundled RGBA/RG binaries decode to finite nearest-filter DataTextures", as
   })) {
     const spec = OBSERVATORY_KERR_LENS_ATLAS_SPECS[key];
     assert.equal(texture.isDataTexture, true);
-    assert.equal(texture.image.width, 384);
+    assert.equal(texture.image.width, 768);
     assert.equal(texture.image.height, 384);
     assert.equal(texture.format, spec.format);
     assert.equal(texture.internalFormat, spec.internalFormat);
@@ -219,33 +221,26 @@ test("shader keeps topology nearest, composes photo and source stars through one
     shader,
     /float ribbonRadialWindow = exp\(-ribbonRadialDistance \* ribbonRadialDistance\)/
   );
-  assert.match(shader, /\(radius - \(KERR_ISCO \+ 1\.55\)\) \/ 0\.72/);
+  assert.match(shader, /\(radius - \(DISC_INNER_RADIUS \+ 1\.55\)\) \/ 0\.72/);
   assert.match(shader, /float tracerImageWeight = mix/);
-  assert.match(shader, /0\.04,[\s\S]*?step\(0\.5, imageWeight\)/);
-  assert.match(shader, /float platinumRibbon = ribbonRadialWindow/);
-  assert.match(shader, /vec3 hotCore = vec3\(11\.0, 4\.2, 0\.55\)/);
-  assert.match(shader, /0\.02 \+ tracerImageWeight/);
-  assert.match(shader, /rotationArc \* 0\.035 \+ leadingHotspot \* 0\.16/);
-  assert.match(shader, /platinumRibbon \* \(0\.04 \+ leadingHotspot \* 0\.08\)/);
-  assert.match(shader, /vec3 whiteGold = vec3\(16\.0, 13\.0, 8\.0\)/);
-  assert.match(shader, /clamp\(movingWhiteHeat, 0\.0, 0\.48\)/);
-  assert.match(shader, /float carrierRelativisticBoost = pow/);
-  assert.match(shader, /clamp\(redshift, 0\.50, 2\.20\)/);
-  assert.match(shader, /vec3 platinumRibbonColour = mix/);
-  assert.match(shader, /radiance \+= platinumRibbonColour/);
-  assert.match(shader, /float hotShoulder = uHdrOutput > 0\.5 \? 0\.05 : 0\.28/);
-  assert.match(shader, /float shoulderStrength = mix/);
-  assert.match(shader, /\* flowStructure \* 0\.88/);
-  assert.match(shader, /float displayTracer = ribbonCarrier \* mix/);
-  assert.match(shader, /vec3 goldTracerColour = mix/);
-  assert.match(shader, /vec3\(2\.8, 0\.62, 0\.025\)/);
-  assert.match(shader, /vec3\(12\.0, 9\.0, 4\.8\)/);
-  assert.match(shader, /radiance \+= goldTracerColour \* displayTracer/);
+  assert.match(shader, /0\.04,[\s\S]*?step\(0\.9, imageWeight\)/);
+  assert.match(shader, /float displayDoppler =/);
+  assert.match(shader, /float radialPixel = max\(fwidth\(radius\)/);
+  assert.match(shader, /float ringCoverage =/);
+  // The direct image is an optically thick sheet: its lane-free silhouette
+  // hides the order-1 image behind it, so the rear arch can never read as a
+  // ring cutting across the front of the near disc.
+  assert.match(shader, /silhouette = innerEdge \* outerEdge \* validCoverage/);
+  assert.match(shader, /secondary \*= 1\.0 - primarySilhouette/);
   assert.ok(
-    shader.indexOf("radiance += goldTracerColour * displayTracer")
-      > shader.indexOf("radiance /= 1.0 + discLuminance * shoulderStrength"),
-    "gold motion tracer must survive the HDR shoulder"
+    shader.indexOf("primarySilhouette\n    );")
+      < shader.indexOf("secondary *= 1.0 - primarySilhouette"),
+    "the direct image must be shaded before it can occlude the order-1 image"
   );
+  assert.match(shader, /float shoulderStrength = uHdrOutput/);
+  assert.match(shader, /radiance \/= 1\.0 \+ discLuminance \* shoulderStrength/);
+  assert.match(shader, /float displayTracer = ribbonRadialWindow/);
+  assert.doesNotMatch(shader, /baseShoulder|hotShoulder|movingWhiteHeat/);
   assert.doesNotMatch(shader, /quietStructure|emissionTime \* 0\.045/);
   assert.doesNotMatch(shader, /UnrealBloomPass|EffectComposer|uBloom/);
   assert.match(shader, /Captured rays intentionally contribute opaque black/);
@@ -256,7 +251,7 @@ test("shader keeps topology nearest, composes photo and source stars through one
 test("screen-to-atlas mapping keeps +beta on atlas row 0 and matches the shipped disc's near/far asymmetry", async () => {
   const shader = OBSERVATORY_KERR_LENS_FRAGMENT_SHADER;
   // Pin the exact screen->atlas uv expressions for BOTH axes: column 0 holds
-  // alpha=-12 and row 0 holds beta=+12, matching the generator's
+  // alpha=-24 and row 0 holds beta=+12, matching the generator's
   // "top-to-bottom; betaMax to betaMin" row order read with flipY=false
   // texelFetch addressing.  Any sign flip here mirrors the lensed sky and the
   // disc's near/far side without failing a single geometry test, so the
@@ -337,9 +332,9 @@ test("screen-to-atlas mapping keeps +beta on atlas row 0 and matches the shipped
     return Array.from(atlas.data.subarray(offset, offset + atlas.channels));
   };
 
-  // What is actually beta-asymmetric at a=0.94, i=60deg (the capture mask is
+  // What is actually beta-asymmetric at a=0.94, i=78deg (the capture mask is
   // beta-symmetric, so only these transfer quantities can see a flip): the
-  // observer sits 30deg above the equatorial disc and beta>0 initializes
+  // observer sits 12deg above the equatorial disc and beta>0 initializes
   // increasing Boyer-Lindquist theta, so +beta rays dive directly through the
   // NEAR side of the disc in front of the hole (first crossing at large
   // radius, azimuth ~ 0 toward the observer, coordinate time just under the
@@ -449,7 +444,8 @@ test("screen-to-atlas mapping keeps +beta on atlas row 0 and matches the shipped
 test("single-sided Kerr carriers make rotation readable in 2-4 seconds without raising mean flux", () => {
   const isco = OBSERVATORY_KERR_LENS_ISCO_RADIUS;
   // Mirrors the runtime's KERR_DISC_OUTER_RADIUS (extended ribbon disc).
-  const outer = 10.5;
+  const outer = OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS;
+  const inner = OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS;
   const hotspotMean = 0.196380615234375;
   const rotationArcMean = 0.2734375;
   const leadingHotspotMean = 0.17619705200195312;
@@ -481,7 +477,7 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
       Math.min(1, (radius - isco) / (outer - isco))
     );
     const bandProfile = smoothstep(0, 0.35, normalizedRadius);
-    return 1 + ringBands * (0.10 + 0.24 * bandProfile);
+    return 1 + ringBands * (0.36 + 0.50 * bandProfile);
   };
   const flowStructureAt = (azimuth, radius, timeSeconds) => {
     const flowPhase = azimuth
@@ -511,7 +507,7 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
       10
     );
     const ribbonRadialWindow = Math.exp(-Math.pow(
-      (radius - (isco + 1.55)) / 0.72,
+      (radius - (inner + 1.55)) / 0.72,
       2
     ));
     return Math.max(0, (1
@@ -526,7 +522,7 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
       )) * ringStructureAt(radius));
   };
   const sampleCount = 8_192;
-  const middleRadius = isco + 1.55;
+  const middleRadius = inner + 1.55;
   const profileAt = (timeSeconds) => Array.from(
     { length: sampleCount },
     (_, index) => flowStructureAt(
@@ -558,60 +554,29 @@ test("single-sided Kerr carriers make rotation readable in 2-4 seconds without r
   );
   assert.ok(maximum / minimum > 8, "the moving arc needs strong spatial contrast");
 
-  const peakDegrees = (profile) => (
-    profile.indexOf(Math.max(...profile)) / sampleCount * 360
-  );
-  const circularAdvance = (from, to) => ((to - from + 540) % 360) - 180;
-  const twoSecondAdvance = circularAdvance(
-    peakDegrees(base),
-    peakDegrees(afterTwoSeconds)
-  );
-  const fourSecondAdvance = circularAdvance(
-    peakDegrees(base),
-    peakDegrees(afterFourSeconds)
-  );
-  // Expected advances derive from the shared middle carrier period, folded
-  // into the (-180, 180] range the circular comparison reports. The sheared
-  // gas streaks ride at the LOCAL orbital rate (faster than the tracer at
-  // this radius), so the profile's argmax wobbles around the hero tracer by
-  // up to a streak wavelength — the tolerance covers that wobble while still
-  // rejecting the pre-restyle cadence (which advanced only 48 degrees).
-  const foldDegrees = (degrees) => ((degrees % 360) + 540) % 360 - 180;
-  const expectedTwoSecond = foldDegrees(
-    2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle
-  );
-  const expectedFourSecond = foldDegrees(
-    4 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle
-  );
-  assert.ok(
-    Math.abs(twoSecondAdvance - expectedTwoSecond) < 25,
-    `middle carrier should move about ${expectedTwoSecond} degrees in 2 `
-      + `seconds, got ${twoSecondAdvance}`
-  );
-  assert.ok(
-    Math.abs(fourSecondAdvance - expectedFourSecond) < 25,
-    `middle carrier should fold to about ${expectedFourSecond} degrees after `
-      + `4 seconds, got ${fourSecondAdvance}`
-  );
+  // Track the full arc by circular correlation rather than the brightest
+  // texel: a sheared filament can temporarily win the maximum while the
+  // coherent carrier still advances at the shared middle period.
+  const shiftedError = (profile, seconds) => {
+    const shift = Math.round(seconds / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.middle
+      * sampleCount);
+    return profile.reduce((total, value, index) => total
+      + (value - base[(index - shift + sampleCount) % sampleCount]) ** 2, 0)
+      / sampleCount;
+  };
+  for (const [seconds, profile] of [[2, afterTwoSeconds], [4, afterFourSeconds]]) {
+    assert.ok(shiftedError(profile, seconds) < shiftedError(profile, 0) * 0.15,
+      `the ${seconds}s profile should follow the orbital carrier`);
+  }
+  assert.equal(2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner, 72);
+  assert.equal(2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer, 28.8);
 
-  const innerAdvance = 2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.inner;
-  const outerAdvance = 2 * 360 / OBSERVATORY_BLACK_HOLE_FLOW_PERIODS.outer;
-  assert.equal(innerAdvance, 72);
-  assert.equal(outerAdvance, 28.8);
-  assert.ok(innerAdvance > twoSecondAdvance && twoSecondAdvance > outerAdvance);
+  // The physical redshift is display-compressed in this cinematic finish:
+  // even the receding side must retain visible rings, with bounded contrast.
+  const doppler = (g) => 0.72 + 0.56 * g ** 3 / (1 + g ** 3);
+  assert.ok(doppler(0.28) > 0.72);
+  assert.ok(doppler(3.5) / doppler(0.28) < 1.8);
 
-  // The narrow tracer remains visible on the receding side without changing
-  // the broad physical g^3 Doppler term. This prevents a tracked feature from
-  // disappearing halfway through its orbit.
-  const recedingRedshift = 0.28;
-  const physicalBoost = Math.pow(recedingRedshift, 3);
-  const carrierBoost = Math.pow(Math.max(0.5, recedingRedshift), 1.4);
-  assert.ok(carrierBoost / physicalBoost > 17);
-  assert.equal(1 / 0.05, 20, "HalfFloat tracer should retain intrinsic HDR headroom");
-  assert.ok(
-    0.04 * 0.26 < 0.011,
-    "secondary image tracer should remain only a faint lensed echo"
-  );
 });
 
 test("factory and update expose runtime state, frames and strict tier activation", async () => {
@@ -705,6 +670,13 @@ test("atlas replacement, prewarm restoration and owned disposal are idempotent",
   assert.equal(lens.userData.prewarming, false);
   assert.equal(lens.material.uniforms.uReveal.value, 0);
 
+  const palette = lens.material.uniforms.uDiscPalette.value;
+  assert.equal(palette.image.width, 512);
+  assert.equal(palette.image.height, 1);
+  assert.equal(palette.colorSpace, THREE.SRGBColorSpace);
+  assert.equal(palette.image.data.length, 2048);
+  let paletteDisposals = 0;
+  palette.addEventListener("dispose", () => { paletteDisposals += 1; });
   let atlasDisposals = 0;
   for (const texture of [atlases.sky, atlases.discPrimary, atlases.discSecondary, atlases.path]) {
     texture.addEventListener("dispose", () => { atlasDisposals += 1; });
@@ -712,6 +684,7 @@ test("atlas replacement, prewarm restoration and owned disposal are idempotent",
   assert.equal(disposeObservatoryKerrLens(lens), true);
   assert.equal(disposeObservatoryKerrLens(lens), false);
   assert.equal(atlasDisposals, 4);
+  assert.equal(paletteDisposals, 1);
   assert.equal(atlases.disposed, true);
   assert.equal(setObservatoryKerrLensVisible(lens, true), false);
   assert.equal(prewarmObservatoryKerrLens(lens), false);

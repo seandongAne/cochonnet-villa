@@ -351,6 +351,13 @@ test("full-screen material samples the photographic sky through the Schwarzschil
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /mappedLuminance/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /emissiveCoverage/);
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /glintGain/);
+  // pow() of a base that rounds below zero is NaN, and a NaN in this underlay
+  // survives the opaque Kerr layer's blend (dst * 0) as black pixels along
+  // the receding half of the line of nodes.
+  assert.match(
+    OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER,
+    /float ringApproach = clamp\(\s*0\.5 \+ 0\.5 \* dot\(radialDirection, approachAxis\),\s*0\.0,\s*1\.0\s*\)/
+  );
   assert.match(OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER, /analyticFallbackTrace/);
   assert.doesNotMatch(
     OBSERVATORY_RELATIVISTIC_LENS_FRAGMENT_SHADER,

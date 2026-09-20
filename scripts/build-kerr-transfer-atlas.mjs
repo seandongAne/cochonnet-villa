@@ -9,7 +9,7 @@
  * to sample the real photographic sky and shade a time-dependent disc.
  *
  * Units: G = c = M = 1.  The default atlas is fixed at a/M = 0.94 and an
- * observer inclination of 60 degrees.  See the generated metadata for the
+ * observer inclination of 78 degrees.  See the generated metadata for the
  * exact coordinate, status and texture-channel conventions.
  */
 
@@ -27,11 +27,11 @@ import {
 
 export const KERR_ATLAS_VERSION = 1;
 export const KERR_SPIN = 0.94;
-export const KERR_OBSERVER_INCLINATION_DEGREES = 60;
+export const KERR_OBSERVER_INCLINATION_DEGREES = 78;
 export const KERR_OBSERVER_RADIUS = 1_000;
-export const KERR_ATLAS_WIDTH = 384;
+export const KERR_ATLAS_WIDTH = 768;
 export const KERR_ATLAS_HEIGHT = 384;
-export const KERR_ALPHA_EXTENT = 12;
+export const KERR_ALPHA_EXTENT = 24;
 export const KERR_BETA_EXTENT = 12;
 
 export const KERR_RAY_STATUS = Object.freeze({
@@ -716,7 +716,7 @@ export async function buildKerrTransferAtlas(options = {}) {
   };
   if (Math.abs(config.spin - KERR_SPIN) > 1e-12
     || Math.abs(config.inclination * 180 / PI - KERR_OBSERVER_INCLINATION_DEGREES) > 1e-12) {
-    throw new RangeError("Observatory Kerr atlas v1 is fixed at a/M=0.94 and i=60 degrees");
+    throw new RangeError("Observatory Kerr atlas v1 is fixed at a/M=0.94 and i=78 degrees");
   }
   await mkdir(config.outputDir, { recursive: true });
   const parts = await traceAtlasParallel(config);
