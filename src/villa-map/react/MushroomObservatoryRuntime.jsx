@@ -1902,6 +1902,7 @@ export function MushroomObservatoryRuntime({
             sky.userData.backdrop,
             sky.userData.stars,
             resources.aperture,
+            resources.aperture?.userData?.depthGuard,
             riftVisual?.userData?.aperture,
             riftVisual?.userData?.fragments,
             riftVisual?.userData?.shards,
@@ -2381,8 +2382,9 @@ export function MushroomObservatoryRuntime({
           prewarmMs: resources.nativePrewarmMs,
           textureGpuReady: resources.textureGpuReady,
           textureUploadMs: resources.textureUploadMs,
+          // The aperture carries its depth guard as a child: two draws.
           addedDrawCalls: (sky.visible ? 2 : 0)
-            + (resources.aperture?.visible ? 1 : 0),
+            + (resources.aperture?.visible ? 2 : 0),
           error: resources.nativeSkyError
         },
         skyEvents: {

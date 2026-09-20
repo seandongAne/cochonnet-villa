@@ -16,6 +16,7 @@ export const MUSHROOM_SKY_NAME = "mushroom-observatory-distant-sky";
 export const MUSHROOM_SKY_BACKDROP_NAME = "mushroom-observatory-sky-backdrop";
 export const MUSHROOM_SKY_STARS_NAME = "mushroom-observatory-twinkling-stars";
 export const MUSHROOM_SKY_APERTURE_NAME = "mushroom-observatory-sky-aperture";
+export const MUSHROOM_SKY_DEPTH_GUARD_NAME = "mushroom-observatory-sky-depth-guard";
 export const MUSHROOM_SKY_RADIUS = 80;
 export const MUSHROOM_SKY_STAR_COUNT = 360;
 // The photograph is deliberately subdued into a low-frequency Milky Way
@@ -62,6 +63,18 @@ const SKY_STENCIL_REF = 7;
 const SKY_TIME_WRAP_SECONDS = 4096;
 const APERTURE_RENDER_ORDER = 900;
 const BACKDROP_RENDER_ORDER = 901;
+// The pocket is buried, so looking up from the loft puts the whole above-ground
+// map inside the view frustum. Its opaque meshes are painted over by the
+// backdrop, but its transparent ones (room-marker rings, villa glazing, spa
+// water) draw later, and with the physical dome hidden nothing between the
+// loft and the meadow writes depth — they landed on top of the cosmos. The
+// guard is a depth-only disc floating between the dome apex and the meadow:
+// every sight line from the loft to the surface crosses it, so those fragments
+// fail the depth test. Both ratios are in dome radii, which keeps the factory
+// independent of where the pocket is buried; mushroom-sky.test.mjs pins the
+// resulting world-space clearances and the camera-far coverage.
+export const MUSHROOM_SKY_DEPTH_GUARD_HEIGHT_RATIO = 1.7;
+export const MUSHROOM_SKY_DEPTH_GUARD_SPAN_RATIO = 34;
 // Transparent objects render after the opaque stencil/backdrop regardless of
 // this value. A negative order keeps future glass or translucent room decor in
 // front of the stars instead of letting celestial points paint over it.
@@ -729,14 +742,63 @@ export function createMushroomSkyAperture(dome) {
   aperture.visible = false;
   aperture.renderOrder = APERTURE_RENDER_ORDER;
   aperture.frustumCulled = false;
+  // Parenting the guard to the aperture ties it to the one visibility flag the
+  // runtime already drives (updateMushroomSky plus every fail-close path), so
+  // lights-on, leaving L3 and a disabled sky all stop drawing it for free.
+  const depthGuard = createMushroomSkyDepthGuard(dome);
+  aperture.add(depthGuard);
+  aperture.userData.depthGuard = depthGuard;
   dome.parent?.add(aperture);
   return aperture;
+}
+
+function createMushroomSkyDepthGuard(dome) {
+  const domeRadius = dome.geometry.parameters?.radius
+    ?? new THREE.Box3().setFromBufferAttribute(
+      dome.geometry.attributes.position
+    ).max.y;
+
+  // Opaque queue, no colour, no stencil: all it does is make fragments beyond
+  // the disc fail the depth test. It sorts with the aperture, after the world's
+  // own opaque meshes, so their output is untouched; the cosmos layers ignore
+  // it (depthTest: false) and the Rift's depth-tested pieces sit inside the
+  // room, nearer than the disc.
+  const material = new THREE.MeshBasicMaterial({
+    side: THREE.DoubleSide,
+    colorWrite: false,
+    depthTest: true,
+    depthWrite: true,
+    toneMapped: false,
+    fog: false
+  });
+  material.name = "mushroom-sky-depth-guard";
+
+  const guard = new THREE.Mesh(
+    new THREE.CircleGeometry(
+      domeRadius * MUSHROOM_SKY_DEPTH_GUARD_SPAN_RATIO,
+      48
+    ),
+    material
+  );
+  guard.name = MUSHROOM_SKY_DEPTH_GUARD_NAME;
+  guard.rotation.x = -Math.PI / 2;
+  guard.position.y = domeRadius * MUSHROOM_SKY_DEPTH_GUARD_HEIGHT_RATIO;
+  guard.renderOrder = APERTURE_RENDER_ORDER;
+  return guard;
 }
 
 export function removeMushroomSkyAperture(aperture) {
   if (!aperture) return;
   aperture.removeFromParent();
   aperture.material?.dispose();
+  // Unlike the aperture's borrowed dome geometry, the guard owns both halves.
+  const depthGuard = aperture.userData.depthGuard;
+  if (depthGuard) {
+    depthGuard.removeFromParent();
+    depthGuard.geometry.dispose();
+    depthGuard.material.dispose();
+    aperture.userData.depthGuard = null;
+  }
 }
 
 export function isMushroomObservatorySkyPosition(position) {

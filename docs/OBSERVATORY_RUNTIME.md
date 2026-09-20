@@ -26,6 +26,8 @@ React owners (`src/villa-map/react/`): `MushroomObservatoryRuntime.jsx` (assets,
 
 Photo Milky Way backdrop (0.36 brightness) → 360 procedural hero stars → real Gaia stars revealed bright→faint by magnitude → half-res volumetric nebula Portal with controlled parallax. Everything is clipped to the dome by stencil ref 7.
 
+**Depth guard.** The pocket is buried, so the loft's upward view contains the whole above-ground map. Opaque surface meshes are painted over by the backdrop (`renderOrder` 901, `depthTest: false`), but transparent ones draw later and — with the physical dome hidden — met no depth between the loft and the meadow. The dome aperture therefore parents a depth-only disc (`mushroom-observatory-sky-depth-guard`: opaque queue, `colorWrite: false`, no stencil) floating at y ≈ -7 between the dome apex (-13.7) and the surface, wider than the camera far plane. It is visible exactly when the aperture is (one extra draw in dark mode, none lights-on), covers the R-expanded aperture as well as the dome, and leaves opaque output untouched. Contract: every main-scene cosmos layer keeps `depthTest: false`; the Rift's depth-tested pieces stay room-sized (`tests/observatory-depth-guard.test.mjs`).
+
 ## Quality tiers
 
 | Tier | Gaia stars | Portal scale | Nebula steps |
