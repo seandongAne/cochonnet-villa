@@ -16,7 +16,10 @@ ivory freckles, a sculpted plaster stem, sage arched door, round honey windows
 and radial underside gills. It uses world-scale metres directly, retaining the
 original south-facing portal after the existing group rotation. Its buried
 three-floor interior and observatory are unchanged.
-The round windows are oriented along the stem's two front diagonals. A plaster
+The round windows sit 55° either side of the portal axis, a little wider than
+the front diagonals so the protruding portal does not hide their glazing on the
+approach (re-export the GLB after changing that angle: the window test pins the
+shipped geometry, not the script). A plaster
 collar intersects the actual pinched stem profile around each frame, supporting
 the tangent-plane glazing and shutters without floating off the curved wall.
 The spa is rebuilt as continuous recessed mineral basins, weathered rocks,
