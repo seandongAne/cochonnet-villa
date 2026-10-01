@@ -35,6 +35,10 @@ const BRANCH = "main";
 const CONTENT_PATH = "content/notes.json";
 const LIVE_NOTES_URL = "https://www.cochonnetvilla.ca/notes/";
 const TOKEN_STORAGE_KEY = "cochonnetvilla_github_token";
+// The repo is public, so a 401 never means "you may not read this": GitHub has
+// rejected the token itself (fine-grained tokens expire, 30 days by default).
+const TOKEN_REJECTED_MESSAGE =
+  "GitHub 不认这个 token 了（已过期或被撤销）。请到 GitHub 重新生成一个 fine-grained token，粘贴到「登录」卡片里保存。";
 const DRAFT_STORAGE_KEY = "cochonnetvilla_notes_draft";
 
 // Cloud draft backup: committed to a side branch so it never publishes, never
@@ -186,6 +190,27 @@ export function initNotesAdmin() {
     setStatus(elements.publishStatusTop, message, tone);
   }
 
+  // Every failed GitHub call goes through here so a rejected token is named as
+  // such, and the 登录 card stops claiming the saved token can publish.
+  function githubError(response, detail) {
+    if (response.status === 401) {
+      setStatus(elements.authStatus, TOKEN_REJECTED_MESSAGE, "error");
+      const error = new Error(TOKEN_REJECTED_MESSAGE);
+      error.tokenRejected = true;
+      return error;
+    }
+
+    return new Error(detail || `GitHub 返回 ${response.status}。`);
+  }
+
+  function readFailureMessage(error) {
+    if (error.tokenRejected) {
+      return `读取失败：${error.message}你的草稿不受影响。`;
+    }
+
+    return `读取失败：${error.message} 你的草稿不受影响；发布前会再次尝试同步，避免覆盖网站上的内容。`;
+  }
+
   function showPublishSuccess() {
     const dialog = elements.publishSuccessDialog;
 
@@ -219,6 +244,15 @@ export function initNotesAdmin() {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     state.token = token;
     setStatus(elements.authStatus, "GitHub token 已保存在本浏览器，发布功能已开启。", "success");
+
+    // A read that failed (typically the old token's 401) left the list unsynced;
+    // retry it with the new token. Same merge as page load: staged edits stay.
+    if (!state.remoteKnown) {
+      fetchNotes().catch((error) => {
+        console.error(error);
+        setStatus(elements.listStatus, error.message, "error");
+      });
+    }
   }
 
   function clearToken() {
@@ -327,7 +361,7 @@ export function initNotesAdmin() {
     }
 
     if (!response.ok) {
-      throw new Error(`GitHub 返回 ${response.status}。`);
+      throw githubError(response);
     }
 
     const payload = await response.json();
@@ -398,7 +432,7 @@ export function initNotesAdmin() {
 
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => ({}));
-      throw new Error(errorPayload?.message || `GitHub 返回 ${response.status}。`);
+      throw githubError(response, errorPayload?.message);
     }
 
     const payload = await response.json();
@@ -443,7 +477,9 @@ export function initNotesAdmin() {
     } catch (error) {
       setStatus(
         elements.draftStatus,
-        `云端备份失败：${error.message} 本地草稿仍然有效，稍后会自动重试。`,
+        error.tokenRejected
+          ? `云端备份失败：${error.message}本地草稿仍然有效。`
+          : `云端备份失败：${error.message} 本地草稿仍然有效，稍后会自动重试。`,
         "warning"
       );
       scheduleCloudBackup();
@@ -693,7 +729,7 @@ export function initNotesAdmin() {
     }
 
     if (!response.ok) {
-      throw new Error(`GitHub 返回 ${response.status}。`);
+      throw githubError(response);
     }
 
     const payload = await response.json();
@@ -748,7 +784,7 @@ export function initNotesAdmin() {
     try {
       remote = await fetchRemote();
     } catch (error) {
-      throw new Error(`读取失败：${error.message} 你的草稿不受影响；发布前会再次尝试同步，避免覆盖网站上的内容。`);
+      throw new Error(readFailureMessage(error));
     }
 
     applyRemote(remote, { discardLocal });
@@ -907,9 +943,11 @@ export function initNotesAdmin() {
 
         try {
           remote = await fetchRemote();
-        } catch {
+        } catch (error) {
           setPublishStatus(
-            "现在连不上 GitHub，为了不覆盖网站上已有的小记，这次没有发布。稍后再试试。",
+            error.tokenRejected
+              ? `${error.message}这次没有发布，你的草稿不受影响。`
+              : "现在连不上 GitHub，为了不覆盖网站上已有的小记，这次没有发布。稍后再试试。",
             "error"
           );
           return;
@@ -955,7 +993,7 @@ export function initNotesAdmin() {
           throw new Error(`${detail} 可能有别处的修改，点「重新读取」后再试。`);
         }
 
-        throw new Error(detail);
+        throw githubError(response, detail);
       }
 
       const payload = await response.json();
@@ -1103,11 +1141,7 @@ export function initNotesAdmin() {
       applyRemote(remote, { discardLocal: false });
     } catch (error) {
       console.error(error);
-      setStatus(
-        elements.listStatus,
-        `读取失败：${error.message} 你的草稿不受影响；发布前会再次尝试同步，避免覆盖网站上的内容。`,
-        "error"
-      );
+      setStatus(elements.listStatus, readFailureMessage(error), "error");
     } finally {
       elements.staleSyncButton.disabled = false;
       elements.staleSyncButton.removeAttribute("aria-busy");

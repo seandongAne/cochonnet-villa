@@ -4,6 +4,10 @@ const BRANCH = "main";
 const CONTENT_PATH = "content/site.json";
 const LIVE_SITE_URL = "https://www.cochonnetvilla.ca";
 const STORAGE_KEY = "cochonnetvilla_github_token";
+// The repo is public, so a 401 never means "you may not read this": GitHub has
+// rejected the token itself (fine-grained tokens expire, 30 days by default).
+const TOKEN_REJECTED_MESSAGE =
+  "GitHub no longer accepts the saved token (expired or revoked). Generate a new fine-grained token on GitHub and save it above.";
 
 const apiBase = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CONTENT_PATH}`;
 
@@ -42,6 +46,17 @@ function setStatus(element, message, tone = "default") {
   }
 
   element.setAttribute("data-tone", tone);
+}
+
+// A rejected token is named as such, and the auth card stops claiming the
+// saved token can publish.
+function githubError(response, detail) {
+  if (response.status === 401) {
+    setStatus(elements.authStatus, TOKEN_REJECTED_MESSAGE, "error");
+    return new Error(TOKEN_REJECTED_MESSAGE);
+  }
+
+  return new Error(detail);
 }
 
 function toBase64(text) {
@@ -167,7 +182,7 @@ async function fetchContent() {
   const response = await fetch(`${apiBase}?ref=${BRANCH}`, { headers });
 
   if (!response.ok) {
-    throw new Error(`GitHub returned ${response.status} while loading content.`);
+    throw githubError(response, `GitHub returned ${response.status} while loading content.`);
   }
 
   const payload = await response.json();
@@ -229,7 +244,7 @@ async function saveContent() {
   if (!response.ok) {
     const errorPayload = await response.json().catch(() => ({}));
     const detail = errorPayload?.message || `GitHub returned ${response.status}.`;
-    throw new Error(detail);
+    throw githubError(response, detail);
   }
 
   const payload = await response.json();
