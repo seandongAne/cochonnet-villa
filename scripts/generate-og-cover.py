@@ -172,8 +172,13 @@ def main():
     draw_tracked(draw, (x0 + 60, 140), "COCHONNET VILLA", eyebrow, ROSE_DEEP, 4)
 
     draw.text((x0 - 6, 176), "猪猪山庄", font=title, fill=INK)
-    draw.text((x0, 336), "15 只快乐小猪的家", font=subtitle, fill=INK_SOFT)
-    draw.text((x0, 402), "Home of fifteen happy porkies", font=tagline, fill=INK_SOFT)
+    draw.text((x0, 336), "15 只小猪，一只比一只会享福", font=subtitle, fill=INK_SOFT)
+    draw.text(
+        (x0, 402),
+        "Fifteen porkies live here, and they are very good at it",
+        font=tagline,
+        fill=INK_SOFT,
+    )
 
     label = "www.cochonnetvilla.ca"
     text_w = draw.textlength(label, font=url_font)

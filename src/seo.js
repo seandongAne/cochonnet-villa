@@ -21,7 +21,7 @@ export const DEFAULT_SHARE_IMAGE = Object.freeze({
   path: "/assets/og-cover.jpg",
   width: 1200,
   height: 630,
-  alt: "猪猪山庄 Cochonnet Villa：15 只快乐小猪的家"
+  alt: "猪猪山庄 Cochonnet Villa：15 只小猪，一只比一只会享福"
 });
 
 // Google Search Console ownership proof for the URL-prefix property
