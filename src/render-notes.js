@@ -261,9 +261,9 @@ export function renderNotesTeaser(notes, { limit = 3 } = {}) {
     <section class="notes-teaser" id="notes">
       <div class="section-heading">
         <p class="eyebrow" data-i18n="notes.eyebrow">Piggy Notes</p>
-        <h2 data-i18n="notes.title">Little notes from around the villa.</h2>
+        <h2 data-i18n="notes.title">The villa keeps a little notebook.</h2>
         <p data-i18n="notes.text">
-          Everyday moments, porky news, and small thoughts — kept in one cozy journal.
+          What was for dinner, who got into trouble, and who is missing whom. It all goes in here.
         </p>
       </div>
       <div class="notes-grid">

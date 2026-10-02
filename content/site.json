@@ -1,20 +1,20 @@
 {
   "summaryLabels": {
     "total": "happy porkies",
-    "regular": "similarly sized snugglers",
+    "regular": "about the same size",
     "giant": "gentle giant",
-    "tiny": "tiny treasure"
+    "tiny": "pocket-size porky"
   },
   "porkiesSection": {
     "eyebrow": "Meet the herd",
-    "title": "The 15 porkies of Cochonnet Villa.",
-    "text": "Most of the crew are close in size, which makes Barnaby look even bigger and Pip feel even tinier. Each one still has a little personality all their own."
+    "title": "All fifteen residents, one at a time.",
+    "text": "The names are honest: 脏脏猪 is the muddy one, 懒蛋猪 is the lazy one, and 贪吃猪 is, well, the one holding the corn."
   },
-  "footerText": "Home of 15 happy porkies, safely tucked into Cochonnet Villa.",
+  "footerText": "Cochonnet Villa: all fifteen porkies present and accounted for.",
   "siteName": "Cochonnet Villa",
   "navigation": [
     {
-      "label": "Story",
+      "label": "Rules",
       "href": "#story"
     },
     {
@@ -31,59 +31,59 @@
     }
   ],
   "story": {
-    "eyebrow": "The main takeaway",
-    "title": "A gentle, memorable story people can understand in seconds.",
-    "text": "The site centers on three things that make Cochonnet Villa feel complete: the count of the porkies, the cozy safety of their home, and the distinct charm of the big one and the tiny one.",
+    "eyebrow": "House rules",
+    "title": "Cochonnet Villa has exactly three rules, and all of them are easy to keep.",
+    "text": "Nobody ever wrote them down, but all fifteen porkies know them by heart, especially the one about food.",
     "cards": [
       {
-        "title": "Warm by design",
-        "body": "Soft blankets, golden light, straw nests, and sleepy afternoon naps make the whole place feel tucked in and cared for."
+        "title": "Blankets for everyone",
+        "body": "Soft blankets, warm lamps, and beds fluffed up in the sun. Anyone who gets sleepy may lie down right where they are. No excuse needed."
       },
       {
-        "title": "Safe and peaceful",
-        "body": "Cochonnet Villa is presented as a calm little haven where every porky has space to wander, rest, and stay close to the herd."
+        "title": "Nobody eats alone",
+        "body": "Hot pot is the house favorite. When the pot starts to bubble, all fifteen squeeze in around it and everyone cooks their own favorite thing."
       },
       {
-        "title": "Easy to remember",
-        "body": "13 regular porkies, 1 extra-big one, and 1 very small one give the website a playful identity people can instantly recall."
+        "title": "Roll call goes to fifteen",
+        "body": "Thirteen about the same size, one extra big, one extra small. They get counted every night, and the lights stay on until the number comes out right."
       }
     ]
   },
   "villaSection": {
     "eyebrow": "Life at the villa",
-    "title": "A warm and safe place, just like you described.",
+    "title": "Hot springs, a mushroom tower, and more sunshine than fifteen pigs can use.",
     "paragraphs": [
-      "Cochonnet Villa is imagined as a bright little sanctuary with cozy bedding, gentle routines, and room for every porky to feel at ease. It is less about fancy details and more about comfort, calm, and being lovingly cared for.",
-      "That atmosphere is what makes the 15 porkies feel believable and endearing. The home matters just as much as the herd."
+      "The main house has two floors and a glass front that looks out over the meadow. The hot springs steam away next door, and a round mushroom tower stands out on the grass. None of it is fancy, but every corner is soft enough to nap in.",
+      "The top floor of the tower is for stargazing: switch off the lamp and the whole Milky Way comes out. If you would like to look around yourself, the 3D villa map is always open."
     ],
     "rhythm": [
       {
         "title": "Morning",
-        "body": "Sunbeams on straw, breakfast snuffles, and a gentle little roll call."
+        "body": "One pig is up early wiping the windows. Another rolls over and pulls the star blanket a little tighter."
       },
       {
         "title": "Afternoon",
-        "body": "Lazy wandering, shared shade, and 13 matching nap shapes in a row."
+        "body": "A soak in the hot springs, then a lie-down on the grass to dry: thirteen matching nap shapes in a row."
       },
       {
         "title": "Evening",
-        "body": "Warm blankets, sleepy grunts, one giant sprawl, and one tiny tucked-away snoozer."
+        "body": "Hot pot, then roll call, then up the mushroom tower to watch the stars until somebody starts snoring."
       }
     ]
   },
   "hero": {
-    "eyebrow": "Warm, safe, and full of tiny happy snorts",
-    "title": "15 little porkies live their best lives at Cochonnet Villa.",
-    "text": "Thirteen of them are a matching bundle of pink, cozy charm. One is delightfully extra big, and one is adorably smaller than the rest. Together they make the sweetest little herd on the internet.",
+    "eyebrow": "Warm, safe, and full of happy little snorts",
+    "title": "15 little porkies live at Cochonnet Villa, and they are very good at it.",
+    "text": "Thirteen are about the same size, one is very big and very strong, and one is small enough to fit in a pocket. Their whole schedule is eating, soaking in the hot springs, and falling asleep in a pile.",
     "primaryCtaLabel": "Meet the porkies",
     "primaryCtaHref": "#porkies",
-    "secondaryCtaLabel": "See the villa",
+    "secondaryCtaLabel": "Tour the villa",
     "secondaryCtaHref": "#villa",
-    "sceneNote": "13 matching little snugglers, 1 big cuddle captain, and 1 tiny sweetheart."
+    "sceneNote": "Thirteen about the same size, one very big, one very small. Count again: still fifteen."
   },
   "seo": {
     "title": "Cochonnet Villa | Home of 15 Happy Porkies",
-    "description": "Welcome to Cochonnet Villa, a warm and safe home for 15 happy porkies: 13 cozy little piglets, one extra-big cuddle captain, and one tiny treasure."
+    "description": "Cochonnet Villa is the warm, safe home of 15 happy porkies: thirteen about the same size, one gentle giant and one tiny one, plus hot springs and a mushroom tower."
   },
   "porkies": [
     {
@@ -91,62 +91,62 @@
       "size": "regular",
       "accent": "#f89cb3",
       "image": "/porkies/zangzangzhu.webp",
-      "description": "Professional blanket burrower and early-morning snuffler."
+      "description": "If there is a mud puddle, this pig is already in it. Stays clean for about five minutes after a bath and never stops grinning."
     },
     {
       "name": "机灵猪",
       "size": "regular",
       "accent": "#f8b17d",
       "image": "/porkies/jilingzhu.webp",
-      "description": "Always first to find the warmest patch of sun in the yard."
+      "description": "Round glasses, wizard hat, and a spellbook nobody else can read. When a pig has a problem, this is the pig they ask."
     },
     {
       "name": "瓜呆猪",
       "size": "regular",
       "accent": "#f4c45c",
       "image": "/porkies/guadaizhu.webp",
-      "description": "Cheerful, rosy, and convinced every snack belongs to her."
+      "description": "Wears a watermelon for a hat: cool in summer, stylish all year. Nothing bothers her, not even being pestered."
     },
     {
       "name": "呆瓜猪",
       "size": "regular",
       "accent": "#9cc488",
       "image": "/porkies/daiguazhu.webp",
-      "description": "Has a soft spot for fresh grass and following the breeze."
+      "description": "Headset on, world off. Says “one more round, then bed,” and has said it six times tonight."
     },
     {
       "name": "乖乖猪",
       "size": "regular",
       "accent": "#eda7a1",
       "image": "/porkies/guaiguaizhu.webp",
-      "description": "Sweet-natured, patient, and never far from the cuddle pile."
+      "description": "Red gingham scarf, soft voice, hooves together before every meal. By unanimous vote, the best-behaved pig in the villa."
     },
     {
       "name": "大呆猪",
       "size": "giant",
       "accent": "#e87771",
       "image": "/porkies/dadaizhu.webp",
-      "description": "The gentle giant of the villa. He takes up more blanket than anyone else and somehow makes the whole room feel calmer."
+      "description": "The biggest and strongest pig in the villa, usually with a white towel over one shoulder. He lifts weights, loves beef, and can carry a whole case of water without slowing down. He also takes up half the blanket. Underneath the muscles he is the gentlest of the lot, and the best one to nap against."
     },
     {
       "name": "懒蛋猪",
       "size": "regular",
       "accent": "#d58ec2",
       "image": "/porkies/landanzhu.webp",
-      "description": "Round, sleepy, and very serious about post-lunch naps."
+      "description": "Either asleep or on the way there, always wrapped in the star blanket. The only alarm clock that works is dinner."
     },
     {
       "name": "呆呆猪",
       "size": "regular",
       "accent": "#f4b86a",
       "image": "/porkies/daidaizhu.webp",
-      "description": "Always sniffing around like a tiny treasure hunter in training."
+      "description": "The forehead says “dopey,” the gold chain says tough guy. In truth: easily spooked, always in a hurry, a hot pot grandmaster, and devoted to a cabbage named 白白菜."
     },
     {
       "name": "呱呱猪",
       "size": "regular",
       "accent": "#98b9d9",
-      "description": "Bright-eyed and curious, especially when fresh straw appears.",
+      "description": "Never puts the microphone down and talks even more than it sings. All villa news breaks here first.",
       "image": "/porkies/guaguazhu.webp"
     },
     {
@@ -154,42 +154,42 @@
       "size": "regular",
       "accent": "#f08d83",
       "image": "/porkies/xiaosezhu.webp",
-      "description": "Small pink ears, peachy glow, and endless happy energy."
+      "description": "A rose behind one ear and a wink for everyone. Self-appointed heartthrob of the villa. So far nobody has objected."
     },
     {
       "name": "贪吃猪",
       "size": "regular",
       "accent": "#b3c989",
       "image": "/porkies/tanchizhu.webp",
-      "description": "Softly sturdy and happiest when everyone is close together."
+      "description": "There is always a little sauce on one cheek. First to the table, last to leave, and stops by the kitchen afterwards just to “check.”"
     },
     {
       "name": "小猪",
       "size": "tiny",
       "accent": "#f2a1bd",
       "image": "/porkies/xiaozhu.webp",
-      "description": "The littlest one in the herd. Tiny feet, tiny naps, and a talent for disappearing into the fluffiest corner of every cushion."
+      "description": "The smallest pig in the villa, and the most capable. She makes the sukiyaki, hangs the fairy lights, and drives the little car, then disappears into the softest cushion in the house."
     },
     {
       "name": "臭臭猪",
       "size": "regular",
       "accent": "#facb70",
       "image": "/porkies/chouchouzhu.webp",
-      "description": "Sunny, bouncy, and usually dusted with straw by noon."
+      "description": "Takes a rubber duck to every bath and somehow comes out smellier. Calls it “having character.”"
     },
     {
       "name": "香香猪",
       "size": "regular",
       "accent": "#f2a68d",
       "image": "/porkies/xiangxiangzhu.webp",
-      "description": "Quietly affectionate and never too far from a warm shoulder."
+      "description": "Bubble bath, perfume, a polka-dot bow, and half an hour to get ready. Watches the waistline, except at hot pot."
     },
     {
       "name": "勤劳猪",
       "size": "regular",
       "accent": "#d88ab0",
       "image": "/porkies/qinlaozhu.webp",
-      "description": "Playful, pink, and always ready to begin another soft stampede."
+      "description": "Headscarf on, apron tied, feather duster always moving. Believes dishes get washed tonight, and can scrub a whole piglet in thirty seconds."
     }
   ]
 }

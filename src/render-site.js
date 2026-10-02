@@ -4,9 +4,9 @@ const DEFAULT_SITE_NAME = "Cochonnet Villa";
 const DEFAULT_COLOR = "#f8a6ba";
 
 const SIZE_LABELS = {
-  regular: "regular porky",
-  giant: "extra-big porky",
-  tiny: "tiny porky"
+  regular: "standard size",
+  giant: "extra large",
+  tiny: "pocket size"
 };
 
 const LIVE_EDITOR_URL = "./admin/";
@@ -15,71 +15,72 @@ const REPOSITORY_URL = "https://github.com/seandongAne/cochonnet-villa";
 const LANGUAGE_TEXT = {
   zh: {
     "meta.title": "猪猪山庄 | 15只快乐小猪的家",
-    "meta.description": "欢迎来到猪猪山庄，这里是15只快乐小猪温暖又安全的家：13只舒服的小猪、1只超大的抱抱队长，还有1只小小宝贝。",
-    "nav.story": "故事",
+    "meta.description": "欢迎来到猪猪山庄，15只快乐小猪温暖又安全的家：十三只个头差不多，一只温柔的大块头，一只迷你小不点，还有温泉和蘑菇塔。",
+    "nav.story": "规矩",
     "nav.porkies": "小猪们",
-    "nav.villa": "猪猪山庄",
+    "nav.villa": "山庄",
     "brand.name": "猪猪山庄",
-    "hero.eyebrow": "温暖、安全，满是小小的快乐哼哼声",
-    "hero.title": "15只小猪在猪猪山庄过着最舒服的日子。",
-    "hero.text": "其中13只是粉嫩又舒服的一小群，一只特别大，一只特别小。它们聚在一起，就是网上最可爱的小猪家族。",
+    "hero.eyebrow": "又暖和又安全，到处都是快乐的哼哼声",
+    "hero.title": "猪猪山庄住着15只小猪，一只比一只会享福。",
+    "hero.text": "十三只个头差不多，一只又大又壮，一只小得能揣进口袋。它们每天的正经事只有三件：吃饭、泡温泉、挤成一团睡觉。",
     "hero.primaryCtaLabel": "认识小猪们",
-    "hero.secondaryCtaLabel": "看看别墅",
-    "hero.sceneNote": "13只大小相近的小猪，1只大大的抱抱队长，还有1只小小甜心。",
+    "hero.secondaryCtaLabel": "逛逛山庄",
+    "hero.mapCtaLabel": "走进 3D 山庄地图",
+    "hero.sceneNote": "十三只差不多大，一只特别大，一只特别小。再数一遍，还是十五只。",
     "stats.total": "快乐小猪",
-    "stats.regular": "大小相近的小伙伴",
-    "stats.giant": "温柔的大个子",
-    "stats.tiny": "小小宝贝",
+    "stats.regular": "个头差不多",
+    "stats.giant": "温柔大块头",
+    "stats.tiny": "迷你小不点",
     "nameParade.eyebrow": "点名",
-    "nameParade.title": "小猪们现在都有自己的名字了。",
-    "nameParade.text": "每一个小昵称都让这个家族更有个性，尤其是那只大大的小猪和那只特别小的小猪。",
-    "story.eyebrow": "最重要的事",
-    "story.title": "一个温柔、好记，而且几秒钟就能明白的故事。",
-    "story.text": "这个网站围绕三件事展开：小猪的数量、它们温暖安全的家，以及那只大猪和那只小猪各自独特的可爱。",
-    "story.card.0.title": "温暖的设定",
-    "story.card.0.body": "柔软的毯子、金色的光、稻草小窝和午后的懒觉，让这里看起来被好好照顾着。",
-    "story.card.1.title": "安全又安静",
-    "story.card.1.body": "猪猪山庄是一个平静的小天地，每只小猪都能自在地走动、休息，也能靠近伙伴。",
-    "story.card.2.title": "容易记住",
-    "story.card.2.body": "13只普通大小的小猪、1只特别大的小猪和1只特别小的小猪，让这个网站有了很鲜明的记忆点。",
-    "porkies.eyebrow": "认识这个家族",
-    "porkies.title": "猪猪山庄的15只小猪。",
-    "porkies.text": "大部分小猪体型差不多，所以大呆猪显得更大，小猪也显得更小。每一只都有自己的小性格。",
-    "size.regular": "普通小猪",
-    "size.giant": "超大小猪",
-    "size.tiny": "迷你小猪",
-    "porky.0.description": "专业钻毯子选手，也是清晨第一批哼哼找东西的小猪。",
-    "porky.1.description": "总能第一个找到院子里最暖的阳光。",
-    "porky.2.description": "开朗、脸蛋红红，并且坚信每一份零食都应该属于她。",
-    "porky.3.description": "特别喜欢新鲜青草，也喜欢跟着微风到处走。",
-    "porky.4.description": "性格温柔、有耐心，总是在抱抱堆附近。",
-    "porky.5.description": "别墅里的温柔大个子。它占的毯子最多，却总能让整个房间更安静。",
-    "porky.6.description": "圆圆的、懒懒的，并且非常认真地对待午饭后的睡觉时间。",
-    "porky.7.description": "总是在到处闻，好像一只正在训练的小小寻宝家。",
-    "porky.8.description": "眼睛亮亮的，特别好奇，尤其是出现新稻草的时候。",
-    "porky.9.description": "粉粉的小耳朵、桃子一样的光泽，还有用不完的快乐能量。",
-    "porky.10.description": "软乎乎又稳稳当当，最开心的时候就是大家都靠在一起。",
-    "porky.11.description": "家族里最小的一只。小小的脚、小小的午睡，还特别擅长钻进最蓬松的角落。",
-    "porky.12.description": "阳光、活泼，通常到中午身上就会沾满一点稻草。",
-    "porky.13.description": "安静又亲人，几乎不会离温暖的肩膀太远。",
-    "porky.14.description": "粉粉的、爱玩的小猪，总是准备好开启下一轮软乎乎的小跑。",
-    "villa.eyebrow": "别墅生活",
-    "villa.title": "一个温暖又安全的地方，就像你描述的那样。",
-    "villa.paragraph.0": "猪猪山庄被想象成一个明亮的小庇护所，有舒服的垫料、温柔的日常，也有足够的空间让每只小猪都放松自在。它不需要复杂华丽，重点是舒适、平静，以及被好好照顾。",
-    "villa.paragraph.1": "正是这样的氛围，让这15只小猪显得可信又讨人喜欢。这个家和这群小猪一样重要。",
+    "nameParade.title": "点到名字的，请哼一声。",
+    "nameParade.text": "十五个名字，都是照着各自的脾气起的。连起来念快一点，就是一段绕口令。",
+    "story.eyebrow": "山庄规矩",
+    "story.title": "山庄只有三条规矩，都很好遵守。",
+    "story.text": "没人把它们写下来，但十五只小猪都记得清清楚楚，尤其是跟吃有关的那一条。",
+    "story.card.0.title": "毯子管够",
+    "story.card.0.body": "软毯子、暖灯光，还有晒得蓬蓬的小窝。谁困了就原地躺下，在这里睡午觉不需要理由。",
+    "story.card.1.title": "吃饭不落下谁",
+    "story.card.1.body": "火锅是全山庄的最爱。锅一开，十五只围成一圈，各涮各的心头好，谁也不许饿着。",
+    "story.card.2.title": "点名点满十五",
+    "story.card.2.body": "十三只差不多大的，一只特别大的，一只特别小的。每晚数一遍，数对了才熄灯。",
+    "porkies.eyebrow": "挨个认识一下",
+    "porkies.title": "十五位住户，一只一只介绍。",
+    "porkies.text": "名字都不是白叫的：脏脏猪真的脏，懒蛋猪真的懒，至于贪吃猪……看照片就知道了。",
+    "size.regular": "标准号",
+    "size.giant": "特大号",
+    "size.tiny": "迷你号",
+    "porky.0.description": "哪里有泥坑，哪里就有它。洗完澡最多干净五分钟，然后又是一身泥点子，还笑得特别开心。",
+    "porky.1.description": "圆眼镜、巫师帽，外加一本谁也看不懂的魔法书。山庄里谁遇到难题，都会先去找它想办法。",
+    "porky.2.description": "走到哪儿都顶着西瓜帽，又凉快又好看。别的小猪怎么闹她都不急，淡定得像个瓜。",
+    "porky.3.description": "耳机一戴，谁也不爱。嘴上说着“打完这把就睡”，这句话今晚已经说了六遍。",
+    "porky.4.description": "围着红格子小围巾，说话轻声细气，开饭前会先把蹄子并拢。全票当选山庄最乖。",
+    "porky.5.description": "山庄里个头最大、力气也最大的一只，肩上总搭着一条白毛巾。爱举铁，爱吃牛肉，扛着二十斤的水走路都不带喘的，睡觉还要占掉半张毯子。别看一身肌肉，脾气其实最好，谁都可以靠着他打盹。",
+    "porky.6.description": "不是在睡觉，就是在去睡觉的路上，星星被子从不离身。能把它叫醒的只有一句话：开饭了。",
+    "porky.7.description": "脑门上顶着个“呆”字，金链子配连帽衫，看着很不好惹。其实胆子小、性子急，是火锅十级选手，还特别黏一棵叫白白菜的白菜。",
+    "porky.8.description": "麦克风从不离手，话比歌还多。山庄大大小小的新闻，都是它第一个播报的。",
+    "porky.9.description": "耳边别着红玫瑰，见谁都抛个媚眼。自封山庄头号万人迷，目前还没有猪出来反对。",
+    "porky.10.description": "脸上永远沾着一点酱汁。开饭第一个到，收桌最后一个走，路过厨房还要再“检查”一下。",
+    "porky.11.description": "山庄里个头最小、本事最大的一只。寿喜烧是她做的，星星灯是她挂的，小汽车也是她开的。忙完一圈，转眼又窝进最软的垫子里不见了。",
+    "porky.12.description": "每次洗澡都带着小黄鸭，洗完却好像更臭了。它管这个叫“有个性”。",
+    "porky.13.description": "泡泡浴、小香水、波点蝴蝶结，出门前至少要打扮半小时。平时很在意身材，吃火锅的时候除外。",
+    "porky.14.description": "头巾一扎、围裙一系，鸡毛掸子就停不下来。坚持碗要当天洗，三十秒还能洗干净一只小猪。",
+    "villa.eyebrow": "山庄生活",
+    "villa.title": "有温泉，有蘑菇塔，还有晒不完的太阳。",
+    "villa.paragraph.0": "主屋上下两层，一整面玻璃对着草地；旁边的温泉整天冒着热气，草地上还立着一座圆圆的蘑菇塔。这里算不上豪华，但每个角落都软乎乎的，走到哪儿都能躺下睡一觉。",
+    "villa.paragraph.1": "蘑菇塔的顶楼是看星星的地方，灯一关，整条银河就亮了。想亲自逛一圈的话，山庄的 3D 地图随时开着门。",
     "villa.rhythm.0.title": "早晨",
-    "villa.rhythm.0.body": "阳光落在稻草上，早餐前的哼哼声，还有温柔的小点名。",
+    "villa.rhythm.0.body": "勤劳猪第一个起床擦窗户，懒蛋猪翻了个身，把星星被子又裹紧了一点。",
     "villa.rhythm.1.title": "下午",
-    "villa.rhythm.1.body": "慢慢散步、一起乘凉，13个差不多大小的午睡姿势排成一排。",
+    "villa.rhythm.1.body": "泡完温泉，去草地上把自己晒干。十三个差不多大的午睡团子，整整齐齐排成一排。",
     "villa.rhythm.2.title": "夜晚",
-    "villa.rhythm.2.body": "温暖的毯子、困困的哼声、一只摊开的大家伙，还有一只窝在角落的小小睡猪。",
+    "villa.rhythm.2.body": "先吃火锅，再点名，然后爬上蘑菇塔看星星，一直看到有猪开始打呼噜。",
     "nav.notes": "小记",
     "notes.eyebrow": "猪猪小记",
-    "notes.title": "山庄里的随笔，都记在这本小本子上。",
-    "notes.text": "猪猪山庄的日常、小猪们的新鲜事，和一些突然想说的话。",
+    "notes.title": "山庄的小本子，想到什么记什么。",
+    "notes.text": "今天吃了什么，谁又闯了祸，谁在想谁，都写在这里。",
     "notes.readMore": "读全文",
     "notes.viewAll": "看全部小记",
-    "footer.text": "15只快乐小猪，安全又舒服地住在猪猪山庄。",
+    "footer.text": "猪猪山庄，十五只小猪都在，一只不少。",
     "footer.manage": "管理内容"
   }
 };
@@ -186,11 +187,11 @@ function renderStats(porkies, labels) {
     { value: porkies.length, label: labels?.total || "happy porkies", key: "stats.total" },
     {
       value: counts.regular,
-      label: labels?.regular || "similarly sized snugglers",
+      label: labels?.regular || "about the same size",
       key: "stats.regular"
     },
     { value: counts.giant, label: labels?.giant || "gentle giant", key: "stats.giant" },
-    { value: counts.tiny, label: labels?.tiny || "tiny treasure", key: "stats.tiny" }
+    { value: counts.tiny, label: labels?.tiny || "pocket-size porky", key: "stats.tiny" }
   ];
 
   return statItems
@@ -331,8 +332,6 @@ function renderLanguageScript() {
     <script>
       (() => {
         const translations = ${safeScriptJson(LANGUAGE_TEXT)};
-        translations.zh = translations.zh || {};
-        translations.zh["hero.mapCtaLabel"] = "\\u8fdb\\u5165\\u732a\\u732a\\u5c71\\u5e84\\u5730\\u56fe";
         const storageKey = "cochonnet-villa-language";
         const options = ["en", "zh"];
         const initialTitle = document.title;
@@ -447,7 +446,7 @@ export function renderSite(site, notes = []) {
                 <span${i18nAttribute("hero.primaryCtaLabel")}>${escapeHtml(hero.primaryCtaLabel || "Meet the porkies")}</span>
               </a>
               <a class="button button-secondary" href="${escapeHtml(sanitizeHref(hero.secondaryCtaHref))}">
-                <span${i18nAttribute("hero.secondaryCtaLabel")}>${escapeHtml(hero.secondaryCtaLabel || "See the villa")}</span>
+                <span${i18nAttribute("hero.secondaryCtaLabel")}>${escapeHtml(hero.secondaryCtaLabel || "Tour the villa")}</span>
               </a>
               <a class="button button-map" href="/villa-map/">
                 <span${i18nAttribute("hero.mapCtaLabel")}>Explore the Villa Map</span>
@@ -483,10 +482,10 @@ export function renderSite(site, notes = []) {
         <section class="name-parade" aria-label="Porky roll call">
           <div class="section-heading compact">
             <p class="eyebrow"${i18nAttribute("nameParade.eyebrow")}>Roll call</p>
-            <h2${i18nAttribute("nameParade.title")}>The porkies now have names of their own.</h2>
+            <h2${i18nAttribute("nameParade.title")}>Oink when you hear your name.</h2>
             <p${i18nAttribute("nameParade.text")}>
-              The herd feels more personal with every little nickname, especially
-              with one big character and one tiny standout among the group.
+              Fifteen names, each one earned. Read them out fast and you get a
+              tongue twister.
             </p>
           </div>
           <ul class="name-chip-list">
