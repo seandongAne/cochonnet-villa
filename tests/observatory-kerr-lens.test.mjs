@@ -227,16 +227,13 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /float displayDoppler =/);
   assert.match(shader, /float radialPixel = max\(fwidth\(radius\)/);
   assert.match(shader, /float ringCoverage =/);
-  // The direct image is an optically thick sheet: its lane-free silhouette
-  // hides the order-1 image behind it, so the rear arch can never read as a
-  // ring cutting across the front of the near disc.
-  assert.match(shader, /silhouette = innerEdge \* outerEdge \* validCoverage/);
-  assert.match(shader, /secondary \*= 1\.0 - primarySilhouette/);
-  assert.ok(
-    shader.indexOf("primarySilhouette\n    );")
-      < shader.indexOf("secondary *= 1.0 - primarySilhouette"),
-    "the direct image must be shaded before it can occlude the order-1 image"
-  );
+  // Dark inner flow and dark lanes still absorb the further image. Extinction
+  // is applied once by the usual premultiplied over operation, not twice by
+  // multiplying a filtered silhouette into the secondary image first.
+  assert.match(shader, /if \(radius < DISC_INNER_RADIUS \|\| redshift <= 0\.001\)\s*\{\s*return vec4\(0\.0, 0\.0, 0\.0, alpha\)/);
+  assert.match(shader, /radiance \* innerEdge \* ringCoverage \* imageWeight \* alpha, alpha/);
+  assert.match(shader, /sceneColour = sceneColour \* \(1\.0 - primary\.a\) \+ primary\.rgb/);
+  assert.doesNotMatch(shader, /primarySilhouette|secondary \*=/);
   assert.match(shader, /float shoulderStrength = uHdrOutput/);
   assert.match(shader, /radiance \/= 1\.0 \+ discLuminance \* shoulderStrength/);
   assert.match(shader, /float displayTracer = ribbonRadialWindow/);
@@ -246,6 +243,60 @@ test("shader keeps topology nearest, composes photo and source stars through one
   assert.match(shader, /Captured rays intentionally contribute opaque black/);
   assert.match(shader, /0\.72 - edgeAa,[\s\S]*?edgeDistance/);
   assert.doesNotMatch(shader, /texture\(uKerrSkyAtlas/);
+});
+
+test("dark and plunging foreground crossings absorb the secondary ring without erasing the rear arch", async () => {
+  const shader = OBSERVATORY_KERR_LENS_FRAGMENT_SHADER;
+  // Execute the actual shader's validity expression against the shipped ray
+  // transfers. The old luminous-only predicate leaks these very same rays.
+  const expression = shader.match(/bool validDiscCrossing\(vec4 crossing\)\s*\{[\s\S]*?return ([\s\S]*?);/)[1];
+  assert.equal(expression.replace(/crossing\.[xyz]|uDiscOuterRadius|DISC_INNER_RADIUS|KERR_ISCO|\d+(?:\.\d+)?|[\s()><=&|!+*/-]/g, ""), "");
+  const valid = new Function("crossing", "uDiscOuterRadius", "DISC_INNER_RADIUS", "KERR_ISCO", `return ${expression};`);
+  const visibleCrossing = (radius, redshift = 1) => valid(
+    { x: radius, z: redshift },
+    OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS,
+    OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS,
+    OBSERVATORY_KERR_LENS_ISCO_RADIUS
+  );
+  assert.equal(visibleCrossing(0, 0), false, "missing crossings remain transparent");
+  assert.equal(visibleCrossing(23), false, "rays outside the disc remain transparent");
+
+  const primary = decodeObservatoryKerrLensAtlas(await bundledBinary("observatory-kerr-disc-primary-v1.bin"), "disc-primary").data;
+  const secondary = decodeObservatoryKerrLensAtlas(await bundledBinary("observatory-kerr-disc-secondary-v1.bin"), "disc-secondary").data;
+  let darkInner = 0, plunging = 0, rearArch = 0;
+  for (let i = 0; i < primary.length; i += 4) {
+    if (secondary[i] < 5.5 || secondary[i] > 18 || secondary[i + 2] <= 0.001) continue;
+    const radius = primary[i];
+    if (radius > 0 && radius < OBSERVATORY_KERR_LENS_DISC_INNER_RADIUS) {
+      assert.equal(visibleCrossing(radius, primary[i + 2]), true,
+        `foreground dark flow must absorb the bright secondary at texel ${i / 4}`);
+      darkInner++;
+      if (radius < OBSERVATORY_KERR_LENS_ISCO_RADIUS) plunging++;
+    } else if (radius > OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS) {
+      assert.equal(visibleCrossing(radius, primary[i + 2]), false,
+        "uncovered rays must retain the reference's rear arch");
+      rearArch++;
+    }
+  }
+  assert.ok(darkInner > 600 && plunging > 0 && rearArch > 8000,
+    `exercise real overlap and uncovered regions: ${darkInner}/${plunging}/${rearArch}`);
+});
+
+test("disc opacity is independent of emitted lanes, inner heat and image-order gain", async () => {
+  const shader = OBSERVATORY_KERR_LENS_FRAGMENT_SHADER;
+  const expression = shader.match(/float alpha = ([^;]+);/)[1];
+  assert.equal(expression.replace(/clamp|outerEdge|validCoverage|uDiscOpacity|\d+(?:\.\d+)?|[\s(),*+.\/-]/g, ""), "");
+  const opacity = new Function("outerEdge", "validCoverage", "uDiscOpacity", "clamp", `return ${expression};`);
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  assert.equal(opacity(1, 1, 1, clamp), 1, "fully covered dark lanes must absorb all background light");
+  assert.equal(opacity(1, 0.25, 1, clamp), 0.25, "subpixel edge coverage is applied once");
+  assert.equal(opacity(0.5, 1, 1, clamp), 0.5, "outer edge keeps its soft taper");
+  assert.equal(opacity(1, 1, 0, clamp), 0, "explicit opacity zero still disables the sheet");
+  const lens = createObservatoryKerrLens();
+  assert.equal(lens.material.uniforms.uDiscOpacity.value, 1);
+  disposeObservatoryKerrLens(lens);
+  const runtime = await readFile(new URL("src/villa-map/react/MushroomObservatoryRuntime.jsx", ROOT_URL), "utf8");
+  assert.match(runtime, /const KERR_DISC_OPACITY = 1;/);
 });
 
 test("screen-to-atlas mapping keeps +beta on atlas row 0 and matches the shipped disc's near/far asymmetry", async () => {

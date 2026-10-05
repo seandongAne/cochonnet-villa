@@ -223,7 +223,7 @@ const KERR_MASS_WORLD_SCALE = 1 * OBSERVATORY_BLACK_HOLE_PRESENTATION_SCALE;
 // The wide 78-degree atlas preserves the old 0.0625 M texel pitch around the
 // shadow while extending the outer ribbons to 22 M on either side.
 const KERR_DISC_OUTER_RADIUS = OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS;
-const KERR_DISC_OPACITY = 0.94;
+const KERR_DISC_OPACITY = 1;
 const KERR_STAR_SOURCE_BRIGHTNESS = 0.82;
 const kerrObserverOutScratch = new THREE.Vector3();
 const kerrImageRightScratch = new THREE.Vector3();

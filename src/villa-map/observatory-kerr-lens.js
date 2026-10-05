@@ -102,7 +102,7 @@ const PREWARM_REVEAL = 0.01;
 const REVEAL_EPSILON = 0.001;
 const DEFAULT_MASS_WORLD_SCALE = 2;
 const DEFAULT_DISC_OUTER_RADIUS = OBSERVATORY_KERR_LENS_DISC_OUTER_RADIUS;
-const DEFAULT_DISC_OPACITY = 0.94;
+const DEFAULT_DISC_OPACITY = 1;
 
 const FULLSCREEN_VERTEX_SHADER = /* glsl */ `
   varying vec2 vUv;
@@ -278,9 +278,11 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   }
 
   bool validDiscCrossing(vec4 crossing) {
-    return crossing.x >= DISC_INNER_RADIUS
-      && crossing.x <= uDiscOuterRadius
-      && crossing.z > 0.001;
+    // Every positive-radius atlas crossing is outside the horizon. Treat
+    // the inner/plunging flow as a dark absorber, including crossings whose
+    // circular-orbit redshift is zero below the ISCO. Emission validity must
+    // not turn those surfaces into holes in the foreground sheet.
+    return crossing.x > 0.0 && crossing.x <= uDiscOuterRadius;
   }
 
   vec4 sampleDiscCrossing(
@@ -330,18 +332,13 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
   vec4 shadeDisc(
     vec4 crossing,
     float imageWeight,
-    float validCoverage,
-    out float silhouette
+    float validCoverage
   ) {
-    silhouette = 0.0;
     float radius = crossing.x;
     float azimuth = crossing.y;
     float redshift = crossing.z;
     float crossingTime = crossing.w;
-    bool valid = radius >= DISC_INNER_RADIUS
-      && radius <= uDiscOuterRadius
-      && redshift > 0.001;
-    if (!valid) return vec4(0.0);
+    if (!validDiscCrossing(crossing)) return vec4(0.0);
 
     float innerEdge = smoothstep(DISC_INNER_RADIUS, DISC_INNER_RADIUS + 0.25, radius);
     // A broad, cool outer-disc taper is both closer to a finite thermal disc
@@ -356,6 +353,13 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       uDiscOuterRadius,
       radius
     );
+    // Extinction belongs to the physical sheet, independently of emission,
+    // lane brightness and image-order gain. A dark inner crossing still
+    // blocks both the sky and the further crossing along this same ray.
+    float alpha = clamp(outerEdge * validCoverage * uDiscOpacity, 0.0, 1.0);
+    if (radius < DISC_INNER_RADIUS || redshift <= 0.001) {
+      return vec4(0.0, 0.0, 0.0, alpha);
+    }
     // Emission is deliberately art-directed: retain the measured redshift,
     // but compress its display contrast so the receding half remains legible.
     // The ray paths, capture mask and both disc images remain physical.
@@ -476,15 +480,8 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
         + (leadingHotspot - FLOW_LEADING_HOTSPOT_MEAN) * 1.50
       )) * ringStructure;
     flowStructure = max(flowStructure, 0.0);
-    // A wide optically thick disc supplies the silhouette. Radius-only
-    // coverage separates the lanes without making the whole ring pulsate.
+    // These lanes modulate emitted light only, never the sheet's opacity.
     float ringCoverage = clamp(0.84 + ringBands * 0.36, 0.45, 1.0);
-    // Lane gaps thin the emission, not the sheet: higher image orders behind
-    // this crossing are hidden by its geometric cover, lanes or not.
-    silhouette = innerEdge * outerEdge * validCoverage;
-    float alpha = innerEdge * outerEdge * ringCoverage
-      * validCoverage * uDiscOpacity * imageWeight;
-    alpha = clamp(alpha, 0.0, 0.98);
     float radialEmission = pow(5.0 / max(radius, KERR_ISCO), 0.95);
     vec3 radiance = colour * radialEmission * displayDoppler * flowStructure;
     // Sparse ivory lanes interrupt the fine gold rings, as in the reference.
@@ -503,7 +500,7 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
     float displayTracer = ribbonRadialWindow * tracerImageWeight
       * (rotationArc * 0.65 + leadingHotspot * 0.35);
     radiance += vec3(1.4, 0.75, 0.22) * displayTracer;
-    return vec4(radiance * alpha, alpha);
+    return vec4(radiance * innerEdge * ringCoverage * imageWeight * alpha, alpha);
   }
 
   void main() {
@@ -610,12 +607,10 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
       atlasUv,
       primaryCoverage
     );
-    float primarySilhouette = 0.0;
     vec4 primary = shadeDisc(
       primaryCrossing,
       1.0,
-      primaryCoverage,
-      primarySilhouette
+      primaryCoverage
     );
     if (uSecondaryDisc > 0.5) {
       float secondaryCoverage = 0.0;
@@ -624,17 +619,13 @@ const KERR_FRAGMENT_SHADER = /* glsl */ `
         atlasUv,
         secondaryCoverage
       );
-      float secondarySilhouette = 0.0;
       vec4 secondary = shadeDisc(
         secondaryCrossing,
         0.68,
-        secondaryCoverage,
-        secondarySilhouette
+        secondaryCoverage
       );
-      // The order-1 crossing lies further along the same ray than the direct
-      // one. Without this the white-hot rear arch showed through the near
-      // disc's lane gaps as a ring cutting across the front of the sheet.
-      secondary *= 1.0 - primarySilhouette;
+      // Back-to-front premultiplied compositing: primary.a already includes
+      // the dark inner sheet, so apply its extinction exactly once below.
       sceneColour = sceneColour * (1.0 - secondary.a) + secondary.rgb;
     }
     sceneColour = sceneColour * (1.0 - primary.a) + primary.rgb;

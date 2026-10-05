@@ -1,0 +1,331 @@
+{
+  "date": "2026-10-05",
+  "baseCommit": "88a0a21",
+  "method": "Production build; query-only observatory=test harness. Deterministic frames, not a real-time benchmark.",
+  "referenceGlbSha256": "c3e0696e657898e849fff6946a72a04b5c91ac4363df489fc0978ca6a177026d",
+  "tests": {
+    "passed": 462,
+    "failed": 0
+  },
+  "build": "passed",
+  "highEdge": {
+    "lightsOn": false,
+    "hiddenEffects": {
+      "rift": false,
+      "lens": true
+    },
+    "camera": {
+      "position": [
+        -1.5999999999999996,
+        -30.4,
+        19.2
+      ],
+      "quaternion": [
+        0.6551717214186763,
+        -0.0353015340234092,
+        0.03067322472177756,
+        0.7540311468593653
+      ],
+      "fov": 70,
+      "aspect": 1.9288596133544937
+    },
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "blackHole": {
+      "ready": true,
+      "visible": true,
+      "mode": "kerr-atlas",
+      "type": "half-float",
+      "quality": "high",
+      "width": 1770,
+      "height": 918,
+      "estimatedTargetBytes": 19498320,
+      "cameraDistance": 41.86120360323269,
+      "angularRadius": 0.22815296171796665,
+      "reveal": 1,
+      "addedDrawCalls": 3,
+      "fboPassActive": true,
+      "frames": 727,
+      "prewarmed": true,
+      "kerrPrewarmed": true,
+      "prewarmMs": 231.5,
+      "error": null
+    },
+    "portal": {
+      "enabled": true,
+      "type": "half-float",
+      "width": 1204,
+      "height": 624,
+      "estimatedTargetBytes": 6010368,
+      "addedDrawCalls": 2,
+      "fboPassActive": true,
+      "compositeActive": true,
+      "frames": 727,
+      "prewarmed": true,
+      "prewarmMs": 5,
+      "error": null
+    },
+    "kerrLens": {
+      "supported": true,
+      "fallback": null,
+      "loading": false,
+      "ready": true,
+      "atlasReady": true,
+      "sourceMapReady": true,
+      "sourceStarsReady": true,
+      "quality": "high",
+      "spin": 0.94,
+      "inclinationDegrees": 78,
+      "fetchMs": 663.8999999761581,
+      "prewarmed": true,
+      "prewarmMs": 201.30000001192093,
+      "fallbackReason": null,
+      "error": null
+    },
+    "rareEvents": {
+      "mode": "idle",
+      "event": null,
+      "intensity": 0,
+      "cooldownSeconds": 0,
+      "availability": {
+        "skyLayer": true,
+        "nebula": true,
+        "blackHole": true
+      },
+      "availableEventIds": [
+        "meteor-shower",
+        "comet",
+        "nebula-surge",
+        "black-hole-transit",
+        "supernova",
+        "bolide",
+        "satellite-train",
+        "planet-conjunction",
+        "aurora",
+        "constellation",
+        "moon-transit",
+        "kilonova",
+        "ufo"
+      ],
+      "effectiveChancePerSecond": 0,
+      "paused": true,
+      "pausedReason": "hidden-lab"
+    }
+  },
+  "relit": {
+    "lightsOn": true,
+    "hiddenEffects": {
+      "rift": false,
+      "lens": false
+    },
+    "camera": {
+      "position": [
+        -1.5999999999999996,
+        -30.4,
+        19.2
+      ],
+      "quaternion": [
+        0.6551717214186763,
+        -0.0353015340234092,
+        0.03067322472177756,
+        0.7540311468593653
+      ],
+      "fov": 70,
+      "aspect": 1.9288596133544937
+    },
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "blackHole": {
+      "ready": true,
+      "visible": false,
+      "mode": "kerr-atlas",
+      "type": "half-float",
+      "quality": "high",
+      "width": 1770,
+      "height": 918,
+      "estimatedTargetBytes": 19498320,
+      "cameraDistance": 41.86120360323269,
+      "angularRadius": 0.22815296171796665,
+      "reveal": 0,
+      "addedDrawCalls": 0,
+      "fboPassActive": false,
+      "frames": 747,
+      "prewarmed": true,
+      "kerrPrewarmed": true,
+      "prewarmMs": 231.5,
+      "error": null
+    },
+    "portal": {
+      "enabled": true,
+      "type": "half-float",
+      "width": 1204,
+      "height": 624,
+      "estimatedTargetBytes": 6010368,
+      "addedDrawCalls": 0,
+      "fboPassActive": false,
+      "compositeActive": false,
+      "frames": 748,
+      "prewarmed": true,
+      "prewarmMs": 5,
+      "error": null
+    },
+    "kerrLens": {
+      "supported": true,
+      "fallback": null,
+      "loading": false,
+      "ready": true,
+      "atlasReady": true,
+      "sourceMapReady": true,
+      "sourceStarsReady": true,
+      "quality": "high",
+      "spin": 0.94,
+      "inclinationDegrees": 78,
+      "fetchMs": 663.8999999761581,
+      "prewarmed": true,
+      "prewarmMs": 201.30000001192093,
+      "fallbackReason": null,
+      "error": null
+    },
+    "rareEvents": {
+      "mode": "idle",
+      "event": null,
+      "intensity": 0,
+      "cooldownSeconds": 0,
+      "availability": {
+        "skyLayer": true,
+        "nebula": true,
+        "blackHole": true
+      },
+      "availableEventIds": [
+        "meteor-shower",
+        "comet",
+        "nebula-surge",
+        "black-hole-transit",
+        "supernova",
+        "bolide",
+        "satellite-train",
+        "planet-conjunction",
+        "aurora",
+        "constellation",
+        "moon-transit",
+        "kilonova",
+        "ufo"
+      ],
+      "effectiveChancePerSecond": 0,
+      "paused": false,
+      "pausedReason": null
+    }
+  },
+  "mediumEvent": {
+    "lightsOn": false,
+    "hiddenEffects": {
+      "rift": false,
+      "lens": false
+    },
+    "camera": {
+      "position": [
+        -6,
+        -30.4,
+        18
+      ],
+      "quaternion": [
+        0,
+        0.7169929723394826,
+        -0.6970803953747329,
+        0
+      ],
+      "fov": 70,
+      "aspect": 1.9288596133544937
+    },
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "blackHole": {
+      "ready": true,
+      "visible": true,
+      "mode": "kerr-atlas",
+      "type": "half-float",
+      "quality": "medium",
+      "width": 1280,
+      "height": 664,
+      "estimatedTargetBytes": 10199040,
+      "cameraDistance": 42,
+      "angularRadius": 0.2274247607616333,
+      "reveal": 1,
+      "addedDrawCalls": 3,
+      "fboPassActive": true,
+      "frames": 473,
+      "prewarmed": true,
+      "kerrPrewarmed": true,
+      "prewarmMs": 38.200000047683716,
+      "error": null
+    },
+    "portal": {
+      "enabled": true,
+      "type": "half-float",
+      "width": 960,
+      "height": 498,
+      "estimatedTargetBytes": 3824640,
+      "addedDrawCalls": 2,
+      "fboPassActive": true,
+      "compositeActive": true,
+      "frames": 575,
+      "prewarmed": true,
+      "prewarmMs": 3.100000023841858,
+      "error": null
+    },
+    "kerrLens": {
+      "supported": true,
+      "fallback": null,
+      "loading": false,
+      "ready": true,
+      "atlasReady": true,
+      "sourceMapReady": true,
+      "sourceStarsReady": true,
+      "quality": "medium",
+      "spin": 0.94,
+      "inclinationDegrees": 78,
+      "fetchMs": 494.80000001192093,
+      "prewarmed": true,
+      "prewarmMs": 11.600000023841858,
+      "fallbackReason": null,
+      "error": null
+    },
+    "rareEvents": {
+      "mode": "active",
+      "event": "black-hole-transit",
+      "intensity": 1,
+      "cooldownSeconds": 0,
+      "availability": {
+        "skyLayer": true,
+        "nebula": true,
+        "blackHole": true
+      },
+      "availableEventIds": [
+        "meteor-shower",
+        "comet",
+        "nebula-surge",
+        "black-hole-transit",
+        "supernova",
+        "bolide",
+        "satellite-train",
+        "planet-conjunction",
+        "aurora",
+        "constellation",
+        "moon-transit",
+        "kilonova",
+        "ufo"
+      ],
+      "effectiveChancePerSecond": 0,
+      "paused": false,
+      "pausedReason": null
+    }
+  },
+  "browserLogs": {
+    "high": [],
+    "medium": [
+      {
+        "level": "warn",
+        "message": "THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.",
+        "timestamp": "2026-10-05T04:26:56.396Z",
+        "url": "http://127.0.0.1:4322/_astro/VillaMap.DhMnZxqR.js"
+      }
+    ]
+  }
+}
