@@ -2,6 +2,7 @@ import { deriveFurnitureColliders } from "./furniture-colliders.js";
 import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
 import { ARCHITECTURE_PLACEMENTS } from "./architecture-placements.js";
+import { VILLA_BOUNDS, createFenceColliders } from "./perimeter-fence.js";
 import {
   MUSHROOM_OBSERVATORY_SWITCH_ACTION_TYPE,
   MUSHROOM_OBSERVATORY_SWITCH_INTERACTION_ID
@@ -301,14 +302,9 @@ export function createVillaWorld() {
       speed: 5.2,
       radius: 0.62
     },
-    // The old perimeter fence is gone — the whole meadow around the estate is
-    // explorable now. Bounds stop the player well before the ground plane ends.
-    bounds: {
-      minX: -40,
-      maxX: 44,
-      minZ: -40,
-      maxZ: 42
-    },
+    // The authored fence follows the exploration bounds; the open welcome gate
+    // remains a visual entrance, with the same world limit across its opening.
+    bounds: { ...VILLA_BOUNDS },
     upperFloorY: UPPER_FLOOR_EYE_Y,
     upperFloorFootprint: UPPER_FLOOR_FOOTPRINT,
     rooms: [
@@ -420,6 +416,7 @@ export function createVillaWorld() {
       }
     ],
     colliders: [
+      ...createFenceColliders(),
       // Villa perimeter walls. Villa is 26 wide x 22 deep, centered at world (0, -13).
       // The hall-front colliders leave a door gap at x ∈ [-5, +5]. These outer
       // walls block at any Y (no minY/maxY) so they stop you on both floors.

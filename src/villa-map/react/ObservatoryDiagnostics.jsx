@@ -166,6 +166,11 @@ export function ObservatoryDiagnostics({
           return ext?webglContext.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unavailable';})(),
         resortAssets: Object.fromEntries(['villa','springs','mushroom'].map(kind => [kind,
           scene.getObjectByName(`resort-asset-${kind}`)?.userData.assetState ?? 'legacy'])),
+        perimeterFence: (() => {
+          const root = scene.getObjectByName('perimeter-fence-asset');
+          const model = root?.children[0];
+          return { state: root?.userData.assetState ?? 'absent', batches: model?.children.length ?? 0 };
+        })(),
         // Streamed GLB progress (pigs, furniture, shells) as the loading veil
         // sees it, plus whatever stand-ins are still on screen and why.
         streamedAssets: (() => {

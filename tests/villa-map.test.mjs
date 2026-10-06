@@ -88,8 +88,7 @@ test("villa map world defines the expanded villa grounds with multi-floor rooms"
   });
   assert.equal(world.player.start.x, 0);
   assert.equal(world.player.start.z, 18);
-  // The perimeter fence is gone — the meadow beyond the old fence line is
-  // walkable now; only the (much larger) world bounds stop the player.
+  // The expanded meadow stays walkable inside its authored perimeter fence.
   assert.equal(collidesWithWorld({ x: -30, z: 9 }, world), false);
   assert.equal(collidesWithWorld({ x: -45, z: 9 }, world), true);
   assert.equal(collidesWithWorld({ x: 0, z: 41.9 }, world), true);

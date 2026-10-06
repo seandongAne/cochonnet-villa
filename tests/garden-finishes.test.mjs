@@ -37,7 +37,7 @@ test('garden stays clear of paths, residents, solid props and the mushroom porta
   assert.ok(new THREE.Box3().setFromObject(garden).max.y < .8, 'planting stays below the view and interaction markers');
 });
 
-test('paving preserves the old path envelope, height and continuous world-scale UVs', () => {
+test('paving follows the configured path envelope, height and continuous world-scale UVs', () => {
   const paths = createCourtyardPaths();
   paths.updateMatrixWorld(true);
   for (let i = 0; i < COURTYARD_PATHS.length; i++) {

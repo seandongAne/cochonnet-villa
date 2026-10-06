@@ -3,11 +3,12 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { EXTERIOR_PLACEMENTS } from './exterior-placements.js';
 import { ARCHITECTURE_PLACEMENTS } from './architecture-placements.js';
 import { PORKY_PLACEMENTS } from './placements.js';
+import { WELCOME_GATE } from './perimeter-fence.js';
 
 // Metre-scaled surface detail and low planting for the existing courtyard.
 // Entirely node-pure: no downloads, canvas, per-frame work or extra render pass.
 export const COURTYARD_PATHS = Object.freeze([
-  { x: 2, z: 17, width: 5.4, depth: 40, y: .01 },
+  { x: WELCOME_GATE.x, z: (WELCOME_GATE.z - 3) / 2, width: 5.4, depth: WELCOME_GATE.z + 3, y: .01 },
   { x: 0, z: .6, width: 14, depth: 4.4, y: .02 }
 ]);
 
@@ -101,7 +102,7 @@ export function createCourtyardPaths() {
   // Flush edging frames the long arrival axis without creating a new step.
   // Leave generous breaks for the garden and mushroom door approaches.
   const edges = [];
-  for (const x of [-.62, 4.62]) for (let z = 3.3; z < 37; z += .72) {
+  for (const x of [-.62, 4.62]) for (let z = 3.3; z < WELCOME_GATE.z; z += .72) {
     if (x < 0 && ((z > 7 && z < 11) || (z > 20 && z < 28))) continue;
     edges.push([x, z]);
   }

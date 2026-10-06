@@ -46,6 +46,7 @@ const CLOSED_OBSERVATORY_HIDDEN_EFFECTS = Object.freeze({
 const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze([
   "mushroom-hearth", "mushroom-den", "mushroom-front", "mushroom-door",
   "mushroom-window-east", "mushroom-window-west", "dog-house",
+  "fence-gate", "fence-corner", "fence-overview",
   "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
   "l2-stair",
   "loft-center",
@@ -620,7 +621,7 @@ export default function VillaMap() {
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>
-            围栏拆掉了——主楼、庭院、温泉、四周草地都能随意逛，蘑菇屋现在还能推门进去（一共三层！）。点击开始后用键盘移动、鼠标环视；若浏览器不支持鼠标锁定，按住左键拖拽也能环视。靠近白色提示点会出现故事卡片，出现按键提示时按 E 互动。
+            沿着木围栏探索猪猪山庄：主楼、庭院、温泉和草地都可以逛，蘑菇屋也能推门进入，一共三层。欢迎门保持打开，门外的远景暂不开放探索。点击开始后用键盘移动、鼠标环视；若浏览器不支持鼠标锁定，按住左键拖拽也能环视。靠近白色提示点会出现故事卡片，出现按键提示时按 E 互动。
           </p>
           <div className="villa-map-controls" aria-label="键盘控制">
             {CONTROL_KEYS.map((key) => (

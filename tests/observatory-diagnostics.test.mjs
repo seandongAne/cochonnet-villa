@@ -15,6 +15,7 @@ test("observatory diagnostics expose stable finite camera bookmarks", () => {
     "mushroom-hearth", "mushroom-den",
     "mushroom-front", "mushroom-door",
     "mushroom-window-east", "mushroom-window-west", "dog-house",
+    "fence-gate", "fence-corner", "fence-overview",
     "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
     "l2-stair",
     "loft-center",

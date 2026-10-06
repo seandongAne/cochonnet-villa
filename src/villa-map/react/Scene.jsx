@@ -38,6 +38,7 @@ import { createObservatoryAdaptationState } from "../observatory-adaptation.js";
 import { MushroomObservatoryAudio } from "./MushroomObservatoryAudio.jsx";
 import { MushroomObservatoryRuntime } from "./MushroomObservatoryRuntime.jsx";
 import { ResortAsset } from './ResortAsset.jsx';
+import { PerimeterFence } from './PerimeterFence.jsx';
 import { MapRenderBudget } from './MapRenderBudget.jsx';
 import { OutdoorPrewarm } from './OutdoorPrewarm.jsx';
 import { getGpuPreparer } from './gpu-prepare.js';
@@ -635,6 +636,7 @@ export function Scene({
       <primitive object={built.meadowTrees} />
       <primitive object={built.courtyardPaths} />
       <primitive object={built.garden} />
+      <PerimeterFence bounds={world.bounds} />
       {built.grounds.map(([object, position], index) => (
         <primitive key={`ground-${index}`} object={object} position={position} />
       ))}

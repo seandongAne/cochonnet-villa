@@ -1,0 +1,21 @@
+{
+  "name": "Cochonnet Villa 安心木栅栏",
+  "version": "2026-10-06",
+  "unit": "meter",
+  "gltf_up_axis": "Y",
+  "source_up_axis": "Z",
+  "source_commit": "046806abe08ca39e3ab6d5563fc826db1ce92154",
+  "integration_status": "asset proposal; not installed or deployed",
+  "nominal_module_span_m": 3.0,
+  "gate_post_center_spacing_m": 6.5,
+  "measured_open_gate_clearance_m": 6.056025,
+  "gate_placement_proposal_threejs": [
+    2,
+    0.02,
+    42
+  ],
+  "main_path_end_z": 37,
+  "connection_gap_m": 5,
+  "textures": "none; self-contained PBR colors",
+  "preview_assets_exported": false
+}
