@@ -4,10 +4,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 import {
-  createBlanketPile,
   createDogHouse,
-  createGround,
-  createHayBale,
   createMaterials,
   createTextBoard,
   createTree
@@ -52,10 +49,15 @@ import {
   SUN_POSITION,
   SURROUNDINGS_FOG
 } from "../surroundings.js";
+import { isActiveInteriorPlacement, isActiveArchitecturePlacement, MAIN_VILLA_POSITION } from '../main-villa.js';
+
 import { batchContactShadows } from '../resort-assets.js';
 
-// Four broad warm pools replace nine overlapping room lights. Static contact
-// detail comes from the authored AO atlas; the sun is the only shadow caster.
+const ACTIVE_FURNITURE = FURNITURE_PLACEMENTS.filter(isActiveInteriorPlacement);
+const ACTIVE_ARCHITECTURE = ARCHITECTURE_PLACEMENTS.filter(isActiveArchitecturePlacement);
+
+// Four broad warm pools light the furnished villa; the sun is the only shadow
+// caster. The other resort shells retain their authored contact AO atlases.
 const VILLA_ROOM_LIGHTS = [
   { x: -6, y: 4.6, z: -13, color: "#ffd2a3", intensity: 24, distance: 15 },
   { x: 6, y: 4.6, z: -13, color: "#ffd2a3", intensity: 24, distance: 15 },
@@ -467,12 +469,6 @@ export function Scene({
     mushroomSky.add(observatorySkyEvents);
 
     return {
-      // Paths and the villa floor slab. [object, position] tuples. The meadow
-      // itself is the continuous horizon terrain below: flat across the whole
-      // walkable area, rolling into hills and a hazy mountain rim beyond it.
-      grounds: [
-        [createGround(24, 20, materials.floor), [0, 0.01, -13]]
-      ],
       courtyardPaths: createCourtyardPaths(),
       garden: createGarden(world),
       // Everything visible but unreachable (surroundings.js): sky dome,
@@ -492,9 +488,6 @@ export function Scene({
       mushroomSky,
       observatorySkyEvents,
       observatoryRift: createObservatoryRiftVisual(),
-      hay: createHayBale(materials.hay),
-      blanket: createBlanketPile(materials.blanket),
-      tinyBlanket: createBlanketPile(materials.blue),
       sign: createTextBoard(
         "猪猪山庄",
         "主楼、温泉、蘑菇屋和四周的草地都可以自由探索。靠近白色提示点，会出现小故事。"
@@ -503,10 +496,9 @@ export function Scene({
         placement,
         object: createPorkyModel(materials, placement, { prepare })
       })),
-      // Pre-made CC0 GLB furniture (Kenney in the villa, KayKit Furniture Bits
-      // in the mushroom tower). Built once, mounted through <primitive> like
-      // the porkies; each piece streams its GLB in over a placeholder.
-      furniture: FURNITURE_PLACEMENTS.map((placement) => ({
+      // The furnished villa owns its furniture. Only the unchanged KayKit
+      // mushroom pieces stream independently through this factory.
+      furniture: ACTIVE_FURNITURE.map((placement) => ({
         placement,
         object: createFurniturePiece(placement, { prepare })
       })),
@@ -516,11 +508,8 @@ export function Scene({
         placement,
         object: createFurniturePiece(placement, { prepare })
       })),
-      // Phase 4: CC0 GLB architectural accents at the villa entrance (Kenney
-      // Furniture door-arch + topiaries, City-Suburban railings + planters).
-      // Same generic loader; the door arch is non-solid so the doorway stays
-      // walkable.
-      architecture: ARCHITECTURE_PLACEMENTS.map((placement) => ({
+      // Legacy entrance accents are suppressed by the active-placement policy.
+      architecture: ACTIVE_ARCHITECTURE.map((placement) => ({
         placement,
         object: createFurniturePiece(placement, { prepare })
       })),
@@ -529,9 +518,9 @@ export function Scene({
       // One group of flat radial-gradient decals; reads each piece's footprint
       // and skips the ones flagged noShadow (rugs, tabletop items).
       shadows: batchContactShadows(createShadowBlobs([
-        ...FURNITURE_PLACEMENTS,
+        ...ACTIVE_FURNITURE,
         ...EXTERIOR_PLACEMENTS,
-        ...ARCHITECTURE_PLACEMENTS
+        ...ACTIVE_ARCHITECTURE
       ]))
     };
   }, [get, world]);
@@ -637,12 +626,9 @@ export function Scene({
       <primitive object={built.courtyardPaths} />
       <primitive object={built.garden} />
       <PerimeterFence bounds={world.bounds} />
-      {built.grounds.map(([object, position], index) => (
-        <primitive key={`ground-${index}`} object={object} position={position} />
-      ))}
 
       {/* ---- Main villa ---- */}
-      <ResortAsset kind="villa" position={[0, 0, -13]} />
+      <ResortAsset kind="villa" position={MAIN_VILLA_POSITION} />
 
       {/* ---- Hot springs (factory positions its own parts at world coords) ---- */}
       <ResortAsset kind="springs" />
@@ -671,9 +657,6 @@ export function Scene({
           room and furniture remain normal depth occluders, which is what
           makes the expansion feel spatial instead of like another sky layer. */}
       <primitive object={built.observatoryRift} />
-      <primitive object={built.hay} position={[6, 0, -19]} />
-      <primitive object={built.blanket} position={[-5, 0.03, -15]} />
-      <primitive object={built.tinyBlanket} position={[7, 0.04, -19]} scale={0.56} />
       <primitive object={built.sign} position={[4, 2.05, 22]} rotation-y={Math.PI} />
 
       {/* ---- Porkies (GLB with procedural fallback) ---- */}

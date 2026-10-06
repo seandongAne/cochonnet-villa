@@ -21,6 +21,12 @@ export const OBSERVATORY_DIAGNOSTIC_VIEWS = Object.freeze({
   "villa-front": Object.freeze({ position: [24, 12, 24], target: [0, 5, -9] }),
   "villa-hall": Object.freeze({ position: [0, 2.4, -4], target: [-6, 2.8, -15] }),
   "villa-upper": Object.freeze({ position: [0, 8.3, -12.5], target: [6, 8.8, -8] }),
+  "villa-salon": Object.freeze({ position: [-5.2, 2, -6.9], target: [-10, 1.8, -7.5] }),
+  "villa-dining": Object.freeze({ position: [5.2, 2, -5], target: [9, 1.3, -8] }),
+  "villa-suite": Object.freeze({ position: [-6.8, 8.25, -5.65], target: [-11, 7.8, -5.65] }),
+  "villa-rooftop": Object.freeze({ position: [0, 15.35, -20], target: [4.5, 14.8, -12] }),
+  "villa-roof-overview": Object.freeze({ position: [26, 25, -38], target: [0, 11, -17] }),
+  "villa-rear-door": Object.freeze({ position: [0, 8.25, -21], target: [0, 8.25, -26] }),
   "springs-overview": Object.freeze({ position: [10, 11, 23], target: [22, 0.7, 0] }),
   "springs-eye": Object.freeze({ position: [16.2, 1.8, 12], target: [21, 0.7, 7] }),
   "l2-stair": Object.freeze({

@@ -1,0 +1,377 @@
+{
+  "status": "RECOMMENDED ANALYTIC BOUNDARIES ONLY. NO RUNTIME INSTALLATION OR PLAYTEST.",
+  "coordinates": "Villa-local Three.js Y-up. Mount once at[0,0,-13].",
+  "player_radius_reference_m": 0.62,
+  "runtime_floor_index_policy": "Use asset floor labels and an explicit adapter; mushroom-house global floor2/3/4 are reserved and unchanged.",
+  "segments": [
+    {
+      "id": "roof_guard_front",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        -10.85,
+        13.65,
+        7.75
+      ],
+      "end_local_three": [
+        10.85,
+        13.65,
+        7.75
+      ],
+      "suggested_horizontal_thickness_m": 0.27,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_guard_west",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        -10.85,
+        13.65,
+        7.75
+      ],
+      "end_local_three": [
+        -10.85,
+        13.65,
+        -8.8
+      ],
+      "suggested_horizontal_thickness_m": 0.27,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_guard_east",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        10.85,
+        13.65,
+        7.75
+      ],
+      "end_local_three": [
+        10.85,
+        13.65,
+        -8.8
+      ],
+      "suggested_horizontal_thickness_m": 0.27,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_guard_rear_west",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        -10.85,
+        13.65,
+        -8.8
+      ],
+      "end_local_three": [
+        0,
+        13.65,
+        -8.8
+      ],
+      "suggested_horizontal_thickness_m": 0.27,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_guard_rear_east",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        2.1,
+        13.65,
+        -8.8
+      ],
+      "end_local_three": [
+        10.85,
+        13.65,
+        -8.8
+      ],
+      "suggested_horizontal_thickness_m": 0.27,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_bridge_west",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        0,
+        13.65,
+        -8.8
+      ],
+      "end_local_three": [
+        0,
+        13.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_bridge_east",
+      "asset_floor_id": "villa_rooftop",
+      "start_local_three": [
+        2.1,
+        13.65,
+        -8.8
+      ],
+      "end_local_three": [
+        2.1,
+        13.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_west_flight_rail_-2.05",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        -2.05,
+        6.65,
+        -12.5
+      ],
+      "end_local_three": [
+        -2.05,
+        10.15,
+        -18.26
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_west_flight_rail_-0.07",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        -0.07,
+        6.65,
+        -12.5
+      ],
+      "end_local_three": [
+        -0.07,
+        10.15,
+        -18.26
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_east_flight_rail_0.07",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        0.07,
+        10.15,
+        -18.26
+      ],
+      "end_local_three": [
+        0.07,
+        13.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "roof_east_flight_rail_2.05",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        2.05,
+        10.15,
+        -18.26
+      ],
+      "end_local_three": [
+        2.05,
+        13.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "return_side_-2.18",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        -2.18,
+        10.15,
+        -18.26
+      ],
+      "end_local_three": [
+        -2.18,
+        10.15,
+        -20.259999999999998
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "lower_landing_side_-2.18",
+      "asset_floor_id": "villa_upper",
+      "start_local_three": [
+        -2.18,
+        6.65,
+        -11
+      ],
+      "end_local_three": [
+        -2.18,
+        6.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "return_side_2.18",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        2.18,
+        10.15,
+        -18.26
+      ],
+      "end_local_three": [
+        2.18,
+        10.15,
+        -20.259999999999998
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "lower_landing_side_2.18",
+      "asset_floor_id": "villa_upper",
+      "start_local_three": [
+        2.18,
+        6.65,
+        -11
+      ],
+      "end_local_three": [
+        2.18,
+        6.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "return_back",
+      "asset_floor_id": "villa_roof_stair",
+      "start_local_three": [
+        -2.18,
+        10.15,
+        -20.259999999999998
+      ],
+      "end_local_three": [
+        2.18,
+        10.15,
+        -20.259999999999998
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    },
+    {
+      "id": "lower_landing_east_end",
+      "asset_floor_id": "villa_upper",
+      "start_local_three": [
+        0.07,
+        6.65,
+        -12.5
+      ],
+      "end_local_three": [
+        2.18,
+        6.65,
+        -12.5
+      ],
+      "suggested_horizontal_thickness_m": 0.105,
+      "collision_model": "floor-aware2D capsule boundary or swept vertical segment",
+      "recommended_height_relative_to_local_surface_m": [
+        -0.2,
+        3.0
+      ],
+      "height_note": "Cover the runtime player/camera collision sample after applying its eye offset. Do not blindly use the visual handrail height as blocker height."
+    }
+  ],
+  "intentional_openings": [
+    "Upper-gallery doorway x[-1.2,1.2] at designY24,z6.65",
+    "West flight entry at designY25.5,z6.65",
+    "East flight exit onto bridge at designY25.5,z13.65",
+    "Terrace bridge entry x[0,2.1] at designY21.8,z13.65"
+  ],
+  "navigation_notes": [
+    "Inset navigable regions by the actual capsule radius and guard thickness; geometric floor extents are not valid actor-centre extents.",
+    "Evaluate sloping rail boundaries and analytic stair height on the correct flight; avoid one giant collider covering both stacked flights.",
+    "Rooftop planters, seating and support columns still need coarse furniture/structure colliders.",
+    "Use continuous floor surfaces at the landings/bridge; decorative cedar tread tops are a few centimetres above nominal floor heights."
+  ]
+}

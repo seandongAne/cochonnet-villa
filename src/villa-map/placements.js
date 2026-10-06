@@ -18,8 +18,6 @@ import {
 } from "./furniture-placements.js";
 
 const mushroomSleeperXZ = scaleMushroomInteriorPoint(-7.2, 19.6);
-const MAIN_FLOOR_Y = 0.12;
-const UPPER_FLOOR_Y = 6.7;
 const OUTDOOR_Y = 0.03;
 
 function mushroomPorkyPosition(x, level, z) {
@@ -46,7 +44,7 @@ export const PORKY_PLACEMENTS = [
     variant: "big-ear-piglet",
     modelScale: 1.2,
     fallbackScale: 1.4,
-    position: [-5, MAIN_FLOOR_Y, -13],
+    position: [-6.5, 0.06, -10.8],
     rotationY: -0.35
   },
   {
@@ -54,7 +52,7 @@ export const PORKY_PLACEMENTS = [
     variant: "wild-piglet",
     modelScale: 0.62,
     fallbackScale: 0.55,
-    position: [7, MAIN_FLOOR_Y, -18.6],
+    position: [5.2, 0.06, -14.8],
     rotationY: -1.2
   },
   {
@@ -62,7 +60,7 @@ export const PORKY_PLACEMENTS = [
     variant: "guadai",
     modelScale: 0.78,
     fallbackScale: 0.7,
-    position: [-4.0, 6.7, -9.5],
+    position: [-7.8, 6.71, -5.65],
     rotationY: 1.2
   },
   {
@@ -70,7 +68,7 @@ export const PORKY_PLACEMENTS = [
     variant: "wild-piglet",
     modelScale: 0.66,
     fallbackScale: 0.6,
-    position: [4.0, 6.72, -12.8],
+    position: [6.8, 6.71, -21.8],
     rotationY: 0.4
   },
   {
@@ -78,7 +76,7 @@ export const PORKY_PLACEMENTS = [
     variant: "daigua",
     modelScale: 0.7,
     fallbackScale: 0.62,
-    position: [6.4, 6.72, -8],
+    position: [7.6, 6.71, -7.5],
     rotationY: -0.7
   },
   {
@@ -137,7 +135,7 @@ export const PORKY_PLACEMENTS = [
     room: "entry-foyer",
     floor: 0,
     clearanceRadius: 0.75,
-    position: [4.2, MAIN_FLOOR_Y, -7.4],
+    position: [1.7, 0.06, -7.5],
     rotationY: 0
   },
   {
@@ -148,7 +146,7 @@ export const PORKY_PLACEMENTS = [
     room: "great-hall-west",
     floor: 0,
     clearanceRadius: 0.6,
-    position: [-4.6, MAIN_FLOOR_Y, -8.0],
+    position: [-5.4, 0.06, -4.1],
     rotationY: 0
   },
   {
@@ -159,7 +157,7 @@ export const PORKY_PLACEMENTS = [
     room: "great-hall-east",
     floor: 0,
     clearanceRadius: 0.65,
-    position: [10.2, MAIN_FLOOR_Y, -8.2],
+    position: [11.0, 0.06, -6.6],
     rotationY: -0.55
   },
   {
@@ -170,7 +168,7 @@ export const PORKY_PLACEMENTS = [
     room: "great-hall-west",
     floor: 0,
     clearanceRadius: 0.55,
-    position: [-10.3, MAIN_FLOOR_Y, -8.4],
+    position: [-8.5, 0.06, -10.25],
     rotationY: 0.45
   },
   {
@@ -178,10 +176,10 @@ export const PORKY_PLACEMENTS = [
     variant: "gaming-piglet",
     source: "meshy",
     area: "main-villa",
-    room: "master-bedroom",
+    room: "rose-suite",
     floor: 1,
     clearanceRadius: 0.7,
-    position: [-7.15, UPPER_FLOOR_Y, -10.0],
+    position: [-7.8, 6.71, -14.0],
     rotationY: 1.03
   },
 

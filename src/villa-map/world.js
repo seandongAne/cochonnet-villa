@@ -1,3 +1,9 @@
+import {
+  MAIN_VILLA_UPPER_EYE_Y, MAIN_VILLA_UPPER_RECTANGLES,
+  MAIN_VILLA_STAIRS, MAIN_VILLA_FLOOR_ZONES,
+  createMainVillaColliders, collidesWithMainVillaShape, adaptMainVillaRooms,
+  isActiveInteriorPlacement, isActiveArchitecturePlacement
+} from "./main-villa.js";
 import { deriveFurnitureColliders } from "./furniture-colliders.js";
 import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
@@ -26,39 +32,6 @@ import {
   scaleMushroomInteriorX,
   scaleMushroomInteriorZ
 } from "./mushroom-interior-config.js";
-
-// Y level constants for the main villa.
-// Ground floor walls run from y=0 to y=5.6 (lowerHeight in createModernVilla).
-// Upper floor slab sits at y=6.65 (lowerHeight + 1.05). Upper walls cap at y=11.25.
-// Player ground-floor eye height = 1.6 (matches player.start.y).
-// Player upper-floor eye height = 8.05 (slab 6.65 + 1.4 standing height).
-const GROUND_FLOOR_MIN_Y = 0;
-const GROUND_FLOOR_MAX_Y = 5.6;
-const UPPER_FLOOR_MIN_Y = 6.65;
-const UPPER_FLOOR_MAX_Y = 11.25;
-const UPPER_FLOOR_EYE_Y = 8.05;
-
-// Upper-floor slab footprint (world coords). Used by isOnUpperFloor for snapping
-// camera Y and by interaction filtering.
-const UPPER_FLOOR_FOOTPRINT = {
-  minX: -8,
-  maxX: 8,
-  minZ: -16,
-  maxZ: -6
-};
-
-// Stair zone (world coords). Player enters at maxZ (south, y=1.6), exits at
-// minZ (north, y=8.05). Y target lerps with progress along z.
-const STAIR_ZONE = {
-  id: "main-stairs",
-  minX: -1.5,
-  maxX: 1.5,
-  minZ: -12,
-  maxZ: -8,
-  floorY: 1.6,
-  upperY: UPPER_FLOOR_EYE_Y,
-  speedMultiplier: 0.8
-};
 
 // ============================================================================
 // Mushroom-house interior — an independent three-storey "pocket" space buried
@@ -296,7 +269,7 @@ function mushroomInteriorColliders() {
 }
 
 export function createVillaWorld() {
-  return {
+  const world = {
     player: {
       start: { x: 0, y: 1.6, z: 18 },
       speed: 5.2,
@@ -305,8 +278,8 @@ export function createVillaWorld() {
     // The authored fence follows the exploration bounds; the open welcome gate
     // remains a visual entrance, with the same world limit across its opening.
     bounds: { ...VILLA_BOUNDS },
-    upperFloorY: UPPER_FLOOR_EYE_Y,
-    upperFloorFootprint: UPPER_FLOOR_FOOTPRINT,
+    upperFloorY: MAIN_VILLA_UPPER_EYE_Y,
+    upperFloorFootprints: MAIN_VILLA_UPPER_RECTANGLES,
     rooms: [
       {
         id: "courtyard",
@@ -321,53 +294,11 @@ export function createVillaWorld() {
         size: { x: 26, z: 8 }
       },
       {
-        id: "entry-foyer",
-        name: "主楼玄关",
-        floor: 0,
-        center: { x: 0, z: -4.5 },
-        size: { x: 6, z: 5 }
-      },
-      {
-        id: "great-hall-west",
-        name: "西大厅",
-        floor: 0,
-        center: { x: -8, z: -13 },
-        size: { x: 10, z: 22 }
-      },
-      {
-        id: "great-hall-east",
-        name: "东大厅",
-        floor: 0,
-        center: { x: 8, z: -13 },
-        size: { x: 10, z: 22 }
-      },
-      {
         id: "stair-vestibule",
-        name: "楼梯间",
+        name: "折返大楼梯",
         floor: 0,
-        center: { x: 0, z: -10 },
-        size: { x: 6, z: 6 }
-      },
-      {
-        id: "master-bedroom",
-        name: "二楼主卧",
-        floor: 1,
-        center: { x: -5.5, z: -11 },
-        size: { x: 5, z: 10 }
-      },
-      {
-        id: "study-loft",
-        name: "二楼书房",
-        floor: 1,
-        center: { x: 5.5, z: -13.5 },
-        size: { x: 5, z: 5 }
-      },
-      {
-        id: "lounge-balcony",
-        name: "二楼阳台休息区",
-        floor: 1,
-        center: { x: 5.5, z: -8.5 },
-        size: { x: 5, z: 5 }
+        center: { x: 0, z: -14 },
+        size: { x: 6, z: 10 }
       },
       {
         id: "hot-springs",
@@ -417,40 +348,7 @@ export function createVillaWorld() {
     ],
     colliders: [
       ...createFenceColliders(),
-      // Villa perimeter walls. Villa is 26 wide x 22 deep, centered at world (0, -13).
-      // The hall-front colliders leave a door gap at x ∈ [-5, +5]. These outer
-      // walls block at any Y (no minY/maxY) so they stop you on both floors.
-      boxCollider("hall-back-wall", 0, -23.8, 26, 0.6),
-      boxCollider("hall-left-wall", -12.8, -13, 0.6, 22),
-      boxCollider("hall-right-wall", 12.8, -13, 0.6, 22),
-      boxCollider("hall-front-left-wall", -9, -2.2, 8, 0.6),
-      boxCollider("hall-front-right-wall", 9, -2.2, 8, 0.6),
-
-      // ====== Ground floor is open plan ======
-      // The old x = ±3 foyer-pocket partition walls were removed (they read as
-      // unnatural half-walls beside the stairs). The entry, stair vestibule and
-      // both great halls are now one continuous open space, so the only interior
-      // colliders left below the upper floor are the stair banisters.
-
-      // ====== Stair banister / hole guard ======
-      // Side rails along the long axis of the stairs (x = ±1.5, z ∈ [-12, -8]).
-      // Full height so players can't step off the stairs sideways and can't
-      // walk into the open stair hole from the upper floor.
-      boxCollider("stair-rail-west", -1.5, -10, 0.2, 4, { minY: GROUND_FLOOR_MIN_Y, maxY: UPPER_FLOOR_MAX_Y }),
-      boxCollider("stair-rail-east",  1.5, -10, 0.2, 4, { minY: GROUND_FLOOR_MIN_Y, maxY: UPPER_FLOOR_MAX_Y }),
-      // Upper-floor south-edge guard at the stair hole. Stops the player from
-      // accidentally stepping off the south-center slab strip into the hole.
-      // North edge stays open — that's the natural entry from the upper floor.
-      boxCollider("upper-stair-rail-south", 0, -8, 3, 0.2, { minY: UPPER_FLOOR_MIN_Y, maxY: UPPER_FLOOR_MAX_Y }),
-
-      // ====== Upper-floor interior partitions (minY=6.65, maxY=11.25) ======
-      // Minimal partitions — only the south corner of the master bedroom and
-      // the study/lounge divider. The area immediately around the stair hole
-      // is fully open so visitors can see the descent from any upstairs room.
-      boxCollider("upper-bedroom-corner", -3, -6.5, 0.3, 1, { minY: UPPER_FLOOR_MIN_Y, maxY: UPPER_FLOOR_MAX_Y }),
-      // Study (north) / lounge (south) divider at z = -11 with door gap.
-      boxCollider("upper-east-divider-back",  3.75, -11, 1.5, 0.3, { minY: UPPER_FLOOR_MIN_Y, maxY: UPPER_FLOOR_MAX_Y }),
-      boxCollider("upper-east-divider-front", 6.75, -11, 2.5, 0.3, { minY: UPPER_FLOOR_MIN_Y, maxY: UPPER_FLOOR_MAX_Y }),
+      ...createMainVillaColliders(),
 
       // Hot-spring rim rocks. We block only the OUTER edges (away from the
       // courtyard) — players can freely approach a pool from the courtyard side
@@ -464,10 +362,6 @@ export function createVillaWorld() {
       // Mushroom house exterior. Y-scoped to the ground so players inside the
       // buried interior pocket (y ≈ -80) never hit it from below.
       boxCollider("mushroom-house", -6, 18, 10.0, 10.0, { minY: 0, maxY: 30 }),
-      // Decor inside the great hall (ground-floor only).
-      boxCollider("blanket-pile", -5, -15, 3.0, 2.4, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
-      boxCollider("hay-stack", 6, -19, 2.6, 2.6, { minY: GROUND_FLOOR_MIN_Y, maxY: GROUND_FLOOR_MAX_Y }),
-
       // Mushroom-house interior pocket (walls, stair rails, well guards).
       ...mushroomInteriorColliders(),
 
@@ -476,13 +370,14 @@ export function createVillaWorld() {
       // floor-scoped by Y so a ground player never bumps upstairs furniture.
       // Rugs, lamps, books, small plants and dining/desk chairs stay walk-through.
       ...deriveFurnitureColliders([
-        ...FURNITURE_PLACEMENTS,
+        ...FURNITURE_PLACEMENTS.filter(isActiveInteriorPlacement),
         ...EXTERIOR_PLACEMENTS,
-        ...ARCHITECTURE_PLACEMENTS
+        ...ARCHITECTURE_PLACEMENTS.filter(isActiveArchitecturePlacement)
       ])
     ],
-    stairs: [STAIR_ZONE, MUSHROOM_STAIR_A, MUSHROOM_STAIR_B],
+    stairs: [MAIN_VILLA_STAIRS[0], MUSHROOM_STAIR_A, MUSHROOM_STAIR_B, ...MAIN_VILLA_STAIRS.slice(1)],
     floorZones: [
+      ...MAIN_VILLA_FLOOR_ZONES,
       mushroomFloorZone(0, MUSH_L1_Y),
       mushroomFloorZone(1, MUSH_L2_Y),
       mushroomFloorZone(2, MUSH_L3_Y)
@@ -553,58 +448,6 @@ export function createVillaWorld() {
       }
     ],
     interactions: [
-      {
-        id: "main-villa-entry",
-        title: "主楼玄关",
-        body: "推开玻璃门，玄关里铺着柔软的奶白脚垫，鞋柜上摆着一盏小铜灯。",
-        position: { x: 0, y: 1.4, z: -4 },
-        radius: 3.0
-      },
-      {
-        id: "great-hall-west",
-        title: "西厅沙发",
-        body: "矮矮的奶白沙发摆在赤陶色背景墙前，毯子窝就藏在沙发脚边。",
-        position: { x: -6.2, y: 1.4, z: -12.2 },
-        radius: 3.4
-      },
-      {
-        id: "great-hall-east",
-        title: "东厅长桌",
-        body: "长桌可以坐下十只小猪一起喝下午茶，靠墙的橱柜里整齐摆着小碗。",
-        position: { x: 8.2, y: 1.4, z: -10.5 },
-        radius: 3.6
-      },
-      {
-        id: "main-stairs",
-        title: "通往二楼的木梯",
-        body: "踩上木梯会有「咯吱」的轻响，扶手是温润的暖黄色。",
-        position: { x: 0, y: 1.4, z: -10 },
-        radius: 2.6
-      },
-      {
-        id: "master-bedroom",
-        title: "二楼主卧",
-        body: "蓬松的奶白被子上摆着藏青色靠枕，床头铜灯把光打得很暖。",
-        // Open landing at the foot of the bed.
-        position: { x: -5.5, y: 7.8, z: -9.0 },
-        radius: 3.4
-      },
-      {
-        id: "study-loft",
-        title: "二楼书房",
-        body: "靠窗的小书桌可以看到温泉的水汽升起，书架上塞满小猪们的故事书。",
-        // Open spot inside the doorway, clear of the desk and bookcase.
-        position: { x: 6.0, y: 7.8, z: -11.6 },
-        radius: 3.0
-      },
-      {
-        id: "lounge-balcony",
-        title: "二楼阳台休息区",
-        body: "两座小沙发面向阳台玻璃，黄昏的橘光会顺着扶手洒到地毯上。",
-        // Phase 4: moved to the balcony-facing open spot just south of the chairs.
-        position: { x: 5.5, y: 7.8, z: -7.0 },
-        radius: 3.0
-      },
       {
         id: "hot-spring-terrace",
         title: "温泉露台",
@@ -710,22 +553,10 @@ export function createVillaWorld() {
         position: { x: 4, y: 1.4, z: 22 },
         radius: 3.6
       },
-      {
-        id: "blanket-nest",
-        title: "软乎乎毯子窝",
-        body: "大呆猪最喜欢这里。它占的毯子最多，但整个房间也会因此安静下来。",
-        position: { x: -5, y: 0.9, z: -15 },
-        radius: 3
-      },
-      {
-        id: "tiny-corner",
-        title: "小猪的秘密角落",
-        body: "最小的小猪经常藏在这里，只露出一点点粉色耳朵。",
-        position: { x: 7, y: 0.8, z: -19 },
-        radius: 2.7
-      }
+
     ]
   };
+  return adaptMainVillaRooms(world);
 }
 
 export function findWaterZone(position, world) {
@@ -736,14 +567,13 @@ export function findWaterZone(position, world) {
   }) ?? null;
 }
 
-// True when the player is inside the upper-floor slab AABB at a Y high enough
-// to be considered "upstairs" (camera has cleared the ground-floor ceiling).
+// Test each physical slab independently so the atrium and stairwell stay void.
 export function isOnUpperFloor(position, world) {
-  const fp = world.upperFloorFootprint;
-  if (!fp) return false;
-  if (position.x < fp.minX || position.x > fp.maxX) return false;
-  if (position.z < fp.minZ || position.z > fp.maxZ) return false;
-  return (position.y ?? world.player.start.y) > 5.6;
+  const y = position.y ?? world.player.start.y;
+  return Math.abs(y - world.upperFloorY) < 1
+    && (world.upperFloorFootprints ?? []).some(fp =>
+      position.x >= fp.minX && position.x <= fp.maxX
+      && position.z >= fp.minZ && position.z <= fp.maxZ);
 }
 
 // Find the stair zone the player is currently inside. XZ containment plus an
@@ -758,7 +588,8 @@ export function findStairZone(position, world) {
     position.z >= s.minZ &&
     position.z <= s.maxZ &&
     (s.minY === undefined || y >= s.minY) &&
-    (s.maxY === undefined || y <= s.maxY)
+    (s.maxY === undefined || y <= s.maxY) &&
+    (s.maxDeltaY === undefined || Math.abs(y - s.eyeYAt(position.z)) <= s.maxDeltaY)
   ) ?? null;
 }
 
@@ -778,8 +609,7 @@ export function findFloorZone(position, world) {
 
 // boxCollider(id, x, z, width, depth) — backwards-compatible 2D AABB.
 // Optional opts: { minY, maxY } to constrain the collider to a Y range.
-// Colliders without minY/maxY block at any height (current behavior for the
-// villa perimeter walls, hot-spring rocks, etc).
+// Colliders without minY/maxY block at any height (e.g. hot-spring rocks).
 export function boxCollider(id, x, z, width, depth, opts) {
   const collider = {
     id,
@@ -829,6 +659,9 @@ export function collidesWithWorld(position, world) {
     // Skip colliders that don't span this player's Y range.
     if (collider.minY !== undefined && playerY > collider.maxY) return false;
     if (collider.maxY !== undefined && playerY < collider.minY) return false;
+    if (["box", "segment", "ellipse", "stair-volume"].includes(collider.kind)) {
+      return collidesWithMainVillaShape({ ...position, y: playerY }, collider, radius);
+    }
     if (collider.kind === "circle-boundary") {
       const dx = position.x - collider.centerX;
       const dz = position.z - collider.centerZ;

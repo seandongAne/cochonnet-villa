@@ -18,6 +18,7 @@ import {
   writeObservatoryQualityPreference
 } from "../observatory-quality-preference.js";
 import { OBSERVATORY_RARE_EVENTS } from "../observatory-events.js";
+import { OBSERVATORY_DIAGNOSTIC_VIEWS } from "../observatory-diagnostics.js";
 import {
   readObservatoryEventJournal,
   recordObservatoryEventSighting
@@ -43,17 +44,7 @@ const CLOSED_OBSERVATORY_HIDDEN_EFFECTS = Object.freeze({
   rift: false,
   lens: false
 });
-const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze([
-  "mushroom-hearth", "mushroom-den", "mushroom-front", "mushroom-door",
-  "mushroom-window-east", "mushroom-window-west", "dog-house",
-  "fence-gate", "fence-corner", "fence-overview",
-  "villa-front", "villa-hall", "villa-upper", "springs-overview", "springs-eye",
-  "l2-stair",
-  "loft-center",
-  "loft-edge",
-  "black-hole-edge",
-  "loft-room"
-]);
+const OBSERVATORY_DIAGNOSTIC_VIEW_ORDER = Object.freeze(Object.keys(OBSERVATORY_DIAGNOSTIC_VIEWS));
 
 // Accessing the localStorage property itself can throw on opaque origins or
 // tightly sandboxed embeds, before the preference helper gets a chance to

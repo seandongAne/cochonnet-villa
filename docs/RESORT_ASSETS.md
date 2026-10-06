@@ -4,7 +4,61 @@ The villa, spa and mushroom exterior load authored GLBs with metre-accurate tran
 collision, floor, water-zone and interaction data remain in `world.js`; changing
 visual bounds must not silently change those contracts.
 
-## Authoring
+## Maison des Quinze main villa — 2026-10-06
+
+The main villa now uses the user-supplied `Cochonnet_Villa_Maison_des_Quinze_Complete.zip`.
+It replaces the previous architectural shell and its independently spawned furniture.
+The complete furnished model includes 15 beds, 15 dining places, 15 cinema seats,
+six computer stations, a bathhouse and an accessible rooftop garden.
+
+```
+python3 scripts/import-main-villa.py /path/to/Cochonnet_Villa_Maison_des_Quinze_Complete.zip
+npm test
+npm run build
+```
+
+The importer reads data and the complete GLB; it never executes scripts from the ZIP.
+It verifies the supplied GLB checksum, generates `main-villa-data.js`, and uses the
+pinned local gltfpack to merge material batches and compress buffers without removing
+triangles. Runtime: **26 batches, 481,445 triangles, 3,633,028 bytes**, compared with
+199 batches / 17,302,276 bytes in the source. Shared pure-colour PBR materials need
+no textures; the former villa-only baked-AO/UV1 requirement does not apply. The
+other resort assets retain their original texture/AO tests. No mobile-GPU claim is
+made from these geometry/file statistics.
+
+Mount once at `[0, 0, -13]`, rotation zero, scale one. The 26×22m footprint matches
+the previous main villa; bbox fitting would break doors, floors and resident anchors.
+Original source metadata and checksums are retained in `art/resort/maison-des-quinze/`.
+The editable `.blend` and original full GLB remain in the supplied ZIP instead of
+adding another 55MB to the website repository. **Do not rebuild this villa with
+`build-resort-assets.py -- villa`**: that script describes the archived shell.
+
+`main-villa.js` adapts the source's wall/furniture proxies, blocks fixed glazing,
+keeps actual door openings, and provides continuous height sampling for both the
+main switchback stair and the rear rooftop stair. Main floor/eye heights are
+0/1.6, 6.65/8.25 and 13.65/15.25 metres. Five separate upper slabs preserve the
+foyer and stairwell voids. The roof uses global floor **5**; the mushroom's buried
+floors **2/3/4**, its entrance and observatory are unchanged. Analytic guards extend
+to player eye height and use circular-player/segment distance so rail ends and wall
+corners can be rounded. Cinema row platforms have shallow east-side height ramps.
+The bath water is decorative and has a safe blocking perimeter.
+
+Legacy main-villa furniture, entrance accents, hay and blankets no longer render,
+cast contact decals or collide. The KayKit mushroom furnishings and all outdoor
+residents remain. Ten existing villa residents have been remapped to clear locations;
+no resident is removed. A failed villa load keeps a matching five-slab/switchback/
+rooftop procedural fallback instead of the incompatible archived single-flight shell.
+
+Verification uses `tests/main-villa.test.mjs`: the real production GLTFLoader with
+MeshoptDecoder, ray checks for floors/voids/door openings, resident clearance, guards,
+and production explorer controls walking the full courtyard → upper floor → rear
+door → rooftop → courtyard route at radius 0.62. Additional query-only camera
+bookmarks: `villa-salon`, `villa-dining`, `villa-suite`, `villa-rooftop`,
+`villa-roof-overview`, `villa-rear-door`. As with other `observatory=test` captures,
+wait for asset settlement and step **+0.5s** to render the swapped meshes before
+capturing; **刷新数据** refreshes the snapshot but is not a render step.
+
+## Archived villa / current spa and mushroom authoring
 
 Sources: `art/resort/villa.blend`, `art/resort/springs.blend`, `art/resort/mushroom.blend`.
 The reproducible Blender script reuses the existing villa's structural envelope
@@ -28,7 +82,6 @@ moss cushions and a low cedar boardwalk. Western pool entries remain low.
 ```
 node scripts/export-resort-reference.mjs
 F:/Blender/blender.exe --background --factory-startup --python scripts/build-resort-assets.py -- springs
-F:/Blender/blender.exe --background --factory-startup --python scripts/build-resort-assets.py -- villa
 F:/Blender/blender.exe --background --factory-startup --python scripts/build-resort-assets.py -- mushroom
 npm test
 npm run build

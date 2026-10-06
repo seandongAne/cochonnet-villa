@@ -30,7 +30,7 @@ async function geometryScene(name){
 }
 
 test('resort exports embed textures, bounded UV sets and section/material batches',()=>{
-  for(const [name,max] of [['villa',35],['springs',15],['mushroom',25]]){
+  for(const [name,max] of [['springs',15],['mushroom',25]]){
     const {json,buffer}=glb(name);
     assert.ok(json.meshes.length<=max);
     assert.ok(buffer.length<4*1024*1024);
@@ -58,20 +58,6 @@ test('outdoor prewarm excludes observatory descendants even when their sky proje
   assert.equal(isOutdoorPrewarmMesh(outdoor,[cosmos]),true);
   outdoor.position.y=-32;outdoor.updateMatrixWorld(true);
   assert.equal(isOutdoorPrewarmMesh(outdoor,[cosmos]),false);
-});
-
-test('architectural GLB roundtrip preserves walkable floors and the stairwell',async()=>{
-  const villa=await geometryScene('villa');villa.updateMatrixWorld(true);
-  const bounds=new THREE.Box3().setFromObject(villa);
-  assert.ok(bounds.min.x<-13 && bounds.max.x>13);
-  assert.ok(bounds.max.y>11 && bounds.max.y<14);
-  const down=(x,y,z)=>new THREE.Raycaster(new THREE.Vector3(x,y,z),new THREE.Vector3(0,-1,0)).intersectObject(villa,true);
-  assert.ok(Math.abs(down(-5,7,0)[0].point.y-6.65)<.03,'upper floor height');
-  assert.ok(down(0,7,3)[0].point.y<5,'roof and floor preserve the stair cutout');
-  assert.ok(Math.abs(down(-5,1,0)[0].point.y-.1)<.03,'ground timber is flush');
-  const entry=new THREE.Raycaster(new THREE.Vector3(0,1.6,16),new THREE.Vector3(0,0,-1),0,8).intersectObject(villa,true);
-  assert.equal(entry.length,0,'entry canopy must not obstruct the open doorway');
-  villa.traverse(o=>{if(o.material?.transparent)assert.equal(o.castShadow,false);});
 });
 
 test('spa basins never put an opaque slab above the water',async()=>{

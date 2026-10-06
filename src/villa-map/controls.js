@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { collidesWithWorld, findFloorZone, findStairZone, findWaterZone, isOnUpperFloor } from "./world.js";
 
+import { cinemaEyeY } from "./main-villa.js";
+
 const HALF_PI = Math.PI / 2;
 
 // Hidden observatory shortcuts intentionally stay framework-agnostic. The
@@ -240,17 +242,18 @@ export function createExplorerControls({
   };
 }
 
-function getMovementProfile(position, world) {
+export function getMovementProfile(position, world) {
   // Stair zone takes priority — the player is physically on the stairs and
   // their target Y is an interpolation between ground and upper floor.
   const stair = findStairZone(position, world);
   if (stair) {
-    // t = 0 at maxZ (south, ground level) → t = 1 at minZ (north, upper).
+    // Mushroom flights rise northward. Authored villa flights provide their
+    // own sampler: each return flight rises in the opposite direction.
     const span = stair.maxZ - stair.minZ;
     const t = Math.max(0, Math.min(1, (stair.maxZ - position.z) / span));
     return {
       speedMultiplier: stair.speedMultiplier,
-      cameraY: stair.floorY + (stair.upperY - stair.floorY) * t
+      cameraY: stair.eyeYAt?.(position.z) ?? (stair.floorY + (stair.upperY - stair.floorY) * t)
     };
   }
 
@@ -273,6 +276,9 @@ function getMovementProfile(position, world) {
       cameraY: world.upperFloorY ?? world.player.start.y
     };
   }
+
+  const cinemaY = cinemaEyeY(position);
+  if (cinemaY !== null) return { speedMultiplier: 0.85, cameraY: cinemaY };
 
   const waterZone = findWaterZone(position, world);
   if (waterZone) {

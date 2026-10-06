@@ -116,8 +116,8 @@ test("interior stair zones are Y-scoped so the courtyard above ignores them", ()
   assert.equal(stairBt(MUSHROOM_INTERIOR.eyeY[1])?.id, "mushroom-stairs-b");
   assert.equal(stairBt(1.6), null);
 
-  // The villa's main stair still matches without any Y hint (legacy calls).
-  assert.equal(findStairZone({ x: 0, y: 1.6, z: -10 }, world)?.id, "main-stairs");
+  // The independent villa west flight starts at its new authored coordinates.
+  assert.equal(findStairZone({ x: -1.18, y: 1.6, z: -11 }, world)?.id, "main-stairs");
 });
 
 test("stair interpolation carries the player between interior levels", () => {

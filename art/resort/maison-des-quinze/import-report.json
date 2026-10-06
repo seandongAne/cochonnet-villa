@@ -1,0 +1,21 @@
+{
+  "source": "Cochonnet_Villa_Maison_des_Quinze_Complete.zip",
+  "source_glb_sha256": "61843471334aa72695b4a30b4677463ceafb669e9815c0dde9ece9575e8e68e4",
+  "runtime_glb_sha256": "cde1a3eff90ff112602d331e694a6222031939f72c73799849cbf762324e7f35",
+  "source_triangles": 481445,
+  "runtime_triangles": 481445,
+  "runtime_batches": 26,
+  "runtime_bytes": 3633028,
+  "command": "gltfpack -c -vp 16 -vn 10 (no simplification)",
+  "mount": [
+    0,
+    0,
+    -13
+  ],
+  "scale": [
+    1,
+    1,
+    1
+  ],
+  "textures": "Shared pure-colour PBR; no textures or baked AO"
+}

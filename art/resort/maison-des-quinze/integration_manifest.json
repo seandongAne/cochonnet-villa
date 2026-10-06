@@ -1,0 +1,756 @@
+{
+  "title": "Cochonnet Villa — Maison des Quinze",
+  "version": "2026-10-06",
+  "status": "Asset proposal; not installed or deployed",
+  "source_repository_head": "1e89e378bde016d7c989dbe8006ccabd73821ab9",
+  "units": "metres",
+  "blender_coordinates": "Z-up; local center [0,0,0]",
+  "glb_coordinates": "glTF Y-up; source design point (x,y,z) exports to (x,z,13-y)",
+  "runtime_mount": {
+    "position": [
+      0,
+      0,
+      -13
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ],
+    "bbox_fit": "DO NOT apply"
+  },
+  "counts": {
+    "beds": 15,
+    "dining_chairs": 15,
+    "cinema_seats": 15,
+    "computer_stations": 6,
+    "showers": 2
+  },
+  "shell_bounds_local_three": {
+    "x": [
+      -13.21,
+      13.21
+    ],
+    "z": [
+      -11.21,
+      11.21
+    ],
+    "roof_and_trim_have_overhang": true
+  },
+  "floor_elevations": [
+    0.0,
+    6.65,
+    13.65
+  ],
+  "roof_garden": {
+    "enabled": true,
+    "status": "New user-requested asset addition; unintegrated runtime",
+    "floor_elevation_m": 13.65,
+    "upper_hip_removed": true,
+    "retained_roof": "Original lower mansard top at13.60m, dormers, chimneys and front facade retained",
+    "deck_bounds_design": {
+      "x": [
+        -11.2,
+        11.2
+      ],
+      "y": [
+        3.8,
+        22.2
+      ],
+      "z": 13.65
+    },
+    "guarded_walkable_garden_design": {
+      "x": [
+        -10.7,
+        10.7
+      ],
+      "y": [
+        5.4,
+        21.66
+      ],
+      "z": 13.65
+    },
+    "guard_height_m": 1.3825,
+    "guard_bridge_opening_design": {
+      "x": [
+        0,
+        2.1
+      ],
+      "y": 21.8,
+      "z": 13.65
+    },
+    "bridge_design": {
+      "x": [
+        0,
+        2.1
+      ],
+      "y": [
+        21.8,
+        25.5
+      ],
+      "z": 13.65
+    },
+    "door_from_upper_gallery": {
+      "center_design": [
+        0,
+        24,
+        6.65
+      ],
+      "clear_width_m": 2.4,
+      "clear_height_m": 3.2,
+      "fixed_glazing_removed": true
+    },
+    "stair": {
+      "type": "external_rear_dogleg",
+      "floor_start": 6.65,
+      "floor_end": 13.65,
+      "risers": 36,
+      "riser_m": 0.19444444444444445,
+      "tread_m": 0.32,
+      "flight_clear_width_m": 1.85,
+      "tread_width_m": 1.85,
+      "lower_landing_design": {
+        "x": [
+          -2.2,
+          2.2
+        ],
+        "y": [
+          24,
+          25.5
+        ],
+        "z": 6.65
+      },
+      "west_up_run_design": {
+        "x": [
+          -1.975,
+          -0.125
+        ],
+        "y": [
+          25.5,
+          31.26
+        ],
+        "floor": [
+          6.65,
+          10.15
+        ],
+        "direction": "increasing designY / decreasing worldZ"
+      },
+      "return_landing_design": {
+        "x": [
+          -2.2,
+          2.2
+        ],
+        "y": [
+          31.26,
+          33.26
+        ],
+        "z": 10.15
+      },
+      "east_up_run_design": {
+        "x": [
+          0.125,
+          1.975
+        ],
+        "y": [
+          25.5,
+          31.26
+        ],
+        "floor": [
+          13.65,
+          10.15
+        ],
+        "direction": "decreasing designY / increasing worldZ"
+      },
+      "return_landing_depth_m": 2.0,
+      "route_note": "All access is outside, so no internal roof shaft is necessary. Bridge lies above the retained rear mansard and enters through a real guard opening. Add new floor/stair height surfaces and rooftop nav region; no runtime collision or navigation was changed."
+    },
+    "new_footprint_note": "Rear stair/rails extend to approximately designY33.32 / worldZ-33.32. Check existing rear landscaping/spawns before integration; map rear boundary reference is worldZ-40.",
+    "informal_garden_places": 15,
+    "separate_modules": [
+      "CV_Roof_Garden.glb",
+      "CV_Roof_Garden_Stair.glb"
+    ],
+    "protected_existing": "15 beds,15 dining chairs,15 cinema chairs,6 computer stations, original main stair, all bedroom footprints and mushroom-house Observatory unchanged.",
+    "asset_floor_id": "villa_rooftop",
+    "runtime_floor_index": null,
+    "floor_mapping_note": "Asset-local only. Runtime global floor2/3/4 are reserved for mushroom-house underground levels and remain unchanged.",
+    "guard_barriers_file": "roof_guard_barriers.json",
+    "walkable_region_note": "Geometric floor extents only; inset for actual player capsule radius and rail thickness. Use floor-aware guard segments in roof_guard_barriers.json, not visual rail height as a camera-eye blocker.",
+    "static_route_verification_note": "Independent static mesh-ray sampling verified276support/headroom samples across doorway, flights, platforms, bridge and central garden path. This is not a runtime navigation, continuous swept-capsule or gameplay test.",
+    "legacy_rear_wall_collision_adapter_required": "Existing world.js main-villa perimeter wall collision is not limited by height. Split or replace the rear-wall collider to open the new2.4m upper doorway at6.65m while retaining the ground bathhouse rear wall and other-level barriers. Adding rooftop/stair height logic alone will still leave the exit blocked."
+  },
+  "upper_floor_local_three_rectangles": [
+    {
+      "x": [
+        -13,
+        -3
+      ],
+      "z": [
+        -11,
+        11
+      ]
+    },
+    {
+      "x": [
+        3,
+        13
+      ],
+      "z": [
+        -11,
+        11
+      ]
+    },
+    {
+      "x": [
+        -3,
+        3
+      ],
+      "z": [
+        -11,
+        -6
+      ]
+    },
+    {
+      "x": [
+        -3,
+        3
+      ],
+      "z": [
+        9,
+        11
+      ]
+    },
+    {
+      "x": [
+        -3,
+        3
+      ],
+      "z": [
+        2,
+        4
+      ]
+    }
+  ],
+  "upper_voids_local_three": [
+    {
+      "name": "double_height_foyer",
+      "x": [
+        -3,
+        3
+      ],
+      "z": [
+        4,
+        9
+      ]
+    },
+    {
+      "name": "switchback_stair_well",
+      "x": [
+        -3,
+        3
+      ],
+      "z": [
+        -6,
+        2
+      ]
+    }
+  ],
+  "stair": {
+    "type": "two_flight_switchback",
+    "riser_count": 34,
+    "riser_m": 0.19558823529411765,
+    "tread_m": 0.335,
+    "rise_m": 6.65,
+    "camera_height_note": "Elevations are floor surfaces, not camera positions. Add runtime eye offset consistently; do not reuse old fixed upper eye y=8.05.",
+    "flight_clear_width_m": 2.05,
+    "return_landing_depth_m": 2.0,
+    "design_west_flight": {
+      "x": [
+        -2.205,
+        -0.155
+      ],
+      "y": [
+        11,
+        16.695
+      ],
+      "z": [
+        0,
+        3.325
+      ]
+    },
+    "design_east_flight": {
+      "x": [
+        0.155,
+        2.205
+      ],
+      "y": [
+        11,
+        16.695
+      ],
+      "z": [
+        3.325,
+        6.65
+      ]
+    },
+    "upper_arrival_design": {
+      "x": [
+        -3,
+        3
+      ],
+      "y": [
+        9,
+        11
+      ],
+      "z": 6.65
+    }
+  },
+  "room_portals_minimum_clear_width_m": 2.0,
+  "upper_gallery_clear_width_m": 2.3,
+  "portals": [
+    {
+      "id": "GF_West_Room_Divider_portal_01",
+      "axis": "Y",
+      "center_design": [
+        -4,
+        6.9,
+        0
+      ],
+      "width": 2.4,
+      "height": 3.6
+    },
+    {
+      "id": "GF_West_Room_Divider_portal_02",
+      "axis": "Y",
+      "center_design": [
+        -4,
+        15.6,
+        0
+      ],
+      "width": 2.4,
+      "height": 3.6
+    },
+    {
+      "id": "GF_East_Room_Divider_portal_03",
+      "axis": "Y",
+      "center_design": [
+        4,
+        6.9,
+        0
+      ],
+      "width": 2.4,
+      "height": 3.6
+    },
+    {
+      "id": "GF_East_Room_Divider_portal_04",
+      "axis": "Y",
+      "center_design": [
+        4,
+        16.6,
+        0
+      ],
+      "width": 2.4,
+      "height": 3.6
+    },
+    {
+      "id": "GF_Kitchen_Partition_portal_05",
+      "axis": "X",
+      "center_design": [
+        8.5,
+        12.5,
+        0
+      ],
+      "width": 2.6,
+      "height": 3.6
+    },
+    {
+      "id": "GF_Bathhouse_Privacy_Wall_portal_06",
+      "axis": "X",
+      "center_design": [
+        0,
+        19,
+        0
+      ],
+      "width": 2.4,
+      "height": 3.6
+    },
+    {
+      "id": "GF_Front_Facade_portal_07",
+      "axis": "X",
+      "center_design": [
+        0,
+        2,
+        0
+      ],
+      "width": 6.0,
+      "height": 5.4
+    },
+    {
+      "id": "UF_Gallery_Room_Wall_portal_08",
+      "axis": "Y",
+      "center_design": [
+        -5.5,
+        5.65,
+        6.65
+      ],
+      "width": 2.0,
+      "height": 3.0
+    },
+    {
+      "id": "UF_Gallery_Room_Wall_portal_09",
+      "axis": "Y",
+      "center_design": [
+        -5.5,
+        12.95,
+        6.65
+      ],
+      "width": 2.0,
+      "height": 3.0
+    },
+    {
+      "id": "UF_Gallery_Room_Wall_portal_10",
+      "axis": "Y",
+      "center_design": [
+        -5.5,
+        20.25,
+        6.65
+      ],
+      "width": 2.0,
+      "height": 3.0
+    },
+    {
+      "id": "UF_Gallery_Room_Wall_portal_11",
+      "axis": "Y",
+      "center_design": [
+        5.5,
+        5.65,
+        6.65
+      ],
+      "width": 2.0,
+      "height": 3.0
+    },
+    {
+      "id": "UF_Gallery_Room_Wall_portal_12",
+      "axis": "Y",
+      "center_design": [
+        5.5,
+        12.95,
+        6.65
+      ],
+      "width": 2.0,
+      "height": 3.0
+    },
+    {
+      "id": "UF_Gallery_Room_Wall_portal_13",
+      "axis": "Y",
+      "center_design": [
+        5.5,
+        20.25,
+        6.65
+      ],
+      "width": 2.0,
+      "height": 3.0
+    },
+    {
+      "id": "UF_Front_Facade_portal_14",
+      "axis": "X",
+      "center_design": [
+        0,
+        2,
+        6.65
+      ],
+      "width": 4.6,
+      "height": 4.0
+    },
+    {
+      "id": "UF_Rear_Facade_portal_15",
+      "axis": "X",
+      "center_design": [
+        0,
+        24,
+        6.65
+      ],
+      "width": 2.4,
+      "height": 3.2
+    }
+  ],
+  "rooms": [
+    {
+      "id": "grand_foyer",
+      "floor": 0,
+      "bounds_design": [
+        -4,
+        4,
+        2,
+        11
+      ]
+    },
+    {
+      "id": "living_salon",
+      "floor": 0,
+      "bounds_design": [
+        -13,
+        -4,
+        2,
+        12.5
+      ]
+    },
+    {
+      "id": "family_dining_15",
+      "floor": 0,
+      "bounds_design": [
+        4,
+        13,
+        2,
+        12.5
+      ]
+    },
+    {
+      "id": "country_kitchen",
+      "floor": 0,
+      "bounds_design": [
+        4,
+        13,
+        12.5,
+        24
+      ]
+    },
+    {
+      "id": "private_cinema_15",
+      "floor": 0,
+      "bounds_design": [
+        -13,
+        -4,
+        12.5,
+        24
+      ]
+    },
+    {
+      "id": "mineral_bathhouse",
+      "floor": 0,
+      "bounds_design": [
+        -4,
+        4,
+        19,
+        24
+      ]
+    },
+    {
+      "id": "01_The_Orchard",
+      "floor": 1,
+      "beds": 3,
+      "bounds_design": [
+        -13,
+        -5.5,
+        2,
+        9.3
+      ]
+    },
+    {
+      "id": "02_The_Rose_Garden",
+      "floor": 1,
+      "beds": 3,
+      "bounds_design": [
+        -13,
+        -5.5,
+        9.3,
+        16.6
+      ]
+    },
+    {
+      "id": "03_The_Sunroom",
+      "floor": 1,
+      "beds": 3,
+      "bounds_design": [
+        -13,
+        -5.5,
+        16.6,
+        24
+      ]
+    },
+    {
+      "id": "04_The_Cloud",
+      "floor": 1,
+      "beds": 3,
+      "bounds_design": [
+        5.5,
+        13,
+        2,
+        9.3
+      ]
+    },
+    {
+      "id": "05_The_Cedar_Nest",
+      "floor": 1,
+      "beds": 3,
+      "bounds_design": [
+        5.5,
+        13,
+        9.3,
+        16.6
+      ]
+    },
+    {
+      "id": "computer_atelier_6",
+      "floor": 1,
+      "bounds_design": [
+        5.5,
+        13,
+        16.6,
+        24
+      ]
+    }
+  ],
+  "integration_required": [
+    "Replace/extend old upper walkable footprint. Old x±8,zlocal[-3,7] is no longer correct.",
+    "Replace old 4m linear stair detector with both switchback runs and landing at3.325m, with continuous eye elevation.",
+    "Use authored voids: never add a full solid upper slab.",
+    "Add walls/furniture collision proxies or navmesh; rendered GLB geometry alone is not a navigation solution.",
+    "Suppress or remap independently spawned legacy main-villa furniture before adding furnished modules.",
+    "Remap relevant resident anchors to actual room floor elevations; do not delete site residents to force capacity15.",
+    "Update old architecture-only ≤35batch/<4MiB/bakedAO expectations as appropriate. These PBR vertex-geometry assets have no baked AO/UV1 texture maps.",
+    "Keep separate mushroom-house Impossible Observatory, its pocket/floor/collision/coordinate contracts and all unrelated site features unchanged.",
+    "Existing world.js main-villa perimeter wall collision is not limited by height. Split or replace the rear-wall collider to open the new2.4m upper doorway at6.65m while retaining the ground bathhouse rear wall and other-level barriers. Adding rooftop/stair height logic alone will still leave the exit blocked."
+  ],
+  "balcony_access": "Decorative front balcony behind fixed glazing; NOT a navigable room/route.",
+  "preview_disclosure": "Three stylized pig scale proxies and studio landscaping are preview-only, not original game residents, and are excluded from all asset GLBs.",
+  "protected_unchanged": "The separate mushroom-house third-floor Impossible Observatory is outside this asset. No repository/runtime modification was made.",
+  "collision_suggestions": {
+    "cinema_east_step_to_wall_clear_m": 1.44,
+    "cinema_tier_note": "Use continuous seating-platform/stair height surfaces; do not collide every overlapping decorative tread box. Runtime navigation is untested.",
+    "player_radius_reference": 0.62,
+    "recommendation": "Use low-poly static walls + convex furniture proxies + analytic floor/stair surfaces; exclude cushions, trim, decorations and glass from collision",
+    "doors": "Portals are permanently open geometry. No invisible closed door mesh.",
+    "privacy": "Suite screens and bathroom privacy panels are real meshes and should have coarse thin-box colliders.",
+    "bath_pool": "Water is decorative. Author a safe pool interaction/nav boundary if runtime permits bathing."
+  },
+  "collision_proxy_count": 198,
+  "exports": {
+    "Cochonnet_Maison_des_Quinze_FULL.glb": {
+      "mesh_batches": 199,
+      "triangles": 481445,
+      "bytes": 17302276
+    },
+    "modules/CV_Ground_Structure.glb": {
+      "mesh_batches": 26,
+      "triangles": 53964,
+      "bytes": 2431288
+    },
+    "modules/CV_Ground_Furnishings.glb": {
+      "mesh_batches": 81,
+      "triangles": 100875,
+      "bytes": 3846272
+    },
+    "modules/CV_Grand_Stair.glb": {
+      "mesh_batches": 4,
+      "triangles": 9468,
+      "bytes": 437584
+    },
+    "modules/CV_Upper_Structure.glb": {
+      "mesh_batches": 13,
+      "triangles": 36532,
+      "bytes": 1641688
+    },
+    "modules/CV_Upper_Furnishings.glb": {
+      "mesh_batches": 29,
+      "triangles": 146946,
+      "bytes": 4721700
+    },
+    "modules/CV_Mansard_Roof.glb": {
+      "mesh_batches": 9,
+      "triangles": 8276,
+      "bytes": 473104
+    },
+    "modules/CV_Exterior_Details.glb": {
+      "mesh_batches": 6,
+      "triangles": 23564,
+      "bytes": 779232
+    },
+    "modules/CV_Architecture_Only.glb": {
+      "mesh_batches": 73,
+      "triangles": 176968,
+      "bytes": 7455352
+    },
+    "modules/CV_Roof_Garden.glb": {
+      "mesh_batches": 24,
+      "triangles": 75484,
+      "bytes": 2080668
+    },
+    "modules/CV_Roof_Garden_Stair.glb": {
+      "mesh_batches": 7,
+      "triangles": 26336,
+      "bytes": 926984
+    },
+    "modules/CV_Architecture_LOD1.glb": {
+      "mesh_batches": 45,
+      "triangles": 98395,
+      "bytes": 5565552
+    },
+    "modules/CV_Roof_Garden_LOD1.glb": {
+      "mesh_batches": 14,
+      "triangles": 40713,
+      "bytes": 1655092
+    },
+    "modules/CV_Exterior_Only_LOD1.glb": {
+      "mesh_batches": 39,
+      "triangles": 120798,
+      "bytes": 5869864
+    }
+  },
+  "editable_objects": 5292,
+  "editable_mesh_objects": 5276,
+  "editable_font_objects": 16,
+  "palette_defined_materials": 27,
+  "used_materials": 26,
+  "asset_floor_ids": [
+    "villa_ground",
+    "villa_upper",
+    "villa_rooftop"
+  ],
+  "floor_index_note": "Asset-local labels only, never overwrite mushroom-house runtime floor2/3/4.",
+  "architecture_lod1": {
+    "file": "modules/CV_Architecture_LOD1.glb",
+    "mesh_batches": 45,
+    "triangles": 98395,
+    "bytes": 5565552,
+    "lod_level": 1,
+    "groups": [
+      "Facade",
+      "Ground",
+      "Roof",
+      "RoofGarden",
+      "Stair",
+      "Upper"
+    ],
+    "legacy_geometry_budget_pass": false,
+    "baked_ao_uv1": false,
+    "notes": "Reduced main architecture plus rooftop garden/access stair. Indoor furniture comes from separate modules. Numeric old batch/byte budgets checked; legacy AO/UV1 contract and runtime tests are not passed by this claim."
+  },
+  "rooftop_lod1": {
+    "file": "modules/CV_Roof_Garden_LOD1.glb",
+    "mesh_batches": 14,
+    "triangles": 40713,
+    "bytes": 1655092,
+    "scope": "Rooftop deck, planting, furniture, pergola and complete rear external access stair. Visual LOD only; analytic floor/stair navigation must be integrated separately."
+  },
+  "exterior_lod1": {
+    "file": "modules/CV_Exterior_Only_LOD1.glb",
+    "mesh_batches": 39,
+    "triangles": 120798,
+    "bytes": 5869864,
+    "scope": "Exterior plus complete rooftop garden/access stair; no indoor floor slabs, indoor room partitions, original main stair or indoor furniture",
+    "semantic_groups": [
+      "Facade",
+      "Ground",
+      "Roof",
+      "RoofGarden",
+      "Upper"
+    ],
+    "runtime_tested": false
+  },
+  "final_float32_degenerate_faces_removed_from_blend": 0
+}

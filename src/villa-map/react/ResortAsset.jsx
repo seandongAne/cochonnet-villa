@@ -2,8 +2,10 @@ import { useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Group } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createMaterials, createModernVilla, createTieredHotSprings, createMushroomHouse } from '../assets.js';
+import { createMaterials, createTieredHotSprings, createMushroomHouse } from '../assets.js';
 import { prepareResortModel, disposeOwnedObject } from '../resort-assets.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { createMainVillaFallback } from '../main-villa.js';
 import { trackAssetLoad } from '../asset-loading.js';
 import { getGpuPreparer } from './gpu-prepare.js';
 
@@ -12,7 +14,7 @@ import { getGpuPreparer } from './gpu-prepare.js';
 const cache=new Map();
 function load(url) {
   if(!cache.has(url)) {
-    const promise=new GLTFLoader().loadAsync(url).then(gltf=>prepareResortModel(gltf.scene));
+    const promise=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url).then(gltf=>prepareResortModel(gltf.scene));
     cache.set(url,promise);
     promise.catch(()=>{if(cache.get(url)===promise)cache.delete(url);});
   }
@@ -25,8 +27,8 @@ export function ResortAsset({kind,position,rotationY=0}) {
   const get=useThree(s=>s.get);
   useEffect(()=>{
     let cancelled=false, fallbackDisposed=false;
-    const factories={villa:createModernVilla,springs:createTieredHotSprings,mushroom:createMushroomHouse};
-    const fallback=factories[kind](createMaterials());
+    const factories={springs:createTieredHotSprings,mushroom:createMushroomHouse};
+    const fallback=kind==='villa'?createMainVillaFallback():factories[kind](createMaterials());
     root.name=`resort-asset-${kind}`;
     root.userData.assetState='loading'; root.add(fallback);
     const disposeFallback=()=>{if(!fallbackDisposed){disposeOwnedObject(fallback);fallbackDisposed=true;}};

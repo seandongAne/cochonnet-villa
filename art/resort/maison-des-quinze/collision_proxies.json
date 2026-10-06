@@ -1,0 +1,2978 @@
+{
+  "status": "AUTHORING SUGGESTIONS ONLY; NOT INSTALLED",
+  "coordinate_system": "Villa-local Three.js Y-up, mount [0,0,-13]",
+  "floors_and_stairs": "Use analytic rectangles and two-flight height surfaces from integration_manifest.json, not convex hull of whole house",
+  "static_aabbs": [
+    {
+      "name": "GF_West_Room_Divider",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -4.139999866485596,
+        0.0,
+        7.299999713897705
+      ],
+      "aabb_local_three_max": [
+        -3.859999895095825,
+        5.599999904632568,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_West_Room_Divider.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -4.139999866485596,
+        3.5999999046325684,
+        4.899999618530273
+      ],
+      "aabb_local_three_max": [
+        -3.859999895095825,
+        5.599999904632568,
+        7.300000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_West_Room_Divider.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -4.139999866485596,
+        0.0,
+        -1.4000000953674316
+      ],
+      "aabb_local_three_max": [
+        -3.859999895095825,
+        5.599999904632568,
+        4.900000095367432
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_West_Room_Divider.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -4.139999866485596,
+        3.5999999046325684,
+        -3.8000004291534424
+      ],
+      "aabb_local_three_max": [
+        -3.859999895095825,
+        5.599999904632568,
+        -1.4000003337860107
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_West_Room_Divider.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -4.139999866485596,
+        0.0,
+        -11.0
+      ],
+      "aabb_local_three_max": [
+        -3.859999895095825,
+        5.599999904632568,
+        -3.799999713897705
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_East_Room_Divider",
+      "role": "wall",
+      "aabb_local_three_min": [
+        3.859999895095825,
+        0.0,
+        7.299999713897705
+      ],
+      "aabb_local_three_max": [
+        4.139999866485596,
+        5.599999904632568,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_East_Room_Divider.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        3.859999895095825,
+        3.5999999046325684,
+        4.899999618530273
+      ],
+      "aabb_local_three_max": [
+        4.139999866485596,
+        5.599999904632568,
+        7.300000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_East_Room_Divider.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        3.859999895095825,
+        0.0,
+        -2.4000000953674316
+      ],
+      "aabb_local_three_max": [
+        4.139999866485596,
+        5.599999904632568,
+        4.900000095367432
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_East_Room_Divider.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        3.859999895095825,
+        3.5999999046325684,
+        -4.800000190734863
+      ],
+      "aabb_local_three_max": [
+        4.139999866485596,
+        5.599999904632568,
+        -2.4000003337860107
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_East_Room_Divider.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        3.859999895095825,
+        0.0,
+        -11.0
+      ],
+      "aabb_local_three_max": [
+        4.139999866485596,
+        5.599999904632568,
+        -4.799999713897705
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Cinema_Partition",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        0.0,
+        0.3700000047683716
+      ],
+      "aabb_local_three_max": [
+        -4.0,
+        5.599999904632568,
+        0.6299999952316284
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Kitchen_Partition",
+      "role": "wall",
+      "aabb_local_three_min": [
+        4.0,
+        0.0,
+        0.3700000047683716
+      ],
+      "aabb_local_three_max": [
+        7.199999809265137,
+        5.599999904632568,
+        0.6299999952316284
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Kitchen_Partition.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        7.199999809265137,
+        3.5999999046325684,
+        0.3700000047683716
+      ],
+      "aabb_local_three_max": [
+        9.800000190734863,
+        5.599999904632568,
+        0.6299999952316284
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Kitchen_Partition.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        9.799999237060547,
+        0.0,
+        0.3700000047683716
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        5.599999904632568,
+        0.6299999952316284
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Bathhouse_Privacy_Wall",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -4.0,
+        0.0,
+        -6.125
+      ],
+      "aabb_local_three_max": [
+        -1.1999999284744263,
+        5.599999904632568,
+        -5.875
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Bathhouse_Privacy_Wall.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -1.2000000476837158,
+        3.5999999046325684,
+        -6.125
+      ],
+      "aabb_local_three_max": [
+        1.2000000476837158,
+        5.599999904632568,
+        -5.875
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Bathhouse_Privacy_Wall.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        1.1999999284744263,
+        0.0,
+        -6.125
+      ],
+      "aabb_local_three_max": [
+        4.0,
+        5.599999904632568,
+        -5.875
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -11.100000381469727,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.100000381469727,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -8.899999618530273,
+        1.0,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.100000381469727,
+        4.5,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -8.899999618530273,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -8.899999618530273,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -7.899999618530273,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.900000095367432,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -5.700000286102295,
+        1.0,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.900000095367432,
+        4.5,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -5.700000286102295,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.699999809265137,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        -3.0,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -3.0,
+        5.400000095367432,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        3.0,
+        6.299999713897705,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        3.0,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        5.699999809265137,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.700000286102295,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        7.900000095367432,
+        1.0,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.700000286102295,
+        4.5,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        7.900000095367432,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        7.899999618530273,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        8.899999618530273,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.899999618530273,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        11.100000381469727,
+        1.0,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.899999618530273,
+        4.5,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        11.100000381469727,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Front_Facade.014",
+      "role": "wall",
+      "aabb_local_three_min": [
+        11.100000381469727,
+        0.0,
+        10.789999961853027
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        6.300000190734863,
+        11.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        9.149999618530273
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.300000190734863,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        6.650000095367432
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        1.0,
+        9.149999618530273
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        4.400000095367432,
+        6.650000095367432
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.299999713897705,
+        9.149999618530273
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        4.950000286102295
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.300000190734863,
+        6.650000095367432
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        2.4499998092651367
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        1.0,
+        4.949999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        4.400000095367432,
+        2.4499998092651367
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.299999713897705,
+        4.949999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        -1.4500000476837158
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.300000190734863,
+        2.450000047683716
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        -3.9499998092651367
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        1.0,
+        -1.4499998092651367
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        4.400000095367432,
+        -3.9499998092651367
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.299999713897705,
+        -1.4499998092651367
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        -6.950000762939453
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.300000190734863,
+        -3.950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        -9.450000762939453
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        1.0,
+        -6.950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        4.400000095367432,
+        -9.450000762939453
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.299999713897705,
+        -6.950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.210000038146973,
+        0.0,
+        -11.0
+      ],
+      "aabb_local_three_max": [
+        -12.789999961853027,
+        6.300000190734863,
+        -9.450000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        9.149999618530273
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.300000190734863,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.014",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        6.650000095367432
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        1.0,
+        9.149999618530273
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.015",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        4.400000095367432,
+        6.650000095367432
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.299999713897705,
+        9.149999618530273
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.016",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        4.950000286102295
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.300000190734863,
+        6.650000095367432
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.017",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        2.4499998092651367
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        1.0,
+        4.949999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.018",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        4.400000095367432,
+        2.4499998092651367
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.299999713897705,
+        4.949999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.019",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        -1.4500000476837158
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.300000190734863,
+        2.450000047683716
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.020",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        -3.9499998092651367
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        1.0,
+        -1.4499998092651367
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.021",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        4.400000095367432,
+        -3.9499998092651367
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.299999713897705,
+        -1.4499998092651367
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.022",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        -6.950000762939453
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.300000190734863,
+        -3.950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.023",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        -9.450000762939453
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        1.0,
+        -6.950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.024",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        4.400000095367432,
+        -9.450000762939453
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.299999713897705,
+        -6.950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Side_Facade.025",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.789999961853027,
+        0.0,
+        -11.0
+      ],
+      "aabb_local_three_max": [
+        13.210000038146973,
+        6.300000190734863,
+        -9.450000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -11.200000762939453,
+        6.300000190734863,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.199999809265137,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -8.800000190734863,
+        1.2999999523162842,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.199999809265137,
+        4.400000095367432,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -8.800000190734863,
+        6.299999713897705,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -8.800000190734863,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -7.800000190734863,
+        6.300000190734863,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.800000190734863,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -5.399999618530273,
+        1.2999999523162842,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.800000190734863,
+        4.400000095367432,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -5.399999618530273,
+        6.299999713897705,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.400000095367432,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        -1.600000023841858,
+        6.300000190734863,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -1.600000023841858,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        1.600000023841858,
+        2.700000047683716,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -1.600000023841858,
+        4.400000095367432,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        1.600000023841858,
+        6.299999713897705,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        1.600000023841858,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        5.400000095367432,
+        6.300000190734863,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.399999618530273,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        7.800000190734863,
+        1.2999999523162842,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.399999618530273,
+        4.400000095367432,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        7.800000190734863,
+        6.299999713897705,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        7.800000190734863,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        8.800000190734863,
+        6.300000190734863,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.800000190734863,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        11.199999809265137,
+        1.2999999523162842,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.014",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.800000190734863,
+        4.400000095367432,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        11.199999809265137,
+        6.299999713897705,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "GF_Rear_Facade.015",
+      "role": "wall",
+      "aabb_local_three_min": [
+        11.200000762939453,
+        0.0,
+        -11.210000038146973
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        6.300000190734863,
+        -10.789999961853027
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Salon_Sweeping_Sofa_base",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -10.75,
+        0.10999999940395355,
+        6.775000095367432
+      ],
+      "aabb_local_three_max": [
+        -6.25,
+        0.5699999928474426,
+        8.02500057220459
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Salon_Left_Loveseat_base",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -11.72499942779541,
+        0.10999999940395355,
+        3.450000286102295
+      ],
+      "aabb_local_three_max": [
+        -10.47499942779541,
+        0.5699999928474426,
+        5.750000476837158
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Grand_Family_Table_Top",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        7.25,
+        1.0299999713897705,
+        1.875
+      ],
+      "aabb_local_three_max": [
+        9.75,
+        1.2300000190734863,
+        9.125
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Kitchen_Island_Base",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        6.724999904632568,
+        0.0,
+        -6.175000190734863
+      ],
+      "aabb_local_three_max": [
+        9.774999618530273,
+        1.2200000286102295,
+        -4.02500057220459
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Shower_Sage_Privacy_Screen",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -2.2300000190734863,
+        0.07500004768371582,
+        -10.470000267028809
+      ],
+      "aabb_local_three_max": [
+        -2.1100001335144043,
+        2.825000047683716,
+        -8.570000648498535
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Shower_Sage_Privacy_Screen.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        2.1100001335144043,
+        0.07500004768371582,
+        -10.470000267028809
+      ],
+      "aabb_local_three_max": [
+        2.2300000190734863,
+        2.825000047683716,
+        -8.570000648498535
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        6.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -11.125,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.125,
+        6.650000095367432,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -8.875,
+        7.450000286102295,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.125,
+        10.450000762939453,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -8.875,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -8.875,
+        6.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -7.924999713897705,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.925000190734863,
+        6.650000095367432,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -5.675000190734863,
+        7.450000286102295,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.925000190734863,
+        10.450000762939453,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -5.675000190734863,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.675000190734863,
+        6.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        -2.299999952316284,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -2.299999952316284,
+        10.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        2.299999952316284,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        2.299999952316284,
+        6.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        5.675000190734863,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.675000190734863,
+        6.650000095367432,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        7.925000190734863,
+        7.450000286102295,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.675000190734863,
+        10.450000762939453,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        7.925000190734863,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        7.924999713897705,
+        6.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        8.875,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.875,
+        6.650000095367432,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        11.125,
+        7.450000286102295,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.875,
+        10.450000762939453,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        11.125,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Front_Facade.014",
+      "role": "wall",
+      "aabb_local_three_min": [
+        11.125,
+        6.649999618530273,
+        10.824999809265137
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        11.25,
+        11.175000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        6.649999618530273,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -11.125,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.125,
+        6.650000095367432,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -8.875,
+        7.450000286102295,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -11.125,
+        10.450000762939453,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -8.875,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -8.875,
+        6.649999618530273,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -7.924999713897705,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.925000190734863,
+        6.650000095367432,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -5.675000190734863,
+        7.450000286102295,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -7.925000190734863,
+        10.450000762939453,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -5.675000190734863,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.675000190734863,
+        6.649999618530273,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        -1.2000000476837158,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -1.2000000476837158,
+        9.850000381469727,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        1.2000000476837158,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        1.2000000476837158,
+        6.649999618530273,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        5.675000190734863,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.675000190734863,
+        6.650000095367432,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        7.925000190734863,
+        7.450000286102295,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.675000190734863,
+        10.450000762939453,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        7.925000190734863,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        7.924999713897705,
+        6.649999618530273,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        8.875,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.875,
+        6.650000095367432,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        11.125,
+        7.450000286102295,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        8.875,
+        10.450000762939453,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        11.125,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Rear_Facade.014",
+      "role": "wall",
+      "aabb_local_three_min": [
+        11.125,
+        6.649999618530273,
+        -11.175000190734863
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        11.25,
+        -10.824999809265137
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.649999618530273,
+        8.75
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.650000095367432,
+        6.050000190734863
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        7.450000286102295,
+        8.75
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        10.450000762939453,
+        6.050000190734863
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        8.75
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.649999618530273,
+        1.4000003337860107
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        6.050000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.650000095367432,
+        -1.2999998331069946
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        7.450000286102295,
+        1.4000002145767212
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        10.450000762939453,
+        -1.2999998331069946
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        1.4000002145767212
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.649999618530273,
+        -5.949999809265137
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        -1.2999999523162842
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.650000095367432,
+        -8.649999618530273
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        7.450000286102295,
+        -5.9499993324279785
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        10.450000762939453,
+        -8.649999618530273
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        -5.9499993324279785
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.175000190734863,
+        6.649999618530273,
+        -11.000000953674316
+      ],
+      "aabb_local_three_max": [
+        -12.824999809265137,
+        11.25,
+        -8.65000057220459
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.649999618530273,
+        8.75
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.650000095367432,
+        6.050000190734863
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        7.450000286102295,
+        8.75
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        10.450000762939453,
+        6.050000190734863
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        8.75
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.649999618530273,
+        1.4000003337860107
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        6.050000190734863
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.014",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.650000095367432,
+        -1.2999998331069946
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        7.450000286102295,
+        1.4000002145767212
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.015",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        10.450000762939453,
+        -1.2999998331069946
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        1.4000002145767212
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.016",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.649999618530273,
+        -5.949999809265137
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        -1.2999999523162842
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.017",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.650000095367432,
+        -8.649999618530273
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        7.450000286102295,
+        -5.9499993324279785
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.018",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        10.450000762939453,
+        -8.649999618530273
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        -5.9499993324279785
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Side_Facade.019",
+      "role": "wall",
+      "aabb_local_three_min": [
+        12.824999809265137,
+        6.649999618530273,
+        -11.000000953674316
+      ],
+      "aabb_local_three_max": [
+        13.175000190734863,
+        11.25,
+        -8.65000057220459
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        6.649999618530273,
+        8.350000381469727
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        9.649999618530273,
+        6.349999904632568
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        8.350000381469727
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        6.649999618530273,
+        1.049999713897705
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        6.349999904632568
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        9.649999618530273,
+        -0.9499998092651367
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        1.0500001907348633
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.004",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        6.649999618530273,
+        -6.250000476837158
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        -0.9500002861022949
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.005",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        9.649999618530273,
+        -8.25
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        -6.25
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.006",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -5.610000133514404,
+        6.649999618530273,
+        -11.0
+      ],
+      "aabb_local_three_max": [
+        -5.389999866485596,
+        11.25,
+        -8.25
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Upper_Room_Partition",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        6.649999618530273,
+        3.5999999046325684
+      ],
+      "aabb_local_three_max": [
+        -5.5,
+        11.25,
+        3.799999713897705
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Upper_Room_Partition.001",
+      "role": "wall",
+      "aabb_local_three_min": [
+        -13.0,
+        6.649999618530273,
+        -3.700000286102295
+      ],
+      "aabb_local_three_max": [
+        -5.5,
+        11.25,
+        -3.500000476837158
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.007",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        6.649999618530273,
+        8.350000381469727
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        11.0
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.008",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        9.649999618530273,
+        6.349999904632568
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        8.350000381469727
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.009",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        6.649999618530273,
+        1.049999713897705
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        6.349999904632568
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.010",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        9.649999618530273,
+        -0.9499998092651367
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        1.0500001907348633
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.011",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        6.649999618530273,
+        -6.250000476837158
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        -0.9500002861022949
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.012",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        9.649999618530273,
+        -8.25
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        -6.25
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "UF_Gallery_Room_Wall.013",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.389999866485596,
+        6.649999618530273,
+        -11.0
+      ],
+      "aabb_local_three_max": [
+        5.610000133514404,
+        11.25,
+        -8.25
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Upper_Room_Partition.002",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.5,
+        6.649999618530273,
+        3.5999999046325684
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        11.25,
+        3.799999713897705
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Upper_Room_Partition.003",
+      "role": "wall",
+      "aabb_local_three_min": [
+        5.5,
+        6.649999618530273,
+        -3.700000286102295
+      ],
+      "aabb_local_three_max": [
+        13.0,
+        11.25,
+        -3.500000476837158
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_01_01_The_Orchard_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        8.845000267028809
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        10.595000267028809
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_02_01_The_Orchard_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        6.474999904632568
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        8.225000381469727
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_03_01_The_Orchard_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        4.104999542236328
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        5.854999542236328
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Privacy_Low_Wall",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.75,
+        6.650000095367432,
+        8.479999542236328
+      ],
+      "aabb_local_three_max": [
+        -9.549999237060547,
+        7.990000247955322,
+        8.59000015258789
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Privacy_Low_Wall.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.75,
+        6.650000095367432,
+        6.110000133514404
+      ],
+      "aabb_local_three_max": [
+        -9.549999237060547,
+        7.990000247955322,
+        6.21999979019165
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Wardrobe",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -6.940000057220459,
+        6.649999618530273,
+        9.6850004196167
+      ],
+      "aabb_local_three_max": [
+        -5.759999752044678,
+        9.09000015258789,
+        10.835000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Wardrobe_Panel",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.75,
+        6.869999885559082,
+        10.309999465942383
+      ],
+      "aabb_local_three_max": [
+        -5.689999580383301,
+        8.930000305175781,
+        10.75
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Wardrobe_Panel.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.75,
+        6.869999885559082,
+        9.769999504089355
+      ],
+      "aabb_local_three_max": [
+        -5.689999580383301,
+        8.930000305175781,
+        10.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Wardrobe_Handle",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.704999923706055,
+        7.815000057220459,
+        10.322999954223633
+      ],
+      "aabb_local_three_max": [
+        -5.635000228881836,
+        7.964999675750732,
+        10.37700080871582
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "01_The_Orchard_Wardrobe_Handle.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.704999923706055,
+        7.815000057220459,
+        10.142999649047852
+      ],
+      "aabb_local_three_max": [
+        -5.635000228881836,
+        7.964999675750732,
+        10.197000503540039
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_04_02_The_Rose_Garden_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        1.5450000762939453
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        3.2950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_05_02_The_Rose_Garden_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        -0.8249998092651367
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        0.9250001907348633
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_06_02_The_Rose_Garden_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        -3.1949996948242188
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        -1.4449996948242188
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Privacy_Low_Wall",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.75,
+        6.650000095367432,
+        1.1799997091293335
+      ],
+      "aabb_local_three_max": [
+        -9.549999237060547,
+        7.990000247955322,
+        1.2899996042251587
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Privacy_Low_Wall.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.75,
+        6.650000095367432,
+        -1.1900001764297485
+      ],
+      "aabb_local_three_max": [
+        -9.549999237060547,
+        7.990000247955322,
+        -1.0800002813339233
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Wardrobe",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -6.940000057220459,
+        6.649999618530273,
+        2.384999990463257
+      ],
+      "aabb_local_three_max": [
+        -5.759999752044678,
+        9.09000015258789,
+        3.5350000858306885
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Wardrobe_Panel",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.75,
+        6.869999885559082,
+        3.0099995136260986
+      ],
+      "aabb_local_three_max": [
+        -5.689999580383301,
+        8.930000305175781,
+        3.4499995708465576
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Wardrobe_Panel.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.75,
+        6.869999885559082,
+        2.4699995517730713
+      ],
+      "aabb_local_three_max": [
+        -5.689999580383301,
+        8.930000305175781,
+        2.9099996089935303
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Wardrobe_Handle",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.704999923706055,
+        7.815000057220459,
+        3.0230002403259277
+      ],
+      "aabb_local_three_max": [
+        -5.635000228881836,
+        7.964999675750732,
+        3.077000141143799
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "02_The_Rose_Garden_Wardrobe_Handle.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.704999923706055,
+        7.815000057220459,
+        2.8429999351501465
+      ],
+      "aabb_local_three_max": [
+        -5.635000228881836,
+        7.964999675750732,
+        2.8969998359680176
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_07_03_The_Sunroom_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        -5.754999160766602
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        -4.004999160766602
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_08_03_The_Sunroom_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        -8.174999237060547
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        -6.424999237060547
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_09_03_The_Sunroom_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.225000381469727,
+        6.769999980926514,
+        -10.594999313354492
+      ],
+      "aabb_local_three_max": [
+        -9.475000381469727,
+        7.2099995613098145,
+        -8.844999313354492
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Privacy_Low_Wall",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.75,
+        6.650000095367432,
+        -6.144999980926514
+      ],
+      "aabb_local_three_max": [
+        -9.549999237060547,
+        7.990000247955322,
+        -6.035000324249268
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Privacy_Low_Wall.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -12.75,
+        6.650000095367432,
+        -8.565000534057617
+      ],
+      "aabb_local_three_max": [
+        -9.549999237060547,
+        7.990000247955322,
+        -8.454999923706055
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Wardrobe",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -6.940000057220459,
+        6.649999618530273,
+        -4.914999961853027
+      ],
+      "aabb_local_three_max": [
+        -5.759999752044678,
+        9.09000015258789,
+        -3.765000104904175
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Wardrobe_Panel",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.75,
+        6.869999885559082,
+        -4.289999485015869
+      ],
+      "aabb_local_three_max": [
+        -5.689999580383301,
+        8.930000305175781,
+        -3.8499996662139893
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Wardrobe_Panel.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.75,
+        6.869999885559082,
+        -4.830000400543213
+      ],
+      "aabb_local_three_max": [
+        -5.689999580383301,
+        8.930000305175781,
+        -4.390000820159912
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Wardrobe_Handle",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.704999923706055,
+        7.815000057220459,
+        -4.2769999504089355
+      ],
+      "aabb_local_three_max": [
+        -5.635000228881836,
+        7.964999675750732,
+        -4.2230000495910645
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "03_The_Sunroom_Wardrobe_Handle.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        -5.704999923706055,
+        7.815000057220459,
+        -4.457000255584717
+      ],
+      "aabb_local_three_max": [
+        -5.635000228881836,
+        7.964999675750732,
+        -4.403000354766846
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_10_04_The_Cloud_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.475000381469727,
+        6.769999980926514,
+        8.845000267028809
+      ],
+      "aabb_local_three_max": [
+        12.225000381469727,
+        7.2099995613098145,
+        10.595000267028809
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_11_04_The_Cloud_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.475000381469727,
+        6.769999980926514,
+        6.474999904632568
+      ],
+      "aabb_local_three_max": [
+        12.225000381469727,
+        7.2099995613098145,
+        8.225000381469727
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_12_04_The_Cloud_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.475000381469727,
+        6.769999980926514,
+        4.104999542236328
+      ],
+      "aabb_local_three_max": [
+        12.225000381469727,
+        7.2099995613098145,
+        5.854999542236328
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Privacy_Low_Wall",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.549999237060547,
+        6.650000095367432,
+        8.479999542236328
+      ],
+      "aabb_local_three_max": [
+        12.75,
+        7.990000247955322,
+        8.59000015258789
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Privacy_Low_Wall.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.549999237060547,
+        6.650000095367432,
+        6.110000133514404
+      ],
+      "aabb_local_three_max": [
+        12.75,
+        7.990000247955322,
+        6.21999979019165
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Wardrobe",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.759999752044678,
+        6.649999618530273,
+        9.6850004196167
+      ],
+      "aabb_local_three_max": [
+        6.940000057220459,
+        9.09000015258789,
+        10.835000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Wardrobe_Panel",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.689999580383301,
+        6.869999885559082,
+        10.309999465942383
+      ],
+      "aabb_local_three_max": [
+        5.75,
+        8.930000305175781,
+        10.75
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Wardrobe_Panel.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.689999580383301,
+        6.869999885559082,
+        9.769999504089355
+      ],
+      "aabb_local_three_max": [
+        5.75,
+        8.930000305175781,
+        10.210000038146973
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Wardrobe_Handle",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.635000228881836,
+        7.815000057220459,
+        10.322999954223633
+      ],
+      "aabb_local_three_max": [
+        5.704999923706055,
+        7.964999675750732,
+        10.37700080871582
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "04_The_Cloud_Wardrobe_Handle.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.635000228881836,
+        7.815000057220459,
+        10.142999649047852
+      ],
+      "aabb_local_three_max": [
+        5.704999923706055,
+        7.964999675750732,
+        10.197000503540039
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_13_05_The_Cedar_Nest_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.475000381469727,
+        6.769999980926514,
+        1.5450000762939453
+      ],
+      "aabb_local_three_max": [
+        12.225000381469727,
+        7.2099995613098145,
+        3.2950000762939453
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_14_05_The_Cedar_Nest_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.475000381469727,
+        6.769999980926514,
+        -0.8249998092651367
+      ],
+      "aabb_local_three_max": [
+        12.225000381469727,
+        7.2099995613098145,
+        0.9250001907348633
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "Bed_15_05_The_Cedar_Nest_Cedar_Frame",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.475000381469727,
+        6.769999980926514,
+        -3.1949996948242188
+      ],
+      "aabb_local_three_max": [
+        12.225000381469727,
+        7.2099995613098145,
+        -1.4449996948242188
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Privacy_Low_Wall",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.549999237060547,
+        6.650000095367432,
+        1.1799997091293335
+      ],
+      "aabb_local_three_max": [
+        12.75,
+        7.990000247955322,
+        1.2899996042251587
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Privacy_Low_Wall.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        9.549999237060547,
+        6.650000095367432,
+        -1.1900001764297485
+      ],
+      "aabb_local_three_max": [
+        12.75,
+        7.990000247955322,
+        -1.0800002813339233
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Wardrobe",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.759999752044678,
+        6.649999618530273,
+        2.384999990463257
+      ],
+      "aabb_local_three_max": [
+        6.940000057220459,
+        9.09000015258789,
+        3.5350000858306885
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Wardrobe_Panel",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.689999580383301,
+        6.869999885559082,
+        3.0099995136260986
+      ],
+      "aabb_local_three_max": [
+        5.75,
+        8.930000305175781,
+        3.4499995708465576
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Wardrobe_Panel.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.689999580383301,
+        6.869999885559082,
+        2.4699995517730713
+      ],
+      "aabb_local_three_max": [
+        5.75,
+        8.930000305175781,
+        2.9099996089935303
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Wardrobe_Handle",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.635000228881836,
+        7.815000057220459,
+        3.0230002403259277
+      ],
+      "aabb_local_three_max": [
+        5.704999923706055,
+        7.964999675750732,
+        3.077000141143799
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    },
+    {
+      "name": "05_The_Cedar_Nest_Wardrobe_Handle.001",
+      "role": "furniture_proxy",
+      "aabb_local_three_min": [
+        5.635000228881836,
+        7.815000057220459,
+        2.8429999351501465
+      ],
+      "aabb_local_three_max": [
+        5.704999923706055,
+        7.964999675750732,
+        2.8969998359680176
+      ],
+      "note": "Suggested coarse collider. Review runtime agent movement; not installed."
+    }
+  ],
+  "roof_guard_boundaries": "See roof_guard_barriers.json for recommended floor-aware roof/bridge/stair segments with3m vertical collision coverage; not installed or playtested."
+}
