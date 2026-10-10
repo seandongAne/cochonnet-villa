@@ -29,7 +29,10 @@ test("a single-protagonist note only injects that porky's identity", () => {
   const protagonist = PORKY_CAST.find((porky) => porky.name === "呆呆猪");
 
   assert.ok(prompt.includes(protagonist.visual));
-  assert.match(prompt, /使用完成这个瞬间所需的最少角色/);
+  assert.match(prompt, /随笔写明在该瞬间在场的角色都要画出来，不多也不少/);
+  assert.match(prompt, /也不能漏掉随笔写明在场的任何一只/);
+  assert.doesNotMatch(prompt, /最少角色|最少且必要|不是强制出席名单/);
+  assert.doesNotMatch(prompt, /本文一共点名了/, "a lone protagonist gets no ensemble reminder");
   assert.match(prompt, /随笔标题中直接点名、而且在所选瞬间实际在场的小猪是核心角色/);
   assert.match(prompt, /绝不能为了热闹、展示演员表或凑数量而补齐15只/);
   assert.match(prompt, /本篇不是全员合照/);
@@ -47,6 +50,32 @@ test("a single-protagonist note only injects that porky's identity", () => {
   for (const guest of GUEST_CAST) {
     assert.ok(!prompt.includes(guest.name), `${guest.name} is not injected`);
   }
+});
+
+test("a shared-moment note keeps every named porky instead of minimising the cast", () => {
+  const prompt = buildArtPrompt({
+    title: "火锅怎么能跟谁吃都一样呢",
+    body: "呆呆猪、大呆猪和香香猪围在桌边一起吃火锅，每只小猪涮自己最爱的食材。"
+  });
+
+  for (const name of ["呆呆猪", "大呆猪", "香香猪"]) {
+    const porky = PORKY_CAST.find((entry) => entry.name === name);
+    assert.ok(prompt.includes(porky.visual), `${name} keeps its identity`);
+  }
+
+  assert.match(prompt, /本文点名的固定角色身份参考（共3只）/);
+  assert.match(prompt, /本文一共点名了3只固定角色/);
+  assert.match(prompt, /如果它们在所选瞬间同台，就全部画出来/);
+  assert.match(prompt, /优先选择那个共同在场的瞬间/);
+  assert.match(prompt, /不要为了减少人数而退到只有一只猪的瞬间/);
+  assert.match(prompt, /既不能有随笔没写进该瞬间的多余活猪，也不能漏掉随笔写明在场的任何一只/);
+  assert.doesNotMatch(prompt, /最少角色|最少且必要|不是强制出席名单|删除任何无关活猪/);
+
+  // Faithful to the moment, but still never a padded 15-pig portrait.
+  assert.match(prompt, /绝不能为了热闹、展示演员表或凑数量而补齐15只/);
+  assert.match(prompt, /不要添加背景路人猪、远处猪群/);
+  assert.doesNotMatch(prompt, /必须恰好有15只/);
+  assert.doesNotMatch(prompt, /固定构图：三排/);
 });
 
 test("only an explicitly full-cast note requests the 15-porky three-row portrait", () => {
@@ -89,6 +118,8 @@ test("generic plural piglets do not borrow the named tiny porky's identity", () 
 
   assert.ok(!prompt.includes(namedTinyPorky.visual));
   assert.match(prompt, /正文没有明确点名固定演员表成员/);
+  assert.match(prompt, /数量忠于文字/);
+  assert.doesNotMatch(prompt, /最少且必要/);
   assert.doesNotMatch(prompt, /必须恰好有15只/);
 });
 
