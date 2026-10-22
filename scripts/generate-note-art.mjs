@@ -51,7 +51,9 @@ const MAXIMUM_API_ATTEMPTS = parseBoundedPositiveInteger(process.env.NOTE_ART_AP
 
 // The recurring cast must remain visually stable from note to note. Each pig
 // has at least two non-text cues so the image model does not collapse the herd
-// into copies of one generic pink piglet.
+// into copies of one generic pink piglet. Optional `aliases` are other names
+// the author writes for the same pig (e.g. 香瓜猪 in the 三瓜猪 room), so a
+// nickname still summons the canonical identity instead of a nameless guest.
 export const PORKY_CAST = Object.freeze([
   Object.freeze({
     name: "脏脏猪",
@@ -95,6 +97,7 @@ export const PORKY_CAST = Object.freeze([
   }),
   Object.freeze({
     name: "呱呱猪",
+    aliases: Object.freeze(["呱瓜猪"]),
     size: "普通大小",
     visual: "右耳黄色蝴蝶结、颈前橙色蝴蝶结、手持小麦克风"
   }),
@@ -120,6 +123,7 @@ export const PORKY_CAST = Object.freeze([
   }),
   Object.freeze({
     name: "香香猪",
+    aliases: Object.freeze(["香瓜猪"]),
     size: "普通大小",
     visual: "粉色白波点浴巾头带与大蝴蝶结、拿着蓬松化妆刷"
   }),
@@ -156,12 +160,29 @@ const FULL_CAST_SCENE_PATTERN =
 const FULL_CAST_SHORTHAND_PATTERN =
   /(?:猪猪|小猪)?\s*(?:全员|全体)\s*(?:到齐|集合|合照|登场|出镜)/u;
 const FULL_CAST_EXCEPTION_PATTERN = /(?:只有|仅有|除了|缺席|没来|不在|没拍成|取消|未能)/u;
+// A title that counts the whole herd ("十五只猪分床睡") is itself the full-cast
+// cue: the title names what the note is about. The body still needs a
+// collective scene word, because there the count is often just backdrop.
+const FULL_CAST_TITLE_PATTERN = /(?:15|十五)\s*(?:只)?\s*(?:小猪|猪猪|猪)/u;
 
 function noteStoryText(note) {
   return `${String(note?.title ?? "").trim()}\n${noteExcerpt(note?.body, 1200)}`;
 }
 
+function characterNames(character) {
+  return [character.name, ...(character.aliases ?? [])];
+}
+
+function aliasLabel(character) {
+  return character.aliases?.length ? `也叫${character.aliases.join("、")}，` : "";
+}
+
 function isExplicitFullCastNote(note) {
+  const title = String(note?.title ?? "").trim();
+  if (FULL_CAST_TITLE_PATTERN.test(title) && !FULL_CAST_EXCEPTION_PATTERN.test(title)) {
+    return true;
+  }
+
   return noteStoryText(note)
     .split(/[\n。！？；]+/u)
     .some((clause) => {
@@ -180,7 +201,9 @@ function findMentionedCast(note, markerNames) {
   const story = noteStoryText(note);
 
   return PORKY_CAST.filter((porky) =>
-    markerNames.has(porky.name) || (porky.name !== "小猪" && story.includes(porky.name))
+    characterNames(porky).some(
+      (name) => markerNames.has(name) || (name !== "小猪" && story.includes(name))
+    )
   );
 }
 
@@ -188,17 +211,14 @@ function findMentionedGuests(note, markerNames) {
   const story = noteStoryText(note);
 
   return GUEST_CAST.filter((guest) =>
-    [guest.name, ...guest.aliases].some(
+    characterNames(guest).some(
       (alias) => markerNames.has(alias) || story.includes(alias)
     )
   );
 }
 
 function findUnknownCharacterMarkers(markerNames) {
-  const knownNames = new Set([
-    ...PORKY_CAST.map((porky) => porky.name),
-    ...GUEST_CAST.flatMap((guest) => [guest.name, ...guest.aliases])
-  ]);
+  const knownNames = new Set([...PORKY_CAST, ...GUEST_CAST].flatMap(characterNames));
 
   return [...markerNames].filter((name) => !knownNames.has(name));
 }
@@ -213,7 +233,7 @@ function guestIdentitySection(guests, mode) {
     "【来宾朋友的身份参考】",
     ...guests.map(
       (guest) =>
-        `${guest.name}（${guest.aliases.length ? `也叫${guest.aliases.join("、")}，` : ""}${guest.size}）：${guest.visual}。`
+        `${guest.name}（${aliasLabel(guest)}${guest.size}）：${guest.visual}。`
     ),
     mode === "full"
       ? "来宾朋友不是小猪，不占用15只小猪的名额，也不改变三排构图；只有随笔明确写到它在场时才出现。"
@@ -223,7 +243,8 @@ function guestIdentitySection(guests, mode) {
 
 function formatCast(cast) {
   return cast.map(
-    (porky, index) => `${index + 1}. ${porky.name}（${porky.size}）：${porky.visual}。`
+    (porky, index) =>
+      `${index + 1}. ${porky.name}（${aliasLabel(porky)}${porky.size}）：${porky.visual}。`
   ).join("\n");
 }
 

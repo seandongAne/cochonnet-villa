@@ -18,6 +18,16 @@ test("the note-art cast defines 15 immutable, visually distinct porkies", () => 
   assert.equal(PORKY_CAST.filter((porky) => porky.size.startsWith("特别小")).length, 1);
   assert.ok(Object.isFrozen(PORKY_CAST));
   assert.ok(PORKY_CAST.every(Object.isFrozen));
+  assert.ok(PORKY_CAST.every((porky) => !porky.aliases || Object.isFrozen(porky.aliases)));
+});
+
+test("every character name and alias resolves to exactly one identity", () => {
+  const names = [...PORKY_CAST, ...GUEST_CAST].flatMap((character) => [
+    character.name,
+    ...(character.aliases ?? [])
+  ]);
+
+  assert.equal(new Set(names).size, names.length);
 });
 
 test("a single-protagonist note only injects that porky's identity", () => {
@@ -123,7 +133,7 @@ test("generic plural piglets do not borrow the named tiny porky's identity", () 
   assert.doesNotMatch(prompt, /必须恰好有15只/);
 });
 
-test("numbers and broad herd mentions alone do not force a full-cast portrait", () => {
+test("exceptions, partial counts and broad herd mentions do not force a full-cast portrait", () => {
   const focusedStories = [
     {
       title: "15只小猪中只有呆呆猪没睡",
@@ -169,6 +179,40 @@ test("only collective scenes without an exception enable full-cast mode", () => 
   for (const note of focusedNotes) {
     assert.equal(selectNoteArtCast(note).mode, "story", note.title);
   }
+});
+
+test("a title that counts all fifteen porkies requests the full cast without a scene word", () => {
+  for (const title of ["十五只猪分床睡", "15只小猪的周末", "十五猪猪的新床"]) {
+    assert.equal(selectNoteArtCast({ title, body: "每间卧室三张床。" }).mode, "full", title);
+  }
+
+  // The body keeps the stricter rule: a count there is often just backdrop.
+  assert.equal(
+    selectNoteArtCast({ title: "新床", body: "十五只猪名牌都贴在床头。" }).mode,
+    "story"
+  );
+  assert.equal(
+    selectNoteArtCast({ title: "十五只猪里只有懒蛋猪没起床", body: "其他猪都去吃早餐了。" }).mode,
+    "story",
+    "an exception in the title still narrows the cast"
+  );
+});
+
+test("an alias summons the canonical porky's identity, by name or by marker", () => {
+  const note = { title: "三瓜猪一间房", body: "呆瓜猪，香瓜猪和呱瓜猪住在一起。" };
+  const prompt = buildArtPrompt(note);
+
+  assert.deepEqual(selectNoteArtCast(note).fixedCastNames, ["呆瓜猪", "呱呱猪", "香香猪"]);
+  for (const name of ["呆瓜猪", "呱呱猪", "香香猪"]) {
+    const porky = PORKY_CAST.find((entry) => entry.name === name);
+    assert.ok(prompt.includes(porky.visual), `${name} keeps its identity`);
+  }
+  assert.match(prompt, /香香猪（也叫香瓜猪，普通大小）/);
+  assert.match(prompt, /呱呱猪（也叫呱瓜猪，普通大小）/);
+
+  const marked = selectNoteArtCast({ title: "化妆品", body: "[[香瓜猪]]的化妆品不见了。" });
+  assert.deepEqual(marked.fixedCastNames, ["香香猪"]);
+  assert.deepEqual(marked.unknownCharacterMarkers, []);
 });
 
 test("cast selection keeps exact legacy names but never guesses the ambiguous bare 小猪", () => {
@@ -243,6 +287,23 @@ test("the published 2026-08-28 note explicitly invokes the named 小猪", async 
   assert.deepEqual(selection.fixedCastNames, ["小猪"]);
   assert.deepEqual(selection.characterMarkers, ["小猪"]);
   assert.ok(buildArtPrompt(note).includes("棕色齐肩波波头带整齐平刘海"));
+});
+
+test("the published 2026-10-21 room-assignment note gets the whole cast", async () => {
+  const data = JSON.parse(
+    await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
+  );
+  const note = data.notes.find(({ slug }) => slug === "2026-10-21");
+  const prompt = buildArtPrompt(note);
+
+  assert.ok(note, "the published note exists");
+  assert.equal(selectNoteArtCast(note).mode, "full");
+  assert.match(prompt, /必须恰好有15只/);
+  for (const porky of PORKY_CAST) {
+    assert.ok(prompt.includes(porky.visual), `${porky.name} keeps its visual identity`);
+  }
+  assert.match(prompt, /香香猪（也叫香瓜猪/);
+  assert.match(prompt, /呱呱猪（也叫呱瓜猪/);
 });
 
 test("the guest cast is frozen and mentioning 白菜 injects the cabbage identity", () => {
