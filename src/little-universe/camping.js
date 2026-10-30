@@ -5,6 +5,9 @@ import { studio, batchMiniature } from './miniature.js';
 export const CAMPFIRE = [0, .065, .35];
 export const CAMP_LANTERN = [.42, .34, .03];
 export const CAMP_CAPTION = [0, .88, .25];
+// Sit together in front of the fire, clear of the chairs and each other.
+export const CAMP_PIG_POSITION = [-.145, .065, .59];
+export const CAMP_BAICAI_POSITION = [.145, .065, .59];
 export const CAMPING_PARTS = ['tent', 'chair-pig', 'chair-baicai', 'lantern', 'wood-pile', 'little-pig', 'bai-baicai', 'campfire'];
 export const CAMP_ASSET_URL = '/little-universe/camping/camping-props.glb';
 // Authored units are metres. A shared miniature scale preserves prop proportions.
@@ -24,13 +27,10 @@ export const CAMP_PROPS = [
   prop('backpack', 'Backpack', -.36, -.12, .27, -.5),
   prop('sleeping-roll', 'SleepingBag_Rolled', -.42, -.23, .27, .3),
   prop('cooler', 'Cooler_Box', .46, -.25, .24, -.25),
-  prop('wood-pile', 'Firewood_Stack', -.44, .38, .2, -.3),
-  prop('pine-left', 'Pine_Tree_Tall', -.49, -.44, .25, .1),
-  prop('pine-right', 'Pine_Tree_Tall', .38, -.41, .26, 1),
-  prop('pine-small', 'Pine_Tree_Small', -.59, -.13, .24, -.5),
+  prop('wood-pile', 'Firewood_Stack', -.43, .40, .18, .15),
   prop('moss-rock', 'Rock_Medium_Moss', .57, .24, .22, .3),
   prop('stone', 'Rock_Small', -.59, .28, .3),
-  prop('pebbles', 'Pebbles', .23, .53, .28),
+  prop('pebbles', 'Pebbles', .40, .43, .22),
   prop('fern', 'Fern', .55, -.37, .25, 1),
   prop('mushrooms', 'Mushroom_Cluster', -.53, -.29, .3),
   ...Array.from({ length: 12 }, (_, i) => {
@@ -44,14 +44,19 @@ export function createCampingMiniature() {
   const ground = studio();
   ground.cylinder('#687a60', [0, .01, 0], .74, .10);
   ground.cylinder('#aa9574', [0, .057, .18], .42, .008);
+  // Match the planet's rounded trees while keeping the supplied camp furniture.
+  ground.tree(-.49, -.44, .8);
+  ground.tree(.38, -.41, .85);
+  ground.tree(-.59, -.13, .65);
   const base = batchMiniature(ground.root); base.name = 'forest-floor'; root.add(base);
   // Anchors only: unavailable assets never silently become primitive replacements.
   for (const item of CAMP_PROPS) {
     const anchor = new THREE.Group(); anchor.name = item.id;
     anchor.position.fromArray(item.position); root.add(anchor);
   }
-  for (const [name, x] of [['little-pig', -.24], ['bai-baicai', .25]]) {
-    const anchor = new THREE.Group(); anchor.name = name; anchor.position.set(x, .065, .39); root.add(anchor);
+  for (const [name, position] of [['little-pig', CAMP_PIG_POSITION], ['bai-baicai', CAMP_BAICAI_POSITION]]) {
+    const anchor = new THREE.Group(); anchor.name = name; anchor.position.fromArray(position);
+    root.add(anchor);
   }
   return root;
 }

@@ -33,7 +33,8 @@ test('camping subset keeps original named props and embedded palette within a 65
   assert.equal(provenance.archiveAllPropsIdentical, true);
   assert.equal(createHash('sha256').update(bytes).digest('hex'), provenance.outputSha256);
   assert.ok(bytes.length < 650_000);
-  assert.equal(json.nodes.length, new Set(CAMP_PROPS.map(item => item.asset)).size);
+  // The original pine meshes stay in the source pack; the scene now uses round trees.
+  assert.equal(json.nodes.length, new Set([...CAMP_PROPS.map(item => item.asset), 'SM_Pine_Tree_Tall', 'SM_Pine_Tree_Small']).size);
   for (const item of CAMP_PROPS) assert.ok(json.nodes.some(node => node.name === item.asset));
   assert.equal(json.images.length, 1); assert.equal(json.images[0].mimeType, 'image/png');
   assert.ok(json.images[0].bufferView >= 0);

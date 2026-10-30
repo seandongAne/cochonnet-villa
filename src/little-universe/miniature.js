@@ -26,8 +26,9 @@ export function studio(materials = new Map()) {
       ball('#e8b8bc', [x, 0.55 * size, z], [0.29 * size, 0.3 * size, 0.26 * size]);
       ball('#f2ced0', [x + 0.12 * size, 0.68 * size, z], [0.22 * size, 0.23 * size, 0.22 * size]);
     } else {
-      cone('#75958a', [x, 0.48 * size, z], 0.25 * size, 0.55 * size);
-      cone('#9bb7a0', [x, 0.72 * size, z], 0.19 * size, 0.45 * size);
+      // Soft, overlapping crowns keep the planet silhouette round and leafy.
+      mesh(new THREE.SphereGeometry(1, 12, 8), '#75958a', [x, 0.49 * size, z], [0.27 * size, 0.28 * size, 0.25 * size]);
+      mesh(new THREE.SphereGeometry(1, 12, 8), '#9bb7a0', [x + 0.09 * size, 0.64 * size, z - 0.025 * size], [0.23 * size, 0.24 * size, 0.22 * size]);
     }
   }
   function window(x, y, z) {

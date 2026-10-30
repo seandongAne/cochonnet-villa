@@ -3,7 +3,7 @@ import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createCampingMiniature, composeCampingProps, disposeCampingProps, campingMotion, CAMP_ASSET_URL, CAMPFIRE, CAMP_CAPTION, CAMP_LANTERN } from './camping.js';
+import { createCampingMiniature, composeCampingProps, disposeCampingProps, campingMotion, CAMP_ASSET_URL, CAMPFIRE, CAMP_CAPTION, CAMP_LANTERN, CAMP_PIG_POSITION, CAMP_BAICAI_POSITION } from './camping.js';
 import { LocalModel } from './CollectionModels.jsx';
 import { disposeMiniature } from './miniature.js';
 
@@ -52,7 +52,7 @@ export default function CampingVignette({ active, showCaptions, reducedMotion, d
     if (flame) { flame.scale.y = motion.flame; flame.scale.x = 1 + (motion.flame - 1) * .3; }
     fireLight.current.intensity = active ? motion.fireLight : .025;
     lanternLight.current.intensity = active ? .07 : 0;
-    pig.current.position.y = .065 + motion.pigBreath;
+    pig.current.position.y = CAMP_PIG_POSITION[1] + motion.pigBreath;
     cabbage.current.rotation.z = motion.leafSway * .3;
     if (particles.current) {
       for (let i = 0; i < 24; i++) {
@@ -68,8 +68,8 @@ export default function CampingVignette({ active, showCaptions, reducedMotion, d
     <primitive object={ground} dispose={null} />
     {props && <primitive object={props} dispose={null} />}
     {!props && active && <Html position={[0, .55, 0]} center><div className="lu-model-status" role="status">{failed ? <>Campsite unavailable <button onClick={() => setRetry(v => v + 1)}>Retry campsite</button></> : 'Preparing our campsite…'}</div></Html>}
-    <group ref={pig} position={[-.25, .065, .39]}><LocalModel id="little-pig" size={[.24, .3, .23]} rotation={[0, .3, 0]} /></group>
-    <group ref={cabbage} position={[.25, .065, .4]}><LocalModel id="bai-baicai" size={[.24, .29, .23]} rotation={[0, -.3, 0]} /></group>
+    <group ref={pig} position={CAMP_PIG_POSITION}><LocalModel id="little-pig" size={[.24, .3, .23]} rotation={[0, .3, 0]} /></group>
+    <group ref={cabbage} position={CAMP_BAICAI_POSITION}><LocalModel id="bai-baicai" size={[.24, .29, .23]} rotation={[0, -.3, 0]} /></group>
     <pointLight ref={fireLight} position={[CAMPFIRE[0], .27, CAMPFIRE[2]]} color="#ffb76c" distance={1.8} decay={2} intensity={.025} />
     <pointLight ref={lanternLight} position={CAMP_LANTERN} color="#ffd39a" distance={1} decay={2} intensity={0} />
     {active && <pointLight position={[-.04, .2, -.2]} color="#ffcf89" distance={.65} decay={2} intensity={.035} />}
