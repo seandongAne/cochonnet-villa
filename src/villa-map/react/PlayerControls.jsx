@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 
+import { UNIVERSE_GATEWAY_ACTION } from "../little-universe-gateway.js";
 import { createExplorerControls } from "../controls.js";
 import {
   findNearestInteraction,
@@ -28,6 +29,7 @@ export function PlayerControls({
   onToggleObservatoryLights,
   onObservatoryHiddenAction,
   onOpenObservatoryJournal,
+  onEnterLittleUniverse,
   suspended = false
 }) {
   const camera = useThree((state) => state.camera);
@@ -53,6 +55,9 @@ export function PlayerControls({
   const onOpenObservatoryJournalRef = useRef(onOpenObservatoryJournal);
   onOpenObservatoryJournalRef.current = onOpenObservatoryJournal;
 
+  const onEnterLittleUniverseRef = useRef(onEnterLittleUniverse);
+  onEnterLittleUniverseRef.current = onEnterLittleUniverse;
+
   useEffect(() => {
     const controls = createExplorerControls({
       camera,
@@ -64,6 +69,10 @@ export function PlayerControls({
       // direction the destination intends.
       onAction: (event) => {
         const target = nearestRef.current;
+        if (target?.action?.type === UNIVERSE_GATEWAY_ACTION) {
+          onEnterLittleUniverseRef.current?.(event);
+          return;
+        }
         if (target?.action?.type === "toggle-observatory-lights") {
           onToggleObservatoryLightsRef.current?.();
           return;

@@ -1,0 +1,45 @@
+{
+  "provenance": "Four images supplied by the author on 2026-10-30 as their collected vinyl records. Local lossless WebP conversion only; full composition and vinyl edges preserved. No album edition or release year is inferred. No open license is asserted.",
+  "records": [
+    {
+      "id": "leslie-cheung",
+      "sourceFile": "ChatGPT Image Oct 30, 2026, 03_21_01 PM-1.png",
+      "sourceSha256": "d7a61218a446965ad7127ce22054c9095a0aaeae4608cdee4c5de0f69959b5cd",
+      "file": "leslie-cheung.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2040602,
+      "sha256": "40e443a6d2feb60c265526caa103dfe0b9c32e8aa3200ee38aea27385e04079c"
+    },
+    {
+      "id": "teresa-teng",
+      "sourceFile": "ChatGPT Image Oct 30, 2026, 03_21_02 PM-2.png",
+      "sourceSha256": "7c1829c7b3a6db66efeef40e383a2b907306d6e46657b8f57ca748ab6f033b8b",
+      "file": "teresa-teng.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1891962,
+      "sha256": "36175d4097f652a2b1f7491515857a45eea4b1e539292f57c7062a7020cbfd51"
+    },
+    {
+      "id": "rocketman",
+      "sourceFile": "ChatGPT Image Oct 30, 2026, 03_21_02 PM-3.png",
+      "sourceSha256": "eeb0cb335b8196c24b4059d93559e31cc37eafc0830aa6729c440c25df47f783",
+      "file": "rocketman.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2443026,
+      "sha256": "61bca176c6de004e41b28e35e2d3406333aec2976db3210e50c635b975ccebf3"
+    },
+    {
+      "id": "jesus-christ-superstar",
+      "sourceFile": "ChatGPT Image Oct 30, 2026, 03_21_03 PM-4.png",
+      "sourceSha256": "dc67874edcf03a73746524c399f8336a8b121126ca0cc7ba8a022a703ea6c110",
+      "file": "jesus-christ-superstar.webp",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2336448,
+      "sha256": "70e691a4c70e0199fc7bc2eabfab76e33428c3abb05f4be5623e315e02ea57f0"
+    }
+  ]
+}

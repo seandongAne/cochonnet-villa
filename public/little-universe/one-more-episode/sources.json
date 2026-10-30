@@ -1,0 +1,61 @@
+{
+  "note": "Series title cards and logos. Copyright remains with the respective rights holders; no open license is implied. These identify each series, not a particular season watched.",
+  "artwork": [
+    {
+      "id": "downton-abbey",
+      "local": "/little-universe/one-more-episode/downton-abbey.webp",
+      "page": "https://en.wikipedia.org/wiki/Downton_Abbey",
+      "original": "https://upload.wikimedia.org/wikipedia/en/c/c4/Downton_Abbey_Title_Card.jpg",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "youre-the-worst",
+      "local": "/little-universe/one-more-episode/youre-the-worst.webp",
+      "page": "https://en.wikipedia.org/wiki/You%27re_the_Worst",
+      "original": "https://upload.wikimedia.org/wikipedia/en/7/73/You%27re_the_Worst_title_card.png",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "the-good-place",
+      "local": "/little-universe/one-more-episode/the-good-place.webp",
+      "page": "https://en.wikipedia.org/wiki/The_Good_Place",
+      "original": "https://upload.wikimedia.org/wikipedia/commons/7/7e/The_Good_Place_title_card.svg",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "the-good-wife",
+      "local": "/little-universe/one-more-episode/the-good-wife.webp",
+      "page": "https://en.wikipedia.org/wiki/The_Good_Wife",
+      "original": "https://upload.wikimedia.org/wikipedia/commons/1/1c/The_Good_Wife_Logo.png",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "the-good-fight",
+      "local": "/little-universe/one-more-episode/the-good-fight.webp",
+      "page": "https://en.wikipedia.org/wiki/The_Good_Fight",
+      "original": "https://upload.wikimedia.org/wikipedia/commons/d/d5/The_Good_Fight_logo.png",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "game-of-thrones",
+      "local": "/little-universe/one-more-episode/game-of-thrones.webp",
+      "page": "https://en.wikipedia.org/wiki/Game_of_Thrones",
+      "original": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Game_of_thrones_HBO_logo.png",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "shrinking",
+      "local": "/little-universe/one-more-episode/shrinking.webp",
+      "page": "https://en.wikipedia.org/wiki/Shrinking_(TV_series)",
+      "original": "https://upload.wikimedia.org/wikipedia/commons/1/11/Shrinking_TV_Series_Logo.svg",
+      "kind": "Series title card or logo"
+    },
+    {
+      "id": "the-man-in-the-high-castle",
+      "local": "/little-universe/one-more-episode/the-man-in-the-high-castle.webp",
+      "page": "https://www.imdb.com/title/tt1740299/mediaviewer/rm4456448/",
+      "original": "https://m.media-amazon.com/images/M/MV5BMjM4NzEyNTU2Nl5BMl5BanBnXkFtZTgwMTE3ODI0MDI%40._V1_.jpg",
+      "kind": "Promotional poster supplied in the author’s source package"
+    }
+  ]
+}

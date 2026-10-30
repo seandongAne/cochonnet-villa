@@ -31,7 +31,7 @@ export function createExplorerControls({
   const keys = new Set();
   const velocity = new THREE.Vector3();
   const candidate = new THREE.Vector3();
-  let yaw = 0;
+  let yaw = world.player.start.yaw ?? 0;
   let pitch = 0;
   let isLocked = false;
   let enabled = true;

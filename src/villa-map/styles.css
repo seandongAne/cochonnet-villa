@@ -497,3 +497,7 @@
   background: rgba(255, 252, 246, 0.88);
   color: #4e2f33;
 }
+
+/* A visible-cursor alternative to the telescope's existing E action. */
+.universe-gateway-link { display: inline-flex; margin-top: .8rem; padding: .65rem 1rem; border-radius: 999px; background: #354f4b; color: #fff6df; text-decoration: none; font-weight: 700; }
+.universe-gateway-link:focus-visible { outline: 3px solid #bd9963; outline-offset: 4px; }

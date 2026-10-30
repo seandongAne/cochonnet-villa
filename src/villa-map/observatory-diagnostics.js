@@ -1,4 +1,5 @@
 import { MUSHROOM_INTERIOR } from "./world.js";
+import { SKY_PLANET_POSITION } from "./little-universe-gateway.js";
 import { OBSERVATORY_BLACK_HOLE_DEFAULT_ANCHOR } from "./observatory-black-hole.js";
 
 // Stable camera bookmarks used by the browser visual-regression workflow.
@@ -8,6 +9,8 @@ const { center, eyeY, floorY } = MUSHROOM_INTERIOR;
 const domeTargetY = floorY[2] + 8.7;
 
 export const OBSERVATORY_DIAGNOSTIC_VIEWS = Object.freeze({
+  "universe-gateway": Object.freeze({ position: [2, 1.6, 16.6], target: SKY_PLANET_POSITION }),
+  "universe-telescope": Object.freeze({ position: [1, 2.4, 18.5], target: [4, 1.1, 14] }),
   "mushroom-hearth": Object.freeze({ position: [-6, -46.4, 23.8], target: [-8.5, -46, 14] }),
   "mushroom-den": Object.freeze({ position: [-6, -38.4, 22], target: [-6, -38, 11] }),
   "mushroom-front": Object.freeze({ position: [5, 6.5, 37], target: [-6, 4.8, 18] }),

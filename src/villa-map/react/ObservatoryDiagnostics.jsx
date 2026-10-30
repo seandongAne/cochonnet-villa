@@ -166,6 +166,13 @@ export function ObservatoryDiagnostics({
           return ext?webglContext.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unavailable';})(),
         resortAssets: Object.fromEntries(['villa','springs','mushroom'].map(kind => [kind,
           scene.getObjectByName(`resort-asset-${kind}`)?.userData.assetState ?? 'legacy'])),
+        universeGateway: (() => {
+          const planet = scene.getObjectByName('little-universe-sky-planet');
+          if (!planet) return { present: false };
+          const position = planet.getWorldPosition(new THREE.Vector3());
+          return { present: true, visible: planet.visible, position: position.toArray(),
+            projected: position.clone().project(camera).toArray(), batches: planet.children.length };
+        })(),
         perimeterFence: (() => {
           const root = scene.getObjectByName('perimeter-fence-asset');
           const model = root?.children[0];

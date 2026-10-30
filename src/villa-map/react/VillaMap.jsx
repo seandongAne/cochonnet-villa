@@ -11,6 +11,8 @@ import {
   subscribeAssetProgress
 } from "../asset-loading.js";
 import { SURROUNDINGS_CAMERA_FAR } from "../surroundings.js";
+import { LITTLE_UNIVERSE_URL, UNIVERSE_GATEWAY_ACTION, applyUniverseArrival } from "../little-universe-gateway.js";
+import { UniverseGateway } from "./UniverseGateway.jsx";
 import { createVillaWorld } from "../world.js";
 import { isTypingTarget } from "../controls.js";
 import {
@@ -99,7 +101,7 @@ function recordLine(placement, live) {
 // React state and hosts the R3F <Canvas>. Mounted client-only (Three.js needs
 // `window`), so there is no SSR pass.
 export default function VillaMap() {
-  const world = useMemo(() => createVillaWorld(), []);
+  const world = useMemo(() => applyUniverseArrival(createVillaWorld(), window.location.search), []);
   // DEV-ONLY furniture editor, opened with `?edit=1`. Evaluated once on mount;
   // window exists because this island is client:only.
   const editMode = useMemo(
@@ -282,6 +284,25 @@ export default function VillaMap() {
   // remember the intent so the lock fires the moment controls are ready —
   // otherwise the click would be a silent no-op.
   const wantLockRef = useRef(false);
+
+  // A browser Back may restore this page from bfcache after navigation paused
+  // the controls. Resume the same instance, preserving its position.
+  useEffect(() => {
+    const resume = (event) => { if (event.persisted) lockRef.current?.setEnabled(!observatorySuspended); };
+    window.addEventListener("pageshow", resume);
+    return () => window.removeEventListener("pageshow", resume);
+  }, [observatorySuspended]);
+
+  const enterLittleUniverse = useCallback((event) => {
+    if (event?.ctrlKey || event?.metaKey || event?.altKey || event?.shiftKey) return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    lockRef.current?.setEnabled(false);
+    try { if (document.pointerLockElement) document.exitPointerLock?.(); } catch {
+      // Navigation also works in browsers that reject Pointer Lock.
+    }
+    window.location.assign(LITTLE_UNIVERSE_URL);
+  }, []);
 
   const openQualityPanel = useCallback(() => {
     qualityPanelResumeRef.current = exploringRef.current
@@ -508,6 +529,7 @@ export default function VillaMap() {
         onPointerMissed={editMode ? () => setSelected(null) : undefined}
       >
         <UltraWideFraming baseFov={BASE_VERTICAL_FOV} />
+        <UniverseGateway />
         <Scene
           onMapQualityChange={setMapQuality}
           world={world}
@@ -544,6 +566,7 @@ export default function VillaMap() {
                 onToggleObservatoryLights={toggleObservatoryLights}
                 onObservatoryHiddenAction={handleObservatoryHiddenAction}
                 onOpenObservatoryJournal={openObservatoryJournal}
+                onEnterLittleUniverse={enterLittleUniverse}
                 suspended={observatorySuspended}
               />
             )}
@@ -567,6 +590,7 @@ export default function VillaMap() {
             onToggleObservatoryLights={toggleObservatoryLights}
             onObservatoryHiddenAction={handleObservatoryHiddenAction}
             onOpenObservatoryJournal={openObservatoryJournal}
+            onEnterLittleUniverse={enterLittleUniverse}
             suspended={observatorySuspended}
           />
         )}
@@ -612,7 +636,7 @@ export default function VillaMap() {
         <section className="villa-map-overlay" aria-label="地图控制说明">
           <h1>进入猪猪山庄</h1>
           <p>
-            沿着木围栏探索猪猪山庄：主楼、庭院、温泉和草地都可以逛，蘑菇屋也能推门进入，一共三层。欢迎门保持打开，门外的远景暂不开放探索。点击开始后用键盘移动、鼠标环视；若浏览器不支持鼠标锁定，按住左键拖拽也能环视。靠近白色提示点会出现故事卡片，出现按键提示时按 E 互动。
+            沿着木围栏探索猪猪山庄：主楼、庭院、温泉和草地都可以逛，蘑菇屋也能推门进入，一共三层。欢迎门保持打开，门外的远景暂不开放探索。点击开始后用键盘移动、鼠标环视；若浏览器不支持鼠标锁定，按住左键拖拽也能环视。靠近白色提示点会出现故事卡片，出现按键提示时按 E 互动。庭院小路旁的望远镜，通往天空中的小宇宙。
           </p>
           <div className="villa-map-controls" aria-label="键盘控制">
             {CONTROL_KEYS.map((key) => (
@@ -690,6 +714,9 @@ export default function VillaMap() {
         <aside className="interaction-panel" aria-label="互动信息">
           <h2>{displayedInteraction.title}</h2>
           <p>{displayedInteraction.body}</p>
+          {displayedInteraction.action?.type === UNIVERSE_GATEWAY_ACTION && (
+            <a className="universe-gateway-link" href={LITTLE_UNIVERSE_URL} onClick={enterLittleUniverse}>前往小宇宙 ↗</a>
+          )}
           {displayedInteraction.action?.label && (
             <p className="interaction-action-hint">
               <kbd>E</kbd>{" "}

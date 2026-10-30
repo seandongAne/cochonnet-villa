@@ -1,0 +1,482 @@
+[
+  {
+    "image": "F14-main_wheels_BaseColor.png.001",
+    "file": "F14/F14-main_wheels_BaseColor.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F14-main_wheels_Metallic.png.001",
+    "file": "F14/F14-main_wheels_Metallic.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F14-main_wheels_Normal.png.001",
+    "file": "F14/F14-main_wheels_Normal.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F14-main_wheels_Roughness.png.001",
+    "file": "F14/F14-main_wheels_Roughness.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F14_main_body_Alpha.png.001",
+    "file": "F14/F14_main_body_Alpha.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F14_main_body_BaseColor.png.001",
+    "file": "F14/F14_main_body_BaseColor.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F14_main_body_Metallic.png.001",
+    "file": "F14/F14_main_body_Metallic.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F14_main_body_Normal.png.001",
+    "file": "F14/F14_main_body_Normal.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F14_main_body_Roughness.png.001",
+    "file": "F14/F14_main_body_Roughness.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F14_main_cockpit_BaseColor.png.003",
+    "file": "F14/F14_main_cockpit_BaseColor.png",
+    "size": [
+      512,
+      512
+    ]
+  },
+  {
+    "image": "F14_main_cockpit_Metallic.png.003",
+    "file": "F14/F14_main_cockpit_Metallic.png",
+    "size": [
+      512,
+      512
+    ]
+  },
+  {
+    "image": "F14_main_cockpit_Normal.png.003",
+    "file": "F14/F14_main_cockpit_Normal.png",
+    "size": [
+      512,
+      512
+    ]
+  },
+  {
+    "image": "F14_main_cockpit_Roughness.png.003",
+    "file": "F14/F14_main_cockpit_Roughness.png",
+    "size": [
+      512,
+      512
+    ]
+  },
+  {
+    "image": "F14_main_engine_BaseColor.png.001",
+    "file": "F14/F14_main_engine_BaseColor.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F14_main_engine_Metallic.png.001",
+    "file": "F14/F14_main_engine_Metallic.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F14_main_engine_Normal.png.001",
+    "file": "F14/F14_main_engine_Normal.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F14_main_engine_Roughness.png.001",
+    "file": "F14/F14_main_engine_Roughness.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F16-engine_BaseColor.tga.001",
+    "file": "F16/F16-engine_BaseColor.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F16-engine_Metallic.tga.001",
+    "file": "F16/F16-engine_Metallic.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F16-engine_Normal.tga.001",
+    "file": "F16/F16-engine_Normal.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F16-engine_Roughness.tga.001",
+    "file": "F16/F16-engine_Roughness.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F16-gear_BaseColor.tga.001",
+    "file": "F16/F16-gear_BaseColor.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F16-gear_Metallic.tga.001",
+    "file": "F16/F16-gear_Metallic.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F16-gear_Normal.tga.001",
+    "file": "F16/F16-gear_Normal.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F16-gear_Roughness.tga.001",
+    "file": "F16/F16-gear_Roughness.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F16-Main body _Alpha.tga.002",
+    "file": "F16/F16-Main body _Alpha.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F16-Main body _BaseColor.tga.002",
+    "file": "F16/F16-Main body _BaseColor.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F16-Main body _Metallic.tga.002",
+    "file": "F16/F16-Main body _Metallic.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F16-Main body _Normal.tga.002",
+    "file": "F16/F16-Main body _Normal.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F16-Main body _Roughness.tga.002",
+    "file": "F16/F16-Main body _Roughness.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F18-engine_BaseColor.tga",
+    "file": "FA18/F18-engine_BaseColor.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F18-engine_Metallic.tga",
+    "file": "FA18/F18-engine_Metallic.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F18-engine_Normal.tga",
+    "file": "FA18/F18-engine_Normal.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F18-engine_Roughness.tga",
+    "file": "FA18/F18-engine_Roughness.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "F18-gear_BaseColor.tga",
+    "file": "FA18/F18-gear_BaseColor.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F18-gear_Metallic.tga",
+    "file": "FA18/F18-gear_Metallic.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F18-gear_Normal.tga",
+    "file": "FA18/F18-gear_Normal.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F18-gear_Roughness.tga",
+    "file": "FA18/F18-gear_Roughness.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F18-main_Alpha.tga",
+    "file": "FA18/F18-main_Alpha.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F18-main_Metallic.tga",
+    "file": "FA18/F18-main_Metallic.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F18-main_Normal.tga",
+    "file": "FA18/F18-main_Normal.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "F18-main_Roughness.tga",
+    "file": "FA18/F18-main_Roughness.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "Mat-F15-Accessories_BaseColor.tga.001",
+    "file": "F15E/Mat-F15-Accessories_BaseColor.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-Accessories_Metallic.tga.001",
+    "file": "F15E/Mat-F15-Accessories_Metallic.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-Accessories_Normal.tga.001",
+    "file": "F15E/Mat-F15-Accessories_Normal.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-Accessories_Roughness.tga.001",
+    "file": "F15E/Mat-F15-Accessories_Roughness.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-Body_Alpha.tga.001",
+    "file": "F15E/Mat-F15-Body_Alpha.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "Mat-F15-Body_BaseColor.tga.001",
+    "file": "F15E/Mat-F15-Body_BaseColor.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "Mat-F15-Body_Metallic.tga.001",
+    "file": "F15E/Mat-F15-Body_Metallic.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "Mat-F15-Body_Normal.tga.001",
+    "file": "F15E/Mat-F15-Body_Normal.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "Mat-F15-Body_Roughness.tga.001",
+    "file": "F15E/Mat-F15-Body_Roughness.png",
+    "size": [
+      4096,
+      4096
+    ]
+  },
+  {
+    "image": "Mat-F15-engine_BaseColor.tga.001",
+    "file": "F15E/Mat-F15-engine_BaseColor.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-engine_Metallic.tga.001",
+    "file": "F15E/Mat-F15-engine_Metallic.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-engine_Normal.tga.001",
+    "file": "F15E/Mat-F15-engine_Normal.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-engine_Roughness.tga.001",
+    "file": "F15E/Mat-F15-engine_Roughness.png",
+    "size": [
+      2048,
+      2048
+    ]
+  },
+  {
+    "image": "Mat-F15-landing gear_BaseColor.tga.001",
+    "file": "F15E/Mat-F15-landing gear_BaseColor.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "Mat-F15-landing gear_Metallic.tga.001",
+    "file": "F15E/Mat-F15-landing gear_Metallic.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "Mat-F15-landing gear_Normal.tga.001",
+    "file": "F15E/Mat-F15-landing gear_Normal.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "Mat-F15-landing gear_Roughness.tga.001",
+    "file": "F15E/Mat-F15-landing gear_Roughness.png",
+    "size": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "image": "F18-main_BaseColor.png",
+    "file": "FA18/F18-main_BaseColor.png",
+    "size": [
+      4096,
+      4096
+    ]
+  }
+]

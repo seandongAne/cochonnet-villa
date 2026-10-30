@@ -1,0 +1,36 @@
+{
+  "description": "Musical artwork for a private local memory collection. Artwork identifies each show, not the production attended. Rights remain with the original owners. No performance dates or venues have been assumed.",
+  "retrieved": "2026-10-30",
+  "posters": [
+    {
+      "id": "hamilton",
+      "local": "/little-universe/music-world/hamilton.webp",
+      "filePage": "https://en.wikipedia.org/wiki/File:Hamilton-poster.jpg",
+      "original": "https://upload.wikimedia.org/wikipedia/en/8/83/Hamilton-poster.jpg"
+    },
+    {
+      "id": "rent",
+      "local": "/little-universe/music-world/rent.webp",
+      "filePage": "https://en.wikipedia.org/wiki/File:Rentpostera.jpg",
+      "original": "https://upload.wikimedia.org/wikipedia/en/e/ea/Rentpostera.jpg"
+    },
+    {
+      "id": "phantom",
+      "local": "/little-universe/music-world/phantom.webp",
+      "filePage": "https://en.wikipedia.org/wiki/File:The_Phantom_of_the_Opera_%281986_musical%29.jpg",
+      "original": "https://upload.wikimedia.org/wikipedia/en/e/ef/The_Phantom_of_the_Opera_%281986_musical%29.jpg"
+    },
+    {
+      "id": "les-miserables",
+      "local": "/little-universe/music-world/les-miserables.webp",
+      "filePage": "https://en.wikipedia.org/wiki/File:LesMisLogo.png",
+      "original": "https://upload.wikimedia.org/wikipedia/en/6/67/LesMisLogo.png"
+    },
+    {
+      "id": "six",
+      "local": "/little-universe/music-world/six.webp",
+      "filePage": "https://en.wikipedia.org/wiki/File:Six_Musical.jpg",
+      "original": "https://upload.wikimedia.org/wikipedia/en/6/6b/Six_Musical.jpg"
+    }
+  ]
+}

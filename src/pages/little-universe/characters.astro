@@ -1,0 +1,72 @@
+---
+import SeoHead from '../../components/SeoHead.astro';
+import '../../viewport-scale.css';
+const friends = [
+  { name: '发芽小猪', english: 'LITTLE SPROUT', image: 'sprout-pig-v1', description: '把小小的快乐，种在头顶。', alt: '浅蜜桃粉色的圆滚小猪黏土摆件，歪头开心地笑着，头顶长着两片绿色嫩芽。' },
+  { name: '小白菜', english: 'LITTLE CABBAGE', image: 'little-cabbage-v1', description: '伸出小手，和你打个招呼。', alt: '奶油白色的小白菜黏土摆件，嫩绿菜叶包着圆肚子，红扑扑的脸颊，一只小手开心地挥着。' },
+];
+---
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <SeoHead title="发芽小猪与小白菜 · 我们的小小世界" description="一只小猪，一颗白菜，两份圆滚滚的小快乐。" path="/little-universe/characters/" locale="zh_CN" noindex />
+</head>
+<body>
+  <main>
+    <header>
+      <a class="back" href="/little-universe/">← 回到生日星球</a>
+      <p class="eyebrow">OUR LITTLE CLAY COLLECTION</p>
+      <h1>我们俩，刚刚好。</h1>
+      <p class="intro">一只小猪，一颗白菜。<br class="mobile-break" />两份圆滚滚的小快乐。</p>
+    </header>
+    <section class="friends" aria-label="发芽小猪和小白菜的黏土摆件图">
+      {friends.map(friend => <figure>
+        <a class="portrait" href={`/birthday-characters/${friend.image}.png`} target="_blank" rel="noopener" aria-label={`查看${friend.name}原图（新窗口）`}>
+          <img src={`/birthday-characters/${friend.image}.webp`} alt={friend.alt} width="1200" height="1200" loading="eager" />
+          <span class="expand" aria-hidden="true">↗</span>
+        </a>
+        <figcaption><p class="eyebrow">{friend.english}</p><h2>{friend.name}</h2><p>{friend.description}</p></figcaption>
+      </figure>)}
+    </section>
+    <footer><p><a href="/little-universe/">去星球看猪菜露营 →</a></p><span aria-hidden="true">♡</span><p>把平凡的小日子，捏成喜欢的样子。</p><small>黏土摆件造型图 · 点图片查看大图</small></footer>
+  </main>
+</body>
+</html>
+<style>
+  :global(body) { margin: 0; background: #faf5ec; color: #625247; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+  main { max-width: 1120px; margin: auto; padding: 28px 32px 36px; }
+  header { text-align: center; }
+  .back { display: inline-block; color: #8b7968; font-size: .8rem; text-decoration: none; padding: 8px; }
+  .back:hover { color: #504032; }
+  .eyebrow { font-size: .63rem; letter-spacing: .23em; color: #a18e77; }
+  header .eyebrow { margin: 28px 0 14px; }
+  h1 { font: normal clamp(1.9rem, 4vw, 3rem)/1.3 Georgia, 'Microsoft YaHei', serif; letter-spacing: .06em; margin: 0; }
+  .intro { color: #9a8775; font-size: .9rem; line-height: 1.9; margin: 15px 0 32px; }
+  .mobile-break { display: none; }
+  .friends { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+  figure { margin: 0; }
+  .portrait { display: block; position: relative; border-radius: 24px; overflow: hidden; background: #f1e7d8; box-shadow: 0 12px 36px #7c57350a; }
+  img { width: 100%; height: auto; display: block; transition: transform .35s ease; }
+  .portrait:hover img { transform: scale(1.025); }
+  .expand { position: absolute; right: 16px; bottom: 16px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #fffaf0cc; color: #79604a; }
+  figcaption { text-align: center; padding: 19px 8px 0; }
+  figcaption .eyebrow { margin: 0 0 8px; font-size: .57rem; }
+  h2 { font-size: 1.25rem; font-weight: 500; margin: 0 0 8px; letter-spacing: .1em; }
+  figcaption p:last-child { font-size: .82rem; color: #a18e7c; margin: 0; }
+  footer { text-align: center; margin-top: 35px; color: #a18e7c; }
+  footer span { font-size: 1.4rem; color: #c79c8d; }
+  footer p { font-size: .8rem; margin: 7px 0 12px; }
+  footer small { font-size: .68rem; color: #b6a694; }
+  a:focus-visible { outline: 3px solid #9caa7a; outline-offset: 5px; }
+  @media (max-width: 600px) {
+    main { padding: 18px 20px 30px; }
+    header .eyebrow { margin-top: 20px; }
+    .intro { margin-bottom: 24px; }
+    .mobile-break { display: block; }
+    .friends { grid-template-columns: 1fr; gap: 32px; }
+    .portrait { border-radius: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) { img { transition: none; } .portrait:hover img { transform: none; } }
+</style>

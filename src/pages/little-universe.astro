@@ -1,0 +1,22 @@
+---
+import '../viewport-scale.css';
+import '../little-universe/styles.css';
+import SeoHead from '../components/SeoHead.astro';
+import LittleUniverse from '../little-universe/LittleUniverse.jsx';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#292332" />
+    <SeoHead title="The Little Universe · A birthday, written in stars" description="A tiny world full of our favorite memories. Made with love." path="/little-universe/" locale="en_US" noindex />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="little-universe-page">
+    <LittleUniverse client:only="react">
+      <div slot="fallback" class="lu-boot" role="status"><span>✦</span><h1>The Little Universe</h1><p>Gathering a little stardust…</p><p>If this stays here, reload to try again.</p></div>
+    </LittleUniverse>
+    <noscript><div class="lu-boot"><h1>A little world, made for you.</h1><p>Please enable JavaScript to explore the planet and its favorite places.</p></div></noscript>
+  </body>
+</html>

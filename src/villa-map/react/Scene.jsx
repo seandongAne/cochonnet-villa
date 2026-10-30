@@ -746,7 +746,7 @@ export function Scene({
         ))}
 
       {/* ---- Interaction markers (white spheres) ---- */}
-      {world.interactions.map((interaction) => (
+      {world.interactions.filter((interaction) => interaction.id !== "little-universe-telescope").map((interaction) => (
         <mesh
           key={interaction.id}
           position={[
