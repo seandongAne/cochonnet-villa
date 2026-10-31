@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { landmarks } from './content.js';
-import { cameraFlight, copyPose, focusPose, PLANET_TILT } from './focus-camera.js';
+import { cameraFlight, copyPose, focusPose, resolveCameraDestination, PLANET_TILT } from './focus-camera.js';
 import { createFlowers, createGarden, createLandmark, disposeMiniature, surfaceFrame } from './planet.js';
 import CampingVignette from './CampingVignette.jsx';
 import RoomInterior from './RoomInterior.jsx';
@@ -115,9 +115,23 @@ function CameraRig({ selected, finale, reducedMotion, resetKey, onMoving, enable
     if (!enabled) { flight.current = null; return; }
     const current = { position: camera.position.clone(), target: currentTarget.current.clone(), up: camera.up.clone() };
     if (selected && !previousSelection.current && !overview.current) overview.current = initialized.current ? copyPose(current) : copyPose(home);
-    if (resetKey !== previousReset.current) overview.current = null;
+    const reset = resetKey !== previousReset.current;
+    if (reset) overview.current = null;
     const place = landmarks.find((item) => item.id === selected);
-    const destination = place ? focusPose(place, size.width / size.height) : finale ? home : overview.current || home;
+    const destination = resolveCameraDestination({ place, home, overview: overview.current,
+      initialized: initialized.current, previousSelection: previousSelection.current,
+      reset, finale, aspect: size.width / size.height });
+    if (!destination) {
+      // A reduced-motion change may finish an existing flight immediately,
+      // but a resize must not start or restart one.
+      if (reducedMotion && flight.current) {
+        const pose = flight.current.sample(1);
+        camera.position.copy(pose.position); camera.up.copy(pose.up); camera.lookAt(pose.target);
+        currentTarget.current.copy(pose.target); flight.current = null; overview.current = null;
+        onMoving(false);
+      }
+      return;
+    }
     previousSelection.current = selected;
     previousReset.current = resetKey;
     flight.current = { sample: cameraFlight(current, destination), elapsed: 0, duration: finale ? 3.5 : 1.8 };

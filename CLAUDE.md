@@ -10,13 +10,14 @@
 
 ## What this is
 
-Static Astro site about 15 pet pigs, built to GitHub Pages. Three features:
+Static Astro site about 15 pet pigs, built to GitHub Pages. Four features:
 
 | Feature | Route | Rendered by | Source of truth | Editor |
 |---|---|---|---|---|
 | Landing site | `/` | `src/pages/index.astro` + `src/render-site.js` | `content/site.json` | `/admin/` |
 | 猪猪小记 blog | `/notes/` | `src/render-notes.js` (node-pure, build time) | `content/notes.json` | `/admin/notes/` |
 | 3D Villa Map | `/villa-map/` | React Three Fiber island (`src/villa-map/`) | code + GLBs in `public/models/` | `/villa-map/?edit=1` |
+| Little Universe birthday world | `/little-universe/` | React Three Fiber island (`src/little-universe/`) | personal copy + geometry + `public/little-universe/` assets | code |
 
 Both editors are backend-free: they commit through the GitHub Contents API with a fine-grained token kept in localStorage (`cochonnetvilla_github_token`) — no OAuth, no server. Publishing pushes `content/*.json`; Pages redeploys in ~1–2 min.
 
@@ -31,7 +32,7 @@ Both editors are backend-free: they commit through the GitHub Contents API with 
 
 - ES modules everywhere (`"type": "module"`).
 - **Node-pure core.** Anything the tests import (all of `src/villa-map/*.js`, `render-*.js`, `notes-draft.js`, `seo.js`) must not touch `window` / `document` / `TextureLoader` at import time. The React layer is the only browser owner.
-- React island only on `/villa-map/` (`client:only="react"`); every other page is vanilla Astro static HTML. Bilingual, content defaults to `zh`, `data-i18n` hooks.
+- React islands on `/villa-map/` and `/little-universe/` (`client:only="react"`); the sprout-pig study is another island available only in development. Other pages are vanilla Astro static HTML. The main site is bilingual, content defaults to `zh`, `data-i18n` hooks. The birthday world is English; its static character gallery and local study are Chinese.
 - Procedural geometry at runtime; pre-made GLBs (pigs / furniture / props) load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural fallback, mounted via `<primitive object={…}>` — **not** drei `useGLTF`. The authored villa/spa/mushroom-exterior GLBs in `public/models/resort/` preserve exact metre coordinates instead of bbox fitting; sources and rebuild instructions are in `docs/RESORT_ASSETS.md`.
 - **Streamed models never pop in raw.** Every loader reports its swap chain to the node-pure `asset-loading.js` registry (the `/villa-map/` veil shows `n / total 件模型就位` and keeps 「开始探索」 disabled until every swap is done, or `ASSET_WAIT_TIMEOUT_MS` = 25 s fail-soft) and awaits `hooks.prepare(model)` — `react/gpu-prepare.js`, one canvas-wide preparer: texture uploads one per animation frame (back-to-back while `document.hidden`), then `gl.compileAsync` — before replacing its stand-in. A model whose textures are already resident skips the queue.
 - **Pig GLBs are shipped optimised** (`scripts/optimize-porky-glbs.mjs`: gltfpack quantise + `EXT_meshopt_compression`, textures ≤ 1024² WebP via `EXT_texture_webp`; `porky-models.js` registers three's bundled `MeshoptDecoder`). Budgets ≤ 2.5 MB per pig / ≤ 16 MB cast are pinned by `tests/porky-assets.test.mjs` — the cast was 62 MB before, 8.4 MB after. Drop a new Meshy export into `public/models/porkies/` and run the script; never commit the raw export.
@@ -57,6 +58,16 @@ Both editors are backend-free: they commit through the GitHub Contents API with 
 **Two-tier drafts** (`src/notes-draft.js`, node-pure; payload v2 + legacy v1 migration) — every keystroke persists the full editor state (form **and** staged list while dirty) to localStorage. 5-min idle / tab hidden / manual「备份草稿」commits it to `content/notes-draft.json` on the **`notes-drafts` branch** (never deploys, auto-creates the branch, skips no-change commits via `draftContentKey`). Restore picks the newer of local/cloud (`chooseDraftSource`; ties → local); a restored staged list re-enters the dirty+merge path, and `mergeRemoteNotes` adopts the remote `image` when the local twin lacks one. Publish clears both tiers. Pinned by `tests/notes.test.mjs` + `tests/notes-draft.test.mjs`.
 
 **Auto note-art** — `.github/workflows/generate-note-art.yml` fires on `content/notes.json` pushes to main → `scripts/generate-note-art.mjs` calls the OpenAI Image API (`gpt-image-2.5-sunburst`, 1536×1024 webp, `xhigh` quality, ≤ 4 per run) for notes without `image`, writes `public/notes-art/<slug>.webp`, stamps `image`, commits, then explicitly dispatches `deploy-pages.yml`. Needs the Actions secret `OPENAI_API_KEY` while any note still lacks art: without it the job fails (red) naming the pending count; once every note has valid art the run is a no-op and needs no key. Prompts are **text-only** — character identity comes from `PORKY_CAST` (15 pigs; 小猪 = tiny, brown bob + black sleeveless top) plus `GUEST_CAST` (白白菜, mirroring `public/characters/baibaicai/manifest.json`); either table's `aliases` (香瓜猪 → 香香猪, 呱瓜猪 → 呱呱猪, 白菜 → 白白菜) select the canonical identity. Only notes that name pigs get those pigs drawn; a title that counts the herd (`十五只猪…`), or a body clause pairing the herd with a group-scene word (一起 / 合照 / 全家福…), switches to the fixed 15-pig three-row portrait. The author-only inline marker `[[character name]]` renders everywhere as the plain name and explicitly injects that identity; ambiguous bare `小猪` never selects the named character. Reference images (`public/porkies/*.png`, `public/characters/`) are never uploaded to the API.
+
+## Little Universe (`src/little-universe/`)
+
+A separate birthday planet with six destinations, room interiors, model/poster viewers, a finale and optional gesture-started audio. Production routes: `/little-universe/` and the static `/little-universe/characters/` gallery (both noindex). `/little-universe/sprout-pig/` and its GLB are **development only**: the page lives in `src/review/`, the model in `art/little-universe/review/`, and `scripts/local-review-pages.mjs` injects both routes only for `npm run dev`.
+
+Read [`docs/LITTLE_UNIVERSE_RUNTIME.md`](docs/LITTLE_UNIVERSE_RUNTIME.md) for the module map, asset rebuilds, budgets, QA and unresolved source-license decisions. `landmark-layout.js` is the geometry-only contract shared by the villa sky; do not import birthday `content.js` or `media-details.js` into villa code. The overview camera preserves user orbit on resize; explicit reset, landmark navigation and finale still select authored destinations.
+
+The telescope contract lives in `little-universe-gateway.js`: its shared ID controls interaction, collision, visuals and marker filtering. Returning with `?arrival=little-universe` selects the telescope pose, including the optional `world.player.start.yaw`. After controls apply it, the arrival parameter is consumed with `replaceState`; other query parameters, hash and history state survive. Diagnostics add `view=universe-gateway` and `view=universe-telescope`.
+
+Vinyl runtime images are generated from preserved lossless sources with `node scripts/optimize-vinyl-records.mjs`; budgets are 512 KiB per cover / 1.5 MiB total. Collection models already have total and per-model budgets in `collection-models.test.mjs`. Provenance records are not permission grants; retain source evidence and never invent licenses. Pages deployment runs `npm test` before building.
 
 ## 3D scene (`src/villa-map/`)
 

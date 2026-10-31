@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { Vector3, Box3 } from 'three';
 import { birthday, landmarks, visitLandmark, surfacePosition } from '../src/little-universe/content.js';
 import { createFlowers, createGarden, createLandmark, disposeMiniature, surfaceFrame } from '../src/little-universe/planet.js';
-import { cameraFlight, copyPose, focusPose } from '../src/little-universe/focus-camera.js';
+import { cameraFlight, copyPose, focusPose, resolveCameraDestination } from '../src/little-universe/focus-camera.js';
 import { CAMPING_PARTS, campingMotion, createCampingMiniature } from '../src/little-universe/camping.js';
 
 test('campsite has two distinct chairs, recognizable characters, tent, lantern, logs, and fire', () => {
@@ -74,6 +74,21 @@ test('interrupting a focus flight starts at the current pose and preserves the s
   assert.deepEqual(overview, saved);
   const returned = cameraFlight(interrupted(0.5), saved)(1);
   assert.ok(returned.position.distanceTo(overview.position) < 1e-8);
+});
+
+test('viewport changes preserve an orbited overview and a return flight, while explicit navigation still works', () => {
+  const home = { position: new Vector3(0, 3.8, 11.8), target: new Vector3(0, .3, 0), up: new Vector3(0, 1, 0) };
+  const overview = { ...copyPose(home), position: new Vector3(8, 5, -7) };
+  const base = { home, overview: null, initialized: true, previousSelection: null, reset: false, finale: false };
+  for (const aspect of [.46, 1.5, 2.4]) {
+    assert.equal(resolveCameraDestination({ ...base, aspect }), null, 'resize never requests a home flight');
+    assert.equal(resolveCameraDestination({ ...base, overview, aspect }), null, 'resize never restarts the return flight');
+    assert.equal(resolveCameraDestination({ ...base, overview, previousSelection: 'camping', aspect }), overview, 'leaving a landmark restores the saved orbit');
+    assert.deepEqual(resolveCameraDestination({ ...base, place: landmarks[0], aspect }), focusPose(landmarks[0], aspect), 'selected landmarks still reframe');
+  }
+  assert.equal(resolveCameraDestination({ ...base, initialized: false }), home, 'initial framing');
+  assert.equal(resolveCameraDestination({ ...base, overview, reset: true }), home, 'explicit reset');
+  assert.equal(resolveCameraDestination({ ...base, overview, finale: true }), home, 'birthday finale');
 });
 
 test('memories can be visited in any order, without duplicates or unknown destinations', () => {

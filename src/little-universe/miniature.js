@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-export function studio(materials = new Map()) {
+export function studio(materials = new Map(), { distant = false } = {}) {
   const root = new THREE.Group();
   function material(color, glow = 0) {
     const key = `${color}:${glow}`;
@@ -16,10 +16,12 @@ export function studio(materials = new Map()) {
     object.castShadow = true; object.receiveShadow = true;
     root.add(object); return object;
   }
-  const ball = (color, pos, scale, glow = 0) => mesh(new THREE.SphereGeometry(1, 16, 12), color, pos, scale, glow);
-  const box = (color, pos, scale) => mesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.09), color, pos, scale);
+  // Only the villa's distant planet opts in. Keep the authored dimensions and
+  // every part, but omit subpixel bevels and use fewer curved-surface segments.
+  const ball = (color, pos, scale, glow = 0) => mesh(new THREE.SphereGeometry(1, distant ? 8 : 16, distant ? 6 : 12), color, pos, scale, glow);
+  const box = (color, pos, scale) => mesh(distant ? new THREE.BoxGeometry(1, 1, 1) : new RoundedBoxGeometry(1, 1, 1, 2, 0.09), color, pos, scale);
   const cone = (color, pos, radius, height, sides = 9) => mesh(new THREE.ConeGeometry(radius, height, sides), color, pos);
-  const cylinder = (color, pos, radius, height) => mesh(new THREE.CylinderGeometry(radius, radius, height, 16), color, pos);
+  const cylinder = (color, pos, radius, height) => mesh(new THREE.CylinderGeometry(radius, radius, height, distant ? 8 : 16), color, pos);
   function tree(x, z, size = 1, pink = false) {
     cylinder('#8d7662', [x, 0.24 * size, z], 0.045 * size, 0.48 * size);
     if (pink) {
@@ -27,8 +29,8 @@ export function studio(materials = new Map()) {
       ball('#f2ced0', [x + 0.12 * size, 0.68 * size, z], [0.22 * size, 0.23 * size, 0.22 * size]);
     } else {
       // Soft, overlapping crowns keep the planet silhouette round and leafy.
-      mesh(new THREE.SphereGeometry(1, 12, 8), '#75958a', [x, 0.49 * size, z], [0.27 * size, 0.28 * size, 0.25 * size]);
-      mesh(new THREE.SphereGeometry(1, 12, 8), '#9bb7a0', [x + 0.09 * size, 0.64 * size, z - 0.025 * size], [0.23 * size, 0.24 * size, 0.22 * size]);
+      mesh(new THREE.SphereGeometry(1, distant ? 8 : 12, distant ? 6 : 8), '#75958a', [x, 0.49 * size, z], [0.27 * size, 0.28 * size, 0.25 * size]);
+      mesh(new THREE.SphereGeometry(1, distant ? 8 : 12, distant ? 6 : 8), '#9bb7a0', [x + 0.09 * size, 0.64 * size, z - 0.025 * size], [0.23 * size, 0.24 * size, 0.22 * size]);
     }
   }
   function window(x, y, z) {

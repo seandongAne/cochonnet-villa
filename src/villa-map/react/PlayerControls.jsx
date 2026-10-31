@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 
-import { UNIVERSE_GATEWAY_ACTION } from "../little-universe-gateway.js";
+import { UNIVERSE_GATEWAY_ACTION, consumeUniverseArrival } from "../little-universe-gateway.js";
 import { createExplorerControls } from "../controls.js";
 import {
   findNearestInteraction,
@@ -117,6 +117,7 @@ export function PlayerControls({
         onObservatoryHiddenActionRef.current?.(action);
       }
     });
+    consumeUniverseArrival(window.location, window.history);
     controlsRef.current = controls;
     if (lockRef) {
       lockRef.current = controls;

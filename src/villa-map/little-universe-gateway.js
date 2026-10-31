@@ -2,6 +2,7 @@
 export const LITTLE_UNIVERSE_URL = '/little-universe/';
 export const VILLA_RETURN_URL = '/villa-map/?arrival=little-universe';
 export const UNIVERSE_GATEWAY_ACTION = 'enter-little-universe';
+export const UNIVERSE_GATEWAY_ID = 'little-universe-telescope';
 export const TELESCOPE_POSITION = Object.freeze({ x: 4, y: 0, z: 14 });
 // Keep the miniature well beyond the walkable grounds: a distant sky world,
 // with little walking parallax and a small apparent size from the courtyard.
@@ -11,7 +12,7 @@ export const UNIVERSE_RETURN_POSE = Object.freeze({ x: 2, y: 1.6, z: 16.6, yaw: 
 
 export function createUniverseGatewayInteraction() {
   return {
-    id: 'little-universe-telescope',
+    id: UNIVERSE_GATEWAY_ID,
     title: '望远镜里的小宇宙',
     body: '天空中那颗长着小房子和树林的星球，是留给你的另一个世界。靠近望远镜，一起去看看。',
     position: { x: TELESCOPE_POSITION.x, y: 1.4, z: TELESCOPE_POSITION.z },
@@ -23,4 +24,15 @@ export function createUniverseGatewayInteraction() {
 export function applyUniverseArrival(world, search = '') {
   if (new URLSearchParams(search).get('arrival') !== 'little-universe') return world;
   return { ...world, player: { ...world.player, start: { ...UNIVERSE_RETURN_POSE } } };
+}
+
+// Consume only our one-shot arrival instruction; preserve QA/edit params,
+// fragments and the browser's existing history state. Called after controls
+// have applied world.player.start, never during React render.
+export function consumeUniverseArrival(location, history) {
+  const url = new URL(location.href);
+  if (url.searchParams.get('arrival') !== 'little-universe') return false;
+  url.searchParams.delete('arrival');
+  history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  return true;
 }

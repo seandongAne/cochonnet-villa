@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-30",
+  "before": {
+    "meshes": 66,
+    "triangles": 108532,
+    "geometryBytes": 7746368
+  },
+  "after": {
+    "meshes": 4,
+    "triangles": 27764,
+    "geometryBytes": 2878736
+  },
+  "reductionPercent": {
+    "meshes": 93.9,
+    "triangles": 74.4,
+    "geometryBytes": 62.8
+  },
+  "scope": "Villa distant sky planet only; full-detail Little Universe factories retain their defaults.",
+  "validation": {
+    "testsPassed": 514,
+    "testsFailed": 0,
+    "productionPages": 42,
+    "browser": "Codex in-app browser, production preview, 1280x720, universe-gateway fixed camera",
+    "consoleErrors": 0,
+    "skyBatches": 4,
+    "streamedAssetsSettled": 139,
+    "streamedAssetsFailed": 0,
+    "visualComparison": "Authored position, size, colour and silhouette retained at the ordinary courtyard viewing distance.",
+    "finalTargetedTestsPassed": 20,
+    "fullDetailOverview": "Rendered in production preview with no console errors; screenshot full-detail.png."
+  },
+  "limits": [
+    "No real-device mobile FPS measurement.",
+    "Geometry reductions are not whole-scene FPS gains."
+  ],
+  "published": false
+}

@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { studio, batchMiniature } from './miniature.js';
 
-export function createEncoreMiniature() {
-  const s = studio();
+export function createEncoreMiniature(options = {}) {
+  const s = studio(new Map(), options);
   const cream = '#ecd9b7', gold = '#c49b51', red = '#962d45';
   s.cylinder('#a6b395', [0, .01, 0], .65, .09);
   s.box('#58413d', [0, .07, 0], [1.13, .1, .65]);
@@ -38,8 +38,8 @@ export function createEncoreMiniature() {
   return batchMiniature(s.root);
 }
 
-export function createCabinMiniature(television = false) {
-  const s = studio(); const wall = television ? '#87a99c' : '#78604f';
+export function createCabinMiniature(television = false, options = {}) {
+  const s = studio(new Map(), options); const wall = television ? '#87a99c' : '#78604f';
   const trim = television ? '#e9cc9c' : '#d1b48c';
   s.cylinder('#a6b395', [0, .01, 0], .65, .09);
   s.box(wall, [0, .35, -.03], [.82, .63, .6]);

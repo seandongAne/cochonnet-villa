@@ -7,7 +7,7 @@ import { createSproutPigStudy } from '../src/little-universe/sprout-pig.js';
 import { disposeMiniature } from '../src/little-universe/miniature.js';
 
 test('sprout-pig study exports a self-contained GLB with the authored full-volume geometry', async () => {
-  const bytes = await readFile(new URL('../public/birthday-characters/sprout-pig-study-v1.glb', import.meta.url));
+  const bytes = await readFile(new URL('../art/little-universe/review/sprout-pig-study-v1.glb', import.meta.url));
   assert.equal(bytes.readUInt32LE(0), 0x46546c67);
   assert.equal(bytes.readUInt32LE(4), 2);
   assert.equal(bytes.readUInt32LE(8), bytes.length);

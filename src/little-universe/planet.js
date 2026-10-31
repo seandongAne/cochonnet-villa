@@ -6,7 +6,7 @@ import { createGundam } from './room-props.js';
 import { createCinemaMiniature } from './movie-night.js';
 import { createEncoreMiniature, createCabinMiniature } from './destination-buildings.js';
 export { batchMiniature, disposeMiniature } from './miniature.js';
-import { landmarks, surfacePosition } from './content.js';
+import { landmarkLayout as landmarks, surfacePosition } from './landmark-layout.js';
 
 const Y = new THREE.Vector3(0, 1, 0);
 export function surfaceFrame(direction, radius = 2.5) {
@@ -14,12 +14,12 @@ export function surfaceFrame(direction, radius = 2.5) {
   return { position, quaternion: new THREE.Quaternion().setFromUnitVectors(Y, position.clone().normalize()) };
 }
 
-export function createLandmark(id) {
-  if (id === 'camping') return createCampingMiniature();
-  if (id === 'movie-night') return createCinemaMiniature();
-  if (id === 'music') return createEncoreMiniature();
-  if (id === 'museum' || id === 'one-more-episode') return createCabinMiniature(id === 'one-more-episode');
-  const s = studio();
+export function createLandmark(id, options = {}) {
+  if (id === 'camping') return createCampingMiniature(options);
+  if (id === 'movie-night') return createCinemaMiniature(options);
+  if (id === 'music') return createEncoreMiniature(options);
+  if (id === 'museum' || id === 'one-more-episode') return createCabinMiniature(id === 'one-more-episode', options);
+  const s = studio(new Map(), options);
   s.cylinder('#c5d0a9', [0, 0.01, 0], 0.65, 0.09);
   if (id === 'workshop') {
     s.box('#dbcbdd', [0, 0.27, 0], [0.66, 0.5, 0.5]);
@@ -27,7 +27,7 @@ export function createLandmark(id) {
     s.window(-0.23, 0.29, 0.26); s.window(0.23, 0.29, 0.26);
     s.box('#514754', [0, .20, .258], [.17, .37, .025]);
     s.box('#c5b399', [0.38, 0.15, 0.35], [0.28, 0.06, 0.2]);
-    const model = createGundam(); model.position.set(.38, .18, .35); model.scale.setScalar(.16); s.root.add(model);
+    const model = createGundam(options); model.position.set(.38, .18, .35); model.scale.setScalar(.16); s.root.add(model);
     s.cylinder('#c5b399', [-0.43, 0.48, -0.14], 0.035, 0.9);
     s.ball('#efe0bf', [-0.43, 0.91, -0.1], [0.06, 0.06, 0.06]);
     for (let i = 0; i < 4; i++) {
@@ -39,7 +39,7 @@ export function createLandmark(id) {
   return batchMiniature(s.root);
 }
 
-export function createGarden() {
+export function createGarden(options = {}) {
   const garden = new THREE.Group();
   const materials = new Map();
   const clearings = landmarks.map((place) => new THREE.Vector3(...surfacePosition(place.direction)));
@@ -50,7 +50,7 @@ export function createGarden() {
     const direction = [Math.cos(theta) * Math.sqrt(1 - y * y), y, Math.sin(theta) * Math.sqrt(1 - y * y)];
     // Keep authored front scenery and every destination's clearing open.
     if ((direction[2] > 0.1 && direction[1] > 0.2) || nearClearing(direction)) continue;
-    const s = studio(materials); s.tree(0, 0, 0.5 + (i % 4) * 0.13, i % 5 === 0);
+    const s = studio(materials, options); s.tree(0, 0, 0.5 + (i % 4) * 0.13, i % 5 === 0);
     const frame = surfaceFrame(direction, 2.46);
     s.root.position.copy(frame.position); s.root.quaternion.copy(frame.quaternion); garden.add(s.root);
   }
@@ -58,13 +58,13 @@ export function createGarden() {
   for (let i = 0; i < 58; i++) {
     const t = i / 57;
     const frame = surfaceFrame([Math.sin(t * 5.4 - 2.5) * 0.68, 0.25 + t * 0.8, 0.85 - t * 0.5], 2.505);
-    const s = studio(materials);
+    const s = studio(materials, options);
     const pebble = s.mesh(new THREE.SphereGeometry(1, 8, 6), i % 3 ? '#dfd7b5' : '#e9dfbd');
     pebble.position.copy(frame.position); pebble.quaternion.copy(frame.quaternion); pebble.scale.set(0.09, 0.018, 0.075); garden.add(pebble);
   }
   // Tiny meadow clusters break up the open front without obscuring the landmarks.
   for (let i = 0; i < 18; i++) {
-    const s = studio(materials);
+    const s = studio(materials, options);
     const angle = i * 2.39996;
     const direction = [Math.sin(angle) * 0.7, -0.12 - (i % 4) * 0.13, 0.8];
     if (nearClearing(direction)) continue;

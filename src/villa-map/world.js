@@ -4,7 +4,7 @@ import {
   createMainVillaColliders, collidesWithMainVillaShape, adaptMainVillaRooms,
   isActiveInteriorPlacement, isActiveArchitecturePlacement
 } from "./main-villa.js";
-import { createUniverseGatewayInteraction, TELESCOPE_POSITION } from "./little-universe-gateway.js";
+import { createUniverseGatewayInteraction, TELESCOPE_POSITION, UNIVERSE_GATEWAY_ID } from "./little-universe-gateway.js";
 import { deriveFurnitureColliders } from "./furniture-colliders.js";
 import { FURNITURE_PLACEMENTS } from "./furniture-placements.js";
 import { EXTERIOR_PLACEMENTS } from "./exterior-placements.js";
@@ -350,7 +350,7 @@ export function createVillaWorld() {
     colliders: [
       ...createFenceColliders(),
       ...createMainVillaColliders(),
-      boxCollider("little-universe-telescope", TELESCOPE_POSITION.x, TELESCOPE_POSITION.z, 1.3, 1.3, { minY: 0, maxY: 2.2 }),
+      boxCollider(UNIVERSE_GATEWAY_ID, TELESCOPE_POSITION.x, TELESCOPE_POSITION.z, 1.3, 1.3, { minY: 0, maxY: 2.2 }),
 
       // Hot-spring rim rocks. We block only the OUTER edges (away from the
       // courtyard) — players can freely approach a pool from the courtyard side
