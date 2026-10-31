@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { studio, batchMiniature } from './miniature.js';
 import { createShadowBlobs } from '../villa-map/shadows.js';
 import { fighterExhibits } from './fighter-exhibits.js';
+import { seanExhibits } from './sean-exhibits.js';
 
 export function createHangarRoom() {
   const materials = new Map();
@@ -127,6 +128,19 @@ export function createHangarRoom() {
   }
   for (const z of [-1.43, 1.32]) box(silver, [-2.81, 1.02, z], [.06, 2.02, .06]);
 
+  // Sean's own works have lit shelves on either side of the entrance.
+  for (const x of [-1.82, 1.82]) {
+    box(deep, [x, 1.48, 2.39], [2.04, 2.7, .05]);
+    for (const dx of [-.99, .99]) for (const z of [1.64, 2.36]) box(silver, [x + dx, 1.4, z], [.04, 2.75, .04]);
+    s.box(white, [x, .35, 2], [2.04, .7, .8]);
+  }
+  for (const { position: [x, y, z] } of seanExhibits) {
+    s.box(white, [x, y - .045, z], [2.04, .07, .8]);
+    box(deep, [x, y - .003, z], [1.96, .006, .74]);
+    box(amber, [x, y - .035, 1.595], [1.85, .018, .012]);
+    glow([x, y + .62, 2.32], [1.85, .018, .035], '#fff0d6', .5);
+  }
+
   // Small signs of a cherished working space: tools, storage boxes and a plant.
   s.cylinder(teal, [-2.18, 1.075, -1.96], .065, .22);
   for (let i = 0; i < 4; i++) {
@@ -165,6 +179,7 @@ export function createHangarRoom() {
   }
   const root = batchMiniature(s.root); root.name = 'workshop-interior';
   const shadows = createShadowBlobs([
+    ...seanExhibits.map(item => ({ id: item.id, position: [item.position[0], item.position[1] - .014, item.position[2]], footprint: { x: item.size[0] * .8, z: item.size[2] * .8 } })),
     ...fighterExhibits.map(item => ({ id: item.id, position: [item.position[0], item.position[1] - .014, item.position[2]], footprint: { x: .6, z: .95 } })),
     { id: 'diamond', position: [2.22, .809, .1], footprint: { x: .7, z: 1.2 } },
     { id: 'skyhawk', position: [-.2, .649, -.15], footprint: { x: 1.35, z: 1.1 }, rotationY: .22 },

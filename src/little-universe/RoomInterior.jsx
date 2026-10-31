@@ -81,6 +81,11 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
       <pointLight position={[1.2, 2.85, .8]} intensity={13} distance={7} decay={2} color="#fff4e1" />
       <pointLight position={[-.7, 2.65, -1.5]} intensity={5} distance={3.5} decay={2} color="#ffead0" />
       <pointLight position={[1.95, 2.7, -1.5]} intensity={4} distance={3.5} decay={2} color="#ffead0" />
+    </> : id === 'one-more-episode' ? <>
+      <ambientLight intensity={.55} color="#eee9de" />
+      <hemisphereLight args={['#e5edf0', '#777970', .85]} />
+      <pointLight position={[0, 2.48, .35]} intensity={10} distance={7} decay={2} color="#f5e4c9" />
+      <pointLight position={[1.8, 2, 1.9]} intensity={5} distance={6} decay={2} color="#dce8ec" />
     </> : <>
       <ambientLight intensity={id === 'movie-night' ? .5 : .85} color="#f4dfce" />
       <hemisphereLight args={['#fff1d7', '#8a7380', id === 'movie-night' ? .65 : 1.3]} />
@@ -89,11 +94,12 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
     </>}
     <primitive object={room} dispose={null} />
     <RoomCollection room={id} onSelect={onPoster} />
-    {id === 'movie-night' && <CinemaPosters onSelect={onPoster} />}
+    {id === 'movie-night' && <CinemaPosters onSelect={onPoster} reducedMotion={reducedMotion} paused={paused} />}
     {id === 'music' && <MusicalPosters onSelect={onPoster} />}
     {id === 'one-more-episode' && <SeriesWall onSelect={onPoster} />}
     {id === 'workshop' && <>
       <CinemaSign title="H A N G A R" subtitle="MADE FOR THE THINGS YOU LOVE" background="#e7e9e5" color="#344e59" size={[2.3, .22]} position={[0, 3.015, -2.35]} />
+      {[-1.82, 1.82].map(x => <group key={x} position={[x, 2.92, 2.35]} rotation={[0, Math.PI, 0]}><CinemaSign title="CREATED BY SEAN" subtitle="FIVE ORIGINAL WORKS / MADE WITH IMAGINATION" background="#344e59" color="#e8d5ad" size={[1.95, .2]} position={[0, 0, 0]} /></group>)}
       {[-1.25, -.05, 1.95].map((x, i) => <CinemaSign key={x} title={`0${i + 1} / MODEL BAY`} background="#344e59" color="#d3c5a3" size={[.62, .075]} position={[x, 2.69, -2.255]} />)}
     </>}
     {id === 'museum' && <CinemaSign title="THE IRON & ROSE" subtitle="THE COLLECTOR'S WORKBENCH" background="#101215" color="#c9b99c" size={[3.4, .22]} position={[0, 3.03, -1.77]} />}

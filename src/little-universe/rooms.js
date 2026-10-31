@@ -6,17 +6,18 @@ import { createCinemaRoom, CINEMA_OBSTACLES } from './movie-night.js';
 import { createMusicalFrames } from './music-world.js';
 import { createVinylFrames } from './vinyl-records.js';
 import { createEncoreSurround } from './destination-buildings.js';
-import { createSeriesFurniture, SERIES_OBSTACLES } from './one-more-episode.js';
+import { createSeriesFurniture, createSeriesRoomShell, SERIES_OBSTACLES } from './one-more-episode.js';
 import { createIronRoseRoom } from './iron-rose.js';
 import { createHangarRoom } from './hangar.js';
 import { FIGHTER_GALLERY_OBSTACLE } from './fighter-exhibits.js';
+import { SEAN_GALLERY_OBSTACLES } from './sean-exhibits.js';
 
 export const ROOM_IDS = ['music', 'workshop', 'museum', 'movie-night', 'one-more-episode'];
 export const ROOM_SPAWN = [0, 1.55, 1.45];
 export const ROOM_BOUNDS = { minX: -2.67, maxX: 2.67, minZ: -2.17, maxZ: 2.17 };
 export const ROOM_OBSTACLES = {
   music: [[-1.65, 1.65, -2.5, -1.4], [-2.85, -1.8, -.6, 1.1], [1.8, 2.85, -.7, .9]],
-  workshop: [[-2.45, .6, -2.5, -1.35], [1.5, 2.85, -2.5, -1.25], [-1.35, .95, -1.05, .75], [.61, 1.22, -2.5, -1.98], [1.65, 2.79, -.85, 1.05], FIGHTER_GALLERY_OBSTACLE],
+  workshop: [[-2.45, .6, -2.5, -1.35], [1.5, 2.85, -2.5, -1.25], [-1.35, .95, -1.05, .75], [.61, 1.22, -2.5, -1.98], [1.65, 2.79, -.85, 1.05], FIGHTER_GALLERY_OBSTACLE, ...SEAN_GALLERY_OBSTACLES],
   'movie-night': CINEMA_OBSTACLES,
   museum: [[-2.5, 2.5, -2.5, -1.4], [-.9, .9, -1.2, .9]],
   'one-more-episode': SERIES_OBSTACLES,
@@ -97,7 +98,7 @@ export function createRoom(id) {
   if (id === 'museum') return createIronRoseRoom();
   if (id === 'workshop') return createHangarRoom();
   const root = new THREE.Group(); root.name = `${id}-interior`;
-  root.add(roomShell(id));
+  root.add(id === 'one-more-episode' ? createSeriesRoomShell() : roomShell(id));
   const s = studio();
   if (id === 'music') {
     bench(s, 0, -1.96, 3.15);

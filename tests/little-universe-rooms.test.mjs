@@ -16,7 +16,7 @@ test('enterable rooms contain their requested exhibits within an enclosed, finit
       workshop: [],
       museum: [],
       'one-more-episode': ['series-sofa-and-frames'],
-      'movie-night': ['cinema-shell', 'cinema-curtains', 'cinema-seats', 'cinema-poster-frames'],
+      'movie-night': ['cinema-shell', 'cinema-curtains', 'cinema-seats', 'cinema-poster-projectors'],
     }[id];
     for (const name of expected) assert.ok(room.getObjectByName(name), name);
     let draws = 0;
@@ -38,7 +38,8 @@ test('walking stops at furniture and room walls, including long steps', () => {
     assert.equal(position[1], ROOM_SPAWN[1]);
     assert.ok(position[2] > (id === 'movie-night' ? -1.66 : -1.4), 'the front furniture or stage cannot be crossed');
     const farRight = moveInRoom(ROOM_SPAWN, 50, 0, id);
-    assert.equal(farRight[0], ROOM_BOUNDS.maxX);
+    if (id === 'workshop') assert.ok(farRight[0] < .63, 'entrance gallery protects the new works');
+    else assert.equal(farRight[0], ROOM_BOUNDS.maxX);
     const farBack = moveInRoom(ROOM_SPAWN, 0, 50, id);
     assert.equal(farBack[2], ROOM_BOUNDS.maxZ);
     let walk = [...ROOM_SPAWN];
