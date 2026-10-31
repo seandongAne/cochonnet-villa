@@ -1,54 +1,61 @@
 {
-  "note": "Series title cards and logos. Copyright remains with the respective rights holders; no open license is implied. These identify each series, not a particular season watched.",
+  "note": "Promotional television artwork. Copyright remains with the respective rights holders; no open license is implied. Posters identify each series and do not specify which season was watched. Served locally as WebP without third-party runtime requests.",
   "artwork": [
     {
       "id": "downton-abbey",
       "local": "/little-universe/one-more-episode/downton-abbey.webp",
-      "page": "https://en.wikipedia.org/wiki/Downton_Abbey",
-      "original": "https://upload.wikimedia.org/wikipedia/en/c/c4/Downton_Abbey_Title_Card.jpg",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/251/downton-abbey",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/1/4601.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "youre-the-worst",
       "local": "/little-universe/one-more-episode/youre-the-worst.webp",
-      "page": "https://en.wikipedia.org/wiki/You%27re_the_Worst",
-      "original": "https://upload.wikimedia.org/wikipedia/en/7/73/You%27re_the_Worst_title_card.png",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/312/youre-the-worst",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/181/453177.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "the-good-place",
       "local": "/little-universe/one-more-episode/the-good-place.webp",
-      "page": "https://en.wikipedia.org/wiki/The_Good_Place",
-      "original": "https://upload.wikimedia.org/wikipedia/commons/7/7e/The_Good_Place_title_card.svg",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/2790/the-good-place",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/395/989291.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "the-good-wife",
       "local": "/little-universe/one-more-episode/the-good-wife.webp",
-      "page": "https://en.wikipedia.org/wiki/The_Good_Wife",
-      "original": "https://upload.wikimedia.org/wikipedia/commons/1/1c/The_Good_Wife_Logo.png",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/101/the-good-wife",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/59/148162.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "the-good-fight",
       "local": "/little-universe/one-more-episode/the-good-fight.webp",
-      "page": "https://en.wikipedia.org/wiki/The_Good_Fight",
-      "original": "https://upload.wikimedia.org/wikipedia/commons/d/d5/The_Good_Fight_logo.png",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/18206/the-good-fight",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/602/1506905.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "game-of-thrones",
       "local": "/little-universe/one-more-episode/game-of-thrones.webp",
-      "page": "https://en.wikipedia.org/wiki/Game_of_Thrones",
-      "original": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Game_of_thrones_HBO_logo.png",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/82/game-of-thrones",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/498/1245274.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "shrinking",
       "local": "/little-universe/one-more-episode/shrinking.webp",
-      "page": "https://en.wikipedia.org/wiki/Shrinking_(TV_series)",
-      "original": "https://upload.wikimedia.org/wikipedia/commons/1/11/Shrinking_TV_Series_Logo.svg",
-      "kind": "Series title card or logo"
+      "page": "https://www.tvmaze.com/shows/58323/shrinking",
+      "original": "https://static.tvmaze.com/uploads/images/original_untouched/610/1527402.jpg",
+      "kind": "Promotional series poster",
+      "retrieved": "2026-10-30"
     },
     {
       "id": "the-man-in-the-high-castle",

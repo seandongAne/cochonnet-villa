@@ -70,10 +70,10 @@ export const landmarks = [
   },
   {
     id: 'workshop', name: "Hangar", zh: '为你造一个梦',
-    subtitle: 'Gundam, favorite builds & a little imagination.', color: '#bfb3dd',
+    subtitle: 'Sean’s creations, favorite builds & a little imagination.', color: '#bfb3dd',
     direction: [0.86, 0.42, 0.23], label: [0, 1.1, 0],
     heading: 'A room for all your favorite things.',
-    message: 'Gundam on the workbench, a collection on the wall, and plenty of room for the next small obsession. This little corner is yours.',
+    message: 'Five original works created by Sean, alongside the Gundam and aircraft we love. Turn toward the entrance to discover Sean’s own gallery — a little imagination, made real.',
     caption: 'Hangar · Made for the things you love',
     photos: [{ src: '', alt: 'Sean’s Gundam and display collection', caption: 'A little space to make something wonderful.' }],
     audio: '', video: '', videoPoster: '', videoCaptions: '',

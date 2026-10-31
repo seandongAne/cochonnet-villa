@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { fighterExhibits } from './fighter-exhibits.js';
+import { seanExhibits } from './sean-exhibits.js';
 
 export const collectionModels = [
+  ...seanExhibits,
   ...fighterExhibits,
   { id: 'sd-gundam', name: 'SD Gundam', room: 'workshop', position: [-1.25, .97, -1.85], size: [.95, 1.05, .72], rotation: [0, .12, 0], note: 'A little hero in your Hangar.' },
   { id: 'reborns-gundam', name: 'Reborns Gundam', room: 'workshop', position: [1.95, 1.16, -1.95], size: [1.1, 1.3, .75], rotation: [0, -.12, 0], note: 'A place for your favorite builds.' },
