@@ -28,6 +28,13 @@ export function copyPose(pose) {
   return { position: pose.position.clone(), target: pose.target.clone(), up: pose.up.clone() };
 }
 
+// Null means keep the visitor's overview (or an in-progress return flight).
+// Viewport changes can reframe a selected landmark, but are not navigation.
+export function resolveCameraDestination({ place, home, overview, initialized, previousSelection, reset, finale, aspect }) {
+  if (initialized && !place && !finale && !previousSelection && !reset) return null;
+  return place ? focusPose(place, aspect) : finale || reset ? home : overview || home;
+}
+
 // Travel around the sphere instead of cutting through it when a landmark is
 // selected from the far side. The same path works in reverse and on interruption.
 export function cameraFlight(from, to) {

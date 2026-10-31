@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-30",
+  "baseCommit": "995f0a5c1509ce49c04693e906ea5a692648ebf4",
+  "test": {
+    "passed": 513,
+    "failed": 0
+  },
+  "build": {
+    "success": true,
+    "pages": 42
+  },
+  "runtimeBytes": {
+    "publicBefore": 170886888,
+    "publicAfter": 159783127,
+    "vinylBefore": 8712038,
+    "vinylAfter": 1378832
+  },
+  "production": {
+    "reviewPageStatus": 404,
+    "reviewGlbStatus": 404,
+    "birthdayCopyAbsentFromVillaStaticImports": true
+  },
+  "development": {
+    "reviewPageStatus": 200,
+    "reviewGlbStatus": 200,
+    "reviewGlbMatchesSource": true
+  },
+  "browser": {
+    "environment": "Codex in-app browser, localhost production preview",
+    "verified": [
+      "overview renders",
+      "orbit retained across 1280x720 to 1200x820 resize",
+      "explicit reset returns to home",
+      "music room entry and exit",
+      "compressed vinyl cover viewer",
+      "return to villa applies telescope position and consumes arrival",
+      "refresh uses ordinary villa entrance",
+      "villa sky planet visibly rendered",
+      "development study renders"
+    ],
+    "consoleErrors": 0,
+    "warnings": [
+      "Existing THREE.Clock deprecation warning"
+    ],
+    "screenshots": [
+      "orbit-before-resize.jpg",
+      "orbit-after-resize.jpg",
+      "vinyl-viewer.jpg",
+      "villa-return.jpg",
+      "villa-after-refresh.jpg",
+      "dev-study.jpg"
+    ]
+  },
+  "validationEnvironment": "Identical changed files validated in /private/tmp/cochonnetvilla-validation with the same package-lock, because cloud placeholder reads stalled the workspace dependencies. Untouched Gaia metadata was recovered in that temporary copy from the verified base commit after a filesystem read failure.",
+  "notVerified": [
+    "real mobile device performance",
+    "copyright/license clearance",
+    "new model simplification or sky LOD"
+  ],
+  "published": false
+}

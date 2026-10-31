@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { createGarden, createLandmark, surfaceFrame } from '../little-universe/planet.js';
-import { landmarks } from '../little-universe/content.js';
+import { landmarkLayout as landmarks } from '../little-universe/landmark-layout.js';
 import { batchMiniature } from '../little-universe/miniature.js';
-import { SKY_PLANET_POSITION, SKY_PLANET_SCALE, TELESCOPE_POSITION } from './little-universe-gateway.js';
+import { SKY_PLANET_POSITION, SKY_PLANET_SCALE, TELESCOPE_POSITION, UNIVERSE_GATEWAY_ID } from './little-universe-gateway.js';
 
-// Reuse the actual planet's six miniature landmarks and garden. Only geometry:
-// the villa never mounts the birthday Canvas, model viewers, audio or GLBs.
+// Reuse the authored layout and every part, with distant-only tessellation.
+// The birthday Canvas, model viewers, audio and GLBs remain separate.
 export function createSkyPlanet() {
   const root = new THREE.Group();
   const globe = new THREE.Mesh(new THREE.SphereGeometry(2.5, 48, 32), new THREE.MeshStandardMaterial({ color: '#a9c6ae', roughness: .96 }));
-  root.add(globe, createGarden());
+  root.add(globe, createGarden({ distant: true }));
   for (const place of landmarks) {
-    const model = createLandmark(place.id);
+    const model = createLandmark(place.id, { distant: true });
     const frame = surfaceFrame(place.direction);
     model.position.copy(frame.position); model.quaternion.copy(frame.quaternion);
     root.add(model);
@@ -19,27 +19,37 @@ export function createSkyPlanet() {
   const pond = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshStandardMaterial({ color: '#91bfc0', roughness: .3 }));
   const frame = surfaceFrame([-.62, -.04, .78], 2.475);
   pond.position.copy(frame.position); pond.quaternion.copy(frame.quaternion); pond.scale.set(.43, .075, .7); root.add(pond);
-  // Deduplicate material colours across independently authored landmarks before
-  // batching: a detailed distant silhouette without hundreds of draw calls.
-  const palette = new Map(); const remapped = new WeakMap(); const replaced = new Set();
+  // Bake each authored colour into vertices, then batch by surface finish.
+  // Three finishes preserve the globe, garden/buildings and glossy pond without
+  // paying a draw call per paint colour. The transparent ring stays separate.
+  const finishes = new Map(); const sourceMaterials = new Set();
   // Ground fog would erase the faraway planet. A light sky-colour wash gives
   // it aerial perspective while keeping the miniature silhouette readable.
   const skyHaze = new THREE.Color('#a8c4e4');
   root.traverse(object => {
     if (!object.isMesh) return;
-    const material = object.material;
-    if (remapped.has(material)) { object.material = remapped.get(material); return; }
-    const key = `${material.color.getHex()}:${material.roughness}:${material.emissiveIntensity}`;
-    if (palette.has(key)) { if (palette.get(key) !== material) replaced.add(material); object.material = palette.get(key); }
-    else {
-      material.fog = false;
-      material.color.lerp(skyHaze, .28);
-      material.emissive.copy(material.color);
-      material.emissiveIntensity = .025;
+    const source = object.material;
+    sourceMaterials.add(source);
+    const color = source.color.clone().lerp(skyHaze, .28);
+    const colors = new Float32Array(object.geometry.attributes.position.count * 3);
+    for (let i = 0; i < colors.length; i += 3) color.toArray(colors, i);
+    object.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const key = `${source.roughness}:${source.metalness}`;
+    if (!finishes.has(key)) {
+      const material = new THREE.MeshStandardMaterial({
+        color: '#ffffff', vertexColors: true, roughness: source.roughness,
+        metalness: source.metalness, emissive: '#ffffff', emissiveIntensity: .025, fog: false
+      });
       // The courtyard's strong hemisphere/IBL fill flattens a distant globe.
       // Keep the existing sun and surface normals, but soften only this
       // miniature's indirect light so its night side retains a rounded shape.
       material.onBeforeCompile = shader => {
+        // StandardMaterial applies vertex colour to diffuse, not emissive.
+        // Restore the previous per-colour emissive fill on the night side too.
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vColor.rgb;'
+        );
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <lights_fragment_end>',
           `#include <lights_fragment_end>
@@ -47,12 +57,12 @@ export function createSkyPlanet() {
           reflectedLight.indirectSpecular *= 0.28;`
         );
       };
-      material.customProgramCacheKey = () => 'little-universe-sky-fill-v1';
-      palette.set(key, material);
+      material.customProgramCacheKey = () => 'little-universe-sky-vertex-fill-v2';
+      finishes.set(key, material);
     }
-    remapped.set(material, object.material);
+    object.material = finishes.get(key);
   });
-  replaced.forEach(material => material.dispose());
+  sourceMaterials.forEach(material => material.dispose());
   const planet = batchMiniature(root);
   planet.name = 'little-universe-sky-planet';
   planet.userData.landmarks = landmarks.map(place => place.id);
@@ -65,7 +75,7 @@ export function createSkyPlanet() {
 }
 
 export function createUniverseTelescope() {
-  const root = new THREE.Group(); root.name = 'little-universe-telescope';
+  const root = new THREE.Group(); root.name = UNIVERSE_GATEWAY_ID;
   const brass = new THREE.MeshStandardMaterial({ color: '#bd9963', metalness: .65, roughness: .34 });
   const dark = new THREE.MeshStandardMaterial({ color: '#354f4b', metalness: .3, roughness: .5 });
   const wood = new THREE.MeshStandardMaterial({ color: '#92745b', roughness: .85 });
