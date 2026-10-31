@@ -93,7 +93,7 @@ export const PORKY_CAST = Object.freeze([
   Object.freeze({
     name: "呆呆猪",
     size: "普通大小",
-    visual: "蓬松凌乱的额毛、右耳只有一只金色耳环、炭灰色连帽衫"
+    visual: "头顶蓬松凌乱的杂毛（固定为粉色）、右耳只有一只金色耳环、炭灰色连帽衫"
   }),
   Object.freeze({
     name: "呱呱猪",
