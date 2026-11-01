@@ -31,5 +31,9 @@ const appHtml = renderSite(site);
   </head>
   <body>
     <Fragment set:html={appHtml} />
+    <script>
+      import { mountPortraitDecor } from '../portrait-decor.js';
+      mountPortraitDecor({ root: document.documentElement, location: window.location, window, document });
+    </script>
   </body>
 </html>

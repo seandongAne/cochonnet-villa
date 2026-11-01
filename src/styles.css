@@ -716,6 +716,7 @@ html[lang="zh-Hans"] .size-tag {
 }
 
 .porky-photo-frame {
+  position: relative;
   width: min(100%, 9rem);
   aspect-ratio: 1 / 1;
   overflow: hidden;
@@ -729,10 +730,29 @@ html[lang="zh-Hans"] .size-tag {
 }
 
 .porky-photo {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
 }
+
+.portrait-accent {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+html[data-portrait-decor] .porky-photo-frame:has(.portrait-accent) {
+  overflow: visible;
+  margin-top: 2.4rem;
+}
+
+html[data-portrait-decor] .portrait-accent { display: block; }
 
 .porky-card.giant {
   grid-column: span 2;
