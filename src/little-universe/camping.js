@@ -40,9 +40,9 @@ export const CAMP_PROPS = [
   }),
 ];
 
-export function createCampingMiniature() {
+export function createCampingMiniature(options = {}) {
   const root = new THREE.Group(); root.name = 'camping-vignette';
-  const ground = studio();
+  const ground = studio(new Map(), options);
   ground.cylinder('#687a60', [0, .01, 0], .79, .10);
   ground.cylinder('#aa9574', [0, .057, .18], .42, .008);
   // Match the planet's rounded trees while keeping the supplied camp furniture.

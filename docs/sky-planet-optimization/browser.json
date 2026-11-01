@@ -1,0 +1,62 @@
+{
+  "camera": {
+    "position": [
+      2,
+      1.6,
+      16.6
+    ],
+    "quaternion": [
+      0.20406553467191418,
+      -0.3212565298688889,
+      0.07110295865973483,
+      0.9220064364447234
+    ],
+    "fov": 70,
+    "aspect": 1.9330893081117055
+  },
+  "universeGateway": {
+    "present": true,
+    "visible": true,
+    "position": [
+      104,
+      78,
+      -112
+    ],
+    "projected": [
+      -1.449720189934756e-17,
+      -2.101828949187411e-17,
+      0.9996094759472398
+    ],
+    "batches": 4
+  },
+  "streamedAssets": {
+    "total": 139,
+    "settled": 139,
+    "failed": 0,
+    "pending": 0,
+    "ratio": 1,
+    "complete": true,
+    "standIns": {
+      "furniturePlaceholders": 0,
+      "porkyFallbacks": 0,
+      "loadFailed": 0,
+      "errors": []
+    },
+    "atlas": {
+      "mesh": "rug_rectangle_stripes_A",
+      "vertices": 72,
+      "hasMap": true,
+      "imageType": "ImageBitmap",
+      "imageWidth": 1024,
+      "imageHeight": 1024,
+      "colorSpace": "srgb",
+      "groupState": null,
+      "groupChildren": [
+        "rug_rectangle_stripes_A"
+      ],
+      "worldY": -47.95,
+      "scale": 1.85
+    }
+  },
+  "consoleErrors": []
+}

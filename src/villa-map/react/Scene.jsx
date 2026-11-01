@@ -20,6 +20,7 @@ import {
   MUSHROOM_OBSERVATORY_WALL_NAME
 } from "../mushroom-interior.js";
 import { MUSHROOM_INTERIOR } from "../world.js";
+import { UNIVERSE_GATEWAY_ID } from "../little-universe-gateway.js";
 import { createPorkyModel } from "../porky-models.js";
 import { PORKY_PLACEMENTS } from "../placements.js";
 import { createFurniturePiece } from "../furniture-models.js";
@@ -748,7 +749,7 @@ export function Scene({
         ))}
 
       {/* ---- Interaction markers (white spheres) ---- */}
-      {world.interactions.filter((interaction) => interaction.id !== "little-universe-telescope").map((interaction) => (
+      {world.interactions.filter((interaction) => interaction.id !== UNIVERSE_GATEWAY_ID).map((interaction) => (
         <mesh
           key={interaction.id}
           position={[

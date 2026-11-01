@@ -22,24 +22,7 @@ export function formatGalleryTimestamp(work) {
   return text;
 }
 export function timestampLabel(work) { return ({ generated: '生成时间', archived: '归档时间', imported: '入藏时间' })[work.timestampKind]; }
-export function createGalleryMiniature() {
-  const s = studio();
-  s.cylinder('#b9c6ac', [0,.02,0], .83, .08);
-  s.box('#eee5d6',[0,.35,0],[1.32,.66,.83]);
-  s.box('#d3bfa3',[0,.72,0],[1.47,.1,.96]);
-  s.box('#76928c',[0,.81,-.08],[.7,.1,.43]);
-  for(const x of [-.25,0,.25]) s.box('#d9ebe5',[x,.87,-.08],[.19,.025,.35]);
-  s.box('#d6c4aa',[0,.05,.53],[.95,.09,.42]);
-  s.box('#675a4e',[0,.26,.428],[.24,.46,.035]);
-  s.box('#b2c5ba',[0,.28,.45],[.19,.35,.02]);
-  for(const x of [-.46,.46]) {
-    s.box('#b79b76',[x,.35,.435],[.32,.29,.035]);
-    s.box('#ead0b2',[x,.35,.46],[.27,.24,.02]);
-    s.ball(x<0?'#c77f77':'#859c89',[x,.36,.48],[.075,.065,.012]);
-  }
-  for(const x of [-.71,.71]) { s.cylinder('#b0896b',[x,.16,.31],.09,.22); s.ball('#8b9d76',[x,.35,.31],[.14,.19,.13]); }
-  const root=batchMiniature(s.root);root.name='gallery-pavilion';return root;
-}
+export { createGalleryMiniature } from './destination-buildings.js';
 export function createGalleryRoom() {
   const s=studio();
   const wall = (color, position, size) => s.mesh(new BoxGeometry(...size), color, position);

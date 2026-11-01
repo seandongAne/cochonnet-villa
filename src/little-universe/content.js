@@ -1,3 +1,5 @@
+import { landmarkLayout } from './landmark-layout.js';
+export { surfacePosition } from './landmark-layout.js';
 import { mediaDetails, entranceCopy } from './media-details.js';
 
 // Edit this file to make the gift personal. Media URLs are relative to public/.
@@ -51,7 +53,6 @@ export const landmarks = [
   {
     id: 'camping', name: 'Camping Forest', zh: '一起去露营',
     subtitle: 'A thousand stars. Two happy campers.', color: '#d9bb82',
-    direction: [-0.8, 0.54, 0.25], label: [0, 1.25, 0],
     heading: 'Our second first adventure.',
     message: 'Some adventures take us far away. The best ones bring us a little closer. Here’s to sleepy mornings, warm mugs, and doing it all again tomorrow.',
     caption: 'Little Pig & Bai Baicai · Somewhere under the stars',
@@ -66,7 +67,6 @@ export const landmarks = [
   {
     id: 'music', name: 'The Encore', zh: '唱片与一起看过的音乐剧',
     subtitle: entranceCopy.musicals, color: '#e5a69c',
-    direction: [0.08, 0.99, -0.12], label: [0, 1.38, 0],
     heading: 'Our own little listening room.',
     message: 'The records we collect. The musicals we have seen together. From Sean’s favorite, Hamilton, to every curtain call we shared — a little room for the music that becomes ours.',
     caption: 'The Encore · Life sounds sweeter with you',
@@ -76,7 +76,6 @@ export const landmarks = [
   {
     id: 'workshop', name: "Hangar", zh: '一起造一个梦',
     subtitle: 'Sean’s creations, favorite builds & a little imagination.', color: '#bfb3dd',
-    direction: [0.86, 0.42, 0.23], label: [0, 1.1, 0],
     heading: 'A room for all our favorite things.',
     message: 'Five original works created by Sean, alongside the Gundam and aircraft we love. Turn toward the entrance to discover Sean’s own gallery — a little imagination, made real.',
     caption: 'Hangar · Made for the things we love',
@@ -86,7 +85,6 @@ export const landmarks = [
   {
     id: 'museum', name: 'The Iron & Rose', zh: '钢铁与玫瑰的收藏小屋',
     subtitle: 'A quiet cabin for our collection.', color: '#d6a5a4',
-    direction: [-0.12, 0.25, 0.96], label: [0, 0.65, 0.75],
     heading: 'Iron, oak, and a little rose.',
     message: 'A warm wood cabin for the things we collect, with a little softness among the steel.',
     caption: 'The Iron & Rose · A collection of our own',
@@ -96,7 +94,6 @@ export const landmarks = [
   {
     id: 'movie-night', name: 'The Midnight Matinee', zh: '今晚一起看电影',
     subtitle: entranceCopy.cinema, color: '#ddb77f',
-    direction: [.72, -.4, .57], label: [0, 1.33, 0],
     heading: 'One more movie, with you.',
     message: 'A little cinema for the stories we love. The best seat is always the one next to you.',
     caption: 'The Midnight Matinee · A double feature, a lifetime of favorites',
@@ -105,7 +102,6 @@ export const landmarks = [
   {
     id: 'one-more-episode', name: 'One More Episode', zh: '再一起看一集',
     subtitle: entranceCopy.series, entranceNote: entranceCopy.seriesSubtitle, color: '#a8c7bc',
-    direction: [-.7, -.53, .48], label: [0, 1.45, 0],
     heading: entranceCopy.seriesSubtitle,
     message: 'From Downton to the Good Place, a little room for the worlds we keep coming back to. And tonight, another episode of Shrinking.',
     caption: 'One More Episode · The best company for every season',
@@ -114,27 +110,19 @@ export const landmarks = [
   {
     id: 'gallery', name: 'The Little Gallery', zh: '一幅一刻',
     subtitle: 'Little pictures. Moments held in color.', color: '#b7c5a6',
-    direction: [-.62, .38, -.72], label: [0, 1.12, 0],
     heading: 'A moment, framed.', message: 'A quiet place to wander through color.',
     caption: 'The Little Gallery', photos: [], audio: '', video: '', videoPoster: '', videoCaptions: '',
   },
   {
     id: 'game-room', name: 'Player Two', zh: '一起打游戏的小屋',
     subtitle: 'Switch, PS5 & Xbox. A little time together.', color: '#a6cfb8',
-    direction: [.68, .18, -.8], label: [0, 1.3, 0],
     heading: 'Always room for player two.',
     message: 'Our game collection, three consoles, two controllers, and a little cabin to spend the evening together.',
     caption: 'Player Two · One more round, with you',
     photos: [], audio: '', video: '', videoPoster: '', videoCaptions: '',
   },
-];
+].map((place) => ({ ...place, ...landmarkLayout.find((layout) => layout.id === place.id) }));
 
 export function visitLandmark(visited, id) {
   return landmarks.some((place) => place.id === id) && !visited.includes(id) ? [...visited, id] : visited;
-}
-
-export function surfacePosition(direction, radius = 2.5) {
-  const length = Math.hypot(...direction);
-  if (!length) throw new RangeError('A surface direction must be nonzero.');
-  return direction.map((value) => value / length * radius);
 }

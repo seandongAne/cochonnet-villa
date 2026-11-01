@@ -1,5 +1,5 @@
 {
-  "provenance": "Four images supplied by the author on 2026-10-30 as their collected vinyl records. Local lossless WebP conversion only; full composition and vinyl edges preserved. No album edition or release year is inferred. No open license is asserted.",
+  "provenance": "Four images supplied by the author on 2026-10-30 as their collected vinyl records. Original lossless WebP conversions are preserved in art/little-universe/vinyl-records; runtime derivatives retain the full composition and vinyl edges. No album edition or release year is inferred. No open license is asserted.",
   "records": [
     {
       "id": "leslie-cheung",
@@ -8,8 +8,13 @@
       "file": "leslie-cheung.webp",
       "width": 1254,
       "height": 1254,
-      "bytes": 2040602,
-      "sha256": "40e443a6d2feb60c265526caa103dfe0b9c32e8aa3200ee38aea27385e04079c"
+      "bytes": 285714,
+      "sha256": "7eb0ca753735e33cdec4317792c193c03c0c52498d57eacc0bdaea2214c69e00",
+      "losslessSource": {
+        "file": "art/little-universe/vinyl-records/leslie-cheung.webp",
+        "bytes": 2040602,
+        "sha256": "40e443a6d2feb60c265526caa103dfe0b9c32e8aa3200ee38aea27385e04079c"
+      }
     },
     {
       "id": "teresa-teng",
@@ -18,8 +23,13 @@
       "file": "teresa-teng.webp",
       "width": 1254,
       "height": 1254,
-      "bytes": 1891962,
-      "sha256": "36175d4097f652a2b1f7491515857a45eea4b1e539292f57c7062a7020cbfd51"
+      "bytes": 229098,
+      "sha256": "3159858862ce62adff1cbab557a9130b4e875131c4bf43543b3aa13e655281cf",
+      "losslessSource": {
+        "file": "art/little-universe/vinyl-records/teresa-teng.webp",
+        "bytes": 1891962,
+        "sha256": "36175d4097f652a2b1f7491515857a45eea4b1e539292f57c7062a7020cbfd51"
+      }
     },
     {
       "id": "rocketman",
@@ -28,8 +38,13 @@
       "file": "rocketman.webp",
       "width": 1254,
       "height": 1254,
-      "bytes": 2443026,
-      "sha256": "61bca176c6de004e41b28e35e2d3406333aec2976db3210e50c635b975ccebf3"
+      "bytes": 447080,
+      "sha256": "33d5693042c8490f27efdce0937d4a86a3a8df316b8a930588f5b26609102f1b",
+      "losslessSource": {
+        "file": "art/little-universe/vinyl-records/rocketman.webp",
+        "bytes": 2443026,
+        "sha256": "61bca176c6de004e41b28e35e2d3406333aec2976db3210e50c635b975ccebf3"
+      }
     },
     {
       "id": "jesus-christ-superstar",
@@ -38,8 +53,20 @@
       "file": "jesus-christ-superstar.webp",
       "width": 1254,
       "height": 1254,
-      "bytes": 2336448,
-      "sha256": "70e691a4c70e0199fc7bc2eabfab76e33428c3abb05f4be5623e315e02ea57f0"
+      "bytes": 416940,
+      "sha256": "631a34a8a65ec45967497e7588a021170d656cdb27b96a574fd07f74c3be14d8",
+      "losslessSource": {
+        "file": "art/little-universe/vinyl-records/jesus-christ-superstar.webp",
+        "bytes": 2336448,
+        "sha256": "70e691a4c70e0199fc7bc2eabfab76e33428c3abb05f4be5623e315e02ea57f0"
+      }
     }
-  ]
+  ],
+  "processing": {
+    "format": "WebP",
+    "quality": 85,
+    "effort": 6,
+    "resize": false,
+    "rebuild": "node scripts/optimize-vinyl-records.mjs"
+  }
 }
