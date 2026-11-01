@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { HANGAR_SPAWN, HANGAR_BOUNDS, HANGAR_RADIUS, HANGAR_PLINTH_RADIUS, HANGAR_OBSTACLES, HANGAR_DISPLAYS, isHangarWalkable } from '../src/little-universe/hangar-atelier.js';
 import { moveInRoom, ROOM_IDS } from '../src/little-universe/rooms.js';
 import { collectionModels } from '../src/little-universe/collection-models.js';
+import { seanExhibits } from '../src/little-universe/sean-exhibits.js';
 
 const move = (p, dx, dz) => moveInRoom(p, dx, dz, 'workshop');
 test('Hangar spawn is outside the pedestal, and long moves stop at its round edge and the exit wall', () => {
@@ -44,7 +45,8 @@ test('side counters, portal feet and curved rear shell cannot be crossed', () =>
 
 test('the same Hangar destination retains every original model and replaces the standalone showcase link', () => {
   assert.equal(ROOM_IDS.filter(id => id === 'workshop').length, 1);
-  assert.deepEqual(new Set(['reborns-gundam', ...HANGAR_DISPLAYS.map(m => m.id)]), new Set(collectionModels.filter(m => m.room === 'workshop').map(m => m.id)));
+  assert.equal(HANGAR_DISPLAYS.length, 8, 'all original side-counter exhibits stay in place');
+  assert.deepEqual(new Set(['reborns-gundam', ...HANGAR_DISPLAYS.map(m => m.id), ...seanExhibits.map(m => m.id)]), new Set(collectionModels.filter(m => m.room === 'workshop').map(m => m.id)));
   const ui = readFileSync(new URL('../src/little-universe/LittleUniverse.jsx', import.meta.url), 'utf8');
   assert.doesNotMatch(ui, /Reborns Gundam · Showcase/);
   const redirect = readFileSync(new URL('../src/pages/little-universe/hangar.astro', import.meta.url), 'utf8');

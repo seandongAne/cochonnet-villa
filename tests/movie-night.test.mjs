@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs/promises';
 import sharp from 'sharp';
+import { Texture } from 'three';
+import { createPosterHologram } from '../src/little-universe/poster-hologram.js';
 import { movies, landmarks, visitLandmark } from '../src/little-universe/content.js';
 import { MOVIE_POSTER_SLOTS, MOVIE_POSTER_SIZE, fitPoster } from '../src/little-universe/movie-night.js';
 import { moveInRoom, ROOM_SPAWN } from '../src/little-universe/rooms.js';
@@ -41,4 +43,33 @@ test('cinema visitors can walk down the central aisle but cannot cross either se
     const aroundSeat = moveInRoom(stopped, side * 1.35, 0, 'movie-night');
     assert.ok(moveInRoom(aroundSeat, 0, -2.6, 'movie-night')[2] < -1.5, 'side galleries remain reachable');
   }
+});
+
+test('holograms preserve artwork, freeze reduced motion, and release only owned resources once', () => {
+  const texture = new Texture();
+  let textureDisposals = 0;
+  texture.addEventListener('dispose', () => textureDisposals++);
+  const projection = createPosterHologram(texture, fitPoster(240, 360));
+  const image = projection.root.getObjectByName('hologram-artwork');
+  assert.equal(image.material.map, texture);
+  assert.equal(image.material.depthWrite, false);
+  assert.ok(Math.abs(image.geometry.parameters.width / image.geometry.parameters.height - 2 / 3) < 1e-10);
+  projection.update(2);
+  assert.notEqual(image.parent.position.y, 0);
+  projection.update(3, true);
+  assert.equal(image.parent.position.y, 0);
+  projection.update(20, true);
+  assert.equal(image.parent.position.y, 0);
+  const disposals = [];
+  projection.root.traverse((mesh) => {
+    if (!mesh.isMesh) return;
+    for (const resource of [mesh.geometry, mesh.material]) {
+      const record = { count: 0 }; disposals.push(record);
+      resource.addEventListener('dispose', () => record.count++);
+    }
+  });
+  projection.dispose(); projection.dispose();
+  assert.ok(disposals.every(({ count }) => count === 1));
+  assert.equal(textureDisposals, 0, 'the texture remains owned by the React loader');
+  texture.dispose();
 });

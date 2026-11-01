@@ -78,7 +78,12 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
       <pointLight position={[-1.3, 2.65, -1.45]} intensity={12} distance={5} decay={2} color="#ffecd1" />
       <pointLight position={[1.4, 2.65, -1.45]} intensity={10} distance={5} decay={2} color="#ffecd1" />
       <pointLight position={[0, 2.7, .9]} intensity={17} distance={6} decay={2} color="#d8e5f4" />
-    </> : id === 'workshop' ? <HangarAtelier onSelect={onPoster} onExit={onExit} /> : <>
+    </> : id === 'workshop' ? <HangarAtelier onSelect={onPoster} onExit={onExit} /> : id === 'one-more-episode' ? <>
+      <ambientLight intensity={.55} color="#eee9de" />
+      <hemisphereLight args={['#e5edf0', '#777970', .85]} />
+      <pointLight position={[0, 2.48, .35]} intensity={10} distance={7} decay={2} color="#f5e4c9" />
+      <pointLight position={[1.8, 2, 1.9]} intensity={5} distance={6} decay={2} color="#dce8ec" />
+    </> : <>
       <ambientLight intensity={id === 'movie-night' ? .5 : .85} color="#f4dfce" />
       <hemisphereLight args={['#fff1d7', '#8a7380', id === 'movie-night' ? .65 : 1.3]} />
       <pointLight position={[0, 2.43, 0]} intensity={id === 'movie-night' ? 14 : 24} distance={10} decay={2} color="#ffe2b6" />
@@ -88,7 +93,7 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
     {id === 'game-room' && <GameRoomScreen activeConsole={gameConsole} activeGame={gameId} onSelect={onPoster} />}
     {id === 'gallery' && <GalleryWall page={galleryPage} onSelect={onPoster} />}
     {id !== 'workshop' && <RoomCollection room={id} onSelect={onPoster} />}
-    {id === 'movie-night' && <CinemaPosters onSelect={onPoster} />}
+    {id === 'movie-night' && <CinemaPosters onSelect={onPoster} reducedMotion={reducedMotion} paused={paused} />}
     {id === 'music' && <MusicalPosters onSelect={onPoster} />}
     {id === 'one-more-episode' && <SeriesWall onSelect={onPoster} />}
     {id === 'museum' && <CinemaSign title="THE IRON & ROSE" subtitle="THE COLLECTOR'S WORKBENCH" background="#101215" color="#c9b99c" size={[3.4, .22]} position={[0, 3.03, -1.77]} />}

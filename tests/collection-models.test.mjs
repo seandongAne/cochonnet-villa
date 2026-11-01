@@ -9,10 +9,11 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { collectionModels, fitCollectionModel } from '../src/little-universe/collection-models.js';
 import { moveInRoom, ROOM_SPAWN } from '../src/little-universe/rooms.js';
 import { HANGAR_DISPLAYS, HANGAR_SPAWN } from '../src/little-universe/hangar-atelier.js';
+import { seanExhibits, SEAN_GALLERY_OBSTACLES } from '../src/little-universe/sean-exhibits.js';
 import { fighterExhibits } from '../src/little-universe/fighter-exhibits.js';
 
-test('collection placement keeps three Gundams and six aircraft in Hangar and the centered SU-100 with three guns and a rose', () => {
-  assert.deepEqual(collectionModels.filter(m => m.room === 'workshop').map(m => m.id), [...fighterExhibits.map(m => m.id), 'sd-gundam', 'reborns-gundam', 'zz-gundam-verka', 'cessna-172', 'diamond-da20-c1']);
+test('Hangar adds five Sean works while preserving the existing collection and walkable aisles', () => {
+  assert.deepEqual(collectionModels.filter(m => m.room === 'workshop').map(m => m.id), [...seanExhibits.map(m => m.id), ...fighterExhibits.map(m => m.id), 'sd-gundam', 'reborns-gundam', 'zz-gundam-verka', 'cessna-172', 'diamond-da20-c1']);
   assert.deepEqual(collectionModels.filter(m => m.room === 'museum').map(m => m.id), ['cz-bren-2', 'm1887-short', 'm590', 'rose', 'ru-winter-su100']);
   assert.equal(collectionModels.find(m => m.id === 'ru-winter-su100').position[0], 0);
   assert.ok(moveInRoom(ROOM_SPAWN, 0, -20, 'museum')[2] >= 1.08, 'central plinth stops walking');
@@ -23,6 +24,9 @@ test('collection placement keeps three Gundams and six aircraft in Hangar and th
   }
   const side = moveInRoom(ROOM_SPAWN, 1.4, 0, 'museum');
   assert.ok(moveInRoom(side, 0, -1.5, 'museum')[2] < .5, 'both side aisles stay usable');
+  for (const x of [-5, 5]) {
+    assert.ok(moveInRoom([x, 1.8, 10], 0, 3, 'workshop')[2] <= 10.28, 'entrance shelves stop visitors before the models');
+  }
 });
 
 test('fitting handles rotated, offset assets without changing shared originals', () => {
@@ -38,14 +42,15 @@ test('fitting handles rotated, offset assets without changing shared originals',
   mesh.geometry.dispose(); mesh.material.dispose();
 });
 
-test('all sixteen shipped assets have local embedded resources, pinned provenance and decodable geometry', async () => {
+test('all twenty-one shipped assets have local embedded resources, pinned provenance and decodable geometry', async () => {
   const base = new URL('../public/little-universe/models/', import.meta.url);
   const manifest = JSON.parse(fs.readFileSync(new URL('sources.json', base)));
   const fighterIds = fighterExhibits.map(m => m.id);
-  assert.equal(manifest.models.length, 16);
-  assert.ok(manifest.models.filter(m => m.id !== 'diamond-da20-c1' && !fighterIds.includes(m.id)).reduce((sum, m) => sum + m.runtimeBytes, 0) < 24 * 1024 * 1024);
+  assert.equal(manifest.models.length, 21);
+  assert.ok(manifest.models.filter(m => m.id !== 'diamond-da20-c1' && !fighterIds.includes(m.id) && !m.id.startsWith('sean-')).reduce((sum, m) => sum + m.runtimeBytes, 0) < 24 * 1024 * 1024);
+  assert.ok(manifest.models.filter(m => m.id.startsWith('sean-')).reduce((sum, m) => sum + m.runtimeBytes, 0) < 10 * 1024 * 1024);
   assert.ok(manifest.models.filter(m => fighterIds.includes(m.id)).reduce((sum, m) => sum + m.runtimeBytes, 0) < 12 * 1024 * 1024);
-  assert.ok(manifest.models.reduce((sum, m) => sum + m.runtimeBytes, 0) < 44 * 1024 * 1024);
+  assert.ok(manifest.models.reduce((sum, m) => sum + m.runtimeBytes, 0) < 54 * 1024 * 1024);
   const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   for (const record of manifest.models) {
     const bytes = fs.readFileSync(new URL(`${record.id}.glb`, base));
@@ -158,6 +163,20 @@ test('all sixteen shipped assets have local embedded resources, pinned provenanc
     const binary = bytes.subarray(20 + length); const out = Buffer.alloc(20 + padded + binary.length, 32);
     bytes.copy(out, 0, 0, 20); out.writeUInt32LE(out.length, 8); out.writeUInt32LE(padded, 12); encoded.copy(out, 20); binary.copy(out, 20 + padded);
     const gltf = await loader.parseAsync(out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength), '');
+    if (record.id.startsWith('sean-')) {
+      const item = seanExhibits.find(m => m.id === record.id);
+      assert.equal(record.creator, 'Sean');
+      assert.equal(item.creator, 'Sean');
+      assert.equal(record.simplificationRatio, 1);
+      assert.match(record.sourceSha256, /^[a-f0-9]{64}$/);
+      const display = fitCollectionModel(gltf.scene, item.size, item.rotation);
+      display.position.set(...item.position);
+      const bounds = new Box3().setFromObject(display);
+      const [x0, x1, z0, z1] = SEAN_GALLERY_OBSTACLES[item.position[0] < 0 ? 0 : 1];
+      assert.ok(bounds.min.x >= x0 && bounds.max.x <= x1 && bounds.min.z >= z0 && bounds.max.z <= z1, 'model fits its protected shelf');
+      assert.ok(Math.abs(bounds.min.y - item.position[1]) < 1e-5, 'model rests on its shelf');
+      assert.ok(bounds.max.y < item.position[1] + .56, 'shelf tiers do not intersect');
+    }
     const fit = fitCollectionModel(gltf.scene, [2, 2, 2]); const box = new Box3().setFromObject(fit);
     assert.ok(!box.isEmpty() && box.min.y > -1e-5, record.id);
     const placement = HANGAR_DISPLAYS.find(item => item.id === record.id);

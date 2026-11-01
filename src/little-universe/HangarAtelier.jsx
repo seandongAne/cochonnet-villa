@@ -4,6 +4,8 @@ import { ContactShadows, Environment, Html, Lightformer, MeshReflectorMaterial }
 import { ACESFilmicToneMapping, CanvasTexture, SRGBColorSpace } from 'three';
 import { loadModel, LocalModel } from './CollectionModels.jsx';
 import { collectionModels } from './collection-models.js';
+import { seanExhibits } from './sean-exhibits.js';
+import { CinemaSign } from './MovieNight.jsx';
 import { HANGAR_DISPLAYS } from './hangar-atelier.js';
 import { PEDESTAL_TOP, SHOWCASE_MODEL, prepareShowcaseModel } from './hangar-showcase.js';
 
@@ -96,6 +98,11 @@ export default function HangarAtelier({ onSelect, onExit }) {
         <NearbyLabel item={item} name={name} onSelect={onSelect} />
       </group>;
     })}
+    {seanExhibits.map(item => <group key={item.id} position={item.position}>
+      <LocalModel id={item.id} size={item.size} rotation={item.rotation} onSelect={onSelect} />
+      <Html position={item.labelPosition} center zIndexRange={[23, 22]} occlude><button className="lu-room-tag" onClick={() => onSelect(item.id)}>{item.name}<small style={{ display: 'block' }}>Created by {item.creator}</small> ↗</button></Html>
+    </group>)}
+    {[-5, 5].map(x => <group key={x} position={[x, 3.05, 11.59]} rotation={[0, Math.PI, 0]}><CinemaSign title="CREATED BY SEAN" subtitle="FIVE ORIGINAL WORKS / MADE WITH IMAGINATION" background="#344e59" color="#e8d5ad" size={[2.2, .24]} /></group>)}
     <Html position={[0, .85, 3.45]} center zIndexRange={[23, 22]}><button className="lu-room-tag" onClick={() => onSelect(SHOWCASE_MODEL)}>Reborns Gundam ↗</button></Html>
     <Html position={[0, 1.75, 11.7]} center occlude zIndexRange={[23, 22]}><button className="lu-room-tag" onClick={onExit}>Step outside ↗</button></Html>
   </>;
