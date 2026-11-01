@@ -1,13 +1,14 @@
 import { birthdayPreview, watchBirthday } from './birthday.js';
 
 // The shared calendar is the only timing source. Preview overrides are local.
-export function mountPortraitDecor({ root, location, window, document }) {
+export function mountPortraitDecor({ root, location, window, document, onChange = () => {} }) {
   const previewLocation = {
     hostname: location.hostname,
     search: new URLSearchParams({ birthday: new URLSearchParams(location.search).get('decor') ?? '' }).toString(),
   };
   const stop = watchBirthday(active => {
     root.toggleAttribute('data-portrait-decor', active);
+    onChange(active);
   }, {
     preview: birthdayPreview(previewLocation),
     subscribeWake(check) {

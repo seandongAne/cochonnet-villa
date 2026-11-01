@@ -2,6 +2,7 @@
 import site from "../../content/site.json";
 import "../viewport-scale.css";
 import "../styles.css";
+import "../entry-greeting.css";
 import SeoHead from "../components/SeoHead.astro";
 import Fonts from "../components/Fonts.astro";
 import { renderSite } from "../render-site.js";
@@ -33,7 +34,10 @@ const appHtml = renderSite(site);
     <Fragment set:html={appHtml} />
     <script>
       import { mountPortraitDecor } from '../portrait-decor.js';
-      mountPortraitDecor({ root: document.documentElement, location: window.location, window, document });
+      import { createEntryGreeting } from '../entry-greeting.js';
+      const environment = { root: document.documentElement, location: window.location, window, document };
+      const greeting = createEntryGreeting(environment);
+      mountPortraitDecor({ ...environment, onChange: greeting.setActive });
     </script>
   </body>
 </html>
