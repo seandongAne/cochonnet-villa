@@ -8,17 +8,18 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { collectionModels, fitCollectionModel } from '../src/little-universe/collection-models.js';
 import { moveInRoom, ROOM_SPAWN } from '../src/little-universe/rooms.js';
-import { fighterExhibits, FIGHTER_GALLERY_OBSTACLE } from '../src/little-universe/fighter-exhibits.js';
+import { HANGAR_DISPLAYS, HANGAR_SPAWN } from '../src/little-universe/hangar-atelier.js';
+import { fighterExhibits } from '../src/little-universe/fighter-exhibits.js';
 
 test('collection placement keeps three Gundams and six aircraft in Hangar and the centered SU-100 with three guns and a rose', () => {
   assert.deepEqual(collectionModels.filter(m => m.room === 'workshop').map(m => m.id), [...fighterExhibits.map(m => m.id), 'sd-gundam', 'reborns-gundam', 'zz-gundam-verka', 'cessna-172', 'diamond-da20-c1']);
   assert.deepEqual(collectionModels.filter(m => m.room === 'museum').map(m => m.id), ['cz-bren-2', 'm1887-short', 'm590', 'rose', 'ru-winter-su100']);
   assert.equal(collectionModels.find(m => m.id === 'ru-winter-su100').position[0], 0);
   assert.ok(moveInRoom(ROOM_SPAWN, 0, -20, 'museum')[2] >= 1.08, 'central plinth stops walking');
-  assert.ok(moveInRoom([0, 1.8, 2.1], 0, -20, 'workshop')[2] >= .93, 'aircraft table stops walking');
-  for (const x of [-1.65, 1.35]) {
-    const aisle = moveInRoom([0, 1.8, 2.1], x, 0, 'workshop');
-    assert.ok(moveInRoom(aisle, 0, -2.2, 'workshop')[2] < 0, 'aircraft side aisles remain accessible');
+  assert.ok(moveInRoom(HANGAR_SPAWN, 0, -30, 'workshop')[2] >= 3.5, 'central Reborns plinth stops walking');
+  for (const x of [-5, 5]) {
+    const aisle = moveInRoom(HANGAR_SPAWN, x, 0, 'workshop');
+    assert.ok(moveInRoom(aisle, 0, -16, 'workshop')[2] < -5, 'both sides of the main exhibit remain accessible');
   }
   const side = moveInRoom(ROOM_SPAWN, 1.4, 0, 'museum');
   assert.ok(moveInRoom(side, 0, -1.5, 'museum')[2] < .5, 'both side aisles stay usable');
@@ -159,28 +160,15 @@ test('all sixteen shipped assets have local embedded resources, pinned provenanc
     const gltf = await loader.parseAsync(out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength), '');
     const fit = fitCollectionModel(gltf.scene, [2, 2, 2]); const box = new Box3().setFromObject(fit);
     assert.ok(!box.isEmpty() && box.min.y > -1e-5, record.id);
-    if (fighterIds.includes(record.id)) {
-      const item = fighterExhibits.find(m => m.id === record.id);
-      const display = fitCollectionModel(gltf.scene, item.size, item.rotation);
-      display.position.set(...item.position);
+    const placement = HANGAR_DISPLAYS.find(item => item.id === record.id);
+    if (placement) {
+      const display = fitCollectionModel(gltf.scene, placement.size, placement.rotation);
+      display.position.set(...placement.position);
       const bounds = new Box3().setFromObject(display);
-      const [x0, x1, z0, z1] = FIGHTER_GALLERY_OBSTACLE;
-      assert.ok(bounds.min.x >= x0 && bounds.max.x <= x1 && bounds.min.z >= z0 && bounds.max.z <= z1);
-      assert.ok(Math.abs(bounds.min.y - item.position[1]) < 1e-5, 'landing gear rests on its shelf');
-      assert.ok(bounds.max.y < item.position[1] + .44, 'tiers cannot overlap');
-      assert.ok(moveInRoom([-1.65, 1.8, .2], -2, 0, 'workshop')[0] >= x1 + .17, 'gallery stops walking through the aircraft');
-    }
-    if (record.id === 'diamond-da20-c1') {
-      const item = collectionModels.find(m => m.id === record.id);
-      const display = fitCollectionModel(gltf.scene, item.size, item.rotation);
-      display.position.set(...item.position);
-      const bounds = new Box3().setFromObject(display);
-      assert.ok(Math.abs(bounds.min.y - .83) < 1e-5, 'wheels meet the apron');
-      assert.ok(bounds.min.x > 1.65 && bounds.max.x < 2.79);
-      assert.ok(bounds.min.z > -.85 && bounds.max.z < 1.05);
-      assert.ok(bounds.max.y < 1.4, 'plane stays below the wall sketch');
-      assert.equal(item.aircraft, true, 'detail view uses aircraft framing');
-      assert.ok(moveInRoom([1.35, 1.8, .1], 2, 0, 'workshop')[0] < 1.48, 'side display blocks walking through the model');
+      assert.ok(Math.abs(bounds.min.y - 1.37) < 1e-5, 'each side exhibit rests on its counter');
+      assert.ok(bounds.min.x >= Math.sign(placement.position[0]) * 10.5 - .9 && bounds.max.x <= Math.sign(placement.position[0]) * 10.5 + .9, 'wings and armor stay over the counter');
+      assert.ok(bounds.min.z >= placement.position[2] - .71 && bounds.max.z <= placement.position[2] + .71, 'neighboring models cannot overlap');
+      assert.ok(bounds.min.z >= -7.1 && bounds.max.z <= -.5);
     }
     if (['m590', 'rose'].includes(record.id)) {
       const item = collectionModels.find(m => m.id === record.id);
@@ -197,12 +185,8 @@ test('all sixteen shipped assets have local embedded resources, pinned provenanc
       }
     }
     if (record.id === 'cessna-172') {
-      const item = collectionModels.find(m => m.id === record.id);
+      const item = HANGAR_DISPLAYS.find(m => m.id === record.id);
       const display = fitCollectionModel(gltf.scene, item.size, item.rotation);
-      display.position.set(...item.position);
-      const bounds = new Box3().setFromObject(display);
-      assert.ok(Math.abs(bounds.min.y - .67) < 1e-5, 'landing gear sits on the display surface');
-      assert.ok(bounds.min.x > -1.35 && bounds.max.x < .95 && bounds.min.z > -1.05 && bounds.max.z < .75, 'wings and tail fit inside the collidable table');
       const propeller = display.getObjectByName('cessna-propeller');
       const sourcePropeller = gltf.scene.getObjectByName('cessna-propeller');
       const originalRotation = sourcePropeller.rotation.z;

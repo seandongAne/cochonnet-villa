@@ -38,6 +38,8 @@ export function createEncoreMiniature() {
   return batchMiniature(s.root);
 }
 
+export const CABIN_SIGN_POSITION = [0, .565, .51];
+
 export function createCabinMiniature(television = false) {
   const s = studio(); const wall = television ? '#87a99c' : '#78604f';
   const trim = television ? '#e9cc9c' : '#d1b48c';
@@ -48,7 +50,8 @@ export function createCabinMiniature(television = false) {
   s.box('#343c3b', [0, .23, .29], [.21, .41, .02]);
   s.window(-.27, .38, .28); s.window(.27, .38, .28);
   s.box(trim, [0, .065, .4], [.48, .08, .25]);
-  s.box(trim, [0, .565, .35], [.76, .12, .045]);
+  for (const x of [-.29, .29]) s.mesh(new THREE.BoxGeometry(.025, .025, .21), trim, [x, .565, .375]);
+  s.box(trim, [0, .565, .48], [.76, .12, .045]);
   s.box('#664d44', [.26, .85, -.14], [.12, .38, .14]);
   if (television) {
     s.box('#594c4c', [0, 1.02, .02], [.28, .21, .1]);

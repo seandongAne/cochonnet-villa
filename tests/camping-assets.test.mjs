@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
-import { Box3 } from 'three';
+import { Box3, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { CAMP_PROPS, composeCampingProps, disposeCampingProps } from '../src/little-universe/camping.js';
+import { CAMP_PROPS, CAMP_PIG_POSITION, CAMP_BAICAI_POSITION, composeCampingProps, disposeCampingProps } from '../src/little-universe/camping.js';
 
 const bytes = fs.readFileSync(new URL('../public/little-universe/camping/camping-props.glb', import.meta.url));
 const jsonLength = bytes.readUInt32LE(12);
@@ -60,4 +60,17 @@ test('real camping geometry fits the clearing, shares resources and animates fla
   let sourceDisposed = false;
   source.traverse(mesh => { if (mesh.isMesh) mesh.geometry.addEventListener('dispose', () => { sourceDisposed = true; }); });
   disposeCampingProps(camp); assert.equal(sourceDisposed, false, 'cached source remains reusable');
+});
+
+
+test('the full camper envelopes stay clear of every prop, including foreground grass', async () => {
+  const camp = composeCampingProps(await geometrySource());
+  for (const [position, size] of [[CAMP_PIG_POSITION, [.24, .3, .23]], [CAMP_BAICAI_POSITION, [.24, .29, .23]]]) {
+    // Include breathing and leaf sway, not just the still model's footprint.
+    const envelope = new Box3().setFromCenterAndSize(
+      new Vector3(position[0], position[1] + size[1] / 2, position[2]),
+      new Vector3(size[0] + .01, size[1] + .01, size[2] + .01));
+    for (const prop of camp.children) assert.equal(envelope.intersectsBox(new Box3().setFromObject(prop)), false, prop.name);
+  }
+  disposeCampingProps(camp);
 });

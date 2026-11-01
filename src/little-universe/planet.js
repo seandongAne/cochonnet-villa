@@ -1,3 +1,5 @@
+import { createGalleryMiniature } from './gallery.js';
+import { createGameMiniature } from './game-room.js';
 // Node-pure miniature factories. No asset requests or browser globals.
 import * as THREE from 'three';
 import { studio, batchMiniature } from './miniature.js';
@@ -15,6 +17,8 @@ export function surfaceFrame(direction, radius = 2.5) {
 }
 
 export function createLandmark(id) {
+  if (id === 'game-room') return createGameMiniature();
+  if (id === 'gallery') return createGalleryMiniature();
   if (id === 'camping') return createCampingMiniature();
   if (id === 'movie-night') return createCinemaMiniature();
   if (id === 'music') return createEncoreMiniature();

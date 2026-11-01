@@ -1,17 +1,15 @@
 ---
 import site from "../../content/site.json";
-import notesData from "../../content/notes.json";
 import "../viewport-scale.css";
 import "../styles.css";
 import SeoHead from "../components/SeoHead.astro";
 import Fonts from "../components/Fonts.astro";
 import { renderSite } from "../render-site.js";
-import { normalizeNotes } from "../render-notes.js";
 import { websiteJsonLd } from "../seo.js";
 
 const title = site?.seo?.title || "Cochonnet Villa";
 const description = site?.seo?.description || "";
-const appHtml = renderSite(site, normalizeNotes(notesData));
+const appHtml = renderSite(site);
 ---
 
 <!doctype html>

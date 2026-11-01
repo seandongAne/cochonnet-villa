@@ -1,5 +1,7 @@
 ---
 import "../../viewport-scale.css";
+import NotesAccess from "../../components/NotesAccess.astro";
+import NotesLock from "../../components/NotesLock.astro";
 const title = "猪猪小记编辑室 | Cochonnet Villa";
 ---
 
@@ -12,7 +14,10 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   </head>
-  <body class="notes-studio">
+  <body class="notes-studio" data-notes-title={title}>
+    <NotesAccess />
+    <div data-notes-content hidden>
+    <NotesLock />
     <div class="shell">
       <div class="stale-banner" id="stale-banner" role="status" hidden>
         <p class="stale-banner-text" id="stale-banner-text"></p>
@@ -188,6 +193,7 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
         </form>
       </div>
     </dialog>
+    </div>
   </body>
 </html>
 
@@ -825,6 +831,9 @@ const title = "猪猪小记编辑室 | Cochonnet Villa";
   import { initNotesAdmin } from "../../notes-admin.js";
   import { initNotesEditorWindow } from "../../notes-window.js";
 
-  initNotesAdmin();
-  initNotesEditorWindow();
+  import { initNotesAccess } from "../../notes-access.js";
+  initNotesAccess().then(() => {
+    initNotesAdmin();
+    initNotesEditorWindow();
+  });
 </script>

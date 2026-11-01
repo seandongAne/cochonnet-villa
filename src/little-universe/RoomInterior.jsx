@@ -1,3 +1,7 @@
+import HangarAtelier from './HangarAtelier.jsx';
+import { HANGAR_LOOK, HANGAR_SPAWN, HANGAR_SPEED } from './hangar-atelier.js';
+import { GameRoomScreen } from './GameRoom.jsx';
+import { GalleryWall } from './Gallery.jsx';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -10,7 +14,7 @@ import { MusicalPosters } from './MusicWorld.jsx';
 import { SeriesWall } from './OneMoreEpisode.jsx';
 import { CinemaSign } from './MovieNight.jsx';
 
-export default function RoomInterior({ id, reducedMotion, input, spinning, onSpin, onExit, onPoster, paused }) {
+export default function RoomInterior({ id, reducedMotion, input, spinning, onSpin, onExit, onPoster, paused, galleryPage, gameConsole, gameId }) {
   const { camera, gl } = useThree();
   const room = useMemo(() => createRoom(id), [id]);
   const keys = useRef(new Set());
@@ -20,8 +24,8 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
   useEffect(() => () => disposeMiniature(room), [room]);
   useLayoutEffect(() => {
     const saved = { position: camera.position.clone(), quaternion: camera.quaternion.clone(), up: camera.up.clone(), fov: camera.fov, near: camera.near };
-    camera.position.set(...(id === 'museum' ? [0, 1.7, 2.1] : id === 'workshop' ? [.45, 1.8, 2.1] : ROOM_SPAWN)); camera.up.set(0, 1, 0); camera.fov = id === 'workshop' ? 68 : 62; camera.near = .04; camera.updateProjectionMatrix();
-    look.current = { yaw: 0, pitch: id === 'museum' ? -.17 : id === 'workshop' ? -.2 : -.06 };
+    camera.position.set(...(id === 'museum' ? [0, 1.7, 2.1] : id === 'workshop' ? HANGAR_SPAWN : ROOM_SPAWN)); camera.up.set(0, 1, 0); camera.fov = id === 'workshop' ? 58 : 62; camera.near = .04; camera.updateProjectionMatrix();
+    look.current = id === 'workshop' ? { ...HANGAR_LOOK } : { yaw: 0, pitch: id === 'museum' ? -.17 : -.06 };
     return () => {
       camera.position.copy(saved.position); camera.quaternion.copy(saved.quaternion); camera.up.copy(saved.up);
       camera.fov = saved.fov; camera.near = saved.near; camera.updateProjectionMatrix();
@@ -62,7 +66,7 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
     const sideways = Number(k.has('KeyD') || touch === 'right') - Number(k.has('KeyA') || touch === 'left');
     const turn = Number(k.has('ArrowLeft') || touch === 'turn-left') - Number(k.has('ArrowRight') || touch === 'turn-right');
     look.current.yaw += turn * dt * 1.2;
-    const { yaw, pitch } = look.current; const speed = dt * 1.45 / Math.max(1, Math.hypot(forward, sideways));
+    const { yaw, pitch } = look.current; const speed = dt * (id === 'workshop' ? HANGAR_SPEED : 1.45) / Math.max(1, Math.hypot(forward, sideways));
     camera.position.set(...moveInRoom(camera.position.toArray(), (-Math.sin(yaw) * forward + Math.cos(yaw) * sideways) * speed, (-Math.cos(yaw) * forward - Math.sin(yaw) * sideways) * speed, id));
     camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
     if (record && spinning && !reducedMotion) record.rotation.y -= dt * 1.4;
@@ -74,34 +78,25 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
       <pointLight position={[-1.3, 2.65, -1.45]} intensity={12} distance={5} decay={2} color="#ffecd1" />
       <pointLight position={[1.4, 2.65, -1.45]} intensity={10} distance={5} decay={2} color="#ffecd1" />
       <pointLight position={[0, 2.7, .9]} intensity={17} distance={6} decay={2} color="#d8e5f4" />
-    </> : id === 'workshop' ? <>
-      <ambientLight intensity={.48} color="#f1f3ef" />
-      <hemisphereLight args={['#e9f4fa', '#8e9790', 1.15]} />
-      <pointLight position={[-2.35, 2.5, .1]} intensity={12} distance={7} decay={2} color="#e2f1ff" />
-      <pointLight position={[1.2, 2.85, .8]} intensity={13} distance={7} decay={2} color="#fff4e1" />
-      <pointLight position={[-.7, 2.65, -1.5]} intensity={5} distance={3.5} decay={2} color="#ffead0" />
-      <pointLight position={[1.95, 2.7, -1.5]} intensity={4} distance={3.5} decay={2} color="#ffead0" />
-    </> : <>
+    </> : id === 'workshop' ? <HangarAtelier onSelect={onPoster} onExit={onExit} /> : <>
       <ambientLight intensity={id === 'movie-night' ? .5 : .85} color="#f4dfce" />
       <hemisphereLight args={['#fff1d7', '#8a7380', id === 'movie-night' ? .65 : 1.3]} />
       <pointLight position={[0, 2.43, 0]} intensity={id === 'movie-night' ? 14 : 24} distance={10} decay={2} color="#ffe2b6" />
       <pointLight position={[-2.5, 2, -.8]} intensity={9} distance={7} color="#cbd8e8" />
     </>}
     <primitive object={room} dispose={null} />
-    <RoomCollection room={id} onSelect={onPoster} />
+    {id === 'game-room' && <GameRoomScreen activeConsole={gameConsole} activeGame={gameId} onSelect={onPoster} />}
+    {id === 'gallery' && <GalleryWall page={galleryPage} onSelect={onPoster} />}
+    {id !== 'workshop' && <RoomCollection room={id} onSelect={onPoster} />}
     {id === 'movie-night' && <CinemaPosters onSelect={onPoster} />}
     {id === 'music' && <MusicalPosters onSelect={onPoster} />}
     {id === 'one-more-episode' && <SeriesWall onSelect={onPoster} />}
-    {id === 'workshop' && <>
-      <CinemaSign title="H A N G A R" subtitle="MADE FOR THE THINGS YOU LOVE" background="#e7e9e5" color="#344e59" size={[2.3, .22]} position={[0, 3.015, -2.35]} />
-      {[-1.25, -.05, 1.95].map((x, i) => <CinemaSign key={x} title={`0${i + 1} / MODEL BAY`} background="#344e59" color="#d3c5a3" size={[.62, .075]} position={[x, 2.69, -2.255]} />)}
-    </>}
     {id === 'museum' && <CinemaSign title="THE IRON & ROSE" subtitle="THE COLLECTOR'S WORKBENCH" background="#101215" color="#c9b99c" size={[3.4, .22]} position={[0, 3.03, -1.77]} />}
     {id === 'music' && <Html position={[0, 1.15, -1.45]} center zIndexRange={[23, 22]} occlude>
       <button className="lu-room-tag" onClick={onSpin}>{spinning ? 'Stop the vinyl' : 'Spin the vinyl'} <span>↗</span></button>
     </Html>}
-    <Html position={[0, 1.4, 2.4]} center zIndexRange={[23, 22]} occlude>
+    {id !== 'workshop' && <Html position={[0, 1.4, 2.4]} center zIndexRange={[23, 22]} occlude>
       <button className="lu-room-tag" onClick={onExit}>Step outside ↗</button>
-    </Html>
+    </Html>}
   </group>;
 }

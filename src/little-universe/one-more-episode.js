@@ -1,4 +1,4 @@
-// Landscape title cards resemble small television screens around a shared sofa.
+// Shared television collection, with individually sized frames for portrait artwork.
 import { studio, batchMiniature } from './miniature.js';
 
 export const SERIES_FRAME_SIZE = [1.35, .8];
@@ -6,11 +6,13 @@ export const SERIES_SLOTS = [
   { id: 'downton-abbey', position: [0, 2.06, -2.32], rotation: 0 },
   { id: 'youre-the-worst', position: [-1.85, 2.06, -2.32], rotation: 0 },
   { id: 'the-good-place', position: [1.85, 2.06, -2.32], rotation: 0 },
-  { id: 'the-good-wife', position: [-2.86, 2.06, -.85], rotation: Math.PI / 2 },
-  { id: 'the-good-fight', position: [-2.86, 2.06, .85], rotation: Math.PI / 2 },
-  { id: 'game-of-thrones', position: [2.86, 2.06, -.85], rotation: -Math.PI / 2 },
-  { id: 'shrinking', position: [2.86, 2.06, .85], rotation: -Math.PI / 2 },
+  { id: 'the-good-wife', position: [-2.86, 2.06, -1.45], rotation: Math.PI / 2 },
+  { id: 'the-good-fight', position: [-2.86, 2.06, .1], rotation: Math.PI / 2 },
+  { id: 'game-of-thrones', position: [2.86, 2.06, -1.25], rotation: -Math.PI / 2 },
+  { id: 'shrinking', position: [2.86, 2.06, .35], rotation: -Math.PI / 2 },
   { id: 'the-man-in-the-high-castle', position: [-1.8, 2.06, 2.32], rotation: Math.PI },
+  { id: 'ming-dynasty-1566', position: [2.86, 2.06, 1.9], rotation: -Math.PI / 2, bounds: [.82, 1.15], labelOffset: -.79, labelSize: [1.02, .18] },
+  { id: 'in-the-name-of-the-people', position: [-2.86, 2.06, 1.7], rotation: Math.PI / 2, bounds: [1.15, .65], labelOffset: -.58, labelSize: [1.25, .2] },
 ];
 export const SERIES_OBSTACLES = [[-2.65, 2.65, -2.5, -1.65], [-1.6, 1.6, -.9, .25]];
 
@@ -29,8 +31,9 @@ export function createSeriesFurniture() {
   s.box('#3a3c3e', [.73, .79, -1.83], [.12, .025, .28]);
   for (const slot of SERIES_SLOTS) {
     const f = studio();
-    f.box(slot.id === 'downton-abbey' ? '#d6b777' : '#7e6554', [0, 0, 0], [1.49, .94, .08]);
-    f.box('#242833', [0, 0, .045], [1.39, .84, .02]);
+    const [width, height] = slot.bounds || SERIES_FRAME_SIZE;
+    f.box(slot.id === 'downton-abbey' ? '#d6b777' : '#7e6554', [0, 0, 0], [width + .14, height + .14, .08]);
+    f.box('#242833', [0, 0, .045], [width + .04, height + .04, .02]);
     f.root.position.set(...slot.position); f.root.rotation.y = slot.rotation; s.root.add(f.root);
   }
   const root = batchMiniature(s.root); root.name = 'series-sofa-and-frames'; return root;

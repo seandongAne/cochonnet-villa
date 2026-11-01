@@ -1,3 +1,5 @@
+import BirthdaySky, { useBirthday } from '../components/BirthdaySky.jsx';
+import { CABIN_SIGN_POSITION } from './destination-buildings.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
@@ -16,16 +18,15 @@ function Miniature({ factory, ...props }) {
   return <primitive object={object} dispose={null} {...props} />;
 }
 
-function LandmarkDoor({ id, opening, active, onEnter, reducedMotion }) {
+function LandmarkDoor({ id, opening, reducedMotion }) {
   const hinge = useRef(); const door = EXTERIOR_DOORS[id];
   useFrame((_, delta) => { if (hinge.current) hinge.current.rotation.y = reducedMotion ? (opening ? -1.45 : 0) : THREE.MathUtils.damp(hinge.current.rotation.y, opening ? -1.45 : 0, 6, Math.min(delta, .05)); });
   if (!door) return null;
   return <group position={door.position}>
-    <group ref={hinge} onClick={(event) => { event.stopPropagation(); if (active && event.delta < 6) onEnter(); }}>
+    <group ref={hinge}>
       <mesh position={[door.width / 2, door.height / 2, 0]}><boxGeometry args={[door.width, door.height, .025]} /><meshStandardMaterial color={door.color} roughness={.8} /></mesh>
       <mesh position={[door.width * .8, door.height / 2, .025]}><sphereGeometry args={[.012, 10, 8]} /><meshStandardMaterial color="#ddbc85" /></mesh>
     </group>
-    {active && !opening && <Html position={[door.width / 2, -.03, .28]} center zIndexRange={[24, 22]}><button className="lu-door-link" onClick={onEnter}>Open the door ↗</button></Html>}
   </group>;
 }
 
@@ -35,6 +36,14 @@ function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, mo
   const flowers = useRef();
   const light = useRef();
   const [hover, setHover] = useState(false);
+  const { gl } = useThree();
+  const interactive = !moving && !opening && (!selected || selected === place.id && !!EXTERIOR_DOORS[place.id]);
+  useEffect(() => {
+    if (!hover || !interactive) return;
+    const previous = gl.domElement.style.cursor;
+    gl.domElement.style.cursor = 'pointer';
+    return () => { gl.domElement.style.cursor = previous; };
+  }, [gl, hover, interactive]);
   useFrame((_, delta) => {
     const target = visited ? 1 : 0.001;
     if (flowers.current) flowers.current.scale.setScalar(reducedMotion ? target : THREE.MathUtils.damp(flowers.current.scale.x, target, 2.8, Math.min(delta, 0.05)));
@@ -42,14 +51,16 @@ function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, mo
     if (light.current) light.current.intensity = reducedMotion ? glow : THREE.MathUtils.damp(light.current.intensity, glow, 2, Math.max(0, delta));
   });
   return <group position={frame.position} quaternion={frame.quaternion} userData={{ location: place.id }}>
-    <group onClick={(event) => { event.stopPropagation(); if (!selected && event.delta < 6) onVisit(place.id); }} onPointerOver={(event) => { event.stopPropagation(); setHover(true); }} onPointerOut={() => setHover(false)}>
+    <group onClick={(event) => { event.stopPropagation(); if (!interactive || event.delta >= 6) return; if (selected === place.id) onEnter(); else onVisit(place.id); }} onPointerOver={(event) => { event.stopPropagation(); setHover(true); }} onPointerOut={() => setHover(false)}>
       {place.id === 'camping' ? <CampingVignette active={selected === 'camping'} showCaptions={selected === 'camping' && !moving} reducedMotion={reducedMotion} dialogue={place.dialogue} /> : <Miniature factory={factory} />}
       {place.id === 'movie-night' && <><CinemaSign position={[-.07, .61, .5]} size={[1, .12]} background="#edd16c" color="#9e4936" /><CinemaSign title="CINEMA" vertical background="#42b5ac" color="#b65337" size={[.19, .55]} position={[-.19, 1.04, .315]} /></>}
+      {place.id === 'game-room' && <CinemaSign title="PLAYER TWO" size={[.75, .09]} position={[0, .58, .49]} background="#e1cfad" color="#344850" />}
+      {place.id === 'gallery' && <CinemaSign title="LITTLE GALLERY" size={[.86, .09]} position={[0, .62, .46]} background="#eee5d6" color="#5d705c" />}
       {place.id === 'music' && <CinemaSign title="THE ENCORE" size={[.86, .14]} position={[0, 1.2, .09]} />}
-      {['museum', 'one-more-episode'].includes(place.id) && <CinemaSign title={place.name.toUpperCase()} size={[.72, .09]} position={[0, .565, .38]} />}
-      <LandmarkDoor id={place.id} opening={opening && selected === place.id} active={selected === place.id && !moving} onEnter={onEnter} reducedMotion={reducedMotion} />
+      {['museum', 'one-more-episode'].includes(place.id) && <CinemaSign title={place.name.toUpperCase()} size={[.72, .09]} position={CABIN_SIGN_POSITION} />}
+      <LandmarkDoor id={place.id} opening={opening && selected === place.id} reducedMotion={reducedMotion} />
       <mesh position={[0, place.id === 'camping' ? .067 : .06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={place.id === 'camping' ? [.73, hover ? .75 : .74, 48] : [0.65, hover ? 0.69 : 0.66, 48]} /><meshBasicMaterial color={visited ? '#ffe3a0' : '#efdfc6'} transparent opacity={hover || visited ? 0.8 : 0.3} side={THREE.DoubleSide} />
+        <ringGeometry args={place.id === 'camping' ? [.78, hover ? .80 : .79, 48] : [0.65, hover ? 0.69 : 0.66, 48]} /><meshBasicMaterial color={visited ? '#ffe3a0' : '#efdfc6'} transparent opacity={hover || visited ? 0.8 : 0.3} side={THREE.DoubleSide} />
       </mesh>
     </group>
     <group ref={flowers} scale={0.001}><Miniature factory={createFlowers} /></group>
@@ -99,23 +110,25 @@ function BirthdayStar({ onWish, reducedMotion, visible }) {
   </group>;
 }
 
-function CameraRig({ selected, finale, reducedMotion, resetKey, onMoving, enabled }) {
+function CameraRig({ selected, finale, reducedMotion, resetKey, onMoving, enabled, birthday }) {
   const { camera, size } = useThree();
   const flight = useRef(null);
   const initialized = useRef(false);
   const overview = useRef(null);
   const previousSelection = useRef(null);
   const previousReset = useRef(resetKey);
+  const previousBirthday = useRef(birthday);
   const currentTarget = useRef(new THREE.Vector3(0, 0.3, 0));
   const home = useMemo(() => ({
-    position: new THREE.Vector3(0, 3.8, size.width / size.height < 0.85 ? 15.4 : 11.8),
-    target: new THREE.Vector3(0, 0.3, 0), up: new THREE.Vector3(0, 1, 0),
-  }), [size.width, size.height]);
+    position: new THREE.Vector3(0, 3.8, size.width / size.height < 0.85 ? 15.4 : birthday ? 14.2 : 11.8),
+    target: new THREE.Vector3(0, birthday ? 1.7 : 0.3, 0), up: new THREE.Vector3(0, 1, 0),
+  }), [size.width, size.height, birthday]);
   useLayoutEffect(() => {
     if (!enabled) { flight.current = null; return; }
     const current = { position: camera.position.clone(), target: currentTarget.current.clone(), up: camera.up.clone() };
     if (selected && !previousSelection.current && !overview.current) overview.current = initialized.current ? copyPose(current) : copyPose(home);
-    if (resetKey !== previousReset.current) overview.current = null;
+    if (resetKey !== previousReset.current || birthday !== previousBirthday.current) overview.current = null;
+    previousBirthday.current = birthday;
     const place = landmarks.find((item) => item.id === selected);
     const destination = place ? focusPose(place, size.width / size.height) : finale ? home : overview.current || home;
     previousSelection.current = selected;
@@ -128,7 +141,7 @@ function CameraRig({ selected, finale, reducedMotion, resetKey, onMoving, enable
       onMoving(false);
     } else onMoving(true);
     initialized.current = true;
-  }, [selected, finale, reducedMotion, resetKey, home, camera, size.width, size.height, onMoving, enabled]);
+  }, [selected, finale, reducedMotion, resetKey, home, camera, size.width, size.height, onMoving, enabled, birthday]);
   useFrame((_, delta) => {
     const active = flight.current;
     if (!active) return;
@@ -210,13 +223,15 @@ function SceneLighting({ campNight, reducedMotion }) {
   </>;
 }
 
-export default function UniverseScene({ visited, onVisit, onWish, reducedMotion, finale, selected, resetKey, onReady, onFailure, roomPhase, onEnter, onExitRoom, roomInput, spinning, onSpin, onPoster, posterOpen }) {
+export default function UniverseScene({ visited, onVisit, onWish, reducedMotion, finale, selected, resetKey, onReady, onFailure, roomPhase, onEnter, onExitRoom, roomInput, spinning, onSpin, onPoster, posterOpen, galleryPage, gameConsole, gameId }) {
   const [moving, setMoving] = useState(true);
   const inside = roomPhase === 'inside';
+  const birthday = useBirthday();
   return <>
     <ContextEvents onReady={onReady} onFailure={onFailure} />
     {!inside && <SceneLighting campNight={selected === 'camping'} reducedMotion={reducedMotion} />}
-    <Starfield finale={finale} reducedMotion={reducedMotion} campNight={selected === 'camping'} />
+    {!(inside && selected === 'workshop') && <Starfield finale={finale} reducedMotion={reducedMotion} campNight={selected === 'camping'} />}
+    <BirthdaySky active={birthday} scene="planet" visible={!inside && !selected && !finale} />
     <group visible={!inside}>
     <WorldFocus selected={selected} reducedMotion={reducedMotion}><group rotation={[0, 0, PLANET_TILT]}>
       <mesh receiveShadow><sphereGeometry args={[2.5, 80, 64]} /><meshStandardMaterial color="#a9c6ae" roughness={0.96} /></mesh>
@@ -232,9 +247,9 @@ export default function UniverseScene({ visited, onVisit, onWish, reducedMotion,
     <mesh position={[-3.8, 1.6, -1.4]} visible={!selected}><sphereGeometry args={[0.19, 24, 16]} /><meshStandardMaterial color="#e8cabc" roughness={1} /></mesh>
     <BirthdayStar onWish={onWish} reducedMotion={reducedMotion} visible={!finale && !selected} />
     </group>
-    {!selected && !finale && !moving && <OrbitControls enablePan={false} enableDamping={!reducedMotion} dampingFactor={0.065} minDistance={7.5} maxDistance={17} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} rotateSpeed={0.55} zoomSpeed={0.6} target={[0, 0.3, 0]} />}
-    <CameraRig selected={selected} finale={finale} reducedMotion={reducedMotion} resetKey={resetKey} onMoving={setMoving} enabled={!inside} />
+    {!selected && !finale && !moving && <OrbitControls enablePan={false} enableDamping={!reducedMotion} dampingFactor={0.065} maxDistance={17} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} rotateSpeed={0.55} zoomSpeed={0.6} target={[0, birthday ? 1.7 : 0.3, 0]} minDistance={birthday ? 13 : 7.5} />}
+    <CameraRig birthday={birthday} selected={selected} finale={finale} reducedMotion={reducedMotion} resetKey={resetKey} onMoving={setMoving} enabled={!inside} />
     {selected === 'camping' && !inside && !finale && !moving && <CampingViewControls key={resetKey} reducedMotion={reducedMotion} />}
-    {inside && <RoomInterior key={selected} id={selected} reducedMotion={reducedMotion} input={roomInput} spinning={spinning} onSpin={onSpin} onExit={onExitRoom} onPoster={onPoster} paused={posterOpen} />}
+    {inside && <RoomInterior key={selected} id={selected} reducedMotion={reducedMotion} input={roomInput} spinning={spinning} onSpin={onSpin} onExit={onExitRoom} onPoster={onPoster} paused={posterOpen} galleryPage={galleryPage} gameConsole={gameConsole} gameId={gameId} />}
   </>;
 }

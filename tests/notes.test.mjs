@@ -241,13 +241,14 @@ test("landing teaser shows at most three notes and renders nothing when empty", 
   assert.equal(renderNotesTeaser(undefined), "");
 });
 
-test("renderSite keeps working without notes and embeds the teaser with them", () => {
+test("renderSite shows the password entry without exposing note excerpts", () => {
   const bare = renderSite(siteData);
-  assert.ok(!bare.includes('id="notes"'), "no teaser without notes");
+  assert.ok(bare.includes('id="notes"'), "generic password entry is always visible");
 
   const withNotes = renderSite(siteData, normalizeNotes(notesData));
   assert.ok(withNotes.includes('id="notes"'));
   assert.ok(withNotes.includes('data-i18n="notes.eyebrow"'));
+  assert.ok(!withNotes.includes(normalizeNotes(notesData)[0].title));
 });
 
 test("applyNoteEdit updates an existing slug in place and keeps its art", () => {

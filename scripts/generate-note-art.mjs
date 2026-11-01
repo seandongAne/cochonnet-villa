@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
+import { syncNoteGallery } from "./sync-note-gallery.mjs";
 // Generates a cute piglet comic illustration for every 猪猪小记 post that
 // doesn't have one yet, using the OpenAI Image API (gpt-image-2.5-sunburst), and stamps
 // the note's `image` field. Runs in GitHub Actions (see
@@ -484,6 +486,7 @@ export async function generateNoteArtBatch(
     maximumAttempts = MAXIMUM_API_ATTEMPTS,
     requestImage = requestGeneratedWebp,
     writeImage = writeFileAtomically,
+    now = () => new Date().toISOString(),
     logger = console,
     warning = warn
   } = {}
@@ -511,6 +514,8 @@ export async function generateNoteArtBatch(
       );
       await writeImage(path.join(artDirectory, `${entry.slug}.webp`), image);
       entry.note.image = `${ART_URL_PREFIX}${entry.slug}.webp`;
+      entry.note.imageGeneratedAt = now();
+      entry.note.imageSha256 = createHash("sha256").update(image).digest("hex");
       generated.push(entry.slug);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -673,6 +678,9 @@ async function main() {
     await writeFileAtomically(NOTES_PATH, `${JSON.stringify(data, null, 2)}\n`);
   }
 
+  const gallery = await syncNoteGallery({ notes: data.notes });
+  result.hasChanges ||= gallery.added > 0;
+  console.log(`Independent gallery: ${gallery.added} added, ${gallery.total} total.`);
   await writeRunReport(result);
 
   if (result.selectedCount === 0) {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -314,6 +315,7 @@ test("partial batches retain successes and report every failed slug", async () =
   let requestIndex = 0;
 
   const result = await generateNoteArtBatch(batch, "test-key", {
+    now: () => "2026-10-31T12:34:56.000Z",
     size: "2x3",
     logger: quietLogger,
     warning() {},
@@ -330,6 +332,9 @@ test("partial batches retain successes and report every failed slug", async () =
   assert.equal(writes.length, 1);
   assert.equal(notes[0].image, "/notes-art/2026-08-11.webp");
   assert.equal(notes[1].image, undefined);
+  assert.equal(notes[0].imageGeneratedAt, "2026-10-31T12:34:56.000Z");
+  assert.equal(notes[0].imageSha256, createHash("sha256").update(writes[0].bytes).digest("hex"));
+  assert.equal(notes[1].imageGeneratedAt, undefined);
 });
 
 test("batch status queues progress but stops retry loops when nothing succeeded", () => {

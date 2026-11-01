@@ -1,0 +1,186 @@
+[
+  {
+    "id": "resident-evil-2",
+    "title": "Resident Evil 2",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/883710/header.jpg?t=1779433152",
+    "source": "https://store.steampowered.com/app/883710/",
+    "file": "resident-evil-2.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "resident-evil-4",
+    "title": "Resident Evil 4",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2050650/header.jpg?t=1772502922",
+    "source": "https://store.steampowered.com/app/2050650/",
+    "file": "resident-evil-4.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "resident-evil-9",
+    "title": "Resident Evil Requiem",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3764200/ce5437442768e38eb575f205ab9397d0264017b0/header.jpg?t=1779840172",
+    "source": "https://store.steampowered.com/app/3764200/",
+    "file": "resident-evil-9.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "ac-odyssey",
+    "title": "Assassin's Creed® Odyssey",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/812140/header.jpg?t=1792778552",
+    "source": "https://store.steampowered.com/app/812140/",
+    "file": "ac-odyssey.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "ac-unity",
+    "title": "Assassin's Creed® Unity",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/289650/header.jpg?t=1786632648",
+    "source": "https://store.steampowered.com/app/289650/",
+    "file": "ac-unity.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "dead-cells",
+    "title": "Dead Cells",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/588650/header.jpg?t=1779086887",
+    "source": "https://store.steampowered.com/app/588650/",
+    "file": "dead-cells.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "balatro",
+    "title": "Balatro",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2379780/7a85430784e4d613cdb0547414d8cf16ffa45747/header.jpg?t=1790693638",
+    "source": "https://store.steampowered.com/app/2379780/",
+    "file": "balatro.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "overcooked",
+    "title": "Overcooked",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/448510/header.jpg?t=1788969012",
+    "source": "https://store.steampowered.com/app/448510/",
+    "file": "overcooked.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "dont-starve",
+    "title": "Don't Starve",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/219740/88641e235d75934ea9f7ed4e947edfd9da682732/header.jpg?t=1790876891",
+    "source": "https://store.steampowered.com/app/219740/",
+    "file": "dont-starve.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "split-fiction",
+    "title": "Split Fiction",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2001120/header.jpg?t=1763484567",
+    "source": "https://store.steampowered.com/app/2001120/",
+    "file": "split-fiction.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "baldurs-gate-3",
+    "title": "Baldur's Gate 3",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1086940/48a2fcbda8565bb45025e98fd8ebde8a7203f6a0/header.jpg?t=1777363040",
+    "source": "https://store.steampowered.com/app/1086940/",
+    "file": "baldurs-gate-3.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "war-thunder",
+    "title": "War Thunder",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/236390/38881c549e623fe432af4e7b4bc3952b443906f5/header.jpg?t=1793185672",
+    "source": "https://store.steampowered.com/app/236390/",
+    "file": "war-thunder.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "tarkov",
+    "title": "Escape from Tarkov",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3932890/4dd12ea3b00a4f8b67bfd629f3b9abbf8d5cab05/header_alt_assets_2.jpg?t=1785782094",
+    "source": "https://store.steampowered.com/app/3932890/",
+    "file": "tarkov.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "duckov",
+    "title": "Escape From Duckov",
+    "imageUrl": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3167020/header.jpg?t=1788419722",
+    "source": "https://store.steampowered.com/app/3167020/",
+    "file": "duckov.webp",
+    "width": 460,
+    "height": 215,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "astro-bot",
+    "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202406/0500/8f15268257b878597757fcc5f2c9545840867bc71fc863b1.png",
+    "source": "https://www.playstation.com/en-us/games/astro-bot/",
+    "file": "astro-bot.webp",
+    "width": 700,
+    "height": 700,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "zelda-botw",
+    "imageUrl": "https://assets.nintendo.com/image/upload/c_fill,w_1200/q_auto/f_auto/dpr_2.0/store/software/switch/70010000000025/7137262b5a64d921e193653f8aa0b722925abc5680380ca0e18a5cfd91697f58",
+    "source": "https://www.nintendo.com/us/store/products/the-legend-of-zelda-breath-of-the-wild-switch/",
+    "file": "zelda-botw.webp",
+    "width": 1000,
+    "height": 563,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  },
+  {
+    "id": "zelda-totk",
+    "imageUrl": "https://assets.nintendo.com/image/upload/c_fill,w_1200/q_auto/f_auto/dpr_2.0/store/software/switch/70010000063714/fb30eab428df3fc993b41c76e20f72e4d76d49734d17d31996b5ab61c414b117",
+    "source": "https://www.nintendo.com/us/store/products/the-legend-of-zelda-tears-of-the-kingdom-switch/",
+    "file": "zelda-totk.webp",
+    "width": 1000,
+    "height": 563,
+    "credit": "Official publisher promotional artwork; rights remain with the respective owners.",
+    "retrievedAt": "2026-10-31"
+  }
+]

@@ -17,6 +17,7 @@ on:
       - "public/notes-art/**"
       - "scripts/generate-note-art.mjs"
       - "scripts/note-art-runtime.mjs"
+      - "scripts/sync-note-gallery.mjs"
       - "src/render-notes.js"
       - "src/note-markdown.js"
       - "package.json"
@@ -46,6 +47,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -74,8 +76,8 @@ jobs:
           while IFS= read -r -d '' file; do
             [[ "$file" == *.webp ]] && generated_files+=("$file")
           done < <(
-            git diff --name-only --diff-filter=AM -z -- public/notes-art
-            git ls-files --others --exclude-standard -z -- public/notes-art
+            git diff --name-only --diff-filter=AM -z -- public/notes-art public/little-universe/gallery
+            git ls-files --others --exclude-standard -z -- public/notes-art public/little-universe/gallery
           )
 
           if (( ${#generated_files[@]} == 0 )); then
@@ -87,6 +89,7 @@ jobs:
           for file in "${generated_files[@]}"; do
             cp --parents -- "$file" "$recovery_dir"
           done
+          if [[ -f content/gallery.json ]]; then cp --parents -- content/gallery.json "$recovery_dir"; fi
           echo "has_art=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload generated art recovery artifact
@@ -115,7 +118,7 @@ jobs:
 
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add content/notes.json public/notes-art
+            git add content/notes.json public/notes-art content/gallery.json public/little-universe/gallery
             git commit -m "小记配图: auto-generate note art"
 
             if ! git push origin HEAD:main; then
