@@ -1,5 +1,7 @@
 
 
+import { renderPortraitAccent } from './portrait-accents.js';
+
 const DEFAULT_SITE_NAME = "Cochonnet Villa";
 const DEFAULT_COLOR = "#f8a6ba";
 
@@ -288,6 +290,7 @@ function renderPorkyCards(porkies) {
               loading="lazy"
               decoding="async"
             />
+            ${renderPortraitAccent(imageSrc)}
           </div>
         `
         : `

@@ -1,0 +1,35 @@
+html.entry-greeting-open { overflow: hidden; }
+.entry-greeting {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100svh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: max(1.5rem, env(safe-area-inset-top)) 1.25rem max(1.5rem, env(safe-area-inset-bottom));
+  border: 0;
+  color: #fff3dc;
+  background: radial-gradient(ellipse at 50% 45%, #563a59 0, #2c253d 52%, #191e30 100%);
+  overflow-y: auto;
+}
+.entry-greeting[open] { display: grid; place-items: center; }
+.entry-greeting::backdrop { background: #191e30; }
+.entry-sparkles { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.entry-greeting-card { position: relative; width: min(100%, 42rem); text-align: center; padding: 1.5rem 0; }
+.entry-greeting-eyebrow { color: #d8bfd5; font-size: .65rem; font-weight: 700; letter-spacing: .24em; }
+.entry-greeting-stars { margin: 1.3rem 0 1.5rem; color: #f8d996; font-size: 1.8rem; letter-spacing: .7em; padding-left: .7em; }
+.entry-greeting-stars span { font-size: 2.8rem; }
+.entry-greeting-english { margin: 0 0 1rem; color: #f2ccad; font: italic 1.2rem/1.4 Georgia, serif; }
+.entry-greeting h1 { margin: 0; max-width: none; text-align: center; color: #fff5df; font-size: clamp(2.7rem, 7vw, 5.1rem); line-height: 1.28; font-weight: 800; letter-spacing: -.04em; }
+.entry-greeting h1 em { color: #f5d38c; font-style: normal; }
+#entry-greeting-message { margin: 1.6rem 0 2rem; color: #e2cede; font-size: 1rem; line-height: 1.9; }
+.entry-greeting-enter { display: inline-flex; align-items: center; gap: 1.4rem; padding: .95rem 1.5rem; border: 1px solid #f9ddaa; border-radius: 999px; background: #f6ddb6; color: #473042; font: inherit; font-weight: 700; cursor: pointer; }
+.entry-greeting-enter:hover { background: #ffebcb; }
+.entry-greeting-enter:focus-visible { outline: 3px solid #fff7e7; outline-offset: 6px; }
+.entry-greeting-signature { margin: 1.6rem 0 0; color: #c1aabd; font-size: .72rem; letter-spacing: .06em; }
+@media (max-width: 480px) {
+  .entry-greeting-eyebrow { font-size: .55rem; letter-spacing: .16em; }
+  #entry-greeting-message { font-size: .9rem; }
+  .entry-greeting-enter { gap: .8rem; padding-inline: 1.2rem; }
+}
