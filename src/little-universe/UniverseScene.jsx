@@ -2,10 +2,11 @@ import BirthdaySky, { useBirthday } from '../components/BirthdaySky.jsx';
 import { CABIN_SIGN_POSITION } from './destination-buildings.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Html, OrbitControls } from '@react-three/drei';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { landmarks } from './content.js';
-import { cameraFlight, copyPose, focusPose, resolveCameraDestination, PLANET_TILT } from './focus-camera.js';
+import { PLANET_TILT } from './focus-camera.js';
+import PlanetCamera from './PlanetCamera.jsx';
 import { createFlowers, createGarden, createLandmark, disposeMiniature, surfaceFrame } from './planet.js';
 import CampingVignette from './CampingVignette.jsx';
 import RoomInterior from './RoomInterior.jsx';
@@ -18,11 +19,11 @@ function Miniature({ factory, ...props }) {
   return <primitive object={object} dispose={null} {...props} />;
 }
 
-function LandmarkDoor({ id, opening, reducedMotion }) {
+function LandmarkDoor({ id, opening, reducedMotion, onEnter, interactive }) {
   const hinge = useRef(); const door = EXTERIOR_DOORS[id];
   useFrame((_, delta) => { if (hinge.current) hinge.current.rotation.y = reducedMotion ? (opening ? -1.45 : 0) : THREE.MathUtils.damp(hinge.current.rotation.y, opening ? -1.45 : 0, 6, Math.min(delta, .05)); });
   if (!door) return null;
-  return <group position={door.position}>
+  return <group position={door.position} onClick={event => { if (interactive && event.delta < 6) { event.stopPropagation(); onEnter(); } }}>
     <group ref={hinge}>
       <mesh position={[door.width / 2, door.height / 2, 0]}><boxGeometry args={[door.width, door.height, .025]} /><meshStandardMaterial color={door.color} roughness={.8} /></mesh>
       <mesh position={[door.width * .8, door.height / 2, .025]}><sphereGeometry args={[.012, 10, 8]} /><meshStandardMaterial color="#ddbc85" /></mesh>
@@ -30,14 +31,14 @@ function LandmarkDoor({ id, opening, reducedMotion }) {
   </group>;
 }
 
-function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, moving, opening, onEnter }) {
+function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, candidate, moving, opening, onEnter }) {
   const frame = useMemo(() => surfaceFrame(place.direction), [place]);
   const factory = useMemo(() => () => createLandmark(place.id), [place.id]);
   const flowers = useRef();
   const light = useRef();
   const [hover, setHover] = useState(false);
   const { gl } = useThree();
-  const interactive = !moving && !opening && (!selected || selected === place.id && !!EXTERIOR_DOORS[place.id]);
+  const interactive = !moving && !opening;
   useEffect(() => {
     if (!hover || !interactive) return;
     const previous = gl.domElement.style.cursor;
@@ -51,22 +52,22 @@ function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, mo
     if (light.current) light.current.intensity = reducedMotion ? glow : THREE.MathUtils.damp(light.current.intensity, glow, 2, Math.max(0, delta));
   });
   return <group position={frame.position} quaternion={frame.quaternion} userData={{ location: place.id }}>
-    <group onClick={(event) => { event.stopPropagation(); if (!interactive || event.delta >= 6) return; if (selected === place.id) onEnter(); else onVisit(place.id); }} onPointerOver={(event) => { event.stopPropagation(); setHover(true); }} onPointerOut={() => setHover(false)}>
+    <group onClick={(event) => { event.stopPropagation(); if (!interactive || event.delta >= 6) return; if (selected !== place.id) onVisit(place.id); }} onPointerOver={(event) => { event.stopPropagation(); setHover(true); }} onPointerOut={() => setHover(false)}>
       {place.id === 'camping' ? <CampingVignette active={selected === 'camping'} showCaptions={selected === 'camping' && !moving} reducedMotion={reducedMotion} dialogue={place.dialogue} /> : <Miniature factory={factory} />}
       {place.id === 'movie-night' && <><CinemaSign position={[-.07, .61, .5]} size={[1, .12]} background="#edd16c" color="#9e4936" /><CinemaSign title="CINEMA" vertical background="#42b5ac" color="#b65337" size={[.19, .55]} position={[-.19, 1.04, .315]} /></>}
       {place.id === 'game-room' && <CinemaSign title="PLAYER TWO" size={[.75, .09]} position={[0, .58, .49]} background="#e1cfad" color="#344850" />}
       {place.id === 'gallery' && <CinemaSign title="LITTLE GALLERY" size={[.86, .09]} position={[0, .62, .46]} background="#eee5d6" color="#5d705c" />}
       {place.id === 'music' && <CinemaSign title="THE ENCORE" size={[.86, .14]} position={[0, 1.2, .09]} />}
       {['museum', 'one-more-episode'].includes(place.id) && <CinemaSign title={place.name.toUpperCase()} size={[.72, .09]} position={CABIN_SIGN_POSITION} />}
-      <LandmarkDoor id={place.id} opening={opening && selected === place.id} reducedMotion={reducedMotion} />
+      <LandmarkDoor onEnter={onEnter} interactive={interactive && selected === place.id} id={place.id} opening={opening && selected === place.id} reducedMotion={reducedMotion} />
       <mesh position={[0, place.id === 'camping' ? .067 : .06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={place.id === 'camping' ? [.78, hover ? .80 : .79, 48] : [0.65, hover ? 0.69 : 0.66, 48]} /><meshBasicMaterial color={visited ? '#ffe3a0' : '#efdfc6'} transparent opacity={hover || visited ? 0.8 : 0.3} side={THREE.DoubleSide} />
+        <ringGeometry args={place.id === 'camping' ? [.78, hover || candidate === place.id ? .82 : .79, 48] : [0.65, hover || candidate === place.id ? 0.71 : 0.66, 48]} /><meshBasicMaterial color={visited ? '#ffe3a0' : '#efdfc6'} transparent opacity={hover || visited || candidate === place.id ? 0.9 : 0.3} side={THREE.DoubleSide} />
       </mesh>
     </group>
     <group ref={flowers} scale={0.001}><Miniature factory={createFlowers} /></group>
     <pointLight ref={light} position={[0, 0.55, 0.38]} color="#ffd195" distance={2} decay={2} intensity={0} />
-    {labels && <Html position={place.label} center occlude distanceFactor={11} zIndexRange={[12, 0]}>
-      <button className={`lu-pin ${visited ? 'is-visited' : ''}`} onClick={() => onVisit(place.id)} aria-label={`Visit ${place.name}`}><span>{visited ? '✦' : '✧'}</span>{place.name}</button>
+    {labels && selected !== place.id && <Html position={place.label} center occlude zIndexRange={[12, 0]}>
+      <button className={`lu-pin ${visited ? 'is-visited' : ''} ${candidate === place.id ? 'is-candidate' : ''}`} disabled={moving || opening} onClick={() => onVisit(place.id)} aria-label={`Visit ${place.name}`}><span>{visited ? '✦' : '✧'}</span>{place.name}</button>
     </Html>}
   </group>;
 }
@@ -110,68 +111,6 @@ function BirthdayStar({ onWish, reducedMotion, visible }) {
   </group>;
 }
 
-function CameraRig({ selected, finale, reducedMotion, resetKey, onMoving, enabled, birthday }) {
-  const { camera, size } = useThree();
-  const flight = useRef(null);
-  const initialized = useRef(false);
-  const overview = useRef(null);
-  const previousSelection = useRef(null);
-  const previousReset = useRef(resetKey);
-  const previousBirthday = useRef(birthday);
-  const currentTarget = useRef(new THREE.Vector3(0, 0.3, 0));
-  const home = useMemo(() => ({
-    position: new THREE.Vector3(0, 3.8, size.width / size.height < 0.85 ? 15.4 : birthday ? 14.2 : 11.8),
-    target: new THREE.Vector3(0, birthday ? 1.7 : 0.3, 0), up: new THREE.Vector3(0, 1, 0),
-  }), [size.width, size.height, birthday]);
-  useLayoutEffect(() => {
-    if (!enabled) { flight.current = null; return; }
-    const current = { position: camera.position.clone(), target: currentTarget.current.clone(), up: camera.up.clone() };
-    if (selected && !previousSelection.current && !overview.current) overview.current = initialized.current ? copyPose(current) : copyPose(home);
-    const reset = resetKey !== previousReset.current || birthday !== previousBirthday.current;
-    if (reset) overview.current = null;
-    previousBirthday.current = birthday;
-    const place = landmarks.find((item) => item.id === selected);
-    const destination = resolveCameraDestination({ place, home, overview: overview.current,
-      initialized: initialized.current, previousSelection: previousSelection.current,
-      reset, finale, aspect: size.width / size.height });
-    if (!destination) {
-      // A reduced-motion change may finish an existing flight immediately,
-      // but a resize must not start or restart one.
-      if (reducedMotion && flight.current) {
-        const pose = flight.current.sample(1);
-        camera.position.copy(pose.position); camera.up.copy(pose.up); camera.lookAt(pose.target);
-        currentTarget.current.copy(pose.target); flight.current = null; overview.current = null;
-        onMoving(false);
-      }
-      return;
-    }
-    previousSelection.current = selected;
-    previousReset.current = resetKey;
-    flight.current = { sample: cameraFlight(current, destination), elapsed: 0, duration: finale ? 3.5 : 1.8 };
-    if (reducedMotion || !initialized.current) {
-      camera.position.copy(destination.position); camera.up.copy(destination.up); camera.lookAt(destination.target);
-      currentTarget.current.copy(destination.target); flight.current = null;
-      if (!selected) overview.current = null;
-      onMoving(false);
-    } else onMoving(true);
-    initialized.current = true;
-  }, [selected, finale, reducedMotion, resetKey, home, camera, size.width, size.height, onMoving, enabled, birthday]);
-  useFrame((_, delta) => {
-    const active = flight.current;
-    if (!active) return;
-    active.elapsed = Math.min(active.duration, active.elapsed + Math.max(0, delta));
-    const pose = active.sample(active.elapsed / active.duration);
-    camera.position.copy(pose.position); camera.up.copy(pose.up); camera.lookAt(pose.target);
-    currentTarget.current.copy(pose.target);
-    if (active.elapsed >= active.duration) {
-      flight.current = null;
-      if (!selected) overview.current = null;
-      onMoving(false);
-    }
-  });
-  return null;
-}
-
 function WorldFocus({ selected, reducedMotion, children }) {
   const root = useRef();
   const originals = useRef(new WeakMap());
@@ -199,14 +138,6 @@ function WorldFocus({ selected, reducedMotion, children }) {
     }
   });
   return <group ref={root}>{children}</group>;
-}
-
-function CampingViewControls({ reducedMotion }) {
-  const { size } = useThree();
-  const pose = useMemo(() => focusPose(landmarks.find((place) => place.id === 'camping'), size.width / size.height), [size.width, size.height]);
-  return <OrbitControls target={pose.target} enablePan={false} enableDamping={!reducedMotion} dampingFactor={0.065}
-    minDistance={1.8} maxDistance={5.5} minPolarAngle={0.3} maxPolarAngle={Math.PI / 2 - 0.08}
-    rotateSpeed={0.45} zoomSpeed={0.6} />;
 }
 
 function ContextEvents({ onReady, onFailure }) {
@@ -237,9 +168,8 @@ function SceneLighting({ campNight, reducedMotion }) {
   </>;
 }
 
-export default function UniverseScene({ visited, onVisit, onWish, reducedMotion, finale, selected, resetKey, onReady, onFailure, roomPhase, onEnter, onExitRoom, roomInput, spinning, onSpin, onPoster, posterOpen, galleryPage, gameConsole, gameId }) {
-  const [moving, setMoving] = useState(true);
-  const inside = roomPhase === 'inside';
+export default function UniverseScene({ visited, onVisit, onWish, reducedMotion, finale, selected, resetKey, onReady, onFailure, roomPhase, onEnter, onExitRoom, roomInput, spinning, onSpin, onPoster, posterOpen, galleryWeek, gameConsole, gameId, onBrowse, candidate, onCandidate, onMoving, moving }) {
+  const inside = roomPhase === 'inside' || roomPhase === 'closing';
   const birthday = useBirthday();
   return <>
     <ContextEvents onReady={onReady} onFailure={onFailure} />
@@ -255,15 +185,13 @@ export default function UniverseScene({ visited, onVisit, onWish, reducedMotion,
         <mesh scale={[0.43, 0.075, 0.7]}><sphereGeometry args={[1, 32, 24]} /><meshStandardMaterial color="#91bfc0" roughness={0.3} metalness={0.12} /></mesh>
         <mesh position={[0.03, 0.077, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.7, 1, 1]}><ringGeometry args={[0.23, 0.236, 40]} /><meshBasicMaterial color="#deeee0" transparent opacity={0.5} /></mesh>
       </group>
-      {landmarks.map((place) => <Landmark key={place.id} place={place} visited={finale || visited.includes(place.id)} onVisit={onVisit} reducedMotion={reducedMotion} labels={!finale && !selected} selected={selected} moving={moving || inside} opening={roomPhase === 'opening'} onEnter={onEnter} />)}
+      {landmarks.map((place) => <Landmark key={place.id} place={place} visited={finale || visited.includes(place.id)} onVisit={onVisit} reducedMotion={reducedMotion} labels={!finale && !moving && !inside} selected={selected} candidate={candidate} moving={moving || inside} opening={roomPhase === 'opening'} onEnter={onEnter} />)}
     </group></WorldFocus>
     <mesh rotation={[1.2, 0.18, -0.4]} visible={!selected}><torusGeometry args={[3.65, 0.009, 6, 160]} /><meshBasicMaterial color="#d5b991" transparent opacity={0.22} /></mesh>
     <mesh position={[-3.8, 1.6, -1.4]} visible={!selected}><sphereGeometry args={[0.19, 24, 16]} /><meshStandardMaterial color="#e8cabc" roughness={1} /></mesh>
     <BirthdayStar onWish={onWish} reducedMotion={reducedMotion} visible={!finale && !selected} />
     </group>
-    {!selected && !finale && !moving && <OrbitControls enablePan={false} enableDamping={!reducedMotion} dampingFactor={0.065} maxDistance={17} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} rotateSpeed={0.55} zoomSpeed={0.6} target={[0, birthday ? 1.7 : 0.3, 0]} minDistance={birthday ? 13 : 7.5} />}
-    <CameraRig birthday={birthday} selected={selected} finale={finale} reducedMotion={reducedMotion} resetKey={resetKey} onMoving={setMoving} enabled={!inside} />
-    {selected === 'camping' && !inside && !finale && !moving && <CampingViewControls key={resetKey} reducedMotion={reducedMotion} />}
-    {inside && <RoomInterior key={selected} id={selected} reducedMotion={reducedMotion} input={roomInput} spinning={spinning} onSpin={onSpin} onExit={onExitRoom} onPoster={onPoster} paused={posterOpen} galleryPage={galleryPage} gameConsole={gameConsole} gameId={gameId} />}
+    <PlanetCamera selected={selected} finale={finale} reducedMotion={reducedMotion} resetKey={resetKey} birthday={birthday} inside={inside} blocked={posterOpen || roomPhase === 'opening'} onMoving={onMoving} onBrowse={onBrowse} onCandidate={onCandidate} />
+    {inside && <RoomInterior key={selected} id={selected} reducedMotion={reducedMotion} input={roomInput} spinning={spinning} onSpin={onSpin} onExit={onExitRoom} onPoster={onPoster} paused={posterOpen || roomPhase === 'closing'} galleryWeek={galleryWeek} gameConsole={gameConsole} gameId={gameId} />}
   </>;
 }

@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { syncNoteGallery } from '../scripts/sync-note-gallery.mjs';
-import { galleryWorks, galleryPage, GALLERY_PAGE_SIZE, artworkLabel, formatGalleryTimestamp, GALLERY_FRAME_SIZE } from '../src/little-universe/gallery.js';
+import { galleryWorks, artworkLabel, formatGalleryTimestamp, GALLERY_FRAME_SIZE } from '../src/little-universe/gallery.js';
 import { normalizeNotes, mergeRemoteNotes } from '../src/render-notes.js';
 import { fitPoster } from '../src/little-universe/movie-night.js';
 
@@ -92,10 +92,7 @@ test('public collection assets have opaque names, stable numbering, valid timest
     assert.ok(Math.abs(w / h - work.width / work.height) < 1e-9);
     assert.match(artworkLabel(work), /^作品 \d+$/); assert.match(formatGalleryTimestamp(work), /\d{4}/);
   }
-  const pages = Array.from({ length: Math.ceil(galleryWorks.length / GALLERY_PAGE_SIZE) }, (_, i) => galleryPage(galleryWorks, i));
-  assert.deepEqual(pages.flat(), galleryWorks); assert.ok(pages.every(page => page.length <= 7));
-  assert.deepEqual(galleryPage([], 0), []);
-  assert.deepEqual(galleryPage(galleryWorks, -1), pages[0]);
+
 });
 
 test('editor normalization and remote art adoption preserve valid generation stamps', () => {

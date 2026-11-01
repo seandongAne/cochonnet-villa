@@ -12,6 +12,7 @@ import { MUSHROOM_INTERIOR } from "../src/villa-map/world.js";
 
 test("observatory diagnostics expose stable finite camera bookmarks", () => {
   assert.deepEqual(Object.keys(OBSERVATORY_DIAGNOSTIC_VIEWS), [
+    "birthday-garden", "birthday-arrival",
     "universe-gateway", "universe-telescope",
     "mushroom-hearth", "mushroom-den",
     "mushroom-front", "mushroom-door",

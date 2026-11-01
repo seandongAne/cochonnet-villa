@@ -26,7 +26,7 @@ or make a public repository private. Noindex is not access control.
 | `landmark-layout.js` | Eight stable IDs, directions and label positions; pure sphere-position math. Shared geometry must import this, not personal content. |
 | `content.js`, `media-details.js` | Birthday copy, movie/musical/series catalogs and details; loaded by the birthday island only. |
 | `planet.js`, `miniature.js` | Procedural garden and landmarks; no browser globals or asset requests. |
-| `focus-camera.js`, `UniverseScene.jsx` | Camera destinations and globe-safe flights; free overview orbit survives resize. Selection changes restore the saved overview; explicit reset and finale still use home. |
+| `focus-camera.js`, `planet-navigation.js`, `PlanetCamera.jsx` | Node-pure camera poses, globe-safe flights and gesture math; one exterior camera owner handles drag, wheel and pinch. Free browsing survives resize and selection release; explicit Back restores the saved overview. |
 | `rooms.js`, `RoomInterior.jsx` | Room geometry, collision, movement, door transitions and room-specific content. |
 | `CollectionModels.jsx` | Per-model GLTFLoader promise cache with meshopt decoding; a room and its detail viewer share decoded source models. |
 | `CampingVignette.jsx` | Camping props and two characters load when the overview mounts; focus gates animation, not download. |
@@ -35,6 +35,49 @@ or make a public repository private. Noindex is not access control.
 
 The removed `CharacterPreview.jsx`, `camp-standees.js`, `characters.js` and
 `clay-pig.js` were unused earlier designs; their history remains in Git.
+
+## Continuous planet navigation
+
+Clicking a landmark or a location shortcut now focuses its exterior only. Click
+its physical door or press Enter/Space on the focused canvas to enter. Exterior
+views have no visible entry button or entry instructions. The legacy Hangar
+deep link still enters directly.
+
+Dragging rotates the full camera pose around the globe, including from a cabin
+close-up, and releases selection without returning to a saved angle. Candidate
+highlights are suggestions only: they never snap the camera or enter a room.
+A six-pixel threshold separates click from drag; releasing a drag/pinch cannot
+activate a building. Wheel and two-finger pinch control exterior distance
+(4.25–19 world units). Pulling out to 8.5 units releases selection, recentres
+the aim and keeps the current viewing side. The fullscreen browsing shell stays
+open until **Back to welcome** or Escape; the original welcome layout is not
+repeatedly mounted between cabin visits. The existing **Back to planet** button
+and Escape remain available from a focused exterior.
+
+Room dragging and WASD/touch walking retain their existing ownership and
+collision. Room wheel zoom uses a bounded 38–78 degree FOV so it cannot move
+through walls. Wheel gestures never exit a room. Escape or clicking the physical
+entrance from inside steps outside; doorways have no floating text labels. Every
+room, including the Hangar, uses the same inward-facing exit hit surface and
+six-pixel drag guard. Moving away and returning to the pointer's starting point
+still counts as dragging, so looking around cannot accidentally click the exit.
+Closing transitions fade through the saved exterior pose; reduced motion skips
+these animations. Collection dialogs suspend room zoom and movement; their first
+Escape closes only the viewer.
+
+Camping is the exception to free globe dragging: its focus stays selected while
+dragging, preserving night lighting, fire, embers and conversation. Its invisible
+camera bounds allow yaw within +/-0.6 radians of the authored frontal view,
+elevation 0.16–0.75 radians above the local ground, and a closest distance of 1.9.
+Wheel/pinch zoom keeps that local target until 6.5 units, then releases focus
+into normal planet browsing. Dragging alone never leaves the campsite. Bounds
+use the campsite's own ground normal, not the planet's global vertical axis.
+
+`tests/planet-navigation.test.mjs` pins pose invariants, distance limits,
+front-facing candidate selection, wheel units, bounded room zoom, and room drag suppression.
+Manual QA covers desktop and narrow layouts, drag from focus, scroll out from
+focus, explicit entry, doorway clicks, and a collection dialog's Escape isolation.
+Real-device multi-touch and subjective gesture sensitivity still need user trial.
 
 ## Villa gateway
 

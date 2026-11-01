@@ -173,6 +173,18 @@ export function ObservatoryDiagnostics({
           return { present: true, visible: planet.visible, position: position.toArray(),
             projected: position.clone().project(camera).toArray(), batches: planet.children.length };
         })(),
+        birthdayParty: (() => {
+          const root = scene.getObjectByName('annual-villa-birthday-party');
+          const hats = [];
+          root?.traverse(object => {
+            if (object.name === 'birthday-hat') hats.push({
+              id: object.parent.name, variant: object.userData.variant ?? 'village',
+              state: object.userData.assetState ?? 'procedural',
+              position: object.position.toArray(), scale: object.scale.x,
+            });
+          });
+          return { active: Boolean(root), hats };
+        })(),
         perimeterFence: (() => {
           const root = scene.getObjectByName('perimeter-fence-asset');
           const model = root?.children[0];

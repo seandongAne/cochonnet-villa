@@ -38,6 +38,31 @@ const appHtml = renderSite(site);
       const environment = { root: document.documentElement, location: window.location, window, document };
       const greeting = createEntryGreeting(environment);
       mountPortraitDecor({ ...environment, onChange: greeting.setActive });
+
+      const artworkDialog = document.querySelector<HTMLDialogElement>('#villa-artwork-viewer');
+      const artworkOpen = document.querySelector<HTMLButtonElement>('[data-artwork-open]');
+      const artworkClose = document.querySelector<HTMLButtonElement>('[data-artwork-close]');
+      const artworkZoom = document.querySelector<HTMLButtonElement>('[data-artwork-zoom]');
+      const artworkCanvas = document.querySelector<HTMLElement>('.artwork-viewer-canvas');
+      let previousOverflow = '';
+      artworkOpen?.addEventListener('click', () => {
+        if (!artworkDialog || artworkDialog.open) return;
+        previousOverflow = document.body.style.overflow;
+        artworkDialog.showModal();
+        document.body.style.overflow = 'hidden';
+      });
+      artworkClose?.addEventListener('click', () => artworkDialog?.close());
+      artworkZoom?.addEventListener('click', () => {
+        const zoomed = artworkCanvas?.classList.toggle('is-zoomed') ?? false;
+        artworkZoom.setAttribute('aria-pressed', String(zoomed));
+      });
+      artworkDialog?.addEventListener('close', () => {
+        document.body.style.overflow = previousOverflow;
+        artworkCanvas?.classList.remove('is-zoomed');
+        artworkCanvas?.scrollTo(0, 0);
+        artworkZoom?.setAttribute('aria-pressed', 'false');
+        artworkOpen?.focus({ preventScroll: true });
+      });
     </script>
   </body>
 </html>

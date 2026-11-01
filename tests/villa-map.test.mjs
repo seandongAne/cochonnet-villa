@@ -30,7 +30,10 @@ test("homepage exposes a dedicated villa map CTA", () => {
   assert.match(html, /Explore the Villa Map/);
   assert.match(html, /data-i18n="hero.mapCtaLabel"/);
   assert.match(html, /class="scene-house scene-house-link"/);
-  assert.match(html, /aria-label="Explore the Villa Map"/);
+  assert.match(html, /aria-labelledby="scene-map-cta"/);
+  assert.match(html, /id="scene-map-cta" data-i18n="hero.mapCtaLabel"/);
+  assert.match(html, /src="\/assets\/villa-welcome.webp"/);
+  assert.doesNotMatch(html, /class="herd-porky /);
 });
 
 test("villa control card unmounts as soon as mouse exploration starts", () => {

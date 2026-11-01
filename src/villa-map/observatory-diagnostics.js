@@ -9,6 +9,8 @@ const { center, eyeY, floorY } = MUSHROOM_INTERIOR;
 const domeTargetY = floorY[2] + 8.7;
 
 export const OBSERVATORY_DIAGNOSTIC_VIEWS = Object.freeze({
+  "birthday-garden": Object.freeze({ position: [14, 3.4, 17], target: [8.4, 1.5, 9.4] }),
+  "birthday-arrival": Object.freeze({ position: [2, 2.3, 25], target: [5, 2, 4] }),
   "universe-gateway": Object.freeze({ position: [2, 1.6, 16.6], target: SKY_PLANET_POSITION }),
   "universe-telescope": Object.freeze({ position: [1, 2.4, 18.5], target: [4, 1.1, 14] }),
   "mushroom-hearth": Object.freeze({ position: [-6, -46.4, 23.8], target: [-8.5, -46, 14] }),
