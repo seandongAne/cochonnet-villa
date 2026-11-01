@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { studio, batchMiniature } from './miniature.js';
 
-export function createEncoreMiniature() {
-  const s = studio();
+export function createEncoreMiniature(options = {}) {
+  const s = studio(new Map(), options);
   const cream = '#ecd9b7', gold = '#c49b51', red = '#962d45';
   s.cylinder('#a6b395', [0, .01, 0], .65, .09);
   s.box('#58413d', [0, .07, 0], [1.13, .1, .65]);
@@ -40,8 +40,8 @@ export function createEncoreMiniature() {
 
 export const CABIN_SIGN_POSITION = [0, .565, .51];
 
-export function createCabinMiniature(television = false) {
-  const s = studio(); const wall = television ? '#87a99c' : '#78604f';
+export function createCabinMiniature(television = false, options = {}) {
+  const s = studio(new Map(), options); const wall = television ? '#87a99c' : '#78604f';
   const trim = television ? '#e9cc9c' : '#d1b48c';
   s.cylinder('#a6b395', [0, .01, 0], .65, .09);
   s.box(wall, [0, .35, -.03], [.82, .63, .6]);
@@ -89,4 +89,47 @@ export function createEncoreSurround() {
   // Warm velvet valances leave every show title readable below.
   for (let i = 0; i < 9; i++) s.ball('#8d3043', [-2.35 + i * .59, 3.16, -2.31], [.32, .025, .1]);
   const root = batchMiniature(s.root); root.name = 'encore-proscenium'; return root;
+}
+
+
+export function createGalleryMiniature(options = {}) {
+  const s = studio(new Map(), options);
+  s.cylinder('#b9c6ac', [0,.02,0], .83, .08);
+  s.box('#eee5d6',[0,.35,0],[1.32,.66,.83]);
+  s.box('#d3bfa3',[0,.72,0],[1.47,.1,.96]);
+  s.box('#76928c',[0,.81,-.08],[.7,.1,.43]);
+  for(const x of [-.25,0,.25]) s.box('#d9ebe5',[x,.87,-.08],[.19,.025,.35]);
+  s.box('#d6c4aa',[0,.05,.53],[.95,.09,.42]);
+  s.box('#675a4e',[0,.26,.428],[.24,.46,.035]);
+  s.box('#b2c5ba',[0,.28,.45],[.19,.35,.02]);
+  for(const x of [-.46,.46]) {
+    s.box('#b79b76',[x,.35,.435],[.32,.29,.035]);
+    s.box('#ead0b2',[x,.35,.46],[.27,.24,.02]);
+    s.ball(x<0?'#c77f77':'#859c89',[x,.36,.48],[.075,.065,.012]);
+  }
+  for(const x of [-.71,.71]) { s.cylinder('#b0896b',[x,.16,.31],.09,.22); s.ball('#8b9d76',[x,.35,.31],[.14,.19,.13]); }
+  const root=batchMiniature(s.root);root.name='gallery-pavilion';return root;
+}
+
+
+export function createGameMiniature(options = {}) {
+  const s = studio(new Map(), options);
+  // At planet scale, simple cuboids preserve the silhouette and the sky budget.
+  s.box = (color, position, size) => s.mesh(new THREE.BoxGeometry(...size), color, position);
+  s.ball = (color, position, scale) => s.mesh(new THREE.SphereGeometry(1, options.distant ? 8 : 12, options.distant ? 6 : 8), color, position, scale);
+  s.cylinder('#a6b395', [0, .01, 0], .65, .09);
+  s.box('#343c3b', [0, .35, -.03], [.88, .63, .65]);
+  for (let i = 0; i < 7; i++) s.box('#d1b48c', [0, .1 + i * .08, .31], [.9, .018, .018]);
+  const roof = s.cone('#657b78', [0, .83, -.03], .7, .4, 4); roof.rotation.y = Math.PI / 4; roof.scale.z = .85;
+  s.box('#343c3b', [0, .23, .33], [.22, .41, .02]);
+  s.window(-.29, .37, .33); s.window(.29, .37, .33);
+  s.box('#e9cc9c', [0, .07, .44], [.5, .08, .22]);
+  s.box('#e9cc9c', [0, .58, .47], [.81, .12, .035]);
+  // A large controller silhouette gives this cabin its own skyline.
+  s.ball('#e9cc9c', [0, 1.08, 0], [.27, .12, .065]);
+  for (const x of [-.18, .18]) s.ball('#e9cc9c', [x, 1.01, 0], [.09, .12, .065]);
+  s.box('#343c3b', [-.13, 1.09, .066], [.09, .025, .015]);
+  s.box('#343c3b', [-.13, 1.09, .066], [.025, .09, .015]);
+  for (const [x, y, color] of [[.12, 1.13, '#e97565'], [.17, 1.08, '#90b9ed'], [.12, 1.03, '#a6cf90']]) s.ball(color, [x, y, .07], [.02, .02, .008]);
+  const root = batchMiniature(s.root); root.name = 'game-room-miniature'; return root;
 }

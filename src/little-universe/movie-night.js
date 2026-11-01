@@ -29,8 +29,8 @@ function part(root, name, s) {
   return object;
 }
 
-export function createCinemaMiniature() {
-  const s = studio();
+export function createCinemaMiniature(options = {}) {
+  const s = studio(new Map(), options);
   const teal = '#42b5ac', yellow = '#edd16c', coral = '#d47b57';
   s.cylinder('#a9b98b', [0, .01, 0], .65, .09);
   s.box(teal, [0, .46, -.04], [.91, .84, .64]);

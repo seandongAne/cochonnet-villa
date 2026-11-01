@@ -8,8 +8,8 @@ function rod(s, color, start, end, radius) {
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.sub(a).normalize());
 }
 
-export function createGundam() {
-  const s = studio();
+export function createGundam(options = {}) {
+  const s = studio(new Map(), options);
   const white = '#e9e5dc', blue = '#506b94', red = '#bc625e', dark = '#424956', gold = '#dcb86c';
   s.cylinder('#665964', [0, .025, 0], .34, .05);
   for (const side of [-1, 1]) {

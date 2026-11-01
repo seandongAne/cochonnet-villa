@@ -13,7 +13,7 @@ globalThis.FileReader ??= class {
 const model = createSproutPigStudy();
 try {
   const glb = await new GLTFExporter().parseAsync(model, { binary: true });
-  await mkdir('public/birthday-characters', { recursive: true });
-  await writeFile('public/birthday-characters/sprout-pig-study-v1.glb', Buffer.from(glb));
+  await mkdir('art/little-universe/review', { recursive: true });
+  await writeFile('art/little-universe/review/sprout-pig-study-v1.glb', Buffer.from(glb));
   console.log(`Exported sprout-pig-study-v1.glb: ${glb.byteLength} bytes`);
 } finally { disposeMiniature(model); }

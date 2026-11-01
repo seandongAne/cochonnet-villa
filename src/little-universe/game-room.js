@@ -101,24 +101,4 @@ export function createGameRoom() {
   return root;
 }
 
-export function createGameMiniature() {
-  const s = studio();
-  // At planet scale, simple cuboids preserve the silhouette and the sky budget.
-  s.box = (color, position, size) => s.mesh(new THREE.BoxGeometry(...size), color, position);
-  s.ball = (color, position, scale) => s.mesh(new THREE.SphereGeometry(1, 12, 8), color, position, scale);
-  s.cylinder('#a6b395', [0, .01, 0], .65, .09);
-  s.box('#343c3b', [0, .35, -.03], [.88, .63, .65]);
-  for (let i = 0; i < 7; i++) s.box('#d1b48c', [0, .1 + i * .08, .31], [.9, .018, .018]);
-  const roof = s.cone('#657b78', [0, .83, -.03], .7, .4, 4); roof.rotation.y = Math.PI / 4; roof.scale.z = .85;
-  s.box('#343c3b', [0, .23, .33], [.22, .41, .02]);
-  s.window(-.29, .37, .33); s.window(.29, .37, .33);
-  s.box('#e9cc9c', [0, .07, .44], [.5, .08, .22]);
-  s.box('#e9cc9c', [0, .58, .47], [.81, .12, .035]);
-  // A large controller silhouette gives this cabin its own skyline.
-  s.ball('#e9cc9c', [0, 1.08, 0], [.27, .12, .065]);
-  for (const x of [-.18, .18]) s.ball('#e9cc9c', [x, 1.01, 0], [.09, .12, .065]);
-  s.box('#343c3b', [-.13, 1.09, .066], [.09, .025, .015]);
-  s.box('#343c3b', [-.13, 1.09, .066], [.025, .09, .015]);
-  for (const [x, y, color] of [[.12, 1.13, '#e97565'], [.17, 1.08, '#90b9ed'], [.12, 1.03, '#a6cf90']]) s.ball(color, [x, y, .07], [.02, .02, .008]);
-  return finish(s, 'game-room-miniature');
-}
+export { createGameMiniature } from './destination-buildings.js';
