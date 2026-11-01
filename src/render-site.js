@@ -1,4 +1,4 @@
-import { renderNotesTeaser } from "./render-notes.js";
+
 
 const DEFAULT_SITE_NAME = "Cochonnet Villa";
 const DEFAULT_COLOR = "#f8a6ba";
@@ -79,7 +79,7 @@ const LANGUAGE_TEXT = {
     "notes.title": "山庄的小本子，想到什么记什么。",
     "notes.text": "今天吃了什么，谁又闯了祸，谁在想谁，都写在这里。",
     "notes.readMore": "读全文",
-    "notes.viewAll": "看全部小记",
+    "notes.viewAll": "解锁小记",
     "footer.text": "猪猪山庄，十五只小猪都在，一只不少。",
     "footer.manage": "管理内容"
   }
@@ -528,7 +528,14 @@ export function renderSite(site, notes = []) {
           </div>
         </section>
 
-        ${renderNotesTeaser(notes)}
+        <section class="notes-teaser" id="notes">
+          <div class="section-heading">
+            <p class="eyebrow" data-i18n="notes.eyebrow">Piggy Notes</p>
+            <h2 data-i18n="notes.title">The villa keeps a little notebook.</h2>
+            <p data-i18n="notes.text">Our everyday stories, behind a little password.</p>
+          </div>
+          <div class="notes-actions"><a class="button button-secondary" href="/notes/" rel="nofollow"><span data-i18n="notes.viewAll">Unlock notes</span></a></div>
+        </section>
       </main>
 
       <footer class="site-footer">

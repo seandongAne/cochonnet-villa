@@ -1,8 +1,11 @@
 ---
-// Google Fonts for the landing and notes pages. A <link> in the head (instead
+// Shared head-only font loading; the exhibit opts into its own type pairing. A <link> in the head (instead
 // of an @import at the top of styles.css) lets the browser fetch the font CSS
 // in parallel with the stylesheet instead of only after it has arrived.
-const FONTS_URL =
+const { variant = "site" } = Astro.props;
+const FONTS_URL = variant === "hangar"
+  ? "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap"
+  :
   "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800;9..144,900&family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap";
 ---
 

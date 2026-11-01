@@ -9,7 +9,7 @@ import { collectionModels, fitCollectionModel, modelUrl } from './collection-mod
 // Immutable geometry/textures are shared by the room and the detail canvas.
 // This cache is bounded by the local asset catalog for the lifetime of the page.
 const models = new Map();
-function loadModel(id) {
+export function loadModel(id) {
   if (!models.has(id)) {
     const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
     models.set(id, loader.loadAsync(modelUrl(id)).then(gltf => gltf.scene).catch(error => { models.delete(id); throw error; }));

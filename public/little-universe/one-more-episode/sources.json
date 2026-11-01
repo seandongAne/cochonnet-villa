@@ -1,5 +1,5 @@
 {
-  "note": "Series title cards and logos. Copyright remains with the respective rights holders; no open license is implied. These identify each series, not a particular season watched.",
+  "note": "Series artwork including title cards, logos and promotional posters. Copyright remains with the respective rights holders; no open license is implied. These identify each series, not a particular season watched.",
   "artwork": [
     {
       "id": "downton-abbey",
@@ -56,6 +56,26 @@
       "page": "https://www.imdb.com/title/tt1740299/mediaviewer/rm4456448/",
       "original": "https://m.media-amazon.com/images/M/MV5BMjM4NzEyNTU2Nl5BMl5BanBnXkFtZTgwMTE3ODI0MDI%40._V1_.jpg",
       "kind": "Promotional poster supplied in the author’s source package"
+    },
+    {
+      "id": "ming-dynasty-1566",
+      "local": "/little-universe/one-more-episode/ming-dynasty-1566.webp",
+      "page": "https://gs.ifeng.com/c/8rZ0rNBEH7O",
+      "original": "https://x0.ifengimg.com/ucms/2026_12/581E39B5B0B5C92B10E34C4E53D8767649F08382_size51_w500_h700.jpg",
+      "kind": "Promotional series poster",
+      "retrievedAt": "2026-10-31",
+      "width": 500,
+      "height": 700
+    },
+    {
+      "id": "in-the-name-of-the-people",
+      "local": "/little-universe/one-more-episode/in-the-name-of-the-people.webp",
+      "page": "https://m.jiemian.com/article/1249069.html",
+      "original": "https://img.jiemian.com/101/original/20170414/149216767316466100.jpg",
+      "kind": "Promotional series ensemble poster",
+      "retrievedAt": "2026-10-31",
+      "width": 640,
+      "height": 347
     }
   ]
 }

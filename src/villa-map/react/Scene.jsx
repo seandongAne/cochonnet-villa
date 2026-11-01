@@ -1,3 +1,4 @@
+import BirthdaySky from '../../components/BirthdaySky.jsx';
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -620,6 +621,7 @@ export function Scene({
 
       {/* ---- Sky, terrain and the far landscape ---- */}
       <DaySky sky={built.daySky} />
+      <BirthdaySky scene="villa" />
       <primitive object={built.terrain} />
       <primitive object={built.village} />
       <primitive object={built.meadowTrees} />

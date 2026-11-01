@@ -50,7 +50,7 @@ test('returning controls face the telescope and suspended controls ignore E', ()
   } finally { controls.dispose(); globalThis.document = previous; }
 });
 
-test('sky uses all six authored landmarks with bounded finite geometry and no shadow or texture load', () => {
+test('sky uses all eight authored landmarks with bounded finite geometry and no shadow or texture load', () => {
   const sky = createSkyPlanet(); let draws = 0, triangles = 0;
   assert.deepEqual(sky.userData.landmarks, landmarks.map(place => place.id));
   sky.traverse(object => {
@@ -60,8 +60,8 @@ test('sky uses all six authored landmarks with bounded finite geometry and no sh
     assert.equal(object.castShadow, false); assert.equal(object.material.map, null);
     assert.equal(object.material.depthTest, true);
   });
-  assert.ok(draws <= 70, `sky draw budget: ${draws}`);
-  assert.ok(triangles <= 110000, `sky triangle budget: ${triangles}`);
+  assert.ok(draws <= 85, `sky draw budget: ${draws}`);
+  assert.ok(triangles <= 115000, `sky triangle budget: ${triangles}`);
   assert.ok(new Box3().setFromObject(sky, true).min.y > 15, 'the whole planet is above the roof');
   const telescope = createUniverseTelescope();
   const bounds = new Box3().setFromObject(telescope);

@@ -1,3 +1,5 @@
+import { createGalleryRoom, GALLERY_OBSTACLES } from './gallery.js';
+import { createGameRoom, GAME_OBSTACLES } from './game-room.js';
 // Room layout, collision and geometry stay usable in Node without browser APIs.
 import * as THREE from 'three';
 import { studio, batchMiniature } from './miniature.js';
@@ -8,20 +10,23 @@ import { createVinylFrames } from './vinyl-records.js';
 import { createEncoreSurround } from './destination-buildings.js';
 import { createSeriesFurniture, SERIES_OBSTACLES } from './one-more-episode.js';
 import { createIronRoseRoom } from './iron-rose.js';
-import { createHangarRoom } from './hangar.js';
-import { FIGHTER_GALLERY_OBSTACLE } from './fighter-exhibits.js';
+import { createHangarAtelier, HANGAR_OBSTACLES, moveInHangar } from './hangar-atelier.js';
 
-export const ROOM_IDS = ['music', 'workshop', 'museum', 'movie-night', 'one-more-episode'];
+export const ROOM_IDS = ['gallery', 'music', 'workshop', 'museum', 'movie-night', 'one-more-episode', 'game-room'];
 export const ROOM_SPAWN = [0, 1.55, 1.45];
 export const ROOM_BOUNDS = { minX: -2.67, maxX: 2.67, minZ: -2.17, maxZ: 2.17 };
 export const ROOM_OBSTACLES = {
+  'game-room': GAME_OBSTACLES,
+  gallery: GALLERY_OBSTACLES,
   music: [[-1.65, 1.65, -2.5, -1.4], [-2.85, -1.8, -.6, 1.1], [1.8, 2.85, -.7, .9]],
-  workshop: [[-2.45, .6, -2.5, -1.35], [1.5, 2.85, -2.5, -1.25], [-1.35, .95, -1.05, .75], [.61, 1.22, -2.5, -1.98], [1.65, 2.79, -.85, 1.05], FIGHTER_GALLERY_OBSTACLE],
+  workshop: HANGAR_OBSTACLES,
   'movie-night': CINEMA_OBSTACLES,
   museum: [[-2.5, 2.5, -2.5, -1.4], [-.9, .9, -1.2, .9]],
   'one-more-episode': SERIES_OBSTACLES,
 };
 export const EXTERIOR_DOORS = {
+  'game-room': { position: [-.11, .025, .345], width: .22, height: .41, color: '#657b78' },
+  gallery: { position: [-.12, .04, .465], width: .24, height: .46, color: '#a6b9ac' },
   music: { position: [-.085, .025, .268], width: .17, height: .32, color: '#8d3043' },
   workshop: { position: [-.075, .025, .268], width: .15, height: .33, color: '#82798f' },
   'movie-night': { position: [-.12, .07, .31], width: .24, height: .4, color: '#419f98' },
@@ -30,6 +35,7 @@ export const EXTERIOR_DOORS = {
 };
 
 export function moveInRoom(position, dx, dz, id) {
+  if (id === 'workshop') return moveInHangar(position, dx, dz);
   const obstacles = ROOM_OBSTACLES[id] || [];
   const radius = .18;
   const blocked = (x, z) => obstacles.some(([x0, x1, z0, z1]) => x > x0 - radius && x < x1 + radius && z > z0 - radius && z < z1 + radius);
@@ -92,10 +98,12 @@ function bench(s, x, z, width) {
 }
 
 export function createRoom(id) {
+  if (id === 'game-room') return createGameRoom();
+  if (id === 'gallery') return createGalleryRoom();
   if (!ROOM_IDS.includes(id)) throw new RangeError('Unknown room');
   if (id === 'movie-night') return createCinemaRoom();
   if (id === 'museum') return createIronRoseRoom();
-  if (id === 'workshop') return createHangarRoom();
+  if (id === 'workshop') return createHangarAtelier();
   const root = new THREE.Group(); root.name = `${id}-interior`;
   root.add(roomShell(id));
   const s = studio();

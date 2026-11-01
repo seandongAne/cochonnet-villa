@@ -8,12 +8,20 @@ test('enterable rooms contain their requested exhibits within an enclosed, finit
   for (const id of ROOM_IDS) {
     const room = createRoom(id);
     const bounds = new Box3().setFromObject(room);
-    assert.ok(bounds.min.x >= -3.1 && bounds.max.x <= 3.1);
-    assert.ok(bounds.min.z >= -2.6 && bounds.max.z <= 2.6);
-    assert.ok(bounds.max.y > 3 && bounds.max.y < 3.4);
+    if (id === 'workshop') {
+      assert.ok(bounds.min.x >= -13.2 && bounds.max.x <= 13.2);
+      assert.ok(bounds.min.z >= -11.2 && bounds.max.z <= 12.2);
+      assert.ok(bounds.max.y > 8.5 && bounds.max.y < 8.9);
+    } else {
+      assert.ok(bounds.min.x >= -3.1 && bounds.max.x <= 3.1);
+      assert.ok(bounds.min.z >= -2.6 && bounds.max.z <= 2.6);
+      assert.ok(bounds.max.y > 3 && bounds.max.y < 3.4);
+    }
     const expected = {
+      'game-room': ['game-room-interior', 'console-switch', 'console-ps5', 'console-xbox', 'controller-ps5', 'controller-xbox'],
+      gallery: ['gallery-interior'],
       music: ['spinning-record', 'turntable', 'speaker-left', 'speaker-right', 'vinyl-collection-frames', 'musical-poster-frames'],
-      workshop: [],
+      workshop: ['hangar-shell', 'hangar-entry', 'hangar-portals', 'hangar-skylights', 'hangar-plinth', 'hangar-side-displays'],
       museum: [],
       'one-more-episode': ['series-sofa-and-frames'],
       'movie-night': ['cinema-shell', 'cinema-curtains', 'cinema-seats', 'cinema-poster-frames'],
@@ -32,8 +40,8 @@ test('enterable rooms contain their requested exhibits within an enclosed, finit
   assert.throws(() => createRoom('camping'), RangeError);
 });
 
-test('walking stops at furniture and room walls, including long steps', () => {
-  for (const id of ROOM_IDS) {
+test('small-room walking stops at furniture and room walls, including long steps', () => {
+  for (const id of ROOM_IDS.filter(id => id !== 'workshop')) {
     const position = moveInRoom(ROOM_SPAWN, 0, -50, id);
     assert.equal(position[1], ROOM_SPAWN[1]);
     assert.ok(position[2] > (id === 'movie-night' ? -1.66 : -1.4), 'the front furniture or stage cannot be crossed');

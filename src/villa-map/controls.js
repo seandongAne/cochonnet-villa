@@ -26,13 +26,15 @@ export function createExplorerControls({
   world,
   onLockChange,
   onAction,
-  onHiddenAction
+  onHiddenAction,
+  initialPitch = 0,
+  initialYaw = world.player.start.yaw ?? 0
 }) {
   const keys = new Set();
   const velocity = new THREE.Vector3();
   const candidate = new THREE.Vector3();
-  let yaw = world.player.start.yaw ?? 0;
-  let pitch = 0;
+  let yaw = initialYaw;
+  let pitch = initialPitch;
   let isLocked = false;
   let enabled = true;
   // Fallback session for surfaces that reject Pointer Lock (embedded browsers,

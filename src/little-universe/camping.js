@@ -6,8 +6,8 @@ export const CAMPFIRE = [0, .065, .35];
 export const CAMP_LANTERN = [.42, .34, .03];
 export const CAMP_CAPTION = [0, .88, .25];
 // Sit together in front of the fire, clear of the chairs and each other.
-export const CAMP_PIG_POSITION = [-.145, .065, .59];
-export const CAMP_BAICAI_POSITION = [.145, .065, .59];
+export const CAMP_PIG_POSITION = [-.145, .065, .61];
+export const CAMP_BAICAI_POSITION = [.145, .065, .61];
 export const CAMPING_PARTS = ['tent', 'chair-pig', 'chair-baicai', 'lantern', 'wood-pile', 'little-pig', 'bai-baicai', 'campfire'];
 export const CAMP_ASSET_URL = '/little-universe/camping/camping-props.glb';
 // Authored units are metres. A shared miniature scale preserves prop proportions.
@@ -34,7 +34,8 @@ export const CAMP_PROPS = [
   prop('fern', 'Fern', .55, -.37, .25, 1),
   prop('mushrooms', 'Mushroom_Cluster', -.53, -.29, .3),
   ...Array.from({ length: 12 }, (_, i) => {
-    const angle = i * Math.PI * 2 / 12;
+    // Leave the shared seating area clear of tall grass and character feet.
+    const angle = (i === 3 ? 5.5 : i) * Math.PI * 2 / 12;
     return prop(`grass-${i}`, i % 3 ? 'Grass_Tuft' : 'Grass_Tall', Math.cos(angle) * .65, Math.sin(angle) * .59, .22 + (i % 3) * .03, angle);
   }),
 ];
@@ -42,7 +43,7 @@ export const CAMP_PROPS = [
 export function createCampingMiniature() {
   const root = new THREE.Group(); root.name = 'camping-vignette';
   const ground = studio();
-  ground.cylinder('#687a60', [0, .01, 0], .74, .10);
+  ground.cylinder('#687a60', [0, .01, 0], .79, .10);
   ground.cylinder('#aa9574', [0, .057, .18], .42, .008);
   // Match the planet's rounded trees while keeping the supplied camp furniture.
   ground.tree(-.49, -.44, .8);

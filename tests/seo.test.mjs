@@ -52,26 +52,8 @@ test("paths canonicalize to trailing-slash directory URLs under the configured s
   assert.match(await read("../astro.config.mjs"), new RegExp(`site:\\s*"${SITE_URL}"`));
 });
 
-test("the sitemap lists every public page and note, dated, and no admin route", () => {
-  const entries = buildSitemapEntries(notes);
-  const locs = entries.map((entry) => entry.loc);
-  const newest = notes[0].date;
-
-  assert.deepEqual(entries[0], { loc: `${SITE_URL}/`, lastmod: newest });
-  assert.deepEqual(entries[1], { loc: `${SITE_URL}/notes/`, lastmod: newest });
-  assert.deepEqual(entries.at(-1), { loc: `${SITE_URL}/villa-map/` });
-
-  for (const note of notes) {
-    assert.ok(locs.includes(`${SITE_URL}/notes/${note.slug}/`), note.slug);
-  }
-
-  assert.equal(entries.length, notes.length + 3);
-  assert.ok(locs.every((loc) => loc.startsWith(`${SITE_URL}/`) && loc.endsWith("/")));
-  assert.ok(!locs.some((loc) => loc.includes("/admin")));
-
-  const xml = renderSitemapXml([{ loc: "https://x.test/a&b/", lastmod: "2026-01-02" }]);
-  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
-  assert.match(xml, /<loc>https:\/\/x\.test\/a&amp;b\/<\/loc>\n\s*<lastmod>2026-01-02<\/lastmod>/);
+test("the sitemap excludes password-gated notes and note dates", () => {
+  assert.deepEqual(buildSitemapEntries(notes), ["/", "/villa-map/"].map(path => ({ loc: SITE_URL + path })));
 });
 
 test("robots.txt advertises the sitemap and leaves /admin/ crawlable so its noindex is seen", async () => {

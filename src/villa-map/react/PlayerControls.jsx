@@ -1,3 +1,4 @@
+import { birthdayPreview, isCabbageBirthday } from '../../birthday.js';
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
@@ -59,9 +60,15 @@ export function PlayerControls({
   onEnterLittleUniverseRef.current = onEnterLittleUniverse;
 
   useEffect(() => {
+    const birthdayArrival = (birthdayPreview(window.location) ?? isCabbageBirthday())
+      && !new URLSearchParams(window.location.search).has('arrival');
     const controls = createExplorerControls({
       camera,
       canvas: gl.domElement,
+      // Only frame the birthday sky on initial arrival; never steal the view at midnight.
+      initialPitch: birthdayArrival
+        ? Math.max(.4, .72 - camera.fov * Math.PI / 360 * .45) : 0,
+      initialYaw: birthdayArrival ? -.3 : world.player.start.yaw ?? 0,
       world,
       onLockChange: (locked) => onLockChangeRef.current?.(locked),
       // E key: doors. If the hotspot in range carries a teleport action

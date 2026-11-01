@@ -113,25 +113,8 @@ export function noteDateTime(date, timeZone = NOTE_TIMEZONE) {
   return `${date}T12:00:00${offset === "GMT" ? "+00:00" : offset.slice(3)}`;
 }
 
-export function buildSitemapEntries(notes, { site = SITE_URL } = {}) {
-  const list = Array.isArray(notes) ? notes : [];
-  const newest = list
-    .map((note) => note.date)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
-
-  const entry = (path, lastmod) => ({
-    loc: absoluteUrl(path, site),
-    ...(lastmod ? { lastmod } : {})
-  });
-
-  return [
-    entry("/", newest),
-    entry("/notes/", newest),
-    ...list.map((note) => entry(notePath(note), note.date)),
-    entry("/villa-map/")
-  ];
+export function buildSitemapEntries(_notes, { site = SITE_URL } = {}) {
+  return ["/", "/villa-map/"].map(path => ({ loc: absoluteUrl(path, site) }));
 }
 
 function escapeXml(value) {

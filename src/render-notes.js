@@ -120,7 +120,10 @@ export function normalizeNotes(data) {
       date,
       mood: String(raw?.mood ?? "").trim().slice(0, 8),
       body,
-      ...(image ? { image } : {})
+      ...(image ? { image,
+        ...(Number.isFinite(Date.parse(raw?.imageGeneratedAt)) && /^[a-f0-9]{64}$/.test(raw?.imageSha256 || '')
+          ? { imageGeneratedAt: new Date(raw.imageGeneratedAt).toISOString(), imageSha256: raw.imageSha256 } : {})
+      } : {})
     });
   });
 
@@ -183,7 +186,7 @@ export function mergeRemoteNotes(localNotes, remoteNotes) {
 
   const kept = local.map((note) => {
     const twin = remoteBySlug.get(note.slug);
-    return twin?.image && !note.image ? { ...note, image: twin.image } : note;
+    return twin?.image && !note.image ? { ...note, image: twin.image, ...(twin.imageGeneratedAt && twin.imageSha256 ? { imageGeneratedAt: twin.imageGeneratedAt, imageSha256: twin.imageSha256 } : {}) } : note;
   });
 
   return normalizeNotes({
