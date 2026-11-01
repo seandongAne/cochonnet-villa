@@ -5,22 +5,43 @@ import { seanExhibits, SEAN_GALLERY_OBSTACLES } from './sean-exhibits.js';
 
 export const HANGAR_SPAWN = [0, 1.8, 10.2];
 export const HANGAR_LOOK = { yaw: 0, pitch: .09 };
+// Keep the full central cabinet in portrait framing without moving a walking visitor.
+export function hangarRoomFov(aspect) {
+  return Math.max(58, Math.min(98, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(21)) / Math.max(.25, aspect)))));
+}
 export const HANGAR_SPEED = 2.8;
 export const HANGAR_RADIUS = .22;
 export const HANGAR_BOUNDS = { minX: -12.6, maxX: 12.6, minZ: -10.6, maxZ: 11.65 };
 export const HANGAR_PORTALS = [-6.2, 1.8, 9.8];
 export const HANGAR_PLINTH_RADIUS = 3.29;
+// Cabinets share the same shelf/back/frame finish as Sean's central display.
+// The rear bays stop before the curved wall turns inward (the old -6.2 bays pierced it).
+export const HANGAR_CABINETS = [
+  { id: 'fighters-a', x: -10.5, z: -1.3, shelves: [.75, 1.95], height: 3.15 },
+  { id: 'fighters-b', x: -10.5, z: 4, shelves: [.75, 1.95], height: 3.15 },
+  { id: 'gundam', x: 10.5, z: -1.3, shelves: [.85, 3.05], height: 5.25 },
+  { id: 'aircraft', x: 10.5, z: 4, shelves: [.75, 1.95], height: 3.15 },
+  { id: 'reborns', x: 10.5, z: 8.5, shelves: [.85], height: 4.45 },
+].map(item => ({ width: 3.4, depth: 2, ...item }));
 export const HANGAR_OBSTACLES = [
   ...SEAN_GALLERY_OBSTACLES,
-  [-11.4, -9.6, -7.1, -.5], [9.6, 11.4, -7.1, -.5],
+  ...HANGAR_CABINETS.map(c => [c.x - c.depth / 2, c.x + c.depth / 2, c.z - c.width / 2, c.z + c.width / 2]),
   [-3.95, 3.95, -10.9, -10.15],
   ...HANGAR_PORTALS.flatMap(z => [-8, 8].map(x => [x - .45, x + .45, z - .18, z + .83])),
 ];
-const shelfZ = [-6.2, -4.55, -2.9, -1.25];
 export const HANGAR_DISPLAYS = [
-  ...['f14-tomcat', 'f15e-strike-eagle', 'f16-fighting-falcon', 'fa18-hornet'].map((id, i) => ({ id, position: [-10.5, 1.37, shelfZ[i]], size: [1.45, .75, 1.4], rotation: [0, Math.PI / 2, 0] })),
-  ...['sd-gundam', 'zz-gundam-verka', 'cessna-172', 'diamond-da20-c1'].map((id, i) => ({ id, position: [10.5, 1.37, shelfZ[i]], size: [1.45, 1.8, 1.4], rotation: [0, -Math.PI / 2, 0] })),
-];
+  ['f14-tomcat', 'fighters-a', 0], ['f15e-strike-eagle', 'fighters-a', 1],
+  ['f16-fighting-falcon', 'fighters-b', 0], ['fa18-hornet', 'fighters-b', 1],
+  ['sd-gundam', 'gundam', 0], ['zz-gundam-verka', 'gundam', 1],
+  ['cessna-172', 'aircraft', 0], ['diamond-da20-c1', 'aircraft', 1],
+  ['reborns-gundam', 'reborns', 0],
+].map(([id, cabinetId, tier]) => {
+  const cabinet = HANGAR_CABINETS.find(c => c.id === cabinetId);
+  const height = cabinetId === 'gundam' ? 1.9 : cabinetId === 'reborns' ? 3.2 : .95;
+  return { id, cabinetId, position: [cabinet.x, cabinet.shelves[tier], cabinet.z],
+    size: [1.8, height, 2.9], rotation: [0, ['gundam', 'reborns'].includes(cabinetId) ? (cabinet.x < 0 ? Math.PI / 2 : -Math.PI / 2) : .2, 0],
+    labelPosition: [cabinet.x < 0 ? 1.1 : -1.1, -.12, 0] };
+});
 export function isHangarWalkable(x, z) {
   const b = HANGAR_BOUNDS, r = HANGAR_RADIUS;
   if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) return false;
@@ -125,21 +146,22 @@ export function createHangarAtelier() {
       for (const dz of [-2, 0, 2]) box('hangar-skylights', [x, 8.35, z + dz], [3.5, .07, .045], '#9fafb4');
     }
   }
-  for (const x of [-10.5, 10.5]) {
-    box('hangar-side-displays', [x, .65, -3.8], [1.7, 1.3, 6.5], '#9dadaf', .6, .38, true);
-    box('hangar-side-displays', [x, 1.32, -3.8], [1.8, .1, 6.6], '#e0ddd3', .2);
-    for (let i = 0; i < 14; i++) box('hangar-side-displays', [x, .72, -6.6 + i * .43], [1.72, .55, .024], '#758b94');
-  }
-  // Entrance-wall shelves protect Sean's works without narrowing the main aisles.
-  for (const [x0, x1, z0, z1] of SEAN_GALLERY_OBSTACLES) {
-    const x = (x0 + x1) / 2;
-    box('hangar-sean-displays', [x, 1.7, z1], [x1 - x0, 3.4, .06], '#778d97', .6, .4);
-    box('hangar-sean-displays', [x, .35, (z0 + z1) / 2], [x1 - x0, .7, z1 - z0], '#9dadaf', .6, .38, true);
-    for (const item of seanExhibits.filter(item => item.position[0] === x)) {
-      box('hangar-sean-displays', [x, item.position[1] - .04, item.position[2]], [x1 - x0, .08, 1.1], '#e0ddd3', .2);
-      strip('hangar-sean-displays', [x, item.position[1] - .04, z0], [2.1, .02, .02]);
+  // Open-front display cabinets: common ivory shelves, titanium backs and warm trim.
+  // Local +Z is the viewing side; rotate side cabinets toward the main aisle.
+  const cabinet = (name, center, width, depth, height, shelves, angle = 0, base = 0) => {
+    const place = p => new THREE.Vector3(...p).applyAxisAngle(new THREE.Vector3(0, 1, 0), angle).add(new THREE.Vector3(...center)).toArray();
+    const panel = (p, size, color, metal = .45, rough = .42) => box(name, place(p), size, color, metal, rough, true, [0, angle, 0]);
+    const light = (p, size) => add(name, new THREE.BoxGeometry(...size), place(p), material('#ead6ad', 0, .42, false, { emissive: '#ead6ad', emissiveIntensity: .45 }), [0, angle, 0]);
+    panel([0, (height + base) / 2, -depth / 2 + .04], [width, height - base, .08], '#778d97', .6, .4);
+    panel([0, (base + shelves[0]) / 2, 0], [width, shelves[0] - base, depth], '#9dadaf', .6, .38);
+    for (const x of [-width / 2 + .045, width / 2 - .045]) panel([x, (height + base) / 2, 0], [.09, height - base, depth], '#b6c1c1', .6, .35);
+    for (const y of [...shelves, height]) {
+      panel([0, y - .04, 0], [width, .08, depth], '#e0ddd3', .2);
+      light([0, y - .045, depth / 2 + .012], [width - .18, .025, .025]);
     }
-  }
+  };
+  for (const c of HANGAR_CABINETS) cabinet('hangar-side-displays', [c.x, 0, c.z], c.width, c.depth, c.height, c.shelves, c.x < 0 ? Math.PI / 2 : -Math.PI / 2);
+  cabinet('hangar-sean-displays', [0, 0, 0], 6.1, 2.3, 5.65, [...new Set(seanExhibits.map(item => item.position[1]))], 0, .38);
   for (const x of [-12, -8, -4, 0, 4, 8, 12]) box('hangar-floor-seams', [x, -.008, .5], [.012, .003, 23], '#98a6a9', .45, .8);
   for (const z of [-10, -6, -2, 2, 6, 10]) box('hangar-floor-seams', [0, -.008, z], [26, .003, .012], '#98a6a9', .45, .8);
   cylinder('hangar-plinth', [0, .07, 0], [3.12, 3.2, .14, 96], '#788b94', .7, .32);

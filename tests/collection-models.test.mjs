@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { collectionModels, fitCollectionModel } from '../src/little-universe/collection-models.js';
 import { moveInRoom, ROOM_SPAWN } from '../src/little-universe/rooms.js';
-import { HANGAR_DISPLAYS, HANGAR_SPAWN } from '../src/little-universe/hangar-atelier.js';
+import { HANGAR_DISPLAYS, HANGAR_SPAWN, HANGAR_CABINETS } from '../src/little-universe/hangar-atelier.js';
 import { seanExhibits, SEAN_GALLERY_OBSTACLES } from '../src/little-universe/sean-exhibits.js';
 import { fighterExhibits } from '../src/little-universe/fighter-exhibits.js';
 
@@ -17,7 +17,7 @@ test('Hangar adds five Sean works while preserving the existing collection and w
   assert.deepEqual(collectionModels.filter(m => m.room === 'museum').map(m => m.id), ['cz-bren-2', 'm1887-short', 'm590', 'rose', 'ru-winter-su100']);
   assert.equal(collectionModels.find(m => m.id === 'ru-winter-su100').position[0], 0);
   assert.ok(moveInRoom(ROOM_SPAWN, 0, -20, 'museum')[2] >= 1.08, 'central plinth stops walking');
-  assert.ok(moveInRoom(HANGAR_SPAWN, 0, -30, 'workshop')[2] >= 3.5, 'central Reborns plinth stops walking');
+  assert.ok(moveInRoom(HANGAR_SPAWN, 0, -30, 'workshop')[2] >= 3.5, 'central Sean plinth stops walking');
   for (const x of [-5, 5]) {
     const aisle = moveInRoom(HANGAR_SPAWN, x, 0, 'workshop');
     assert.ok(moveInRoom(aisle, 0, -16, 'workshop')[2] < -5, 'both sides of the main exhibit remain accessible');
@@ -25,7 +25,7 @@ test('Hangar adds five Sean works while preserving the existing collection and w
   const side = moveInRoom(ROOM_SPAWN, 1.4, 0, 'museum');
   assert.ok(moveInRoom(side, 0, -1.5, 'museum')[2] < .5, 'both side aisles stay usable');
   for (const x of [-5, 5]) {
-    assert.ok(moveInRoom([x, 1.8, 10], 0, 3, 'workshop')[2] <= 10.28, 'entrance shelves stop visitors before the models');
+    assert.ok(moveInRoom([x, 1.8, 10], 0, 3, 'workshop')[2] > 11.5, 'relocated shelves free the entrance wall');
   }
 });
 
@@ -172,10 +172,10 @@ test('all twenty-one shipped assets have local embedded resources, pinned proven
       const display = fitCollectionModel(gltf.scene, item.size, item.rotation);
       display.position.set(...item.position);
       const bounds = new Box3().setFromObject(display);
-      const [x0, x1, z0, z1] = SEAN_GALLERY_OBSTACLES[item.position[0] < 0 ? 0 : 1];
+      const [x0, x1, z0, z1] = SEAN_GALLERY_OBSTACLES[0];
       assert.ok(bounds.min.x >= x0 && bounds.max.x <= x1 && bounds.min.z >= z0 && bounds.max.z <= z1, 'model fits its protected shelf');
       assert.ok(Math.abs(bounds.min.y - item.position[1]) < 1e-5, 'model rests on its shelf');
-      assert.ok(bounds.max.y < item.position[1] + .56, 'shelf tiers do not intersect');
+      assert.ok(bounds.max.y < item.position[1] + 1.26, 'shelf tiers do not intersect');
     }
     const fit = fitCollectionModel(gltf.scene, [2, 2, 2]); const box = new Box3().setFromObject(fit);
     assert.ok(!box.isEmpty() && box.min.y > -1e-5, record.id);
@@ -184,10 +184,15 @@ test('all twenty-one shipped assets have local embedded resources, pinned proven
       const display = fitCollectionModel(gltf.scene, placement.size, placement.rotation);
       display.position.set(...placement.position);
       const bounds = new Box3().setFromObject(display);
-      assert.ok(Math.abs(bounds.min.y - 1.37) < 1e-5, 'each side exhibit rests on its counter');
-      assert.ok(bounds.min.x >= Math.sign(placement.position[0]) * 10.5 - .9 && bounds.max.x <= Math.sign(placement.position[0]) * 10.5 + .9, 'wings and armor stay over the counter');
-      assert.ok(bounds.min.z >= placement.position[2] - .71 && bounds.max.z <= placement.position[2] + .71, 'neighboring models cannot overlap');
-      assert.ok(bounds.min.z >= -7.1 && bounds.max.z <= -.5);
+      const cabinet = HANGAR_CABINETS.find(c => c.id === placement.cabinetId);
+      assert.ok(Math.abs(bounds.min.y - placement.position[1]) < 1e-5, 'each exhibit rests on its own shelf');
+      assert.ok(bounds.min.x >= cabinet.x - cabinet.depth / 2 + .09 && bounds.max.x <= cabinet.x + cabinet.depth / 2 - .09, 'wings and armor clear cabinet backs');
+      assert.ok(bounds.min.z >= cabinet.z - cabinet.width / 2 + .09 && bounds.max.z <= cabinet.z + cabinet.width / 2 - .09, 'models clear cabinet sides');
+      const ceiling = cabinet.shelves.find(y => y > placement.position[1]) ?? cabinet.height;
+      assert.ok(bounds.max.y < ceiling - .08, 'models clear the next tier and canopy');
+      for (const x of [bounds.min.x, bounds.max.x]) for (const z of [bounds.min.z, bounds.max.z]) {
+        if (z < 2) assert.ok(Math.hypot(x, z - 2) < 12.85, `${record.id} stays inside the curved wall and rails`);
+      }
     }
     if (['m590', 'rose'].includes(record.id)) {
       const item = collectionModels.find(m => m.id === record.id);

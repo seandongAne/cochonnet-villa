@@ -28,6 +28,11 @@ const LANGUAGE_TEXT = {
     "hero.primaryCtaLabel": "认识小猪们",
     "hero.secondaryCtaLabel": "逛逛山庄",
     "hero.mapCtaLabel": "走进 3D 山庄地图",
+    "hero.viewArtwork": "放大看猪猪",
+    "hero.closeArtwork": "返回主页",
+    "hero.artworkTitle": "猪猪山庄 · 十五只小猪",
+    "hero.artworkZoom": "放大 / 还原",
+    "hero.artworkHint": "放大后可滑动查看细节，按 Esc 或点“返回主页”关闭。",
     "hero.sceneNote": "十三只差不多大，一只特别大，一只特别小。再数一遍，还是十五只。",
     "stats.total": "快乐小猪",
     "stats.regular": "个头差不多",
@@ -53,7 +58,7 @@ const LANGUAGE_TEXT = {
     "size.tiny": "迷你号",
     "porky.0.description": "哪里有泥坑，哪里就有它。洗完澡最多干净五分钟，然后又是一身泥点子，还笑得特别开心。",
     "porky.1.description": "圆眼镜、巫师帽，外加一本谁也看不懂的魔法书。山庄里谁遇到难题，都会先去找它想办法。",
-    "porky.2.description": "走到哪儿都顶着西瓜帽，又凉快又好看。别的小猪怎么闹她都不急，淡定得像个瓜。",
+    "porky.2.description": "走到哪儿都顶着西瓜帽，又凉快又好看。别的小猪怎么闹他都不急，淡定得像个瓜。",
     "porky.3.description": "耳机一戴，谁也不爱。嘴上说着“打完这把就睡”，这句话今晚已经说了六遍。",
     "porky.4.description": "围着红格子小围巾，说话轻声细气，开饭前会先把蹄子并拢。全票当选山庄最乖。",
     "porky.5.description": "山庄里个头最大、力气也最大的一只，肩上总搭着一条白毛巾。爱举铁，爱吃牛肉，扛着二十斤的水走路都不带喘的，睡觉还要占掉半张毯子。别看一身肌肉，脾气其实最好，谁都可以靠着他打盹。",
@@ -205,40 +210,6 @@ function renderStats(porkies, labels) {
         </li>
       `
     )
-    .join("");
-}
-
-function renderHerd(porkies) {
-  return porkies
-    .map((porky) => {
-      const size = normalizeSize(porky?.size);
-      return `
-        <span class="herd-porky ${size}">
-          <svg viewBox="0 0 120 120"><use href="#icon-piglet"></use></svg>
-        </span>
-      `;
-    })
-    .join("");
-}
-
-function renderFeaturedPortraits(porkies) {
-  const featured = [porkies[4], porkies[8], porkies[11]].filter(Boolean);
-
-  return featured
-    .map((porky) => {
-      const name = escapeHtml(porky?.name || "");
-      const src = escapeHtml(sanitizeImageSrc(porky?.image || porky?.photo));
-
-      if (!src) {
-        return "";
-      }
-
-      return `
-        <figure class="scene-portrait">
-          <img src="${src}" alt="${name}" loading="lazy" decoding="async" />
-        </figure>
-      `;
-    })
     .join("");
 }
 
@@ -461,25 +432,45 @@ export function renderSite(site, notes = []) {
           </div>
 
           <aside class="scene-card" aria-label="Illustration of ${siteName}">
-            <div class="scene-sign"${i18nAttribute("brand.name")}>${siteName}</div>
-            <div class="scene-portraits" aria-label="Featured porkies">
-              ${renderFeaturedPortraits(porkies)}
+            <div class="scene-heading">
+              <span class="scene-sign"${i18nAttribute("brand.name")}>${siteName}</span>
+              <button class="scene-artwork-link" type="button" data-artwork-open aria-haspopup="dialog" aria-controls="villa-artwork-viewer">
+                <span${i18nAttribute("hero.viewArtwork")}>See the porkies up close</span>
+                <span aria-hidden="true">↗</span>
+              </button>
             </div>
-            <a class="scene-house scene-house-link" href="/villa-map/" aria-label="Explore the Villa Map">
-              <div class="roof"></div>
-              <div class="house-body">
-                <div class="window"></div>
-                <div class="door"></div>
-                <div class="window"></div>
-              </div>
-              <div class="house-shadow"></div>
-              <span class="scene-house-cta"${i18nAttribute("hero.mapCtaLabel")}>Explore the Villa Map</span>
+            <a class="scene-house scene-house-link" href="/villa-map/" aria-labelledby="scene-map-cta">
+              <img class="scene-artwork"
+                src="/assets/villa-welcome.webp"
+                srcset="/assets/villa-welcome-768.webp 768w, /assets/villa-welcome.webp 1536w"
+                sizes="(max-width: 720px) calc(100vw - 1rem), (max-width: 980px) calc(100vw - 2rem), (min-width: 2400px) 50vw, 640px"
+                width="1536" height="1024"
+                alt="A storybook villa with hot springs, a mushroom tower, and all fifteen distinctive porkies."
+                loading="eager" fetchpriority="high" decoding="async" />
+              <span class="scene-house-cta">
+                <span id="scene-map-cta"${i18nAttribute("hero.mapCtaLabel")}>Explore the Villa Map</span>
+                <span aria-hidden="true">→</span>
+              </span>
             </a>
-            <div class="scene-herd">
-              ${renderHerd(porkies)}
-            </div>
             <p class="scene-note"${i18nAttribute("hero.sceneNote")}>${escapeHtml(hero.sceneNote || "")}</p>
           </aside>
+          <dialog class="artwork-viewer" id="villa-artwork-viewer" aria-labelledby="artwork-viewer-title">
+            <div class="artwork-viewer-header">
+              <strong id="artwork-viewer-title"${i18nAttribute("hero.artworkTitle")}>Cochonnet Villa · Fifteen porkies</strong>
+              <button class="artwork-viewer-close" type="button" data-artwork-close autofocus>
+                <span aria-hidden="true">←</span>
+                <span${i18nAttribute("hero.closeArtwork")}>Back to homepage</span>
+              </button>
+            </div>
+            <div class="artwork-viewer-toolbar">
+              <button type="button" data-artwork-zoom aria-pressed="false"${i18nAttribute("hero.artworkZoom")}>Zoom in / reset</button>
+              <p${i18nAttribute("hero.artworkHint")}>Scroll to explore when zoomed in. Press Esc or Back to homepage to close.</p>
+            </div>
+            <div class="artwork-viewer-canvas" tabindex="0" role="region" aria-labelledby="artwork-viewer-title">
+              <img src="/assets/villa-welcome.webp" width="1536" height="1024" loading="lazy" decoding="async"
+                alt="The full villa illustration with all fifteen porkies." />
+            </div>
+          </dialog>
         </section>
 
         <section class="name-parade" aria-label="Porky roll call">

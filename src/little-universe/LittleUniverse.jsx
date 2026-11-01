@@ -3,7 +3,8 @@ import { games } from './games.js';
 import { GameCollectionViewer } from './GameRoom.jsx';
 import { GAME_CONSOLES } from './game-room.js';
 import { GalleryViewer } from './Gallery.jsx';
-import { galleryWorks, GALLERY_PAGE_SIZE } from './gallery.js';
+import { galleryWorks, GALLERY_EXHIBITION_SIZE } from './gallery.js';
+import { useGalleryWeek } from './useGalleryWeek.js';
 import { VILLA_RETURN_URL } from '../villa-map/little-universe-gateway.js';
 import { vinylRecords } from './vinyl-records.js';
 import { Component, useCallback, useEffect, useRef, useState } from 'react';
@@ -52,9 +53,9 @@ function Icon({ type, ...props }) {
 }
 
 // Scene navigation and room-specific actions; posters have an accessible viewer.
-function LocationFocus({ place, onClose, onSelect, unavailable, roomPhase, roomInput, spinning, onSpin, reducedMotion, onPoster, onResetView, galleryPage, onGalleryPage, gameConsole, onGameConsole, gameId }) {
+function LocationFocus({ place, onClose, onSelect, unavailable, roomPhase, roomInput, spinning, onSpin, reducedMotion, onPoster, onResetView, galleryWeek, gameConsole, onGameConsole, gameId }) {
   const back = useRef();
-  const inside = roomPhase === 'inside';
+  const inside = roomPhase === 'inside' || roomPhase === 'closing';
   const opening = roomPhase === 'opening';
   useEffect(() => { back.current?.focus({ preventScroll: true }); }, [inside]);
   useEffect(() => {
@@ -67,32 +68,31 @@ function LocationFocus({ place, onClose, onSelect, unavailable, roomPhase, roomI
     <div className="lu-focus-caption" aria-live="polite">
       <p className="lu-eyebrow">{inside ? 'COME IN. STAY A WHILE.' : 'A LITTLE CLOSER'}</p>
       <h2>{place.name}</h2><p>{place.subtitle}</p>
-      {place.id === 'camping' && <div className="lu-camp-view-controls"><small>Drag to look around · Scroll or pinch to zoom</small><button className="lu-pill" disabled={unavailable} onClick={onResetView}>Reset view ↺</button></div>}
+      {!inside && <div className="lu-camp-view-controls"><small>Drag to explore · Scroll or pinch to zoom out and back in</small><button className="lu-pill" disabled={unavailable} onClick={onResetView}>Reset view ↺</button></div>}
       {!inside && place.entranceNote && <small className="lu-entrance-note">{place.entranceNote}</small>}
       {unavailable && <p role="status">3D is unavailable. Return to the planet to retry.</p>}
-      {!inside && ROOM_IDS.includes(place.id) && !unavailable && <small className="lu-entry-hint">{opening ? 'Stepping inside…' : 'Click the house to step inside · Tab to the house, then Enter'}</small>}
       {place.id === 'gallery' && <div className="lu-record-controls lu-gallery-controls">
-        {galleryWorks.length ? <button className="lu-pill" onClick={() => onPoster(galleryWorks[inside ? galleryPage * GALLERY_PAGE_SIZE : 0].id)}>浏览 {galleryWorks.length} 幅作品 ↗</button> : <small>第一幅作品正在路上。</small>}
-        {inside && galleryWorks.length > GALLERY_PAGE_SIZE && <div className="lu-gallery-pages"><button className="lu-pill" aria-label="上一组展墙" disabled={galleryPage === 0} onClick={() => onGalleryPage(galleryPage - 1)}>←</button><span>展墙 {galleryPage + 1} / {Math.ceil(galleryWorks.length / GALLERY_PAGE_SIZE)}</span><button className="lu-pill" aria-label="下一组展墙" disabled={(galleryPage + 1) * GALLERY_PAGE_SIZE >= galleryWorks.length} onClick={() => onGalleryPage(galleryPage + 1)}>→</button></div>}
-        <small>一幅一刻 · 点击画作，慢慢看</small>
+        {galleryWorks.length ? <button className="lu-pill" onClick={() => onPoster(galleryWorks[0].id)}>浏览 {galleryWorks.length} 幅作品 ↗</button> : <small>第一幅作品正在路上。</small>}
+        {inside && <small className="lu-gallery-weekly" aria-live="polite">本周随机展出 {Math.min(GALLERY_EXHIBITION_SIZE, galleryWorks.length)} 幅 · 每周一换展<br />{galleryWeek} 起 · 多伦多时间</small>}
+
       </div>}
       {place.id === 'game-room' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(gameId)}>浏览 {games.length} 款游戏 ↗</button></div>}
       {inside && place.id === 'game-room' && <div className="lu-record-controls lu-game-controls"><div role="group" aria-label="Choose a console">{GAME_CONSOLES.map(item => <button key={item.id} className="lu-pill" aria-pressed={gameConsole === item.id} onClick={() => onGameConsole(item.id)}>{item.name}</button>)}</div><small>Console shelf: {GAME_CONSOLES.find(item => item.id === gameConsole).name} · Make yourself at home.</small></div>}
       {inside && place.id === 'music' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(musicals[0].id)}>Browse {musicals.length} musicals <span>↗</span></button><button className="lu-pill" onClick={() => onPoster(vinylRecords[0].id)}>Browse {vinylRecords.length} records <span>↗</span></button><button className="lu-pill" aria-pressed={spinning} onClick={onSpin}>{spinning ? 'Stop the vinyl' : 'Spin the vinyl'}</button><small>{reducedMotion ? 'Our vinyl & theatre collection · reduced motion is on' : 'Our vinyl. Our nights at the theatre.'}</small></div>}
       {inside && place.id === 'movie-night' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(movies[0].id)}>Browse {movies.length} movie posters <span>↗</span></button><small>Tap a holographic poster, or explore the whole collection</small></div>}
       {inside && place.id === 'one-more-episode' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(series[0].id)}>Browse {series.length} series <span>↗</span></button><small>Our favorite worlds, one episode at a time</small></div>}
-      {inside && ['workshop', 'museum'].includes(place.id) && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(place.id === 'workshop' ? 'reborns-gundam' : 'ru-winter-su100')}>Explore the collection ↗</button><small>{place.id === 'workshop' ? 'Five creations by Sean · Turn toward the entrance' : 'Tap a model to turn it around and look closer'}</small></div>}
-      <nav aria-label="Visit another location">{landmarks.map((item) => <button key={item.id} aria-label={`${ROOM_IDS.includes(item.id) ? 'Enter' : 'Focus'} ${item.name}`} aria-pressed={item.id === place.id} onClick={() => onSelect(item.id)}><Icon type={item.id} /></button>)}</nav>
+      {inside && ['workshop', 'museum'].includes(place.id) && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(place.id === 'workshop' ? 'sean-tornado' : 'ru-winter-su100')}>Explore the collection ↗</button><small>{place.id === 'workshop' ? 'Five creations by Sean · At the heart of the Hangar' : 'Tap a model to turn it around and look closer'}</small></div>}
+      <nav aria-label="Visit another location">{landmarks.map((item) => <button key={item.id} aria-label={`Focus ${item.name}`} aria-pressed={item.id === place.id} onClick={() => onSelect(item.id)}><Icon type={item.id} /></button>)}</nav>
     </div>
     {inside && <div className="lu-room-navigation">
-      <p>Drag to look · Hold arrows to move<br /><span>WASD to walk · Arrow keys to walk & turn</span></p>
+      <p>Drag to look · Hold arrows to move<br /><span>WASD to walk · Arrow keys to walk & turn</span><br /><span>Scroll to zoom · Esc or click the doorway to step outside</span></p>
       <div className="lu-room-pad" aria-label="Room movement controls">{[['turn-left', '↶', 'Turn left'], ['forward', '↑', 'Walk forward'], ['turn-right', '↷', 'Turn right'], ['left', '←', 'Step left'], ['back', '↓', 'Walk backward'], ['right', '→', 'Step right']].map(([direction, glyph, label]) => <button key={direction} aria-label={label}
         onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); roomInput.current = direction; }}
         onPointerUp={() => { roomInput.current = null; }} onPointerCancel={() => { roomInput.current = null; }} onLostPointerCapture={() => { roomInput.current = null; }}
         onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); roomInput.current = direction; } }}
         onKeyUp={() => { roomInput.current = null; }} onBlur={() => { roomInput.current = null; }}>{glyph}</button>)}</div>
     </div>}
-    {opening && <div className="lu-door-transition" aria-hidden="true" />}
+    {(opening || roomPhase === 'closing' || roomPhase === 'returning') && <div className={`lu-door-transition ${roomPhase === 'closing' ? 'is-closing' : roomPhase === 'returning' ? 'is-returning' : ''}`} aria-hidden="true" />}
   </section>;
 }
 
@@ -145,6 +145,9 @@ export default function LittleUniverse() {
   const reducedMotion = useReducedMotion();
   const [visited, setVisited] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [exploring, setExploring] = useState(false);
+  const [candidate, setCandidate] = useState(null);
+  const [moving, setMoving] = useState(false);
   const [finale, setFinale] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -156,7 +159,7 @@ export default function LittleUniverse() {
   const [posterId, setPosterId] = useState(null);
   const [gameConsole, setGameConsole] = useState('switch');
   const [gameId, setGameId] = useState(games[0].id);
-  const [galleryPage, setGalleryPage] = useState(0);
+  const galleryWeek = useGalleryWeek();
   const roomInput = useRef(null);
   const wishButton = useRef();
   const returnFocus = useRef(null);
@@ -164,24 +167,26 @@ export default function LittleUniverse() {
   const onFailure = useCallback(() => { setFailed(true); setReady(false); }, []);
   const visit = useCallback((id) => {
     if (!selected) returnFocus.current = document.activeElement;
-    roomInput.current = null; setRoomPhase(ROOM_IDS.includes(id) && ready && !failed ? 'opening' : 'outside'); setSpinning(false); setPosterId(null);
-    setGalleryPage(0); setSelected(id); setVisited((current) => visitLandmark(current, id));
-  }, [selected, ready, failed]);
+    roomInput.current = null; setRoomPhase('outside'); setExploring(true); setSpinning(false); setPosterId(null);
+    setSelected(id); setVisited((current) => visitLandmark(current, id));
+  }, [selected]);
   const leaveFocus = useCallback(() => {
-    roomInput.current = null; setRoomPhase('outside'); setSpinning(false); setPosterId(null); setSelected(null);
+    roomInput.current = null; setRoomPhase('outside'); setSpinning(false); setPosterId(null); setSelected(null); setExploring(false);
     requestAnimationFrame(() => {
       const previous = returnFocus.current;
       if (previous instanceof HTMLElement && previous.isConnected && previous.matches('button, a, [tabindex]')) previous.focus({ preventScroll: true });
       else document.querySelector('.lu-pin, [data-location]')?.focus({ preventScroll: true });
     });
   }, []);
-  const enterRoom = useCallback(() => { if (ROOM_IDS.includes(selected) && roomPhase === 'outside' && ready && !failed) setRoomPhase('opening'); }, [selected, roomPhase, ready, failed]);
-  const exitRoom = useCallback(() => { roomInput.current = null; setRoomPhase('outside'); setSpinning(false); setPosterId(null); }, []);
+  const browse = useCallback(() => { setSelected(null); setRoomPhase('outside'); }, []);
+  const endExplore = useCallback(() => { leaveFocus(); setResetKey(n => n + 1); }, [leaveFocus]);
+  const enterRoom = useCallback(() => { if (!moving && ROOM_IDS.includes(selected) && roomPhase === 'outside' && ready && !failed) setRoomPhase('opening'); }, [selected, roomPhase, ready, failed, moving]);
+  const exitRoom = useCallback(() => { roomInput.current = null; setRoomPhase(reducedMotion ? 'outside' : 'closing'); setSpinning(false); setPosterId(null); }, [reducedMotion]);
   const openPoster = useCallback((id) => { roomInput.current = null; setPosterId(id); }, []);
   const spin = useCallback(() => setSpinning((value) => !value), []);
   useEffect(() => {
-    if (roomPhase !== 'opening') return;
-    const timer = setTimeout(() => setRoomPhase('inside'), reducedMotion ? 0 : 850);
+    if (!['opening', 'closing', 'returning'].includes(roomPhase)) return;
+    const timer = setTimeout(() => setRoomPhase(roomPhase === 'opening' ? 'inside' : roomPhase === 'closing' ? 'returning' : 'outside'), reducedMotion ? 0 : roomPhase === 'opening' ? 850 : 350);
     return () => clearTimeout(timer);
   }, [roomPhase, selected, reducedMotion]);
   const followedRoomLink = useRef(false);
@@ -189,28 +194,34 @@ export default function LittleUniverse() {
     if (!ready || failed || followedRoomLink.current) return;
     followedRoomLink.current = true;
     if (new URLSearchParams(window.location.search).get('room') !== 'workshop') return;
-    setSelected('workshop'); setRoomPhase('opening');
+    setSelected('workshop'); setExploring(true); setRoomPhase('opening');
     setVisited(current => visitLandmark(current, 'workshop'));
     const url = new URL(window.location.href); url.searchParams.delete('room');
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   }, [ready, failed]);
-  const wish = useCallback(() => { roomInput.current = null; setRoomPhase('outside'); setSpinning(false); setPosterId(null); setSelected(null); setFinale(true); }, []);
+  const wish = useCallback(() => { roomInput.current = null; setRoomPhase('outside'); setSpinning(false); setPosterId(null); setSelected(null); setExploring(false); setFinale(true); }, []);
   const closeFinale = useCallback(() => { setFinale(false); setResetKey((i) => i + 1); requestAnimationFrame(() => wishButton.current?.focus()); }, []);
   useEffect(() => { setSlow(false); const timer = setTimeout(() => setSlow(true), 12000); return () => clearTimeout(timer); }, [retry]);
   const place = landmarks.find((item) => item.id === selected);
   useEffect(() => {
-    if (!selected && !finale) return;
+    if (!exploring && !finale) return;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = overflow; };
-  }, [selected, finale]);
-  const canEnter = !!place && ROOM_IDS.includes(place.id) && roomPhase === 'outside' && ready && !failed;
-  return <main className={`lu-root ${finale ? 'is-finale' : ''} ${place ? 'is-focused' : ''} ${reducedMotion ? 'reduce-motion' : ''}`}>
-    <header className="lu-header" inert={finale || !!place ? true : undefined}>
+  }, [exploring, finale]);
+  useEffect(() => {
+    if (!exploring || selected || finale) return;
+    const key = event => { if (event.key === 'Escape') endExplore(); };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [exploring, selected, finale, endExplore]);
+  const canEnter = !!place && ROOM_IDS.includes(place.id) && roomPhase === 'outside' && ready && !failed && !moving;
+  return <main className={`lu-root ${finale ? 'is-finale' : ''} ${exploring ? 'is-focused' : ''} ${reducedMotion ? 'reduce-motion' : ''}`}>
+    <header className="lu-header" inert={finale || exploring ? true : undefined}>
       <a className="lu-brand" href="/little-universe/" aria-label="The Little Universe home"><span className="lu-brand-orbit">✧</span><span>COCHONNET VILLA<small>A LITTLE BIRTHDAY EDITION</small></span></a>
       <div className="lu-header-actions"><a className="lu-villa-return" href={VILLA_RETURN_URL}>← 返回山庄</a><SoundButton /></div>
     </header>
-    <div className="lu-introduction" inert={finale || !!place ? true : undefined}>
+    <div className="lu-introduction" inert={finale || exploring ? true : undefined}>
       <p className="lu-eyebrow"><span className="lu-tiny-star">✦</span> SOMEWHERE, JUST FOR US</p>
       <h1>The Little<br /><em>Universe.</em></h1>
       <p className="lu-dedication">A tiny world. <br />All our favorite things.</p>
@@ -221,20 +232,27 @@ export default function LittleUniverse() {
     <div className="lu-canvas-wrap" tabIndex={canEnter ? 0 : undefined} role={canEnter ? 'button' : undefined}
       title={canEnter ? `Enter ${place.name}` : undefined}
       onKeyDown={(event) => { if (canEnter && event.target === event.currentTarget && !event.repeat && !event.altKey && !event.ctrlKey && !event.metaKey && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); enterRoom(); } }}
-      aria-label={canEnter ? `Enter ${place.name}. Press Enter or Space to step inside.` : roomPhase === 'inside' ? `Inside ${place.name}. Drag to look, use WASD or the movement buttons to walk. Escape steps outside.` : place ? `3D close-up of ${place.name}. ${place.id === 'camping' ? 'Drag to look around, scroll or pinch to zoom. ' : ''}Use Back to planet or Escape to return.` : 'Interactive miniature planet. Drag to rotate, scroll or pinch to zoom. Use the planet labels or Tab through the location navigation to explore.'} inert={finale ? true : undefined}>
+      aria-label={canEnter ? `Explore ${place.name}. Drag to rotate, scroll or pinch to zoom. Press Enter or Space to step inside.` : roomPhase === 'inside' ? `Inside ${place.name}. Drag to look, use WASD or the movement buttons to walk. Escape steps outside.` : place ? `3D close-up of ${place.name}. Drag to explore, scroll or pinch to zoom out and back in. Escape returns to the planet.` : 'Interactive miniature planet. Drag to rotate, scroll or pinch to zoom. Use the planet labels or Tab through the location navigation to explore.'} inert={finale ? true : undefined}>
       {!failed && <SceneBoundary key={retry} onFailure={onFailure}>
         <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} camera={{ position: [0, 3.8, 11.8], fov: 42, near: 0.1, far: 80 }} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }} fallback={<span>Explore the memories using the location navigation.</span>}>
-          <UniverseScene visited={visited} onVisit={visit} onWish={wish} reducedMotion={reducedMotion} finale={finale} selected={selected} resetKey={resetKey} onReady={onReady} onFailure={onFailure} roomPhase={roomPhase} onEnter={enterRoom} onExitRoom={exitRoom} roomInput={roomInput} spinning={spinning} onSpin={spin} onPoster={openPoster} posterOpen={!!posterId} galleryPage={galleryPage} gameConsole={gameConsole} gameId={gameId} />
+          <UniverseScene moving={moving} onMoving={setMoving} onBrowse={browse} candidate={candidate} onCandidate={setCandidate} visited={visited} onVisit={visit} onWish={wish} reducedMotion={reducedMotion} finale={finale} selected={selected} resetKey={resetKey} onReady={onReady} onFailure={onFailure} roomPhase={roomPhase} onEnter={enterRoom} onExitRoom={exitRoom} roomInput={roomInput} spinning={spinning} onSpin={spin} onPoster={openPoster} posterOpen={!!posterId} galleryWeek={galleryWeek} gameConsole={gameConsole} gameId={gameId} />
         </Canvas>
       </SceneBoundary>}
       {(!ready || failed) && <div className="lu-loading" role="status"><span>✧</span><p>{failed ? 'The stars need a little rest.' : slow ? 'This little world is taking a moment.' : 'Planting trees. Hanging stars…'}</p><small>{failed || slow ? 'You can retry this little world below.' : 'Our little universe is on its way.'}</small>{(failed || slow) && <button className="lu-pill" onClick={() => { setFailed(false); setReady(false); setRetry((n) => n + 1); }}>Try 3D again</button>}</div>}
     </div>
-    <div className="lu-world-caption" inert={finale || !!place ? true : undefined}><span>OUR OWN LITTLE CORNER OF THE COSMOS</span><div><span>↔</span> Drag to wander <i>·</i> Scroll or pinch to get closer<button onClick={() => setResetKey((n) => n + 1)} aria-label="Reset planet view" title="Reset view"><Icon type="reset" /></button></div></div>
-    <nav className={`lu-location-access ${failed ? 'is-unavailable' : ''}`} aria-label="Explore our favorite places" inert={finale || !!place ? true : undefined}>
+    <div className="lu-world-caption" inert={finale || exploring ? true : undefined}><span>OUR OWN LITTLE CORNER OF THE COSMOS</span><div><span>↔</span> Drag to wander <i>·</i> Scroll or pinch to get closer<button onClick={() => setResetKey((n) => n + 1)} aria-label="Reset planet view" title="Reset view"><Icon type="reset" /></button></div></div>
+    <nav className={`lu-location-access ${failed ? 'is-unavailable' : ''}`} aria-label="Explore our favorite places" inert={finale || exploring ? true : undefined}>
       {landmarks.map((item) => <button className="lu-pill" key={item.id} data-location={item.id} onClick={() => visit(item.id)}>{item.name}</button>)}
     </nav>
-    <footer className="lu-footer" inert={finale || !!place ? true : undefined}><span>A SMALL WORLD, MADE WITH A VERY FULL HEART.</span><span>For you. Always. <i>♡</i></span></footer>
-    {place && <LocationFocus gameId={gameId} gameConsole={gameConsole} onGameConsole={setGameConsole} galleryPage={galleryPage} onGalleryPage={setGalleryPage} place={place} onClose={roomPhase === 'inside' ? exitRoom : leaveFocus} onSelect={visit} unavailable={failed || slow && !ready} roomPhase={roomPhase} roomInput={roomInput} spinning={spinning} onSpin={spin} reducedMotion={reducedMotion} onPoster={openPoster} onResetView={() => setResetKey((n) => n + 1)} />}
+    <footer className="lu-footer" inert={finale || exploring ? true : undefined}><span>A SMALL WORLD, MADE WITH A VERY FULL HEART.</span><span>For you. Always. <i>♡</i></span></footer>
+    {place && <LocationFocus gameId={gameId} gameConsole={gameConsole} onGameConsole={setGameConsole} galleryWeek={galleryWeek} place={place} onClose={roomPhase === 'inside' || roomPhase === 'closing' ? exitRoom : leaveFocus} onSelect={visit} unavailable={failed || slow && !ready} roomPhase={roomPhase} roomInput={roomInput} spinning={spinning} onSpin={spin} reducedMotion={reducedMotion} onPoster={openPoster} onResetView={() => setResetKey((n) => n + 1)} />}
+    {exploring && !place && !finale && <section className="lu-focus-ui lu-browse-ui" aria-label="Explore the planet">
+      <button className="lu-focus-back" onClick={endExplore}>← Back to welcome</button>
+      <div className="lu-focus-caption"><p className="lu-eyebrow">KEEP WANDERING</p><p>Drag to explore · Scroll or pinch to zoom</p>
+        {candidate && <button className="lu-pill lu-candidate-button" onClick={() => visit(candidate)}>Explore {landmarks.find(item => item.id === candidate)?.name} ↗</button>}
+        <nav aria-label="Choose a location">{landmarks.map(item => <button key={item.id} aria-label={`Focus ${item.name}`} onClick={() => visit(item.id)}><Icon type={item.id} /></button>)}</nav>
+      </div>
+    </section>}
     {posterId && (selected === 'game-room' ? <GameCollectionViewer initialId={posterId} onDisplay={setGameId} onClose={() => setPosterId(null)} /> : selected === 'gallery' ? <GalleryViewer initialId={posterId} onClose={() => setPosterId(null)} /> : ['workshop', 'museum'].includes(selected) ? <ModelViewer initialId={posterId} onClose={() => setPosterId(null)} /> : selected === 'one-more-episode' ? <SeriesViewer initialId={posterId} onClose={() => setPosterId(null)} /> : selected === 'music' ? <MusicalPosterViewer initialId={posterId} onClose={() => setPosterId(null)} /> : <MoviePosterViewer initialId={posterId} onClose={() => setPosterId(null)} />)}
     {finale && <Finale reducedMotion={reducedMotion} onClose={closeFinale} />}
   </main>;

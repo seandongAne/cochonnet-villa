@@ -19,8 +19,8 @@ export function showcasePose(view, aspect = 1.6) {
   return { position, target };
 }
 
-export function prepareShowcaseModel(source) {
-  const root = fitCollectionModel(source, SHOWCASE_SIZE);
+export function prepareShowcaseModel(source, size = SHOWCASE_SIZE, rotation = [0, 0, 0]) {
+  const root = fitCollectionModel(source, size, rotation);
   const materials = new Set();
   root.traverse(mesh => {
     if (!mesh.isMesh) return;

@@ -1,4 +1,5 @@
-import BirthdaySky from '../../components/BirthdaySky.jsx';
+import BirthdaySky, { useBirthday } from '../../components/BirthdaySky.jsx';
+import { BirthdayParty } from './BirthdayParty.jsx';
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -442,6 +443,7 @@ export function Scene({
   onMapQualityChange,
   onObservatoryRareEventChange
 }) {
+  const birthdayActive = useBirthday();
   const sunRef = useRef(null);
   const observatoryAdaptationRef = useRef(
     createObservatoryAdaptationState({
@@ -622,7 +624,8 @@ export function Scene({
 
       {/* ---- Sky, terrain and the far landscape ---- */}
       <DaySky sky={built.daySky} />
-      <BirthdaySky scene="villa" />
+      <BirthdaySky scene="villa" active={birthdayActive} />
+      {birthdayActive && <BirthdayParty porkies={built.porkies} world={world} />}
       <primitive object={built.terrain} />
       <primitive object={built.village} />
       <primitive object={built.meadowTrees} />

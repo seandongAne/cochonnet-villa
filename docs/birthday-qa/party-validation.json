@@ -1,0 +1,29 @@
+{
+  "residentHats": 24,
+  "villageHats": 13,
+  "streamedAssets": {
+    "total": 139,
+    "failed": 0
+  },
+  "afterBirthday": {
+    "active": false,
+    "hats": []
+  },
+  "nextYearHats": 37,
+  "consoleErrors": [],
+  "viewports": [
+    [
+      1600,
+      1000
+    ],
+    [
+      2560,
+      800
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "note": "Browser clock override only; final aesthetic acceptance is the user preview."
+}

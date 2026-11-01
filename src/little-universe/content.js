@@ -77,7 +77,7 @@ export const landmarks = [
     id: 'workshop', name: "Hangar", zh: '一起造一个梦',
     subtitle: 'Sean’s creations, favorite builds & a little imagination.', color: '#bfb3dd',
     heading: 'A room for all our favorite things.',
-    message: 'Five original works created by Sean, alongside the Gundam and aircraft we love. Turn toward the entrance to discover Sean’s own gallery — a little imagination, made real.',
+    message: 'Five original works created by Sean, alongside the Gundam and aircraft we love. Discover Sean’s own gallery at the heart of the Hangar — a little imagination, made real.',
     caption: 'Hangar · Made for the things we love',
     photos: [{ src: '', alt: 'Sean’s Gundam and display collection', caption: 'A little space to make something wonderful.' }],
     audio: '', video: '', videoPoster: '', videoCaptions: '',

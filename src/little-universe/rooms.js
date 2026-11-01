@@ -1,4 +1,4 @@
-import { createGalleryRoom, GALLERY_OBSTACLES } from './gallery.js';
+import { createGalleryRoom, GALLERY_OBSTACLES, GALLERY_BOUNDS } from './gallery-interior.js';
 import { createGameRoom, GAME_OBSTACLES } from './game-room.js';
 // Room layout, collision and geometry stay usable in Node without browser APIs.
 import * as THREE from 'three';
@@ -13,6 +13,11 @@ import { createIronRoseRoom } from './iron-rose.js';
 import { createHangarAtelier, HANGAR_OBSTACLES, moveInHangar } from './hangar-atelier.js';
 
 export const ROOM_IDS = ['gallery', 'music', 'workshop', 'museum', 'movie-night', 'one-more-episode', 'game-room'];
+// Click surfaces sit just inside the existing physical doorway, facing inward.
+export const ROOM_EXITS = Object.fromEntries(ROOM_IDS.map(id => [id, id === 'workshop'
+  ? { position: [0, 1.65, 11.9], size: [3, 3.3] }
+  : id === 'gallery' ? { position: [0, 1.55, 5.85], size: [1.9, 3.1] }
+  : { position: [0, 1.15, 2.4], size: [1.1, 2.3] }]));
 export const ROOM_SPAWN = [0, 1.55, 1.45];
 export const ROOM_BOUNDS = { minX: -2.67, maxX: 2.67, minZ: -2.17, maxZ: 2.17 };
 export const ROOM_OBSTACLES = {
@@ -37,15 +42,16 @@ export const EXTERIOR_DOORS = {
 export function moveInRoom(position, dx, dz, id) {
   if (id === 'workshop') return moveInHangar(position, dx, dz);
   const obstacles = ROOM_OBSTACLES[id] || [];
+  const bounds = id === 'gallery' ? GALLERY_BOUNDS : ROOM_BOUNDS;
   const radius = .18;
   const blocked = (x, z) => obstacles.some(([x0, x1, z0, z1]) => x > x0 - radius && x < x1 + radius && z > z0 - radius && z < z1 + radius);
   let [x, y, z] = position;
   // Bounded substeps prevent tunneling and allow sliding along furniture edges.
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / .08));
   for (let i = 0; i < steps; i++) {
-    const nx = THREE.MathUtils.clamp(x + dx / steps, ROOM_BOUNDS.minX, ROOM_BOUNDS.maxX);
+    const nx = THREE.MathUtils.clamp(x + dx / steps, bounds.minX, bounds.maxX);
     if (!blocked(nx, z)) x = nx;
-    const nz = THREE.MathUtils.clamp(z + dz / steps, ROOM_BOUNDS.minZ, ROOM_BOUNDS.maxZ);
+    const nz = THREE.MathUtils.clamp(z + dz / steps, bounds.minZ, bounds.maxZ);
     if (!blocked(x, nz)) z = nz;
   }
   return [x, y, z];

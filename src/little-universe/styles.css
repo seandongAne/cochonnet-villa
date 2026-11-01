@@ -26,6 +26,11 @@
 .lu-love-note { display: flex; align-items: center; gap: .6rem; color: #948796; font: italic .72rem Georgia, serif; margin-top: 2rem; }.lu-love-note > span { width: 1.5rem; border-top: 1px solid #95828d; }
 .lu-canvas-wrap { position: absolute; top: 6rem; left: 29%; width: 71%; height: var(--lu-planet-height); min-height: 32rem; z-index: 2; touch-action: none; transition: opacity 1s; }
 .lu-canvas-wrap canvas { outline: none; }
+.lu-pin.is-candidate { border-color: #ffe0a1; background: #695348; box-shadow: 0 0 1.2rem #f8dba12b; }
+.lu-candidate-button { pointer-events: auto; margin-top: .8rem; padding: .65rem 1.2rem; }
+.lu-door-transition.is-closing { animation: lu-door-close .35s ease-in both; }
+.lu-door-transition.is-returning { animation: lu-door-close .35s ease-out reverse both; }
+@keyframes lu-door-close { from { opacity: 0; } to { opacity: 1; } }
 .lu-pin { white-space: nowrap; display: flex; align-items: center; gap: .5rem; background: #312b35df; backdrop-filter: blur(8px); color: #f2e6d2; border: 1px solid #e0c7a847; border-radius: 2rem; box-shadow: 0 .35rem 1rem #17141b22; padding: .45rem .8rem .45rem .45rem; font-size: .65rem !important; transition: border-color .2s, background .2s; }
 .lu-pin > span { display: grid; place-items: center; border-radius: 50%; background: #eddbba20; color: #e2c591; width: 1.2rem; height: 1.2rem; font-size: .5rem; }.lu-pin:hover, .lu-pin.is-visited { border-color: #efd2a5b3; background: #53454b; }
 .lu-star-pin { white-space: nowrap; color: #edce95; font: italic .85rem Georgia, serif !important; border: none; background: transparent; padding: .5rem; }.lu-star-pin span { font: .7rem 'Segoe UI', sans-serif; margin-left: .4rem; }
@@ -64,7 +69,7 @@
 .lu-focus-caption { position: absolute; bottom: max(1.5rem, env(safe-area-inset-bottom)); width: 100%; text-align: center; text-shadow: 0 2px 12px #15101e; }
 .lu-focus-caption h2 { font: 400 clamp(1.6rem, 3vw, 2.5rem)/1.1 Georgia, serif; margin: .4rem 0; }
 .lu-focus-caption > p:not(.lu-eyebrow) { font-size: .75rem; color: #d8c8ce; margin: .6rem 1rem; }
-.lu-focus-caption nav { display: flex; justify-content: center; gap: .65rem; margin-top: 1.1rem; }
+.lu-focus-caption nav { display: flex; justify-content: center; gap: clamp(.25rem, 1.3vw, .65rem); margin-top: 1.1rem; padding-inline: .5rem; }
 .lu-camp-view-controls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .6rem 1rem; margin: .7rem 1rem 0; }
 .lu-camp-view-controls small { font-size: .65rem; color: #d8c8ce; }
 .lu-camp-view-controls button { pointer-events: auto; font-size: .7rem; padding: .45rem .8rem; }
@@ -78,7 +83,6 @@
 
 /* Room navigation extends the existing shell without changing the wish typography. */
 .lu-room-tag { white-space: nowrap; border: 1px solid #e0c7a860; border-radius: 2rem; background: #312b35df; color: #f2e6d2; padding: .65rem .9rem; font: .7rem 'Segoe UI', sans-serif !important; }
-.lu-entry-hint { display: block; margin: .75rem 1rem 0; font-size: .65rem; color: #d8c8ce; }
 .lu-canvas-wrap[role=button]:focus-visible { outline: 2px solid #efd09e; outline-offset: -6px; }
 .lu-door-transition { position: fixed; inset: 0; pointer-events: none; background: #292532; animation: lu-door-open .85s ease-in both; }
 @keyframes lu-door-open { 0%, 45% { opacity: 0; } 100% { opacity: 1; } }
@@ -204,31 +208,64 @@
 .lu-gallery-pages .lu-pill { padding: .45rem .85rem; }
 .lu-gallery-pages button:disabled { opacity: .35; cursor: default; }
 .lu-gallery-controls { align-items: center; }
-.lu-gallery-viewer { width: min(70rem, calc(100% - 2rem)); max-height: calc(100svh - 2rem); padding: 1.25rem; border: 1px solid #d6c6ae; border-radius: .65rem; background: #f5f0e7; color: #4d5044; box-shadow: 0 2rem 6rem #17232255; overflow: auto; }
-.lu-gallery-viewer::backdrop { background: #14211dd9; backdrop-filter: blur(8px); }
-.lu-gallery-viewer header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.lu-gallery-viewer h2 { margin: .2rem 0 0; font: 500 1.4rem Georgia, serif; letter-spacing: .16em; }
-.lu-gallery-viewer .lu-eyebrow { margin: 0; color: #738168; font-size: .65rem; }
-.lu-gallery-viewer .lu-pill { color: #4d5044; border-color: #bdb6a4; background: #fff8; }
-.lu-gallery-viewer button:focus-visible { outline: 3px solid #708b62; outline-offset: 3px; }
-.lu-gallery-art { display: grid; place-items: center; min-height: 10rem; background: #e8e2d6; border: 1px solid #ded4c3; }
-.lu-gallery-art > img { display: block; max-width: 100%; width: auto; height: auto; max-height: 60svh; object-fit: contain; }
-.lu-gallery-meta { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; }
-.lu-gallery-meta strong { font-size: .95rem; font-weight: 500; letter-spacing: .12em; }
-.lu-gallery-meta p { margin: .4rem 0 .15rem; font-size: .78rem; font-variant-numeric: tabular-nums; }
-.lu-gallery-meta small { font-size: .63rem; color: #7b806f; }
-.lu-gallery-thumbnails { display: flex; gap: .65rem; overflow: auto; padding: .4rem .2rem .6rem; }
-.lu-gallery-thumbnails button { flex: 0 0 6rem; padding: .2rem; border: 1px solid transparent; border-radius: .2rem; background: transparent; color: #67725b; cursor: pointer; }
-.lu-gallery-thumbnails button[aria-pressed="true"] { border-color: #6f835b; background: #e2e6d8; }
-.lu-gallery-thumbnails img { display: block; width: 100%; height: 3.8rem; object-fit: contain; }
-.lu-gallery-thumbnails span { display: block; margin-top: .3rem; font-size: .65rem; letter-spacing: .15em; }
-.lu-gallery-error { padding: 4rem 1rem; text-align: center; }
+/* Borderless artwork planes floating through a quiet, layered night sky. */
+.lu-gallery-viewer { --look-x: 0; --look-y: 0; position: fixed; inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: #dce3f0; overflow: hidden; overscroll-behavior: contain; isolation: isolate; }
+.lu-gallery-viewer[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.lu-gallery-viewer::backdrop { background: #020510f2; backdrop-filter: blur(18px) saturate(.35); }
+.lu-gallery-space { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; perspective: 1000px; }
+.lu-gallery-nebula { position: absolute; inset: -15%; background: radial-gradient(ellipse at 26% 38%, #34467a35, transparent 43%), radial-gradient(ellipse at 79% 60%, #72567a28, transparent 40%), radial-gradient(ellipse at 50% 98%, #34537828, transparent 55%); transform: translate(calc(var(--look-x) * -8px), calc(var(--look-y) * -5px)); }
+.lu-gallery-star-layer { position: absolute; inset: -2%; transform: translate(calc(var(--look-x) * -5px), calc(var(--look-y) * -4px)); }
+.lu-gallery-star-layer.layer-1 { transform: translate(calc(var(--look-x) * -13px), calc(var(--look-y) * -9px)); }
+.lu-gallery-star-layer.layer-2 { transform: translate(calc(var(--look-x) * -25px), calc(var(--look-y) * -16px)); }
+.lu-gallery-star-layer i { position: absolute; display: block; border-radius: 50%; background: #d9e6fa; box-shadow: 0 0 7px #a6c3ff70; }
+.lu-gallery-orbit { position: absolute; left: 50%; top: 71%; width: 105vw; height: 70vw; border: 1px solid #a9c8f31c; border-radius: 50%; transform: translate(-50%, -50%) rotateX(79deg) rotateZ(-18deg); }
+.lu-gallery-orbit.orbit-far { width: 145vw; height: 97vw; top: 63%; opacity: .45; transform: translate(-50%, -50%) rotateX(76deg) rotateZ(15deg); }
+.lu-gallery-stage { position: relative; min-height: 0; display: grid; place-items: center; padding: max(4.5rem, env(safe-area-inset-top)) 5rem 1.1rem; perspective: 1500px; pointer-events: none; }
+.lu-gallery-art { position: relative; display: grid; place-items: center; max-width: 100%; min-height: 0; transform-style: preserve-3d; transform: translate3d(calc(var(--look-x) * 5px), calc(var(--look-y) * 3px), 40px) rotateY(calc(var(--look-x) * 2deg)) rotateX(calc(var(--look-y) * -1.4deg)); animation: lu-gallery-arrive .65s cubic-bezier(.2,.7,.3,1) both; pointer-events: auto; }
+.lu-gallery-art::before { content: ''; position: absolute; inset: 8% -7% -12%; z-index: -1; background: radial-gradient(ellipse, #7196d42b, transparent 65%); filter: blur(28px); transform: translateZ(-80px); pointer-events: none; }
+.lu-gallery-art > img { display: block; max-width: min(68vw, 68rem); max-height: calc(100dvh - 15rem); width: auto; height: auto; object-fit: contain; border: 1px solid #d5dff127; border-radius: 1px; box-shadow: 0 2rem 5rem #0009, 0 .2rem .8rem #0007, 0 0 3rem #6487ad13; }
+.lu-gallery-distant { position: absolute; inset: 0; pointer-events: none; perspective: 1200px; }
+.lu-gallery-distant img { position: absolute; top: 48%; width: min(24vw, 24rem); max-height: 42dvh; object-fit: contain; opacity: .2; filter: blur(1.2px) saturate(.55); box-shadow: 0 2rem 4rem #0007; }
+.lu-gallery-distant .is-previous { left: -11%; transform: translateY(-50%) translateZ(-250px) rotateY(32deg) rotateZ(-5deg); }
+.lu-gallery-distant .is-next { right: -11%; transform: translateY(-50%) translateZ(-250px) rotateY(-32deg) rotateZ(5deg); }
+.lu-gallery-icon { display: grid; place-items: center; width: 2.8rem; height: 2.8rem; padding: .75rem; border: 1px solid #b5c9e421; border-radius: 50%; color: #dbe5f0c9; background: #121d3029; cursor: pointer; transition: color .2s, border-color .2s, background .2s; pointer-events: auto; }
+.lu-gallery-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; }
+.lu-gallery-icon:hover { color: #fff; background: #7a96be1a; border-color: #bdcfea77; }
+.lu-gallery-close { position: absolute; top: max(1.5rem, env(safe-area-inset-top)); right: max(1.8rem, env(safe-area-inset-right)); z-index: 3; }
+.lu-gallery-previous, .lu-gallery-next { position: absolute; top: 50%; transform: translateY(-50%); }
+.lu-gallery-previous { left: 3.5%; }.lu-gallery-next { right: 3.5%; }
+.lu-gallery-viewer button:focus-visible { outline: 2px solid #c8d9f3; outline-offset: 5px; }
+.lu-gallery-footer { position: relative; z-index: 2; min-width: 0; padding: .7rem 2rem max(1.5rem, env(safe-area-inset-bottom)); }
+.lu-gallery-meta { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .8rem; margin: 0 0 1.4rem; color: #c5ceddc7; font-size: .68rem; font-weight: 400; line-height: 1.7; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+.lu-gallery-meta span { color: #8c9aae; font-size: .61rem; letter-spacing: .16em; }
+.lu-gallery-thumbnails { display: flex; align-items: center; gap: .9rem; width: min(40rem, 100%); margin: 0 auto; overflow-x: auto; padding: .45rem .35rem .7rem; scrollbar-width: thin; scrollbar-color: #61738b55 transparent; }
+.lu-gallery-thumbnails button { flex: 0 0 3.6rem; height: 2.7rem; padding: .14rem; border: 1px solid transparent; border-radius: 2px; background: transparent; opacity: .42; cursor: pointer; transition: opacity .2s, border-color .2s, transform .2s; }
+.lu-gallery-thumbnails button:hover { opacity: .85; transform: translateY(-2px); }
+.lu-gallery-thumbnails button[aria-pressed="true"] { opacity: 1; border-color: #c0d1e6a8; }
+.lu-gallery-thumbnails img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.lu-gallery-error { display: grid; place-items: center; min-height: 12rem; padding: 2rem; color: #c7d3e5; text-align: center; }
+.lu-gallery-error .lu-pill { color: #d6e3f2; border-color: #a0b5d166; }
+@keyframes lu-gallery-arrive { from { opacity: 0; filter: blur(4px); } to { opacity: 1; filter: blur(0); } }
 @media (max-width: 660px) {
-  .lu-gallery-viewer { width: calc(100% - 1rem); max-height: calc(100svh - 1rem); padding: .85rem; }
-  .lu-gallery-viewer header { gap: .4rem; }
-  .lu-gallery-viewer header .lu-pill { padding: .5rem .65rem; font-size: .7rem; }
-  .lu-gallery-meta { align-items: flex-start; flex-wrap: wrap; }
-  .lu-gallery-meta .lu-gallery-pages { margin-left: auto; }
+  .lu-gallery-stage { padding: 4.5rem .8rem 1rem; }
+  .lu-gallery-art > img { max-width: 88vw; max-height: calc(100dvh - 19rem); }
+  .lu-gallery-distant { display: none; }
+  .lu-gallery-close { top: max(1rem, env(safe-area-inset-top)); right: 1rem; }
+  .lu-gallery-previous, .lu-gallery-next { top: auto; bottom: -.7rem; transform: none; z-index: 3; }
+  .lu-gallery-previous { left: calc(50% - 4rem); }.lu-gallery-next { right: calc(50% - 4rem); }
+  .lu-gallery-footer { padding: 1.8rem 1.1rem max(1.1rem, env(safe-area-inset-bottom)); }
+  .lu-gallery-meta { gap: .2rem .65rem; margin-bottom: 1rem; font-size: .59rem; letter-spacing: .035em; }
+  .lu-gallery-thumbnails { gap: .65rem; }
+}
+@media (max-height: 540px) and (min-width: 661px) {
+  .lu-gallery-stage { padding-top: 1rem; padding-bottom: .25rem; }
+  .lu-gallery-art > img { max-height: calc(100dvh - 9rem); }
+  .lu-gallery-meta { margin-bottom: .35rem; }
+  .lu-gallery-footer { padding-top: .25rem; padding-bottom: .4rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-gallery-art, .lu-gallery-nebula, .lu-gallery-star-layer { transform: none !important; animation: none; }
+  .lu-gallery-viewer button { transition: none; }
 }
 
 .is-gallery .lu-room-navigation p { color: #f5f0e7; background: #39323ee8; border-radius: .5rem; padding: .55rem .75rem; text-shadow: none; }
@@ -285,3 +322,19 @@
 @media (max-height: 680px) {
   .lu-finale { justify-content: flex-start; overflow-y: auto; }
 }
+
+/* The gallery keeps its controls as light as its daylight interior. */
+.is-gallery.is-inside.lu-focus-ui { color: #655b4c; }
+.is-gallery.is-inside.lu-focus-ui::before { background: none; }
+.is-gallery.is-inside .lu-focus-back,
+.is-gallery.is-inside .lu-focus-caption,
+.is-gallery.is-inside .lu-room-pad button,
+.is-gallery.is-inside .lu-room-navigation p { color: #655b4c; background: #fffaf0e8; border-color: #b8a58b88; text-shadow: none; }
+.is-gallery.is-inside .lu-pill,
+.is-gallery.is-inside .lu-focus-caption nav button { color: #655b4c; background: #f6eddfdf; border-color: #b8a58b88; }
+.is-gallery.is-inside .lu-focus-caption nav button[aria-pressed=true] { color: #465b48; background: #dfe7d8; border-color: #899b7d; }
+.is-gallery.is-inside .lu-eyebrow,
+.is-gallery.is-inside .lu-record-controls small { color: #7b705d; }
+.is-gallery.is-inside button:focus-visible { outline: 2px solid #718965; outline-offset: 3px; }
+
+.is-gallery.is-inside .lu-record-controls .lu-gallery-weekly { display: block; line-height: 1.65; }

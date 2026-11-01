@@ -62,3 +62,68 @@ desktop session.
 
 Actual browser captures are in docs/birthday-qa/. They use a forced local birthday
 preview, not a change to the operating-system clock.
+
+## Villa birthday party
+
+The Villa Map shares one `useBirthday()` state between its sky lettering and
+`BirthdayParty`. Every Toronto November 1 it adds a pastel garden party:
+balloons and bunting at the welcome gate and villa facade, a floral wreath at
+the mushroom entrance, peripheral spring decorations, and a cabbage-topped
+cake table with gifts and flowers on the east lawn.
+
+- `src/villa-map/birthday-party.js`: node-pure geometry, per-variant crown fits,
+  table collision lifecycle and distant-village hats.
+- `src/villa-map/react/BirthdayParty.jsx`: effect-owned scene objects, local
+  canvas welcome signs and asset-progress subscription. Non-birthday visits
+  allocate none of these graphics.
+- All 24 resident instances (18 available model variants) and all 13 distant
+  village pigs wear hats. Hats have pastel satin cones, cream scalloped brims,
+  gold trim/stars, polka dots and small pom-poms.
+- Crown X/Z anchors, size and tilt are authored per variant in fitted-model
+  coordinates. A downward surface ray determines crown Y after the model's
+  internal rotation and normalization. Do not use whole-model height as the
+  crown: ears, headphones, baths, cars and bedding change its meaning.
+- Original GLBs and their baked accessories stay intact. Existing watermelon
+  hats, bows and wizard hats carry a smaller birthday hat above their surface.
+  Check front AND side views when changing the fit table or replacing a GLB.
+- Birthday accessories are siblings of the resident model groups: the loader's
+  `group.clear()` swap cannot remove them. Asset settlement updates the fitting
+  without reloading residents. Loading/failed residents use a separate,
+  procedural-head crown. The map's cached sun shadow is refreshed after swaps.
+- Decorations use one vertex-colour batch (48,099 triangles); each hat uses one
+  batch (3,972 triangles). Four sign faces share one local canvas texture.
+  Distant village hats cast no shadows, matching the background village.
+- The cake table has an explicitly scoped ground collider. Birthday teardown
+  removes only its own collider, geometry, materials and sign texture. It never
+  recreates the world or player controls. Other decor stays peripheral or above
+  head height; hats use ordinary non-emissive materials in the observatory.
+
+### Party QA
+
+The existing query-only diagnostics add `birthday-garden` and
+`birthday-arrival` bookmarks, plus a `birthdayParty` snapshot with each hat's
+resident ID, variant, asset state, local position and scale. No production
+window debug hook is added.
+
+Use `/villa-map/?birthday=on` for ordinary exploration, and
+`/villa-map/?birthday=on&observatory=perf&view=birthday-garden&lights=on` for the
+cake-table bookmark. Wait for model preparation; refresh the diagnostics
+snapshot before treating it as current. The perf harness uses normal walking
+height, so elevated bookmarks settle toward the ground.
+
+Validation for the party implementation:
+
+- `npm test`: 564 tests pass, including explicit model-fit coverage, transformed
+  surface fitting, fallback placement, temporary ground collision and geometry
+  budgets. `npm run build` succeeds.
+- Browser: 139 streamed assets complete with zero failures; all 24 resident
+  hats report `ready`, with 13 additional village hats (37 total).
+- A browser-only clock override verifies November 2 teardown and the following
+  November 1 restore without navigation or moving the player. No OS clock is
+  changed. Camera drift remains below 1 mm (existing height interpolation).
+- Front/side model contact sheets and real map views cover the cake table,
+  gate, arrival path, mushroom entrance, villa hall and mushroom den.
+- Desktop 1600x1000, wide 2560x800 and portrait 390x844 were inspected. Portrait
+  is a resized running scene; the existing mobile onboarding policy remains.
+- Captures are in `docs/birthday-qa/party-*.jpg`. Visual review in the user's
+  local preview remains the final aesthetic acceptance.

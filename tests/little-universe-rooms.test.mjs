@@ -12,6 +12,10 @@ test('enterable rooms contain their requested exhibits within an enclosed, finit
       assert.ok(bounds.min.x >= -13.2 && bounds.max.x <= 13.2);
       assert.ok(bounds.min.z >= -11.2 && bounds.max.z <= 12.2);
       assert.ok(bounds.max.y > 8.5 && bounds.max.y < 8.9);
+    } else if (id === 'gallery') {
+      assert.ok(bounds.min.x >= -5.2 && bounds.max.x <= 5.2);
+      assert.ok(bounds.min.z >= -6.2 && bounds.max.z <= 6.2);
+      assert.ok(bounds.max.y > 6.5 && bounds.max.y < 6.8);
     } else {
       assert.ok(bounds.min.x >= -3.1 && bounds.max.x <= 3.1);
       assert.ok(bounds.min.z >= -2.6 && bounds.max.z <= 2.6);
@@ -41,7 +45,7 @@ test('enterable rooms contain their requested exhibits within an enclosed, finit
 });
 
 test('small-room walking stops at furniture and room walls, including long steps', () => {
-  for (const id of ROOM_IDS.filter(id => id !== 'workshop')) {
+  for (const id of ROOM_IDS.filter(id => !['workshop', 'gallery'].includes(id))) {
     const position = moveInRoom(ROOM_SPAWN, 0, -50, id);
     assert.equal(position[1], ROOM_SPAWN[1]);
     assert.ok(position[2] > (id === 'movie-night' ? -1.66 : -1.4), 'the front furniture or stage cannot be crossed');
