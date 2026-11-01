@@ -8,7 +8,7 @@ import { createCinemaRoom, CINEMA_OBSTACLES } from './movie-night.js';
 import { createMusicalFrames } from './music-world.js';
 import { createVinylFrames } from './vinyl-records.js';
 import { createEncoreSurround } from './destination-buildings.js';
-import { createSeriesFurniture, SERIES_OBSTACLES } from './one-more-episode.js';
+import { createSeriesFurniture, createSeriesRoomShell, SERIES_OBSTACLES } from './one-more-episode.js';
 import { createIronRoseRoom } from './iron-rose.js';
 import { createHangarAtelier, HANGAR_OBSTACLES, moveInHangar } from './hangar-atelier.js';
 
@@ -105,7 +105,7 @@ export function createRoom(id) {
   if (id === 'museum') return createIronRoseRoom();
   if (id === 'workshop') return createHangarAtelier();
   const root = new THREE.Group(); root.name = `${id}-interior`;
-  root.add(roomShell(id));
+  root.add(id === 'one-more-episode' ? createSeriesRoomShell() : roomShell(id));
   const s = studio();
   if (id === 'music') {
     bench(s, 0, -1.96, 3.15);

@@ -115,13 +115,11 @@ export function createCinemaRoom() {
   const frames = studio(frameMaterials);
   for (const slot of MOVIE_POSTER_SLOTS) {
     const frame = studio(frameMaterials);
-    const [w, h] = MOVIE_POSTER_SIZE;
-    frame.box('#15131c', [0, 0, -.015], [w + .09, h + .09, .07]);
-    for (const x of [-(w + .1) / 2, (w + .1) / 2]) frame.box('#c7a06e', [x, 0, .025], [.04, h + .14, .06]);
-    for (const y of [-(h + .1) / 2, (h + .1) / 2]) frame.box('#c7a06e', [0, y, .025], [w + .14, .04, .06]);
-    frame.box('#b4956f', [0, -.91, .01], [.95, .16, .04]);
+    // Low projection consoles replace the solid picture frames.
+    frame.box('#182b34', [0, -1.37, .10], [1.15, .35, .38]);
+    frame.box('#467c88', [0, -1.195, .10], [1.19, .025, .4]);
     frame.root.position.set(...slot.position); frame.root.rotation.y = slot.rotation; frames.root.add(frame.root);
   }
-  part(root, 'cinema-poster-frames', frames);
+  part(root, 'cinema-poster-projectors', frames);
   return root;
 }

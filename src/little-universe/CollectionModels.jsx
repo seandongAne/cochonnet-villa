@@ -42,7 +42,7 @@ export function RoomCollection({ room, onSelect }) {
     {item.id === 'cessna-172' && <>
       <pointLight position={[0, 1.6, 1.2]} intensity={1.4} distance={3.5} color="#ffe8cd" />
     </>}
-    <Html position={item.labelPosition || [0, -.09, .17]} center zIndexRange={[23, 22]}><button className="lu-room-tag" onClick={() => onSelect(item.id)}>{item.name} ↗</button></Html>
+    <Html position={item.labelPosition || [0, -.09, .17]} center zIndexRange={[23, 22]}><button className="lu-room-tag" onClick={() => onSelect(item.id)}>{item.name}{item.creator && <small style={{ display: 'block' }}>Created by {item.creator}</small>} ↗</button></Html>
   </group>);
 }
 class ModelBoundary extends Component {
@@ -75,7 +75,7 @@ function DetailScene({ item, view, zoom, spinPropeller, reducedMotion }) {
   return <>
     <ambientLight intensity={item.fighter ? .65 : 1.4} /><hemisphereLight args={['#fff7ed', '#a0a5bb', item.fighter ? 1 : 2]} />
     <directionalLight position={[3, 5, 4]} intensity={item.fighter ? 2 : 3} /><directionalLight position={[-3, 2, -2]} intensity={item.fighter ? 1 : 2} />
-    <LocalModel id={item.id} size={aircraft ? [3.3, 2, 3.3] : [2.5, 2, 2.5]} rotation={item.rotation} spinPropeller={spinPropeller} />
+    <LocalModel id={item.id} size={aircraft ? [3.3, 2, 3.3] : [2.5, 2, 2.5]} rotation={item.detailRotation || item.rotation} spinPropeller={spinPropeller} />
     <OrbitControls onStart={() => { desiredPosition.current = null; }} ref={controls} target={[0, targetY, 0]} minDistance={1.5} maxDistance={7} enablePan={false} />
   </>;
 }

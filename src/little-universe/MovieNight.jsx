@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { movies } from './content.js';
 import { fitPoster, MOVIE_POSTER_SLOTS } from './movie-night.js';
+import { createPosterHologram } from './poster-hologram.js';
 
 function labelTexture(title, subtitle = '', background = '#ead2a5', color = '#4d303c', portrait = false, aspect = 4, vertical = false) {
   const canvas = document.createElement('canvas');
@@ -32,7 +34,7 @@ export function CinemaSign({ title = 'THE MIDNIGHT MATINEE', subtitle = '', size
   return <mesh {...props}><planeGeometry args={size} /><meshBasicMaterial key={texture?.uuid || 'loading'} map={texture} color={texture ? '#ffffff' : '#ead2a5'} toneMapped={false} /></mesh>;
 }
 
-export function WallPoster({ movie, slot, onSelect, bounds, labelOffset = -.91, labelSize = [.92, .145] }) {
+function usePosterTexture(movie) {
   const [texture, setTexture] = useState(null);
   useEffect(() => {
     let active = true;
@@ -44,22 +46,48 @@ export function WallPoster({ movie, slot, onSelect, bounds, labelOffset = -.91, 
     }, undefined, () => { /* The named fallback keeps this frame readable. */ });
     return () => { active = false; fallback.dispose(); requested.dispose(); };
   }, [movie]);
+  return texture;
+}
+
+export function WallPoster({ movie, slot, onSelect, bounds, labelOffset = -.91, labelSize = [.92, .145], labelBackground, labelColor }) {
+  const texture = usePosterTexture(movie);
   const image = texture?.image;
   const size = fitPoster(image?.width, image?.height, bounds);
   return <group position={slot.position} rotation={[0, slot.rotation, 0]}>
     <mesh position={[0, 0, .065]} onClick={(event) => { event.stopPropagation(); if (event.delta < 6) onSelect(movie.id); }}>
       <planeGeometry args={size} /><meshBasicMaterial key={texture?.uuid || 'loading'} map={texture} color={texture ? '#ffffff' : '#312635'} toneMapped={false} />
     </mesh>
-    <CinemaSign title={movie.title} subtitle={movie.note || (movie.year ? String(movie.year) : 'Seen together')} size={labelSize} position={[0, labelOffset, .04]} />
+    <CinemaSign title={movie.title} subtitle={movie.note || (movie.year ? String(movie.year) : 'Seen together')} background={labelBackground} color={labelColor} size={labelSize} position={[0, labelOffset, .04]} />
   </group>;
 }
 
-export function CinemaPosters({ onSelect }) {
+function HolographicPoster({ movie, slot, onSelect, reducedMotion, paused }) {
+  const texture = usePosterTexture(movie);
+  const [projection, setProjection] = useState(null);
+  const elapsed = useRef(0);
+  useEffect(() => {
+    if (!texture) return;
+    const image = texture.image;
+    const next = createPosterHologram(texture, fitPoster(image?.width, image?.height));
+    setProjection(next);
+    return () => next.dispose();
+  }, [texture]);
+  useFrame((_, delta) => {
+    if (!paused && !reducedMotion) elapsed.current += Math.min(delta, .05);
+    projection?.update(elapsed.current, reducedMotion);
+  });
+  return <group position={slot.position} rotation={[0, slot.rotation, 0]}>
+    {projection && <primitive object={projection.root} dispose={null} onClick={(event) => { event.stopPropagation(); if (event.delta < 6) onSelect(movie.id); }} />}
+    <CinemaSign title={movie.title} subtitle={movie.note || String(movie.year)} background="#152c34" color="#b9eff1" size={[1.08, .18]} position={[0, -1.39, .32]} />
+  </group>;
+}
+
+export function CinemaPosters({ onSelect, reducedMotion, paused }) {
   return <group>
-    <CinemaSign title="OUR FAVORITE STORIES" size={[3.7, .24]} position={[0, 2.64, -2.24]} />
+    <CinemaSign title="OUR FAVORITE STORIES" size={[2.8, .12]} position={[0, 2.64, -2.24]} />
     {MOVIE_POSTER_SLOTS.map((slot) => {
       const movie = movies.find((item) => item.id === slot.id);
-      return movie ? <WallPoster key={movie.id} movie={movie} slot={slot} onSelect={onSelect} /> : null;
+      return movie ? <HolographicPoster key={movie.id} movie={movie} slot={slot} onSelect={onSelect} reducedMotion={reducedMotion} paused={paused} /> : null;
     })}
   </group>;
 }

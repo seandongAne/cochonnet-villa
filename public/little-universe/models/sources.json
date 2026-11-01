@@ -356,6 +356,66 @@
       "conversion": "bpy 4.5.9; scripts disabled; one active collection per GLB; all visible mesh parts retained; original render-active UV coordinates normalized to one layer before static material batching; meshopt compression without decimation (degenerate triangles may be removed).",
       "materials": "Original 4K livery/alpha and cockpit maps; normals at most 2K, scalar PBR maps at most 1K; embedded WebP quality 92. F18-main missing Base Color node restored. Source cross-aircraft cockpit textures retained. Opaque paint faces separated from alpha glass and share the original RGBA atlas.",
       "license": "User-supplied model and texture archive; original rights remain with their holders. No public-domain claim or third-party upload."
+    },
+    {
+      "id": "sean-tornado",
+      "source": "Meshy_AI_Luftwaffe_Tornado_in__1030205716_texture.glb",
+      "sourceBytes": 39055264,
+      "runtimeBytes": 1264768,
+      "sha256": "61ae813f52f3db7030bc3fa1be98b6b9e1005c92d4c3d56d6a7fd3f00547c91b",
+      "simplificationRatio": 1,
+      "creator": "Sean",
+      "attribution": "Created by Sean; confirmed by the user on 2026-10-30.",
+      "sourceSha256": "a5713aac35a44f0f77a83b3621e787c55b73539512c84528a51135fbaad207a5",
+      "conversion": "Meshopt compression without simplification; embedded WebP base color up to 1024px and PBR maps up to 512px."
+    },
+    {
+      "id": "sean-four-legged-friend",
+      "source": "Meshy_AI_一只可爱的四脚_1030205835_texture.glb",
+      "sourceBytes": 8348132,
+      "runtimeBytes": 179804,
+      "sha256": "9270aa19d7077eb3a4b28d059dc4b79d641fffaecb779c277b19a207bad6ec2f",
+      "simplificationRatio": 1,
+      "creator": "Sean",
+      "attribution": "Created by Sean; confirmed by the user on 2026-10-30.",
+      "sourceSha256": "2c7df57575bcd779036b5324a28cdb1982b95cc86841e447affd8cd4cb6fa683",
+      "conversion": "Meshopt compression without simplification; embedded WebP base color up to 1024px and PBR maps up to 512px."
+    },
+    {
+      "id": "sean-beauty-hunter",
+      "source": "Meshy_AI_Beauty_Hunter_1030205827_texture.glb",
+      "sourceBytes": 18040040,
+      "runtimeBytes": 1586256,
+      "sha256": "aedeb7c133c2732c5f7a99cdadfa03f40e9ca54804dc2560dc8e2d63c47e22d8",
+      "simplificationRatio": 1,
+      "creator": "Sean",
+      "attribution": "Created by Sean; confirmed by the user on 2026-10-30.",
+      "sourceSha256": "092c710e5a785c77f3cecc352f88906a7675c6e9575efcc1cc21a66c47e1e6e6",
+      "conversion": "Meshopt compression without simplification; embedded WebP base color up to 1024px and PBR maps up to 512px."
+    },
+    {
+      "id": "sean-azure-eagle",
+      "source": "Meshy_AI_Azure_Eagle_1030205732_texture.glb",
+      "sourceBytes": 19288272,
+      "runtimeBytes": 1838248,
+      "sha256": "500a4db80d05f7d7f37742937597a07fb7d433b823b64ae6456fea907216cec2",
+      "simplificationRatio": 1,
+      "creator": "Sean",
+      "attribution": "Created by Sean; confirmed by the user on 2026-10-30.",
+      "sourceSha256": "6c612f6f57cb3f97d4ab7bfe0f6e3c2c4ba9d64d4cce677a5928ec21da4942b8",
+      "conversion": "Meshopt compression without simplification; embedded WebP base color up to 1024px and PBR maps up to 512px."
+    },
+    {
+      "id": "sean-eurofighter",
+      "source": "Meshy_AI_German_Eurofighter_Ty_1030205727_texture.glb",
+      "sourceBytes": 40963996,
+      "runtimeBytes": 545072,
+      "sha256": "57fec7a36ae5e93179a163e5dc49e20d6930249f903bb39693e03cd0393cc49a",
+      "simplificationRatio": 1,
+      "creator": "Sean",
+      "attribution": "Created by Sean; confirmed by the user on 2026-10-30.",
+      "sourceSha256": "bfa3758bfd6b086ab4c2eb6fb5b285bcb5e73b0e58795d77231e5679f6998f67",
+      "conversion": "Meshopt compression without simplification; embedded WebP base color up to 1024px and PBR maps up to 512px."
     }
   ]
 }

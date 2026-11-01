@@ -1,6 +1,7 @@
 // Node-pure architecture, display placement and walking boundaries for The Hangar.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { seanExhibits, SEAN_GALLERY_OBSTACLES } from './sean-exhibits.js';
 
 export const HANGAR_SPAWN = [0, 1.8, 10.2];
 export const HANGAR_LOOK = { yaw: 0, pitch: .09 };
@@ -10,6 +11,7 @@ export const HANGAR_BOUNDS = { minX: -12.6, maxX: 12.6, minZ: -10.6, maxZ: 11.65
 export const HANGAR_PORTALS = [-6.2, 1.8, 9.8];
 export const HANGAR_PLINTH_RADIUS = 3.29;
 export const HANGAR_OBSTACLES = [
+  ...SEAN_GALLERY_OBSTACLES,
   [-11.4, -9.6, -7.1, -.5], [9.6, 11.4, -7.1, -.5],
   [-3.95, 3.95, -10.9, -10.15],
   ...HANGAR_PORTALS.flatMap(z => [-8, 8].map(x => [x - .45, x + .45, z - .18, z + .83])),
@@ -127,6 +129,16 @@ export function createHangarAtelier() {
     box('hangar-side-displays', [x, .65, -3.8], [1.7, 1.3, 6.5], '#9dadaf', .6, .38, true);
     box('hangar-side-displays', [x, 1.32, -3.8], [1.8, .1, 6.6], '#e0ddd3', .2);
     for (let i = 0; i < 14; i++) box('hangar-side-displays', [x, .72, -6.6 + i * .43], [1.72, .55, .024], '#758b94');
+  }
+  // Entrance-wall shelves protect Sean's works without narrowing the main aisles.
+  for (const [x0, x1, z0, z1] of SEAN_GALLERY_OBSTACLES) {
+    const x = (x0 + x1) / 2;
+    box('hangar-sean-displays', [x, 1.7, z1], [x1 - x0, 3.4, .06], '#778d97', .6, .4);
+    box('hangar-sean-displays', [x, .35, (z0 + z1) / 2], [x1 - x0, .7, z1 - z0], '#9dadaf', .6, .38, true);
+    for (const item of seanExhibits.filter(item => item.position[0] === x)) {
+      box('hangar-sean-displays', [x, item.position[1] - .04, item.position[2]], [x1 - x0, .08, 1.1], '#e0ddd3', .2);
+      strip('hangar-sean-displays', [x, item.position[1] - .04, z0], [2.1, .02, .02]);
+    }
   }
   for (const x of [-12, -8, -4, 0, 4, 8, 12]) box('hangar-floor-seams', [x, -.008, .5], [.012, .003, 23], '#98a6a9', .45, .8);
   for (const z of [-10, -6, -2, 2, 6, 10]) box('hangar-floor-seams', [0, -.008, z], [26, .003, .012], '#98a6a9', .45, .8);

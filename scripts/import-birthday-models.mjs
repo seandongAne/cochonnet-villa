@@ -166,6 +166,11 @@ if (process.argv[3] === 'm590' && (!process.argv[5] || !fs.existsSync(process.ar
 const outputDir = path.join(ROOT, 'public/little-universe/models');
 fs.mkdirSync(outputDir, { recursive: true });
 const sources = [
+ ['sean-tornado', 'Meshy_AI_Luftwaffe_Tornado_in__1030205716_texture.glb', 1],
+ ['sean-four-legged-friend', 'Meshy_AI_一只可爱的四脚_1030205835_texture.glb', 1],
+ ['sean-beauty-hunter', 'Meshy_AI_Beauty_Hunter_1030205827_texture.glb', 1],
+ ['sean-azure-eagle', 'Meshy_AI_Azure_Eagle_1030205732_texture.glb', 1],
+ ['sean-eurofighter', 'Meshy_AI_German_Eurofighter_Ty_1030205727_texture.glb', 1],
  ['little-pig', 'Meshy_AI_Punky_Piglet_1030154555_texture.glb', .08],
  ['bai-baicai', 'Meshy_AI_Cheerful_Cabbage_Masc_1030164219_texture.glb', .08],
  ['sd-gundam', 'Meshy_AI_SD_Gundam__1030153405_texture.glb', .08],
@@ -195,6 +200,11 @@ for (const [id, filename, ratio] of sources) {
  fs.unlinkSync(temp);
  const crypto = await import('node:crypto');
  const record = { id, source: filename, sourceBytes: fs.statSync(input).size, runtimeBytes: fs.statSync(output).size, sha256: crypto.createHash('sha256').update(fs.readFileSync(output)).digest('hex'), simplificationRatio: ratio };
+ if (id.startsWith('sean-')) Object.assign(record, {
+  creator: 'Sean', attribution: 'Created by Sean; confirmed by the user on 2026-10-30.',
+  sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(input)).digest('hex'),
+  conversion: 'Meshopt compression without simplification; embedded WebP base color up to 1024px and PBR maps up to 512px.',
+ });
  if (id === 'm590') {
   const blend = process.argv[4];
   Object.assign(record, { source: path.basename(blend), sourceBytes: fs.statSync(blend).size,
