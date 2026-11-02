@@ -23,6 +23,15 @@ Companion to `docs/IMPOSSIBLE_OBSERVATORY_PLAN.md` (design/phase record). This f
 
 React owners (`src/villa-map/react/`): `MushroomObservatoryRuntime.jsx` (assets, FBOs, hidden channels, fail-close, context-loss recovery), `MushroomObservatoryAudio.jsx` (`M` mutes), `ObservatoryEventJournal.jsx`, `ObservatoryQualityPanel.jsx`, `ObservatoryDiagnostics.jsx`.
 
+## Initial creation
+
+The villa Scene defers its buried interior, sky, rare-event visuals, Rift visuals
+and `MushroomObservatoryRuntime` until the camera approaches the mushroom door or
+enters the pocket (edit mode also requests them). The region is created once and
+stays mounted across visits; its shared adaptation ref and runtime ownership are
+unchanged. Collision data exists from startup. QA bookmarks inside the pocket
+also request creation; refresh the snapshot after the React mount and model swaps.
+
 ## Layered cosmos
 
 Photo Milky Way backdrop (0.36 brightness) → 360 procedural hero stars → real Gaia stars revealed bright→faint by magnitude → half-res volumetric nebula Portal with controlled parallax. Everything is clipped to the dome by stencil ref 7.

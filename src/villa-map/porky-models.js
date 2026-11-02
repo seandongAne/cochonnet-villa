@@ -128,6 +128,24 @@ const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const modelCache = new Map();
 
+// A material palette owns the two possible stand-in templates. Clones retain
+// independent transforms/parents, but share immutable geometry and materials.
+// Do not dispose shared resources when an individual streamed pig swaps in.
+const fallbackTemplates = new WeakMap();
+
+export function createPorkyStandIn(materials, { mic = false, scale = 1 } = {}) {
+  let templates = fallbackTemplates.get(materials);
+  if (!templates) {
+    templates = new Map();
+    fallbackTemplates.set(materials, templates);
+  }
+  const key = Boolean(mic);
+  if (!templates.has(key)) templates.set(key, createPorky(materials, { mic: key }));
+  const standIn = templates.get(key).clone(true);
+  standIn.scale.setScalar(scale);
+  return standIn;
+}
+
 // `hooks.prepare(model)` (browser-only, optional) runs after the model is
 // fitted but before it replaces the procedural stand-in, so texture uploads and
 // shader compilation never land on the first visible frame. The whole chain is
@@ -136,7 +154,7 @@ export function createPorkyModel(materials, options = {}, hooks = {}) {
   const variant = PORKY_MODEL_VARIANTS[options.variant] ?? PORKY_MODEL_VARIANTS["big-ear-piglet"];
   const group = new THREE.Group();
   const targetHeight = variant.height * (options.modelScale ?? 1);
-  const fallback = createPorky(materials, {
+  const fallback = createPorkyStandIn(materials, {
     mic: options.mic,
     scale: options.fallbackScale ?? variant.fallbackScale ?? 0.72
   });
@@ -145,7 +163,7 @@ export function createPorkyModel(materials, options = {}, hooks = {}) {
   group.add(fallback);
 
   group.userData.assetState = "loading";
-  trackAssetLoad(loadModel(variant.url)
+  const start = () => trackAssetLoad(loadModel(variant.url)
     .then(async (source) => {
       const model = source.clone(true);
       prepareModel(model, {
@@ -160,7 +178,7 @@ export function createPorkyModel(materials, options = {}, hooks = {}) {
         group.add(createMicrophone(targetHeight));
       }
       group.userData.assetState = "ready";
-    }))
+    }), hooks.region)
     // Outside trackAssetLoad so a failed swap counts as failed, not settled-OK.
     .catch((error) => {
       group.userData.modelLoadFailed = true;
@@ -168,6 +186,8 @@ export function createPorkyModel(materials, options = {}, hooks = {}) {
       group.userData.assetState = "fallback";
     });
 
+  if (hooks.defer) hooks.defer(start);
+  else start();
   return group;
 }
 

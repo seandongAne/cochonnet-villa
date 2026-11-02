@@ -40,8 +40,12 @@ The removed `CharacterPreview.jsx`, `camp-standees.js`, `characters.js` and
 
 Clicking a landmark or a location shortcut now focuses its exterior only. Click
 its physical door or press Enter/Space on the focused canvas to enter. Exterior
-views have no visible entry button or entry instructions. The legacy Hangar
-deep link still enters directly.
+views show only the room name and introduction in the bottom caption: no
+collection shortcuts, decorative eyebrow, navigation icons, or gesture/reset
+controls. The separate Back button and Escape remain available. Collection
+browsing stays inside each room; camping retains its existing focus controls.
+There is no visible entry button or entry instruction. The legacy Hangar deep
+link still enters directly.
 
 Dragging rotates the full camera pose around the globe, including from a cabin
 close-up, and releases selection without returning to a saved angle. Candidate
@@ -72,6 +76,13 @@ elevation 0.16–0.75 radians above the local ground, and a closest distance of 
 Wheel/pinch zoom keeps that local target until 6.5 units, then releases focus
 into normal planet browsing. Dragging alone never leaves the campsite. Bounds
 use the campsite's own ground normal, not the planet's global vertical axis.
+
+Camping retains its authored grass and visited ring but does not spawn the generic
+visited-location reward flowers. Those blooms overlap the campers and firewood,
+including during their scale-in animation; `createFlowers(place.id)` owns this
+exception. QA must include an already-visited campsite, not only the initial props.
+The October 30/31 camper-clearance fixes were retained; they covered the supplied
+props but omitted this separately mounted reward layer.
 
 `tests/planet-navigation.test.mjs` pins pose invariants, distance limits,
 front-facing candidate selection, wheel units, bounded room zoom, and room drag suppression.

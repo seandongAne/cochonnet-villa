@@ -143,7 +143,7 @@ test('contact-shadow batching preserves geometry, rotations, floors and opt-outs
 });
 
 test('map Auto ignores isolated stalls and suspensions but responds to sustained load',()=>{
-  const state=createMapQualityState();state.warmup=0;
+  const state=createMapQualityState('medium');state.warmup=0;
   const feed=(seconds,delta)=>{for(let i=0;i<seconds/delta;i++)sampleMapQuality(state,delta);};
   feed(2,1/60);sampleMapQuality(state,.1);feed(2,1/60);
   assert.equal(state.tier,'medium');
@@ -161,5 +161,7 @@ test('Canvas and runtime share the same DPR calculation, including browser zoom 
   assert.equal(mapDprForTier('minimum',.5),.5);
   assert.equal(mapDprForTier('low',NaN),1);
   const canvas=fs.readFileSync(new URL('../src/villa-map/react/VillaMap.jsx',import.meta.url),'utf8');
-  assert.match(canvas,/dpr=\{mapDprForTier\(mapQuality, window\.devicePixelRatio\)\}/);
+  assert.match(canvas, /dpr=\{initialDpr\}/);
+  const runtime=fs.readFileSync(new URL('../src/villa-map/react/MapRenderBudget.jsx',import.meta.url),'utf8');
+  assert.match(runtime, /mapDprForTier\(tier,window.devicePixelRatio,size.width,size.height\)/);
 });

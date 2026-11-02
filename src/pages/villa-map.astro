@@ -1,4 +1,5 @@
 ---
+import StartupDiagnostics from '../components/StartupDiagnostics.astro';
 import "../viewport-scale.css";
 import "../villa-map/styles.css";
 import SeoHead from "../components/SeoHead.astro";
@@ -15,6 +16,7 @@ const jsonLd = [webPageJsonLd({ site: Astro.site, path: "/villa-map/", name: tit
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <StartupDiagnostics />
     <SeoHead
       title={title}
       description={description}

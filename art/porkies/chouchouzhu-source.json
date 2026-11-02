@@ -1,0 +1,12 @@
+{
+  "source": "User-supplied portrait, selected for Chouchou pig on 2026-11-01",
+  "reference": "chouchouzhu-reference.png",
+  "sourceFilename": "codex-clipboard-f8b5dbd3-2849-48aa-84bd-23a0d2adc234.png",
+  "processing": "Built-in image_gen detail restoration from a 232 x 206 reference; AI-reconstructed details may differ slightly. Prone pose, smiling expression, mud flecks, yellow smell wisps, gray hearts and ivory background preserved. Generated output normalized to a 1024 x 1024 PNG; 768 x 768 WebP at quality 80.",
+  "prompt": "Restore the supplied low-resolution Chouchou pig portrait into a clear square image. Preserve character identity, prone pose, half-closed smiling eyes, pink snout, muddy cream fur, two front hooves, floppy ears, yellow smell wisps, gray hearts, warm ivory background and soft 3D storybook style. Keep the full composition; reconstruct fine details gently without adding text, clothing, objects or changing the palette.",
+  "outputs": [
+    "public/porkies/chouchouzhu.png",
+    "public/porkies/chouchouzhu.webp"
+  ],
+  "rebuildWebp": "node scripts/build-porky-webp.mjs"
+}

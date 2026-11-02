@@ -1,3 +1,4 @@
+import { markStartup } from '../../startup-metrics.js';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
@@ -131,13 +132,14 @@ export default function VillaMap() {
     exploringRef.current = Boolean(value);
     setExploring(Boolean(value));
   }, []);
-  // The loading veil stays up until every streamed GLB (villa/spa/mushroom
-  // shells, pigs, furniture) has actually replaced its procedural stand-in —
+  // The entry veil waits only for outdoor model swaps. Pocket loads register
+  // separately when the visitor approaches the mushroom door —
   // or until a fail-soft timeout lets a slow connection start exploring while
   // the rest keeps streaming in behind the player.
   const [canvasCreated, setCanvasCreated] = useState(false);
   const [assetWaitExpired, setAssetWaitExpired] = useState(false);
-  const assetProgress = useSyncExternalStore(subscribeAssetProgress, getAssetProgress);
+  const allAssetProgress = useSyncExternalStore(subscribeAssetProgress, getAssetProgress);
+  const assetProgress = allAssetProgress.entry;
   useEffect(() => {
     const timer = window.setTimeout(() => setAssetWaitExpired(true), ASSET_WAIT_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
@@ -146,14 +148,18 @@ export default function VillaMap() {
   const [veilMounted, setVeilMounted] = useState(true);
   useEffect(() => {
     if (!assetsReady) return undefined;
+    const readyFrame = requestAnimationFrame(() => markStartup("ready"));
     // Keep the veil one beat past readiness so the final swaps render behind
     // it, then let the CSS fade finish before unmounting.
     const timer = window.setTimeout(() => setVeilMounted(false), 700);
-    return () => window.clearTimeout(timer);
+    return () => { cancelAnimationFrame(readyFrame); window.clearTimeout(timer); };
   }, [assetsReady]);
   const [interaction, setInteraction] = useState(null);
   const [qualityPanelOpen, setQualityPanelOpen] = useState(false);
-  const [mapQuality, setMapQuality] = useState('medium');
+  // Bootstrap conservatively; MapRenderBudget owns DPR using actual canvas size.
+  const initialDpr = useMemo(() => mapDprForTier('low', window.devicePixelRatio, window.innerWidth, window.innerHeight), []);
+  const [pocketLoading, setPocketLoading] = useState(false);
+  const [mapQuality, setMapQuality] = useState('low');
   const [observatoryAudioMuted, setObservatoryAudioMuted] = useState(false);
   const [observatoryQualityPreference, setObservatoryQualityPreference] =
     useState(() => readObservatoryQualityPreference(
@@ -517,7 +523,7 @@ export default function VillaMap() {
         className="villa-map-canvas"
         frameloop={observatoryDiagnosticsMode === "test" ? "never" : "always"}
         shadows={{ type: PCFShadowMap }}
-        dpr={mapDprForTier(mapQuality, window.devicePixelRatio)}
+        dpr={initialDpr}
         gl={{ antialias: true, stencil: true }}
         camera={{
           fov: BASE_VERTICAL_FOV,
@@ -532,6 +538,7 @@ export default function VillaMap() {
         <UniverseGateway />
         <Scene
           onMapQualityChange={setMapQuality}
+          onPocketLoadingChange={setPocketLoading}
           world={world}
           editMode={editMode}
           onSelectPiece={editMode ? selectPiece : undefined}
@@ -595,6 +602,7 @@ export default function VillaMap() {
           />
         )}
       </Canvas>
+      {pocketLoading && <div className="villa-region-loading" role="status">正在布置蘑菇屋… 可以继续探索</div>}
 
       {!editMode && observatoryJournalOpen && (
         <ObservatoryEventJournal

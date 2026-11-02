@@ -231,6 +231,7 @@ export function ObservatoryDiagnostics({
         })(),
         webglContext: getContextLossStatus(),
         frameTimes: summarizeObservatoryFrameTimes(samplesRef.current),
+        regionLoading: scene.userData.regionLoading ?? null,
         renderer: {
           calls: gl.info.render.calls,
           triangles: gl.info.render.triangles,

@@ -1,3 +1,4 @@
+import { measureStartup } from '../startup-metrics.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
@@ -32,7 +33,7 @@ function CampConversation({ dialogue, reducedMotion }) {
 }
 
 export default function CampingVignette({ active, showCaptions, reducedMotion, dialogue }) {
-  const ground = useMemo(createCampingMiniature, []);
+  const ground = useMemo(() => measureStartup('universe.camping', createCampingMiniature), []);
   const [source, setSource] = useState(null); const [failed, setFailed] = useState(false); const [retry, setRetry] = useState(0);
   useEffect(() => {
     let cancelled = false; setFailed(false);

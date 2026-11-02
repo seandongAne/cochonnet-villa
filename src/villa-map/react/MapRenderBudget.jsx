@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MAP_TIERS,createMapQualityState,sampleMapQuality,mapDprForTier } from '../map-quality.js';
+import { MAP_TIERS,createMapQualityState,sampleMapQuality,mapDprForTier,readMapAutoTier,writeMapAutoTier } from '../map-quality.js';
 
 export function MapRenderBudget({sunRef,water,preference,onQualityChange,editMode,suspended}){
   const get=useThree(s=>s.get);
-  const state=useRef(createMapQualityState());
+  const state=useRef(null);
+  if (!state.current) {
+    let storage; try { storage = window.localStorage; } catch { /* Optional. */ }
+    state.current = createMapQualityState(readMapAutoTier(storage));
+  }
   const active=useRef(null),elapsed=useRef(0),signature=useRef('');
   const qa=useMemo(()=>{
     const params=new URLSearchParams(window.location.search);
@@ -19,14 +23,19 @@ export function MapRenderBudget({sunRef,water,preference,onQualityChange,editMod
     return()=>{gl.shadowMap.autoUpdate=previous;gl.domElement.removeEventListener('webglcontextrestored',restore);};
   },[get]);
   useFrame((_,delta)=>{
-    const {gl,scene,camera,setDpr,clock}=get();
+    const {gl,scene,camera,setDpr,clock,size}=get();
     const tier=MAP_TIERS[qa?.tier]?qa.tier:MAP_TIERS[preference]?preference:
       qa?.mode==='test'?'high':sampleMapQuality(state.current,delta,
         !document.hidden&&!suspended&&camera.position.y>-20);
     const budget=MAP_TIERS[tier];
-    const dpr=mapDprForTier(tier,window.devicePixelRatio);
+    const dpr=mapDprForTier(tier,window.devicePixelRatio,size.width,size.height);
     if(gl.getPixelRatio()!==dpr)setDpr(dpr);
-    if(active.current!==tier){active.current=tier;onQualityChange?.(tier);}
+    if(active.current!==tier){
+      active.current=tier;onQualityChange?.(tier);
+      if (!qa && preference === 'auto' && state.current.p95 > 0) {
+        try { writeMapAutoTier(window.localStorage, tier); } catch { /* Optional. */ }
+      }
+    }
     water.userData.update(reduced?0:clock.elapsedTime,budget.steam);
     // The legacy fallback has raised slabs and its own higher water surface.
     // Keep that complete fallback until the authored recessed basin is ready.

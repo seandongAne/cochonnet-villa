@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { createMaterials, createPorky } from "../src/villa-map/assets.js";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 
@@ -158,4 +160,62 @@ test("Scene and Canvas consume the surroundings contract", () => {
   assert.doesNotMatch(scene, /materials\.outsideGrass|materials\.grass\)/, "the old two-tone grass slabs are gone");
   const map = readSource("src/villa-map/react/VillaMap.jsx");
   assert.match(map, /far: SURROUNDINGS_CAMERA_FAR,/);
+});
+
+
+test("village instancing retains every original pig vertex, normal, color and pose", () => {
+  const village = createVillage();
+  const pigs = village.getObjectByName("village-pigs");
+  assert.equal(pigs.isInstancedMesh, true);
+  assert.equal(pigs.count, 13);
+  assert.ok(pigs.boundingSphere && pigs.boundingBox, "all instances participate in culling");
+  assert.equal(pigs.material.roughness, 0.82);
+  const bytes = Object.values(pigs.geometry.attributes).reduce((sum, attr) => sum + attr.array.byteLength, 0)
+    + pigs.instanceMatrix.array.byteLength;
+  assert.ok(bytes < 1_000_000, "one full-detail pig plus poses replaces 12.8 MB of duplicate buffers");
+  const original = createPorky(createMaterials(), { scale: 0.58 });
+  original.updateMatrixWorld(true);
+  const expected = [];
+  original.traverse(child => {
+    if (!child.isMesh) return;
+    const geometry = child.geometry.clone().applyMatrix4(child.matrixWorld);
+    const flat = geometry.index ? geometry.toNonIndexed() : geometry;
+    expected.push({ geometry: flat, color: child.material.color });
+  });
+  const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), actual = new THREE.Vector3();
+  const normal = new THREE.Vector3(), actualNormal = new THREE.Vector3();
+  let instance = 0;
+  for (const site of VILLAGE_SITES) for (const pig of site.pigs) {
+    pigs.getMatrixAt(instance++, matrix);
+    const x = site.x + pig.x, z = site.z + pig.z;
+    const pose = new THREE.Matrix4().makeTranslation(x, terrainHeightAt(x, z) - 0.02, z)
+      .multiply(new THREE.Matrix4().makeRotationY(pig.yaw));
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(pose);
+    const actualNormalMatrix = new THREE.Matrix3().getNormalMatrix(matrix);
+    let index = 0;
+    for (const part of expected) for (let i = 0; i < part.geometry.attributes.position.count; i++, index++) {
+      position.fromBufferAttribute(part.geometry.attributes.position, i).applyMatrix4(pose);
+      actual.fromBufferAttribute(pigs.geometry.attributes.position, index).applyMatrix4(matrix);
+      assert.ok(position.distanceTo(actual) < 0.00001, "world positions stay within 0.01 mm");
+      normal.fromBufferAttribute(part.geometry.attributes.normal, i).applyNormalMatrix(normalMatrix);
+      actualNormal.fromBufferAttribute(pigs.geometry.attributes.normal, index).applyNormalMatrix(actualNormalMatrix);
+      assert.ok(normal.distanceTo(actualNormal) < 0.000001);
+      for (const [channel, value] of [[0, part.color.r], [1, part.color.g], [2, part.color.b]]) {
+        assert.ok(Math.abs(pigs.geometry.attributes.color.array[index * 3 + channel] - value) < 0.000001);
+      }
+    }
+    assert.equal(index, pigs.geometry.attributes.position.count);
+  }
+});
+
+test("village buildings keep the pre-optimization geometry and palette byte for byte", () => {
+  const geometry = createVillage().getObjectByName("village-buildings").geometry;
+  const hashes = {
+    position: "895686ec58e301261e5f657a69477ea33157ed5cda19503003602511fee8dce3",
+    normal: "8c779b1289b403d208edc044fe365e485b3bf51a2bfffc23c08d2b389a24d73b",
+    color: "e862eda80919c88ec7ee7e646ec119a3067b438730f029d0862ed9beb8cb4de0"
+  };
+  for (const [name, hash] of Object.entries(hashes)) {
+    assert.equal(createHash("sha256").update(new Uint8Array(geometry.attributes[name].array.buffer)).digest("hex"), hash);
+  }
 });

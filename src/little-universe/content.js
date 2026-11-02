@@ -55,13 +55,13 @@ export const landmarks = [
     subtitle: 'A thousand stars. Two happy campers.', color: '#d9bb82',
     heading: 'Our second first adventure.',
     message: 'Some adventures take us far away. The best ones bring us a little closer. Here’s to sleepy mornings, warm mugs, and doing it all again tomorrow.',
-    caption: 'Little Pig & Bai Baicai · Somewhere under the stars',
+    caption: 'Daidai Zhu & Baibai Cai · Somewhere under the stars',
     dialogue: [
-      { speaker: 'Little Pig', text: 'This is my second time camping.' },
-      { speaker: 'Bai Baicai', text: 'When was the first time?' },
-      { speaker: 'Little Pig', text: 'Yesterday.' },
+      { speaker: 'Daidai Zhu', text: 'This is my second time camping.' },
+      { speaker: 'Baibai Cai', text: 'When was the first time?' },
+      { speaker: 'Daidai Zhu', text: 'Yesterday.' },
     ],
-    photos: [{ src: '', alt: 'Little Pig and Bai Baicai camping together', caption: 'Our favorite kind of outside.' }],
+    photos: [{ src: '', alt: 'Daidai Zhu and Baibai Cai camping together', caption: 'Our favorite kind of outside.' }],
     audio: '', video: '', videoPoster: '', videoCaptions: '',
   },
   {

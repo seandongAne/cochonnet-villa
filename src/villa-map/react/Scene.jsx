@@ -1,6 +1,7 @@
+import { measureStartup, markStartup } from '../../startup-metrics.js';
 import BirthdaySky, { useBirthday } from '../../components/BirthdaySky.jsx';
 import { BirthdayParty } from './BirthdayParty.jsx';
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -41,6 +42,7 @@ import { ResortAsset } from './ResortAsset.jsx';
 import { PerimeterFence } from './PerimeterFence.jsx';
 import { MapRenderBudget } from './MapRenderBudget.jsx';
 import { OutdoorPrewarm } from './OutdoorPrewarm.jsx';
+import { createLazyRegion, createRegionQueue, isPocketPlacement, nearMushroomEntrance } from '../region-loading.js';
 import { getGpuPreparer } from './gpu-prepare.js';
 import { createResortWater } from '../resort-water.js';
 import { createCourtyardPaths, createGarden } from '../garden-finishes.js';
@@ -140,7 +142,7 @@ function StudioEnvironment() {
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
     const environment = new RoomEnvironment();
-    const envTarget = pmrem.fromScene(environment, 0.04);
+    const envTarget = measureStartup('villa.environment', () => pmrem.fromScene(environment, 0.04));
     environment.dispose();
     const envTexture = envTarget.texture;
     const previousEnvironment = scene.environment;
@@ -441,6 +443,7 @@ export function Scene({
   observatoryQualityPreference = "auto",
   onObservatoryQualityStatusChange,
   onMapQualityChange,
+  onPocketLoadingChange,
   onObservatoryRareEventChange
 }) {
   const birthdayActive = useBirthday();
@@ -456,66 +459,81 @@ export function Scene({
   // them later in the same frame, so sound can never outrun R/F or the switch.
   const observatoryAudioFrameRef = useRef({ audio: null });
   const get = useThree((state) => state.get);
-  // Build every procedural mesh exactly once. The assets.js / porky-models.js
+  const pocketLoading = useRef(false);
+  const firstFrame = useRef(false);
+  const [pocket, setPocket] = useState(null);
+  const pocketFactory = useMemo(() => createLazyRegion(() => measureStartup('villa.pocket', () => {
+    const mushroomSky = measureStartup('villa.sky', () => createMushroomSky());
+    const observatorySkyEvents = measureStartup('villa.events', () => createObservatorySkyEventsVisual());
+    mushroomSky.add(observatorySkyEvents);
+    return {
+      mushroomInterior: measureStartup('villa.interior', () => createMushroomInterior(createMaterials())),
+      mushroomSky, observatorySkyEvents,
+      observatoryRift: measureStartup('villa.rift', () => createObservatoryRiftVisual())
+    };
+  })), []);
+  const pocketQueue = useMemo(() => createRegionQueue(2), []);
+  const entrance = world.interactions.find(item => item.id === 'mushroom-house').position;
+  useFrame(() => {
+    if (!firstFrame.current) { firstFrame.current = true; markStartup('canvas-frame'); }
+    if (editMode || nearMushroomEntrance(get().camera.position, entrance)) {
+      if (!pocketFactory.created) setPocket(pocketFactory.get());
+      pocketQueue.request();
+    }
+    get().scene.userData.regionLoading = { pocketRequested: pocketQueue.requested, pocketCreated: pocketFactory.created, pocketPending: pocketQueue.pending };
+    const loading = get().camera.position.y < -20 && pocketQueue.pending > 0;
+    if (loading !== pocketLoading.current) { pocketLoading.current = loading; onPocketLoadingChange?.(loading); }
+  }, -3.5);
+  // Build the outdoor scene once; the buried region is created on approach.
+  // The assets.js / porky-models.js
   // factories are reused verbatim from the vanilla-Three implementation; R3F
   // mounts the resulting Object3D instances through <primitive>.
-  const built = useMemo(() => {
+  const built = useMemo(() => measureStartup('villa.scene', () => {
     const materials = createMaterials();
     // Streamed GLBs upload their textures and compile their programs through
     // the canvas-wide preparer before replacing their stand-ins, so a model
     // popping in never costs the frame it first appears on.
     const prepare = getGpuPreparer(get);
-    // The special-event layer (meteor shower / comet) rides inside the sky group
-    // so it inherits the camera-centred position and the sky's visibility
-    // gate: lights-on steady state still draws zero cosmos objects.
-    const mushroomSky = createMushroomSky();
-    const observatorySkyEvents = createObservatorySkyEventsVisual();
-    mushroomSky.add(observatorySkyEvents);
-
+    const hooksFor = placement => isPocketPlacement(placement)
+      ? { prepare, region: 'pocket', defer: pocketQueue.enqueue }
+      : { prepare };
     return {
       courtyardPaths: createCourtyardPaths(),
-      garden: createGarden(world),
+      garden: measureStartup('villa.garden', () => createGarden(world)),
       // Everything visible but unreachable (surroundings.js): sky dome,
       // meadow-to-mountain terrain, the villagers' hamlet and the tree line.
-      terrain: createHorizonTerrain(),
+      terrain: measureStartup('villa.terrain', () => createHorizonTerrain()),
       daySky: createDaySky(),
-      village: createVillage(),
-      meadowTrees: createMeadowTrees(),
+      village: measureStartup('villa.village', () => createVillage()),
+      meadowTrees: measureStartup('villa.trees', () => createMeadowTrees()),
       resortWater: createResortWater(),
       treeA: createTree(materials, 5.6),
       treeB: createTree(materials, 5.2),
       dogHouse: createDogHouse(materials),
-      // The walkable three-storey pocket space buried beneath the mushroom
-      // house — reached via the door interaction's teleport, invisible from
-      // the courtyard (nothing renders below the ground plane).
-      mushroomInterior: createMushroomInterior(materials),
-      mushroomSky,
-      observatorySkyEvents,
-      observatoryRift: createObservatoryRiftVisual(),
       sign: createTextBoard(
         "猪猪山庄",
         "主楼、温泉、蘑菇屋和四周的草地都可以自由探索。靠近白色提示点，会出现小故事。"
       ),
       porkies: PORKY_PLACEMENTS.map((placement) => ({
         placement,
-        object: createPorkyModel(materials, placement, { prepare })
+        object: createPorkyModel(materials, placement, hooksFor(placement))
       })),
       // The furnished villa owns its furniture. Only the unchanged KayKit
       // mushroom pieces stream independently through this factory.
       furniture: ACTIVE_FURNITURE.map((placement) => ({
         placement,
-        object: createFurniturePiece(placement, { prepare })
+        object: createFurniturePiece(placement, hooksFor(placement))
       })),
       // Phase 3: CC0 GLB props for the courtyard/exterior (Kenney Nature +
       // Holiday kits). Same generic loader as the interior furniture.
       exterior: EXTERIOR_PLACEMENTS.map((placement) => ({
         placement,
-        object: createFurniturePiece(placement, { prepare })
+        object: createFurniturePiece(placement, hooksFor(placement))
       })),
       // Legacy entrance accents are suppressed by the active-placement policy.
       architecture: ACTIVE_ARCHITECTURE.map((placement) => ({
         placement,
-        object: createFurniturePiece(placement, { prepare })
+        object: createFurniturePiece(placement, hooksFor(placement))
       })),
       // Phase 3: soft "blob" contact shadows under interior + exterior props
       // (Phase 4 extends the list to the entrance accents).
@@ -527,12 +545,12 @@ export function Scene({
         ...ACTIVE_ARCHITECTURE
       ]))
     };
-  }, [get, world]);
+  }), [get, world, pocketQueue]);
   // Everything the door teleport reveals at once: the tower shell, its
   // KayKit furniture, the resident pigs and the buried contact-shadow floors.
   // The observatory's sky/rift roots stay out of every prewarm phase.
   const pocketRoots = useMemo(() => [
-    built.mushroomInterior,
+    pocket?.mushroomInterior,
     built.shadows,
     ...built.furniture
       .filter(({ placement }) => placement.room?.startsWith("mushroom-"))
@@ -540,7 +558,7 @@ export function Scene({
     ...built.porkies
       .filter(({ placement }) => placement.position[1] < -20)
       .map(({ object }) => object)
-  ], [built]);
+  ].filter(Boolean), [built, pocket]);
 
   return (
     <>
@@ -570,8 +588,10 @@ export function Scene({
         preference={observatoryQualityPreference} onQualityChange={onMapQualityChange}
         editMode={editMode} suspended={observatorySuspended} />
       <OutdoorPrewarm
-        excludedRoots={[built.mushroomSky, built.observatoryRift, built.mushroomInterior]}
+        excludedRoots={[pocket?.mushroomSky, pocket?.observatoryRift, pocket?.mushroomInterior].filter(Boolean)}
         pocketRoots={pocketRoots}
+        entrance={entrance}
+        suspended={observatorySuspended}
       />
       {ROOM_LIGHTS.map((light, index) => (
         <pointLight
@@ -585,14 +605,17 @@ export function Scene({
       <MushroomObservatoryLights
         adaptationRef={observatoryAdaptationRef}
       />
-      <MushroomObservatorySwitchVisual
-        interior={built.mushroomInterior}
-        lightsOn={observatoryLightsOn}
-      />
-      <MushroomObservatoryPalette
-        interior={built.mushroomInterior}
-        adaptationRef={observatoryAdaptationRef}
-      />
+      {pocket && <>
+        <MushroomObservatorySwitchVisual
+          interior={pocket.mushroomInterior}
+          lightsOn={observatoryLightsOn}
+        />
+        <MushroomObservatoryPalette
+          interior={pocket.mushroomInterior}
+          adaptationRef={observatoryAdaptationRef}
+        />
+
+      </>}
 
       {/* Gentle image-based lighting — the Phase 1 polish. (Soft penumbra
           shadows are deferred: drei's PCSS SoftShadows patches a shadow shader
@@ -601,13 +624,13 @@ export function Scene({
       <MushroomObservatoryExposure
         adaptationRef={observatoryAdaptationRef}
       />
-      <MushroomObservatoryRuntime
-        interior={built.mushroomInterior}
-        sky={built.mushroomSky}
+      {pocket && <MushroomObservatoryRuntime
+        interior={pocket.mushroomInterior}
+        sky={pocket.mushroomSky}
         lightsOn={observatoryLightsOn}
         adaptationRef={observatoryAdaptationRef}
-        riftVisual={built.observatoryRift}
-        skyEventsVisual={built.observatorySkyEvents}
+        riftVisual={pocket.observatoryRift}
+        skyEventsVisual={pocket.observatorySkyEvents}
         riftOpen={observatoryRiftOpen}
         lensActive={observatoryLensActive}
         suspended={observatorySuspended}
@@ -616,7 +639,7 @@ export function Scene({
         onRareEventChange={onObservatoryRareEventChange}
         qualityPreference={observatoryQualityPreference}
         onQualityStatusChange={onObservatoryQualityStatusChange}
-      />
+      />}
       <MushroomObservatoryAudio
         audioFrameRef={observatoryAudioFrameRef}
         muted={observatoryAudioMuted}
@@ -647,22 +670,24 @@ export function Scene({
 
       {/* ---- Decor ---- */}
       <ResortAsset kind="mushroom" position={[-6, 0, 18]} rotationY={Math.PI} />
-      <primitive
-        object={built.mushroomInterior}
-        position={[
-          MUSHROOM_INTERIOR.center.x,
-          MUSHROOM_INTERIOR.baseY,
-          MUSHROOM_INTERIOR.center.z
-        ]}
-      />
-      {/* Camera-centred distant Milky Way + sparse GPU star field. Hidden
-          unless the player is physically inside the third-floor observatory. */}
-      <primitive object={built.mushroomSky} />
-      {/* R's hidden event writes a progressively larger stencil hemisphere,
-          then draws several finite-distance fragment bands through it. The
-          room and furniture remain normal depth occluders, which is what
-          makes the expansion feel spatial instead of like another sky layer. */}
-      <primitive object={built.observatoryRift} />
+      {pocket && <>
+        <primitive
+          object={pocket.mushroomInterior}
+          position={[
+            MUSHROOM_INTERIOR.center.x,
+            MUSHROOM_INTERIOR.baseY,
+            MUSHROOM_INTERIOR.center.z
+          ]}
+        />
+        {/* Camera-centred distant Milky Way + sparse GPU star field. Hidden
+            unless the player is physically inside the third-floor observatory. */}
+        <primitive object={pocket.mushroomSky} />
+        {/* R's hidden event writes a progressively larger stencil hemisphere,
+            then draws several finite-distance fragment bands through it. The
+            room and furniture remain normal depth occluders, which is what
+            makes the expansion feel spatial instead of like another sky layer. */}
+        <primitive object={pocket.observatoryRift} />
+      </>}
       <primitive object={built.sign} position={[4, 2.05, 22]} rotation-y={Math.PI} />
 
       {/* ---- Porkies (GLB with procedural fallback) ---- */}

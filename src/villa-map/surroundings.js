@@ -389,7 +389,7 @@ export function createDaySky() {
 }
 
 // ---------------------------------------------------------------------------
-// Village: vertex-coloured geometry merged into two draws (buildings, pigs).
+// Village: two vertex-coloured draws (merged buildings, instanced pigs).
 // ---------------------------------------------------------------------------
 export const VILLAGE_SITES = Object.freeze([
   {
@@ -580,7 +580,16 @@ function siteMatrix(site, x, z, yaw, bounds, lift = 0) {
 export function createVillage({ bounds = DEFAULT_BOUNDS } = {}) {
   const materials = createMaterials();
   const buildingParts = [];
-  const pigParts = [];
+  // Bake one unchanged pig, then instance it at all thirteen original poses.
+  // Avoid generating, expanding and uploading the same geometry thirteen times.
+  const pigSource = createPorky(materials, { scale: 0.58 });
+  const pigTemplate = mergeParts(bakeObject(pigSource, new THREE.Matrix4()), "village-pigs", 0.82);
+  const pigs = new THREE.InstancedMesh(pigTemplate.geometry, pigTemplate.material,
+    VILLAGE_SITES.reduce((count, site) => count + site.pigs.length, 0));
+  pigs.name = "village-pigs";
+  pigs.receiveShadow = true;
+  pigs.castShadow = false;
+  let pigIndex = 0;
   const anchors = [];
   for (const site of VILLAGE_SITES) {
     for (const cottage of site.cottages) {
@@ -607,14 +616,26 @@ export function createVillage({ bounds = DEFAULT_BOUNDS } = {}) {
       anchors.push({ kind: "hay", x: site.x + hay.x, z: site.z + hay.z });
     }
     for (const pig of site.pigs) {
-      pigParts.push(...bakeObject(createPorky(materials, { scale: 0.58 }), siteMatrix(site, pig.x, pig.z, pig.yaw, bounds, -0.02)));
+      pigs.setMatrixAt(pigIndex++, siteMatrix(site, pig.x, pig.z, pig.yaw, bounds, -0.02));
       anchors.push({ kind: "pig", x: site.x + pig.x, z: site.z + pig.z });
     }
   }
   const group = new THREE.Group();
   group.name = "villager-village";
   group.add(mergeParts(buildingParts, "village-buildings", 0.88));
-  group.add(mergeParts(pigParts, "village-pigs", 0.82));
+  pigs.instanceMatrix.needsUpdate = true;
+  pigs.computeBoundingBox();
+  pigs.computeBoundingSphere();
+  group.add(pigs);
+  // The merged buffers own their data; source-only GPU resources are not retained.
+  const sourceGeometries = new Set();
+  const sourceMaterials = new Set(Object.values(materials));
+  pigSource.traverse(child => {
+    if (child.geometry) sourceGeometries.add(child.geometry);
+    if (child.material) sourceMaterials.add(child.material);
+  });
+  sourceGeometries.forEach(geometry => geometry.dispose());
+  sourceMaterials.forEach(material => material.dispose());
   group.userData.anchors = anchors;
   return group;
 }
