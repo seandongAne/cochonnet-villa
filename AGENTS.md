@@ -1,209 +1,116 @@
 # Cochonnet Villa
 
-## 协作约定 · Workflow rules
-
-**语言** — 日常交流、汇报、方案说明、评审结论一律用中文。代码、标识符、文件路径、命令、库名，以及硬翻会失真的技术术语（node-pure、stencil、fail-soft、FBO、pointer lock、LUT…）保留英文原文，不要生造中文译名；引用仓库或界面里的原文（提交信息、UI 文案）照抄原样。仓库里的文档与代码注释继续用英文，这条只约束我们的对话。
-
-**评审** — **不要手动 @codex review。** 它会无限挖边际问题，并把场景推到不真实的使用假设上，我们已经踩过坑。需要复查时跑 `npm test` + 本地 preview，或者直接让我做针对性 review。
-
-**`CLAUDE.md` 是主本，`AGENTS.md` 是它的副本**（同一份文档，两个文件名，因为不同 agent 找不同的文件）。有出入时以 `CLAUDE.md` 为准；改完它再 `cp CLAUDE.md AGENTS.md`。这一步是手动的、也只在文档定稿后做一次 —— 不要为它加自动校验，工作进行到一半时被文档不一致打断，比分叉本身更耽误事。（它们曾经分叉三周，AGENTS.md 漏掉了整个小记功能，还把 `/admin/` 的鉴权写成早就不用的 Decap OAuth。）
-
-## Git Workflow Rules
-
-- Keep `main` stable and functional.
-- For small, low-risk edits, direct commits to `main` are acceptable.
-- For major features, redesigns, refactoring, or experimental changes, create a dedicated feature branch.
-- Before starting major changes, inspect `git status` and ensure existing work is committed or safely preserved.
-- Never discard uncommitted user changes without permission.
-- When multiple agents work concurrently, use separate branches and Git worktrees.
-- Make small, meaningful commits throughout development.
-- Test changes before merging into `main`.
-- Never force-push, reset destructive history, or merge significant changes without approval.
-- At the end of each task, report the current branch, commits made, tests performed, and any uncommitted changes.
-
 ## What this is
 
-Static Astro site about 15 pet pigs, built to GitHub Pages. Four features:
+Static Astro site about 15 pet pigs, deployed to GitHub Pages.
 
-| Feature | Route | Rendered by | Source of truth | Editor |
-|---|---|---|---|---|
-| Landing site | `/` | `src/pages/index.astro` + `src/render-site.js` | `content/site.json` | `/admin/` |
-| 猪猪小记 blog | `/notes/` | `src/render-notes.js` (node-pure, build time) | `content/notes.json` | `/admin/notes/` |
-| 3D Villa Map | `/villa-map/` | React Three Fiber island (`src/villa-map/`) | code + GLBs in `public/models/` | `/villa-map/?edit=1` |
-| Little Universe birthday world | `/little-universe/` | React Three Fiber island (`src/little-universe/`) | personal copy + geometry + `public/little-universe/` assets | code |
+| Feature | Route | Source | Editor |
+|---|---|---|---|
+| Landing site | `/` | `content/site.json` | `/admin/` |
+| Notes blog | `/notes/` | `content/notes.json` | `/admin/notes/` |
+| 3D Villa Map | `/villa-map/` | `src/villa-map/`, `public/models/` | `/villa-map/?edit=1` |
+| Little Universe birthday world | `/little-universe/` | `src/little-universe/`, `public/little-universe/` | Code |
 
-Both editors are backend-free: they commit through the GitHub Contents API with a fine-grained token kept in localStorage (`cochonnetvilla_github_token`) — no OAuth, no server. Publishing pushes `content/*.json`; Pages redeploys in ~1–2 min.
+Astro renders static pages; Villa Map and Little Universe are client-only React Three Fiber islands.
+Both editors are backend-free and commit content through the GitHub Contents API using a
+fine-grained token stored in the browser. The public artwork collection lives in `content/gallery.json`.
+
+## Working agreement
+
+- Communicate in Chinese. Keep code, identifiers, paths, commands, library names and quoted UI text
+  verbatim. Write repository documentation and code comments in English.
+- Inspect Git status before changes. Preserve uncommitted work, existing logs and Blender `.blend1`
+  backups; never discard or include unrelated files in commits.
+- Small, low-risk edits may stay on `main`.
+  Concurrent agents must use separate branches and worktrees.
+- Make meaningful commits. Never force-push, reset destructive history or merge significant changes
+  without approval.
+- Never manually request `@codex review`. Use local validation and preview, or a targeted review
+  requested by the user.
+- For code changes, run `npm test`, `npm run build` and `git diff --check`; check affected visuals
+  and interactions in production preview. Use existing QA harnesses instead of temporary source hooks.
+- Report the current branch, commits, checks and remaining uncommitted changes at task completion.
 
 ## Commands
 
-- `npm run dev` — dev server
-- `npm run build` — production build
-- `npm run preview` — serve the build (full speed; dev is slow to first-compile the three/drei bundle)
-- `npm test` — `node:test` over `tests/*.test.mjs`, one file per concern
+- `npm run dev` - development server.
+- `npm test` - behavior tests in `tests/*.test.mjs`.
+- `npm run build` - production build.
+- `npm run preview` - serve the production build for browser QA.
 
-## Conventions
+## Project structure
 
-- ES modules everywhere (`"type": "module"`).
-- **Node-pure core.** Anything the tests import (all of `src/villa-map/*.js`, `render-*.js`, `notes-draft.js`, `seo.js`) must not touch `window` / `document` / `TextureLoader` at import time. The React layer is the only browser owner.
-- React islands on `/villa-map/` and `/little-universe/` (`client:only="react"`); the sprout-pig study is another island available only in development. Other pages are vanilla Astro static HTML. The main site is bilingual, content defaults to `zh`, `data-i18n` hooks. The birthday world is English; its static character gallery and local study are Chinese.
-- Procedural geometry at runtime; pre-made GLBs (pigs / furniture / props) load through a raw `GLTFLoader` + per-URL promise cache + bbox auto-fit + procedural fallback, mounted via `<primitive object={…}>` — **not** drei `useGLTF`. The authored villa/spa/mushroom-exterior GLBs in `public/models/resort/` preserve exact metre coordinates instead of bbox fitting; sources and rebuild instructions are in `docs/RESORT_ASSETS.md`.
-- **Streamed models never pop in raw.** Every loader reports its swap chain to the node-pure `asset-loading.js` registry (the `/villa-map/` veil shows `n / total 件模型就位` and keeps 「开始探索」 disabled until outdoor entry swaps are done, or `ASSET_WAIT_TIMEOUT_MS` = 25 s fail-soft) and awaits `hooks.prepare(model)` — `react/gpu-prepare.js`, one canvas-wide preparer: texture uploads one per animation frame (back-to-back while `document.hidden`), then `gl.compileAsync` — before replacing its stand-in. A model whose textures are already resident skips the queue. `region-loading.js` defers the 96 mushroom furniture and six underground resident loads until the seven-metre door approach or pocket entry, with two prepare/swap chains at a time. Deferred pocket progress never blocks the outdoor entry; collision remains ready from startup; the buried architecture and observatory visuals are created once on the same door approach. Loopback-only `startup=measure` exposes scene-factory timing and cold-start milestones; see `docs/performance/STARTUP.md`.
-- **Pig GLBs are shipped optimised** (`scripts/optimize-porky-glbs.mjs`: gltfpack quantise + `EXT_meshopt_compression`, textures ≤ 1024² WebP via `EXT_texture_webp`; `porky-models.js` registers three's bundled `MeshoptDecoder`). Budgets ≤ 2.5 MB per pig / ≤ 16 MB cast are pinned by `tests/porky-assets.test.mjs` — the cast was 62 MB before, 8.4 MB after. Drop a new Meshy export into `public/models/porkies/` and run the script; never commit the raw export.
-- **Version pins (don't bump blindly):** Astro 6 / Vite 7, `@astrojs/react@^5`, `overrides: { vite: "^7" }`. drei `<SoftShadows>` is broken with three r184 → shadows use `PCFShadowMap`.
-- Tests are behavior-pinning, not smoke tests: world/collision/interaction geometry, asset existence (GLBs, colormap atlas, observatory bins incl. SHA-256), overlap (`overlap.test.mjs`: solid non-chair clip ≤ 0.5 m²), same-model spacing (`spacing.test.mjs`: ≥ 1.8 m, chair family + railing exempt), villa shell palette, viewport scaling, and the full `observatory-*` / `mushroom-*` / `star-ceiling` suite.
+```text
+content/                Site, notes and independent gallery data
+src/
+  pages/                Astro routes and admin entry points
+  components/           Shared Astro and React components
+  *.js                  Static renderers, editor logic and shared helpers
+  viewport-scale.css    Shared screen-shape adaptation
+  villa-map/            Node-pure 3D core; react/ owns browser rendering
+  little-universe/      Birthday world geometry and React runtime
+  review/               Development-only study pages
+admin/                  Landing-site editor HTML
+public/                 Shipped models, images, textures and data
+art/                    Source art and authoring files
+scripts/                Asset generation, optimization and maintenance
+tests/                  Node behavior and asset tests
+docs/                   Subsystem references and QA guides
+.github/workflows/      Pages deployment and note-art generation
+```
 
-## 猪猪小记 blog
+## Project boundaries
 
-**Visitor password gate (2026-10-31)** — The user explicitly chose a lightweight browser-only password gate for friends, accepting that static HTML, public GitHub content/API, and original images remain accessible outside the UI. This is **not server authentication or encryption**. No Cloudflare/DNS migration is needed. src/notes-access.js verifies the configured SHA-256 password digest; NotesAccess.astro and NotesLock.astro wrap /notes/, every article, and /admin/notes/. Content is hidden in the initial HTML to avoid flashes; the studio initializes only after unlock. The tab session lasts up to eight hours, can be locked explicitly, and does not persist the password. GitHub token authorization still controls publishing; never embed a write token in public code.
+- Use ES modules. Test-imported core modules must remain node-pure: no browser globals or browser
+  asset loading at import time. React owns browser effects for the 3D islands.
+- Never embed a GitHub write token in public code.
+- Notes use a browser-only visitor password gate, not server authentication or encryption.
+  Keep note content hidden until unlock, with generic metadata, `noindex, nofollow` and no article
+  JSON-LD. Exclude notes from the sitemap and homepage excerpts. Changing this boundary requires
+  a new user request.
+- Reuse existing GLB caches, procedural fallbacks, loading progress and shared GPU preparation
+  before model swaps. Preserve asset optimization, resource ownership and the budgets enforced
+  by tests. Dependency pins live in `package.json`; do not bump them casually.
+- Keep collision and floor data aligned with rendered geometry. Keep shared Little Universe
+  landmark geometry separate from personal content imported only by the birthday world.
+- `src/viewport-scale.css` owns screen-shape adaptation. Preserve the ordinary-screen baseline
+  and the rem-based ultra-wide zoom without adding columns.
+- Use `src/components/SeoHead.astro` for page metadata. Keep its site URL consistent with Astro
+  configuration and `src/seo.js`.
 
-**Discovery** — The homepage displays a generic unlock entry with no note excerpts. Note pages use noindex, nofollow, generic title/description/share metadata, and no article JSON-LD; notes and their dates are excluded from the sitemap. Existing content, art generation, draft backups, and conflict safeguards remain unchanged. These visitor-gate rules supersede the older note SEO descriptions below.
+## Critical gotchas
 
-**Independent public gallery (2026-10-31)** — The Little Gallery is the seventh Little Universe destination, with an enterable room, nine randomly selected pictures per week (Monday, America/Toronto; deterministic within the same week and collection), and an accessible full-image viewer. It requires no note unlock. Its only data source is `content/gallery.json`; public records contain opaque content-derived IDs, stable artwork numbers, independent image/thumbnail paths, dimensions, timestamps and timestamp kinds. Never add note titles, slugs, bodies, source links or editor links to the collection or viewer. `scripts/sync-note-gallery.mjs` copies new image bytes into `public/little-universe/gallery/art/`, deduplicates by SHA-256, and appends records without deleting previous works. Replacing an image creates a new work; editing/deleting its note does not affect existing copies. The generator stamps `imageGeneratedAt` and `imageSha256` after successfully writing an image, then syncs the gallery before its workflow commits/deploys. Normalization and remote-art adoption preserve these fields. Existing artwork uses verifiable image commit times marked `archived`; unknown history uses `imported`, never a fabricated generation time. Display timezone is America/Toronto. See `docs/GALLERY.md` for maintenance and validation.
+- `notes-drafts` is the live cloud-draft branch. Never delete or prune it as stale work.
+- Preserve notes publishing's remote-state, SHA and merge-conflict safeguards. Failed reads must
+  never overwrite remote content, and syncing must recheck the snapshot being merged before
+  adopting its SHA.
+- The public gallery is an independent, append-only artwork collection. Editing or deleting a note
+  must not alter existing gallery works. Keep note titles, slugs, bodies and source/editor links
+  out of the gallery data and viewer.
 
-**Game room (2026-10-31)** — Player Two is the eighth Little Universe destination. The enterable cabin displays Nintendo Switch, PS5 and Xbox as original stylized procedural models, with two controllers, a sofa and a television. Accessible console buttons update the television title and cabinet indicator; this is a display interaction, not emulation or playable games. `src/little-universe/game-room.js` owns geometry and collision; `GameRoom.jsx` owns browser-rendered signs. The Xbox silhouette uses a black Series X-style tower as an artistic default; the author did not specify a generation. The original 17-game request is now visibly represented by local promotional artwork on both side walls, a native-dialog collection browser, and a selected cover on the television. `games.js` is the ordered source of truth; do not replace its covers with anonymous spines, infer new favorites, or filter PC games out when a console is selected. Each game remains available regardless of console selection. The Paris entry is Assassin's Creed Unity; the two Zelda entries are Breath of the Wild and Tears of the Kingdom, and the unspecified Baldur's Gate entry uses Baldur's Gate 3. Artwork provenance is in `public/little-universe/game-room/sources.json`. Keep the existing sky-planet draw and triangle budgets. See `docs/GAME_ROOM.md`.
+## Read for the task
 
-**Annual Cabbage birthday (2026-10-31)** — Every November 1 in America/Toronto, Little Universe and the outdoor Villa Map show bright yellow HAPPY BIRTHDAY CABBAGE sky lettering. src/birthday.js owns the node-pure calendar and wake-aware minute clock; src/components/BirthdaySky.jsx owns the browser-drawn texture and one depth-tested quad. Non-birthday visits allocate no birthday graphics. Planet room/finale views and all underground map floors hide the letters. Birthday-only initial framing keeps the words clear of buildings; walking and teleport behavior stay intact. Loopback-only birthday=on|off previews never override the public site's calendar. The Villa Map also mounts a pastel birthday party and individually fitted hats for all 24 resident instances and 13 background village pigs. `birthday-party.js` owns geometry, crown anchors and table colliders; `BirthdayParty.jsx` owns their birthday-only lifecycle. Hats are siblings of streamed models so swaps cannot remove them; always check front and side fits after model changes. Decorations and collisions disappear together without recreating the world or player controls. See docs/ANNUAL_BIRTHDAY.md.
+Read the relevant sources and references before changing a subsystem;
+do not load every guide for every task.
 
-**Walkable Hangar (2026-10-31)** — Sean's Workshop and The Hangar are the existing `workshop` destination. Its ordinary door now enters the bright futuristic atelier directly, with Sean’s five originals enlarged in a central three-tier cabinet on the round plinth, under a prominent CREATED BY SEAN heading. All nine other models, including Reborns Gundam, occupy matching layered side cabinets; their footprints and fitted GLBs must stay inside the curved wall and clear the next shelf. Portrait framing widens without moving the visitor. `hangar-atelier.js` owns node-pure batched architecture, placements and metre-scale walking/collision data; `HangarAtelier.jsx` owns browser rendering and prepared exhibit loading. Keep the circular plinth, curved wall, cabinet and portal-foot colliders aligned with the geometry. `RoomInterior` retains WASD/drag/touch movement, viewer pause and exit behavior. The former `/little-universe/hangar/` prototype URL redirects to the same room; do not recreate a separate Showcase destination. Gun & Rose / The Iron & Rose remains unchanged. See `docs/HANGAR_SHOWCASE.md`.
+| Task | Entry points |
+|---|---|
+| Notes editor, drafts and access | [Editor](src/notes-admin.js), [drafts](src/notes-draft.js), [conflicts](src/notes-staleness.js), [access](src/notes-access.js); `tests/notes*.test.mjs` |
+| Villa Map assets and collision | [Resort assets](docs/RESORT_ASSETS.md), [fence assets](docs/FENCE_ASSETS.md) |
+| Observatory | [Runtime and QA](docs/OBSERVATORY_RUNTIME.md) |
+| Little Universe | [Runtime and QA](docs/LITTLE_UNIVERSE_RUNTIME.md) |
+| Public gallery | [Gallery](docs/GALLERY.md) |
+| Game room and Hangar | [Game room](docs/GAME_ROOM.md), [Hangar](docs/HANGAR_SHOWCASE.md) |
+| Annual birthday | [Birthday](docs/ANNUAL_BIRTHDAY.md) |
+| Startup performance | [Startup](docs/performance/STARTUP.md), [village startup](docs/performance/VILLAGE_STARTUP.md) |
+| Layout and SEO | [Viewport rules](src/viewport-scale.css), [SEO](src/seo.js); `tests/viewport-scale.test.mjs`, `tests/seo.test.mjs` |
 
-Do not revive the server-backed notes experiment without a new request.
+## Maintaining this guide
 
-
-**Rendering** — `src/render-notes.js` escapes HTML first, then applies markdown-lite: blank-line paragraphs, `## `, `- `, `**bold**`, `*italic*`. Emits `/notes/`, `/notes/<slug>/` (`getStaticPaths`) and the latest-3 landing teaser (`id="notes"`, i18n keys `nav.notes` / `notes.*`). Teaser is bilingual; the `/notes/` pages are Chinese-first.
-
-**Editor** — `/admin/notes/` = `src/pages/admin/notes.astro` + `src/notes-admin.js`, Astro-bundled so the live preview runs the real renderer. List collapses to the newest 3 (`visibleNoteList` always keeps the 编辑中 entry visible; expanded state persisted, expanded list scrolls inside the card). Pop-out editor window is painted opaque (`--shell-solid`).
-
-**Publish guard (non-negotiable)** — publish requires known remote state (a successful read *or* a definite 404) and merges remote-only slugs first. A failed initial read must never clobber published notes. A tab that already read successfully keeps its `sha`, so a publish from a stale tab is refused by GitHub with a 409 rather than merged — the guard, not the banner below, is what protects the data.
-
-**Stale-tab banner** (`src/notes-staleness.js`, node-pure) — a tab left open holds the `sha` it last read; if anyone publishes meanwhile (another device, or a plain `git push`) that sha goes stale. On `visibilitychange` back to the foreground the editor spends one throttled GET (2 min) to compare shas and, on a mismatch, shows a banner offering 「同步最新内容」 → `fetchNotes({ discardLocal: false })`, which merges the remote list *underneath* unpublished local edits (unlike 「重新读取」, which discards them). Courtesy only: it is fail-soft (a failed request never raises a false alarm) and gates nothing — the 409 above is the real protection.
-
-**The banner must not over-promise.** `mergeRemoteNotes` resolves same-slug clashes *local-wins*, so syncing a slug both sides edited means the next publish overwrites the other device's version. `findMergeConflicts` compares `title`/`date`/`mood`/`body` (never `image` — the art workflow stamps that) and the notice names the contested entries instead of claiming nothing is lost; conflicts are recomputed on every render, since staging a further edit can newly contest a slug. A remote *deletion* is deliberately not detected — the editor keeps no record of which local entries came from a past read, so it is indistinguishable from a local draft; the wording just never promises that side is safe.
-
-**One snapshot, judged and merged (non-negotiable).** The banner is drawn against the snapshot a *past* check read, so 「同步最新内容」 must fetch first and re-judge the snapshot it is **about to merge** (`applyRemote`, split out of `fetchNotes` for exactly this). If that turns up a conflict the notice never named (`findUnacknowledgedConflicts`, keyed by slug — titles repeat), it redraws and refuses to merge, because merging would both overwrite an unannounced edit *and* adopt the new `sha`, removing the 409 that would otherwise have stopped the publish. Only a conflict the author has actually been shown may pass silently. Likewise `checkRemoteFreshness` captures the sha it is asking about and drops its own answer if `state.sha` moved meanwhile — otherwise a check that raced a successful publish reports the pre-publish file as "someone else changed it".
-
-**`normalizeNotes`** — sorts newest-first, drops empty entries, dedupes slugs (date-based, `-2` suffixes), and **preserves the sanitized `image` field** so the editor never strips generated art.
-
-**Two-tier drafts** (`src/notes-draft.js`, node-pure; payload v2 + legacy v1 migration) — every keystroke persists the full editor state (form **and** staged list while dirty) to localStorage. 5-min idle / tab hidden / manual「备份草稿」commits it to `content/notes-draft.json` on the **`notes-drafts` branch** (never deploys, auto-creates the branch, skips no-change commits via `draftContentKey`). Restore picks the newer of local/cloud (`chooseDraftSource`; ties → local); a restored staged list re-enters the dirty+merge path, and `mergeRemoteNotes` adopts the remote `image` when the local twin lacks one. Publish clears both tiers. Pinned by `tests/notes.test.mjs` + `tests/notes-draft.test.mjs`.
-
-**Auto note-art** — `.github/workflows/generate-note-art.yml` fires on `content/notes.json` pushes to main → `scripts/generate-note-art.mjs` calls the OpenAI Image API (`gpt-image-2.5-sunburst`, 1536×1024 webp, `xhigh` quality, ≤ 4 per run) for notes without `image`, writes `public/notes-art/<slug>.webp`, stamps `image`, commits, then explicitly dispatches `deploy-pages.yml`. Needs the Actions secret `OPENAI_API_KEY` while any note still lacks art: without it the job fails (red) naming the pending count; once every note has valid art the run is a no-op and needs no key. Prompts are **text-only** — character identity comes from `PORKY_CAST` (15 pigs; 小猪 = tiny, brown bob + black sleeveless top) plus `GUEST_CAST` (白白菜, mirroring `public/characters/baibaicai/manifest.json`); either table's `aliases` (香瓜猪 → 香香猪, 呱瓜猪 → 呱呱猪, 白菜 → 白白菜) select the canonical identity. Only notes that name pigs get those pigs drawn; a title that counts the herd (`十五只猪…`), or a body clause pairing the herd with a group-scene word (一起 / 合照 / 全家福…), switches to the fixed 15-pig three-row portrait. The author-only inline marker `[[character name]]` renders everywhere as the plain name and explicitly injects that identity; ambiguous bare `小猪` never selects the named character. Reference images (`public/porkies/*.png`, `public/characters/`) are never uploaded to the API.
-
-## Little Universe (`src/little-universe/`)
-
-A separate birthday planet with six destinations, room interiors, model/poster viewers, a finale and optional gesture-started audio. Production routes: `/little-universe/` and the static `/little-universe/characters/` gallery (both noindex). `/little-universe/sprout-pig/` and its GLB are **development only**: the page lives in `src/review/`, the model in `art/little-universe/review/`, and `scripts/local-review-pages.mjs` injects both routes only for `npm run dev`.
-
-Read [`docs/LITTLE_UNIVERSE_RUNTIME.md`](docs/LITTLE_UNIVERSE_RUNTIME.md) for the module map, asset rebuilds, budgets, QA and unresolved source-license decisions. `landmark-layout.js` is the geometry-only contract shared by the villa sky; do not import birthday `content.js` or `media-details.js` into villa code. The overview camera preserves user orbit on resize; explicit reset, landmark navigation and finale still select authored destinations.
-
-The telescope contract lives in `little-universe-gateway.js`: its shared ID controls interaction, collision, visuals and marker filtering. Returning with `?arrival=little-universe` selects the telescope pose, including the optional `world.player.start.yaw`. After controls apply it, the arrival parameter is consumed with `replaceState`; other query parameters, hash and history state survive. Diagnostics add `view=universe-gateway` and `view=universe-telescope`.
-
-Vinyl runtime images are generated from preserved lossless sources with `node scripts/optimize-vinyl-records.mjs`; budgets are 512 KiB per cover / 1.5 MiB total. Collection models already have total and per-model budgets in `collection-models.test.mjs`. Provenance records are not permission grants; retain source evidence and never invent licenses. Pages deployment runs `npm test` before building.
-
-## 3D scene (`src/villa-map/`)
-
-Framework-agnostic core — pure logic + Three.js factories, reused verbatim by the React layer **and** the node test suite.
-
-| File | Role |
-|------|------|
-| `world.js` | Geometry data, collision (2D AABB + optional Y range + the mushroom interior's circular boundary), interaction/stair/water/floor zones, `MUSHROOM_INTERIOR` pocket-space data |
-| `controls.js` | WASD + pointer-lock factory (drag-look fallback when lock is denied), camera-Y interp through stair/floor/water zones, `teleport()`, E-key `onAction`, modifier-safe hidden R/F actions |
-| `interaction.js` | `findNearestInteraction` proximity + Y-floor filtering; fixed-radius camera-ray targeting for the hidden physical controls |
-| `assets.js` · `mushroom-interior.js` (+`-config`) | Procedural meshes: beveled villa shell, open glass-curtain front, hot springs, meadow / three-storey round tower, L1–L2 fairy-light & bunting canopies, the physical L3 light switch, node-pure fallback sky dome |
-| `porky-models.js` · `furniture-models.js` | GLB loaders: 15 pig variants with procedural fallback / generic prop loader (per-pack base scale, X/Z re-center, floor-sit, placeholder + fallback), reused for exterior & architecture props |
-| `placements.js` · `furniture-placements.js` · `exterior-placements.js` · `architecture-placements.js` | Placement data (position / rotation / variant) per room or area; stamping derives `footprint` / `floor` / `solid` / `noShadow`. Mushroom `wallMounted` decor projects tangent to the round wall; `onWallShelfId` clutter follows its shelf |
-| `shadows.js` · `furniture-colliders.js` | `createShadowBlobs()` soft radial-gradient contact shadows (skips `noShadow`) / `deriveFurnitureColliders()` rotated-AABB colliders for `solid` props (0.85 shrink, floor-scoped Y) |
-| `main-villa.js` · `main-villa-data.js` | User-supplied furnished Maison des Quinze: metre-scale rooms, five upper slab rectangles, switchback stairs, rooftop floor 5, exact-height guards and matched procedural fallback; original source metadata and import report in `art/resort/maison-des-quinze/` |
-| `resort-assets.js` · `resort-water.js` · `map-quality.js` | Exact-coordinate authored assets and floor-batched contact shadows / single-surface spa water + instanced steam / whole-map DPR, shadow and steam tiers (Auto starts Low; Low/Minimum also cap total pixels at 1.5M/1M); `isOutdoorPrewarmMesh` / `isPocketPrewarmMesh` gate the two prewarm phases |
-| `perimeter-fence.js` · `react/PerimeterFence.jsx` | Shared exploration bounds, deduplicated fence layout and ground-only colliders / cached user-supplied GLB modules in 14 instanced material batches, GPU-prepared swap and procedural fallback; source and QA in `docs/FENCE_ASSETS.md` |
-| `surroundings.js` | Everything visible but unreachable: camera-riding day-sky shader (gradient + sun + projected FBM clouds), one vertex-coloured horizon terrain disc (flat to `TERRAIN_FLAT_MARGIN` past `world.bounds`, then rolling hills → 30–40 m mountain rim), the villagers' hamlet + three farmsteads (`VILLAGE_SITES`, cottages/pens/hay merged into one draw plus 13 full-detail instanced pigs in one draw), painted fields + dirt lane, and a 220-tree instanced tree line. Deterministic, `castShadow=false`, ≥ `SCENERY_MIN_CLEARANCE` outside the bounds; exports `SURROUNDINGS_FOG` / `SUN_POSITION` / `SURROUNDINGS_CAMERA_FAR` that Scene + Canvas consume |
-| `asset-loading.js` | Node-pure streamed-model progress registry behind the loading veil (`trackAssetLoad` / `subscribeAssetProgress`) |
-| `mushroom-finishes.js` | Node-pure plaster/oak maps, shallow wall panelling, cloned furniture finishes and botanical frame inserts; L3 finishes follow the existing adaptation/Rift state |
-| `camera-framing.js` | Ultra-wide FOV math (see *Viewport*) |
-
-Observatory core — 20 further node-pure modules (`mushroom-sky`, `mushroom-nebula`, `gaia-stars`, `observatory-*`): module map in [`docs/OBSERVATORY_RUNTIME.md`](docs/OBSERVATORY_RUNTIME.md).
-
-React layer (`src/villa-map/react/`, client-only):
-
-| File | Role |
-|------|------|
-| `VillaMap.jsx` | Island root: `<Canvas>` (`stencil: true`) + overlay/loading/HUD state; owns E light state, hidden R/F state, the `Q` quality panel and the query-only QA panel |
-| `Scene.jsx` | Lights, fog, IBL; mounts factory meshes/Rift (the rare-event layer rides inside the sky group) and shares one `adaptationRef` across lighting, palette, exposure, markers and sky runtime |
-| `PlayerControls.jsx` | Bridges controls/interaction into R3F at priority `-2`; R/F reach React only while the L3 camera ray hits the physical wall switch |
-| `MushroomObservatoryRuntime.jsx` | Sole browser owner of 4K/8K/Gaia/LUT/atlas lazy loading + prewarm, FBO render choreography (priority `-1`), hidden Rift/Lens channels, classified fail-close, context-loss recovery, diagnostics |
-| `MushroomObservatoryAudio.jsx` | Web Audio bridge: gesture-gated context, HRTF-panned switch/dome/rift/black-hole layers off the same per-frame adaptation state; `M` mutes |
-| `ObservatoryEventJournal.jsx` | 天象图鉴 modal (unseen events stay ？？？ silhouettes); follows the Q panel's pointer-lock release/suspend discipline |
-| `ObservatoryDiagnostics.jsx` · `ObservatoryQualityPanel.jsx` | Query-only fixed-camera test/perf harness / player-facing quality panel |
-| `UltraWideFraming.jsx` · `EditControls.jsx` | Ultra-wide FOV bridge / `?edit=1` furniture editor (orbit + drag gizmo + clipping plane; prints paste-ready placement records) |
-| `ResortAsset.jsx` · `MapRenderBudget.jsx` · `OutdoorPrewarm.jsx` | Authored GLBs with procedural fallback / cached sun shadows + whole-map quality / two-phase GPU preparation: above-ground meshes one per turn, then the buried mushroom pocket (`pocketRoots`: interior shell, its furniture, resident pigs, contact-shadow floors) only near the door or indoors, one per turn on Low/Minimum and up to a dozen otherwise; yields to slow frames/modals and pauses on L2/L3 where the observatory runtime prewarms. Observatory sky/rift roots and custom-shader meshes are excluded from both phases |
-| `gpu-prepare.js` | Canvas-wide texture-upload queue + async shader compile shared by every streamed-model loader (see *Conventions*) |
-
-### World facts
-
-- Bounds x `[-40, 44]`, z `[-40, 42]`; the sage/cedar perimeter fence follows those bounds at y = 0.02. Its static open welcome gate is centred at `(2, 0.02, 42)` and the main path reaches it; the gate opening still stops at the exploration limit. Fence and open-leaf colliders are ground-only. The meadow is `surroundings.js`'s terrain disc (radius 250, flat at y = 0.02 to 6 m past the bounds, hills beyond; fog `#dbe8f2` 70→190 m = the sky's horizon haze; camera far 280). Main villa is the furnished Maison des Quinze, mounted at `(0, 0, -13)` with scale 1 (26×22 m): ground eye-Y = 1.6, upper = 8.25, rooftop = 15.25. The rooftop uses global floor 5; mushroom floors 2/3/4 stay reserved. Both villa stair routes are two-flight switchbacks. Legacy villa furniture/entrance records remain archived in the placement files but are excluded from runtime rendering, shadows and collision. A world test asserts the normal start is `{0, 1.6, 18}`.
-- The mushroom-house interior is a **buried pocket space** under XZ (-6, 18), scaled 2× (~19 m across; slab tops y = -48/-40/-32, floor indices 2/3/4), reached only by E-key teleport at the door. Every interior zone/collider is Y-banded; the exterior `mushroom-house` collider is Y-scoped `[0, 30]`.
-- GLB dirs (each with its own `LICENSE.txt`): `public/models/porkies/` (pigs), `furniture/` (Kenney CC0 Furniture Kit, base scale 2.2), `mushroom-furniture/` (53-model KayKit Furniture Bits CC0, base scale 1), `exterior/` (Kenney Nature + Holiday), `architecture/` (Kenney Furniture + City-Suburban).
-- Observatory data/textures: `public/textures/qwantani-night-puresky-dome-{4k,8k}.webp` (Poly Haven CC0), `public/data/gaia-bright-stars-v1.bin` (+meta, ESA/Gaia/DPAC), Schwarzschild LUTs (Bruneton BSD-3), self-generated Kerr atlas (CC0). Regeneration scripts in `scripts/`; provenance/SHA-256 in the sibling `.meta.json` / LICENSE files. Keep the `-v1` filenames and metadata in sync when regenerating — the shipped bins are byte-pinned by tests.
-
-## Impossible Observatory (mushroom L3)
-
-The L3 loft is a dark-adaptation observatory: press E at the physical wall switch and the warm room drops to near-black, then a layered cosmos is revealed — photo Milky Way backdrop, procedural hero stars, real Gaia stars bright→faint, volumetric nebula Portal — all clipped to the dome by stencil ref 7. While genuinely stargazing, a 3%/s hazard starts one of 13 **特殊天象** (~18–55 s each, 40 s cooldown), recorded into the **天象图鉴** you open from a physical book on an L3 shelf. **Hidden Lab:** aiming at the switch, `R` toggles the non-Euclidean Rift and `F` the finite-distance black hole / gravitational lens; the production HUD never advertises them. `E`/lights-on and leaving L3 reset everything.
-
-**Read before touching observatory code:** [`docs/OBSERVATORY_RUNTIME.md`](docs/OBSERVATORY_RUNTIME.md) (module map, event mechanics, journal, quality tiers, QA harness) and `docs/IMPOSSIBLE_OBSERVATORY_PLAN.md` (design record).
-
-Invariants that must hold:
-
-- `MushroomObservatoryRuntime` is the **sole browser owner** of observatory assets/FBOs; `observatory-adaptation.js` is the **only** timing source — components consume one shared `adaptationRef`, never per-component timers.
-- Lights-on steady state = **zero sustained cosmos draw calls**; heavy assets lazy-load only near the L2 approach.
-- Failures are classified fail-soft (Portal → drop volumetrics; Gaia → keep photo + hero stars; native sky → physical dome; Kerr → Schwarzschild → analytic) and every dispose is idempotent (StrictMode-safe).
-- Quality tiers High/Medium/Low/Minimum auto-select via rolling p95 with hysteresis; the player `Q` panel overrides (persisted), QA query params override both.
-- Verify with the query-only harness (`/villa-map/?observatory=test|perf&…`) — never with temporary source hooks; ordinary visits must keep starting lights-on.
-
-## Viewport & aspect ratio
-
-`src/viewport-scale.css` is the single source for screen-shape adaptation, imported by every Astro page. Laptops and ordinary 16:9/16:10 desktops sit below every tier and render exactly as before.
-
-Ultra-wide **zooms and widens the same layout — it never re-columns it**, so a 32:9 desktop shows the laptop layout, larger. Root font size tracks viewport *height* (`clamp(1rem, 1.48vh, 2rem)`), keeping the design viewport ~1080 design px tall; `--shell-max` / `--shell-max-narrow` / `--shell-gutter(-tight)` widen the content band from ~31% to ~50% of the screen. 5120×1440 and 7680×2160 therefore resolve to the *same* 3840×1080 design layout (root 21.3px / 32px). `tests/viewport-scale.test.mjs` guards this and the no-reflow rule.
-
-3D: `camera-framing.js` + `react/UltraWideFraming.jsx` hold horizontal FOV at ≤ 120° past ~21:9 by narrowing the vertical one. 16:9/16:10/21:9 keep the authored 70° vertical FOV; only 32:9 changes (136° → 120°).
-
-## SEO
-
-`src/components/SeoHead.astro` is the only `<head>` SEO block: every public page renders exactly one, passes an explicit `path`, and gets `<title>` / description / canonical / Open Graph / Twitter card / JSON-LD from it. Canonicals are `Astro.site` + trailing-slash path, so `astro.config.mjs` `site` and `SITE_URL` in `src/seo.js` must match (pinned by `tests/seo.test.mjs`). `src/seo.js` is node-pure and shared with the `/sitemap.xml` and `/robots.txt` endpoints (`src/pages/*.js`) and the tests.
-
-- **Share image** — `public/assets/og-cover.jpg` (1200×630) is the default card, generated once by `scripts/generate-og-cover.py` (Pillow + macOS system fonts; re-run only to restyle). Notes share their own art (`/notes-art/<slug>.webp`, always 1536×1024 → `noteArtDimensions`) and fall back to the card while the art workflow hasn't stamped one yet.
-- **JSON-LD** — `WebSite` (home), `Blog` + `BreadcrumbList` (`/notes/`), `BlogPosting` + `BreadcrumbList` (each note), `WebPage` (villa map). `datePublished` is local noon in `NOTE_TIMEZONE` (`noteDateTime`): a note stores only a day, and Rich Results flags a bare date. `serializeJsonLd` escapes `<` so note text can never close the script tag.
-- **Search Console** — the URL-prefix property `https://www.cochonnetvilla.ca/` (Google account seandong1993) is verified by the HTML-tag method: `GOOGLE_SITE_VERIFICATION` in `src/seo.js`, emitted by `SeoHead` on every indexable page. Removing it un-verifies the property. The sitemap is submitted there; Bing Webmaster Tools imports from it.
-- **Sitemap / robots** — `/sitemap.xml` lists home, `/notes/`, every note (`lastmod` = note date) and `/villa-map/`. `/robots.txt` points at it and deliberately does **not** `Disallow: /admin/`: the editors rely on `<meta name="robots" content="noindex, nofollow">`, which a Disallow would hide from the crawler (the URL could then be indexed title-less from the footer link). Internal links into `/admin/` carry `rel="nofollow"`.
-- **Core Web Vitals** — the note detail art is the LCP image: `loading="eager" fetchpriority="high"` with `width`/`height` reserved (`.note-art img { height: auto }` keeps the ratio). Card art keeps `aspect-ratio` in CSS instead. Landing portraits are served as 768 px WebP (`scripts/build-porky-webp.mjs`, uses the `sharp` that ships with Astro); the 1024² PNG originals stay in `public/porkies/` as the source the share-card script reads — after adding a pig, drop its PNG there, run the script, and point `site.json` at the `.webp`. Web fonts load from `src/components/Fonts.astro` (a head `<link>`), never from a CSS ``. `/villa-map/` carries a visually-hidden `<h1>` and a `<noscript>` fallback because the island renders nothing server-side.
-
-## Workflows
-
-**Adding furniture / props**
-
-1. Copy kit GLBs into the right `public/models/` dir (Kenney ≈0.45× metric → base scale 2.2; KayKit metre-authored → base scale 1). Villa upstairs y ≈ 6.66, ground y ≈ 0.11; mushroom floors per `MUSHROOM_INTERIOR.floorY`.
-2. Append placement records to the matching `*-placements.js`; stamping derives `footprint` / `floor` / `solid` / `noShadow` (override per record when needed). Solid = substantial grounded pieces only; elevated clutter stays walk-through.
-3. `npm test` + `npm run build`, then eyeball in preview. The overlap/spacing tests gate regressions.
-
-**Visual editor** — `/villa-map/?edit=1` swaps walk controls for orbit + drag gizmo with a dollhouse clipping plane (`[` / `]`); click a piece → the panel prints a paste-ready placement record (`G`/`R` translate/rotate, `Esc` deselect). Data files stay the source of truth.
-
-**Verifying the 3D scene in preview** — prefer the query-only harness above: no temporary source hooks, production start position untouched. `observatory=test` for deterministic fixed-camera screenshots, `observatory=perf` for a real frame loop. **The QA panel's JSON is a snapshot taken at mount** — streamed models show `loading`, `outdoorPrewarm.meshes: 0` and one frame until you press 「刷新数据」; `streamedAssets` reports the veil's progress.
-
-**Adding a pig** — drop the Meshy `.glb` into `public/models/porkies/`, run `node scripts/optimize-porky-glbs.mjs` (in place; gltfpack devDependency + sharp), add the variant to `porky-models.js` and a placement to `placements.js`, then `npm test` (`porky-assets.test.mjs` enforces the size/texture budgets).
-
-**Resort assets and whole-map performance** — `docs/RESORT_ASSETS.md` documents sources, rebuilds (the main villa is imported with `python3 scripts/import-main-villa.py /path/to/Complete.zip`, not the legacy Blender villa exporter), the Q panel's map tiers, exterior/room QA bookmarks and the two-lap camera benchmark. `world.js` remains the collision/floor source of truth. The sun shadow is cached for the static map; async mesh replacement, quality changes, context restoration and live editing invalidate it. Future moving outdoor shadow casters must request updates explicitly. AO atlases supply contact detail, not complete baked illumination.
-
-## Gotchas — hard-won, don't relearn
-
-- **Procedural pig stand-ins share immutable resources.** `porky-models.js` caches plain/microphone templates per material palette in a WeakMap; each clone owns its transforms but shares geometry/materials. Individual GLB swaps must not dispose those shared resources. Distant village pigs use one full-detail vertex-coloured geometry with 13 instance matrices, retaining the original two village draws. See `docs/performance/VILLAGE_STARTUP.md` for measurements and visual-fidelity checks.
-
-- **`notes-drafts` branch is live data**, not a stale branch — it is the cloud tier of the draft backup. Never delete or prune it.
-- **GITHUB_TOKEN pushes don't retrigger workflows** — that's why the note-art job explicitly dispatches `deploy-pages.yml`.
-- **`viewport-scale.css` must be inlined into the raw `/admin/` document via `?raw`** — `<Fragment set:html>` gets no injected stylesheet.
-- **The ultra-wide zoom only works because the layout is rem-authored.** One hard-coded px width (shell caps, `minmax(320px, …)`) pins that column at laptop size while everything around it scales.
-- **UnityGLTF-exported Kenney GLBs** (Holiday `bench`/`lantern`; City-Suburban `railing`/`planter`) reference `Textures/colormap.png` by relative URI — the atlas must be vendored per dir or those props render flat white.
-- **Every sky-event billboard material must stay `DoubleSide`** — the anchored tangent frames face outward, so FrontSide culls them for a viewer at the shell's centre.
-- **Never use GLSL ES reserved words** (`active`, `filter`, `input`, `output`, `superp`…) as shader identifiers — ANGLE rejects the program. Shader failure classification is per event: dispose and drop only that event id from the weighted pool, never collapse all 11 sky layers (`observatory-sky-events.test.mjs` pins this).
-- **`openObservatoryJournal(event)` must `stopPropagation()`** — the opening E keydown arrives on the controls' *document* listener while the book's close listener sits on *window*, and React registers the latter in a microtask between the two targets of the same in-flight event; otherwise one keypress opens **and** closes the book.
-- **`PlayerControls`' controls-creation effect may depend only on `[camera, gl, world, lockRef, wantLockRef]`** (every React callback is bridged through refs) — `createExplorerControls` resets the camera to the world start, so a remount mid-session is a player-visible teleport. Pinned by `observatory-event-journal.test.mjs` + `observatory-hidden-controls.test.mjs`.
-- **Headless preview panes** sometimes open at 0×0: force pixel dimensions on `.villa-map-shell` / `.villa-map-root` and dispatch `resize` first. Don't infer production FPS from a stalled headless pane, and never ship `window.__villa*` debug hooks.
-- **All 53 KayKit `mushroom-furniture` GLBs embed the same 1024² atlas.** `furniture-models.js` re-points every source at the first decoded copy and closes the duplicates (`SHARED_ATLAS_PACKS`); before that, teleporting into the tower uploaded ~45 identical textures on one frame. `tests/furniture-assets.test.mjs` pins the byte-identity that makes sharing safe — don't add a pack to the list without it.
-- **The day sky must stay below `renderOrder` 900** (the observatory's stencil aperture) and `depthWrite: false` / `fog: false`; it rides on the camera because a world-anchored dome would be clipped by the far plane from the far corners. Lights-off L3 is unaffected (verified: `observatory=test&view=loft-center&lights=off`).
-- **The loft looks up at the whole above-ground map.** With the physical dome hidden nothing between L3 and the meadow writes depth, so surface *transparents* (room-marker rings, villa glazing, spa water) used to draw over the cosmos — opaque ones are painted over by the backdrop, transparent ones render after it. `createMushroomSkyAperture` therefore carries a depth-only disc (`MUSHROOM_SKY_DEPTH_GUARD_NAME`, y ≈ -7, radius > camera far) as a *child of the aperture*, so the aperture's one `visible` flag gates it everywhere. It is safe only because every main-scene cosmos layer runs `depthTest: false` and the depth-tested Rift pieces are room-sized; a new sky layer that depth-tests would be culled by it. Pinned by `tests/observatory-depth-guard.test.mjs`.
+- Keep only active working rules, essential boundaries, critical gotchas and task entry points.
+  Current behavior belongs in source and tests; Git history is the source of truth for past changes
+  and decisions. Do not add implementation walkthroughs, progress logs, historical narratives or
+  copies of subsystem documentation.
+- `CLAUDE.md` is authoritative; `AGENTS.md` is its identical copy. After finalizing this file,
+  manually copy it with `cp CLAUDE.md AGENTS.md`. Do not add automatic synchronization or
+  consistency checks.
