@@ -501,3 +501,17 @@
 /* A visible-cursor alternative to the telescope's existing E action. */
 .universe-gateway-link { display: inline-flex; margin-top: .8rem; padding: .65rem 1rem; border-radius: 999px; background: #354f4b; color: #fff6df; text-decoration: none; font-weight: 700; }
 .universe-gateway-link:focus-visible { outline: 3px solid #bd9963; outline-offset: 4px; }
+
+/* Non-blocking feedback for a first visit to the deferred pocket region. */
+.villa-region-loading {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 4;
+  padding: .6rem .9rem;
+  border-radius: 1rem;
+  background: #fff8ee;
+  color: #574332;
+  pointer-events: none;
+  font-size: .85rem;
+}

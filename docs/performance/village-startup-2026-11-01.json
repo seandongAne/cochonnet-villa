@@ -1,0 +1,462 @@
+{
+  "baseline": [
+    {
+      "page": "/villa-map/",
+      "final": true,
+      "elapsedMs": 15048.300000000745,
+      "readyMs": 1543.3999999985099,
+      "firstCanvasFrameMs": 379.0999999977648,
+      "domContentLoadedMs": 45.599999997764826,
+      "loadMs": 46,
+      "fcpMs": 60,
+      "lcpMs": 136,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 362,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 362,
+      "lastResourceEndMs": 843.8000000007451,
+      "maxTaskMs": 184,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037060,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 252,
+          "durationMs": 117.69999999925494
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 261.8999999985099,
+          "durationMs": 6.900000002235174
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 268.80000000074506,
+          "durationMs": 13.799999997019768
+        },
+        {
+          "name": "villa.village",
+          "startMs": 282.80000000074506,
+          "durationMs": 54.5
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 337.3999999985099,
+          "durationMs": 1.800000000745058
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 502.8999999985099,
+          "durationMs": 19
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    },
+    {
+      "page": "/villa-map/",
+      "final": true,
+      "elapsedMs": 15052.599999997765,
+      "readyMs": 1522.5,
+      "firstCanvasFrameMs": 387.5,
+      "domContentLoadedMs": 50.30000000074506,
+      "loadMs": 50.80000000074506,
+      "fcpMs": 64,
+      "lcpMs": 148,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 354,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 354,
+      "lastResourceEndMs": 834.3000000007451,
+      "maxTaskMs": 183,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037060,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 259.80000000074506,
+          "durationMs": 118.09999999776483
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 269.30000000074506,
+          "durationMs": 6.899999998509884
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 276.30000000074506,
+          "durationMs": 14.099999997764826
+        },
+        {
+          "name": "villa.village",
+          "startMs": 290.69999999925494,
+          "durationMs": 57.100000001490116
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 347.80000000074506,
+          "durationMs": 1.8999999985098839
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 510,
+          "durationMs": 17.599999997764826
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    },
+    {
+      "page": "/villa-map/",
+      "final": true,
+      "elapsedMs": 15042.89999999851,
+      "readyMs": 1541.5,
+      "firstCanvasFrameMs": 380.6000000014901,
+      "domContentLoadedMs": 44.899999998509884,
+      "loadMs": 45.30000000074506,
+      "fcpMs": 60,
+      "lcpMs": 136,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 350,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 350,
+      "lastResourceEndMs": 853.6000000014901,
+      "maxTaskMs": 179,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037060,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 254.10000000149012,
+          "durationMs": 117.09999999776483
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 263.30000000074506,
+          "durationMs": 7.099999997764826
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 270.5,
+          "durationMs": 13.899999998509884
+        },
+        {
+          "name": "villa.village",
+          "startMs": 284.6000000014901,
+          "durationMs": 55.5
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 340.19999999925494,
+          "durationMs": 2.600000001490116
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 508,
+          "durationMs": 18.100000001490116
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    }
+  ],
+  "after": [
+    {
+      "page": "/villa-map/",
+      "final": true,
+      "elapsedMs": 15053.5,
+      "readyMs": 1480.5,
+      "firstCanvasFrameMs": 340.8999999985099,
+      "domContentLoadedMs": 54.5,
+      "loadMs": 55.099999997764826,
+      "fcpMs": 72,
+      "lcpMs": 160,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 284,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 284,
+      "lastResourceEndMs": 793.0999999977648,
+      "maxTaskMs": 148,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037274,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 270.0999999977648,
+          "durationMs": 61
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 280.79999999701977,
+          "durationMs": 7.400000002235174
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 288.19999999925494,
+          "durationMs": 14.300000000745058
+        },
+        {
+          "name": "villa.village",
+          "startMs": 302.69999999925494,
+          "durationMs": 11.099999997764826
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 313.79999999701977,
+          "durationMs": 2
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 442.79999999701977,
+          "durationMs": 17.800000000745058
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    },
+    {
+      "page": "/villa-map/",
+      "final": true,
+      "elapsedMs": 15040.39999999851,
+      "readyMs": 1422.8999999985099,
+      "firstCanvasFrameMs": 309.8999999985099,
+      "domContentLoadedMs": 42.099999997764826,
+      "loadMs": 42.899999998509884,
+      "fcpMs": 56,
+      "lcpMs": 136,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 267,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 267,
+      "lastResourceEndMs": 733.6999999992549,
+      "maxTaskMs": 136,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037274,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 243.59999999776483,
+          "durationMs": 56.400000002235174
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 253.39999999850988,
+          "durationMs": 6.5
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 260,
+          "durationMs": 13.800000000745058
+        },
+        {
+          "name": "villa.village",
+          "startMs": 274,
+          "durationMs": 9.899999998509884
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 283.8999999985099,
+          "durationMs": 1.800000000745058
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 411.0999999977648,
+          "durationMs": 18.5
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    },
+    {
+      "page": "/villa-map/",
+      "final": true,
+      "elapsedMs": 15036.699999999255,
+      "readyMs": 1411.8999999985099,
+      "firstCanvasFrameMs": 308,
+      "domContentLoadedMs": 37.80000000074506,
+      "loadMs": 38.19999999925494,
+      "fcpMs": 48,
+      "lcpMs": 124,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 271,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 271,
+      "lastResourceEndMs": 739.1999999992549,
+      "maxTaskMs": 133,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037274,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 237.89999999850988,
+          "durationMs": 60.70000000298023
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 248.30000000074506,
+          "durationMs": 7.099999997764826
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 255.5,
+          "durationMs": 14.699999999254942
+        },
+        {
+          "name": "villa.village",
+          "startMs": 270.5,
+          "durationMs": 11.800000000745058
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 282.30000000074506,
+          "durationMs": 1.8999999985098839
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 404.6000000014901,
+          "durationMs": 19
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    }
+  ],
+  "excluded": [
+    {
+      "page": "/villa-map/",
+      "final": false,
+      "elapsedMs": 7064.400000002235,
+      "readyMs": 1640.6000000014901,
+      "firstCanvasFrameMs": 446.69999999925494,
+      "domContentLoadedMs": 70.30000000074506,
+      "loadMs": 71.40000000223517,
+      "fcpMs": 88,
+      "lcpMs": 192,
+      "longTasksBeforeReady": 4,
+      "blockingMsBeforeReady": 418,
+      "longTasksInWindow": 4,
+      "blockingMsInWindow": 418,
+      "lastResourceEndMs": 947,
+      "maxTaskMs": 202,
+      "sameOriginResources": 39,
+      "sameOriginTransferBytes": 17037060,
+      "factories": [
+        {
+          "name": "villa.scene",
+          "startMs": 313.19999999925494,
+          "durationMs": 122.80000000074506
+        },
+        {
+          "name": "villa.garden",
+          "startMs": 321.1000000014901,
+          "durationMs": 6.399999998509884
+        },
+        {
+          "name": "villa.terrain",
+          "startMs": 327.69999999925494,
+          "durationMs": 15
+        },
+        {
+          "name": "villa.village",
+          "startMs": 342.80000000074506,
+          "durationMs": 56.100000001490116
+        },
+        {
+          "name": "villa.trees",
+          "startMs": 399,
+          "durationMs": 1.9000000022351742
+        },
+        {
+          "name": "villa.environment",
+          "startMs": 583.4000000022352,
+          "durationMs": 23.199999999254942
+        }
+      ],
+      "hidden": false,
+      "viewport": [
+        1280,
+        720
+      ],
+      "dpr": 1.25
+    }
+  ],
+  "baselineCommit": "025c265",
+  "method": {
+    "build": "production",
+    "viewport": [
+      1280,
+      720
+    ],
+    "dpr": 1.25,
+    "gpu": "RTX 3080",
+    "originsBefore": [
+      4371,
+      4372,
+      4373
+    ],
+    "originsAfter": [
+      4374,
+      4375,
+      4376
+    ],
+    "cache": "fresh loopback origin per sample; no-store; gzip text",
+    "observationSeconds": 15,
+    "cpuThrottle": false,
+    "wanThrottle": false,
+    "birthdayActive": true,
+    "note": "Browser process, OS file and GPU driver caches remain warm. Initial 4370 sample excluded because final=false. Timing samples precede addition of QA-only village bookmarks."
+  },
+  "villageGeometry": {
+    "beforePigBufferBytes": 12826944,
+    "afterPigAndInstanceBufferBytes": 987520,
+    "pigInstances": 13,
+    "pigTemplateVertices": 27408,
+    "buildingVertices": 6816,
+    "drawsBefore": 2,
+    "drawsAfter": 2
+  },
+  "validation": {
+    "testsPassed": 580,
+    "productionBuild": "passed",
+    "quality": "minimum",
+    "outdoorLoads": 37,
+    "outdoorPocketCreated": false,
+    "pocketLoads": 139,
+    "revisitLoads": 139,
+    "failedLoads": 0,
+    "remainingPlaceholders": 0,
+    "remainingPigFallbacks": 0,
+    "birthdayHats": 37,
+    "consoleErrors": [],
+    "visualViews": [
+      "fence-overview before/after",
+      "village-pigs",
+      "village-pigs-side",
+      "mushroom-hearth"
+    ]
+  }
+}

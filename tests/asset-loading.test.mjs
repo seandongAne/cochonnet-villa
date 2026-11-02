@@ -91,8 +91,8 @@ test("every streamed-model loader reports through the shared registry and prepar
 
   const scene = readSource("src/villa-map/react/Scene.jsx");
   assert.match(scene, /getGpuPreparer\(/, "Scene hands the shared preparer to the loaders");
-  assert.match(scene, /createPorkyModel\(materials, placement, \{ prepare \}\)/);
-  assert.match(scene, /createFurniturePiece\(placement, \{ prepare \}\)/);
+  assert.match(scene, /createPorkyModel\(materials, placement, hooksFor\(placement\)\)/);
+  assert.match(scene, /createFurniturePiece\(placement, hooksFor\(placement\)\)/);
 
   const map = readSource("src/villa-map/react/VillaMap.jsx");
   assert.match(map, /useSyncExternalStore\(subscribeAssetProgress, getAssetProgress\)/);

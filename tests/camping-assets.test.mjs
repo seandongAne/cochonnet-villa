@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { Box3, Vector3 } from 'three';
+import { createFlowers, disposeMiniature } from '../src/little-universe/planet.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CAMP_PROPS, CAMP_PIG_POSITION, CAMP_BAICAI_POSITION, composeCampingProps, disposeCampingProps } from '../src/little-universe/camping.js';
 
@@ -73,4 +74,30 @@ test('the full camper envelopes stay clear of every prop, including foreground g
     for (const prop of camp.children) assert.equal(envelope.intersectsBox(new Box3().setFromObject(prop)), false, prop.name);
   }
   disposeCampingProps(camp);
+});
+
+
+test('visited campsite flowers never grow through campers or the firewood stack', async () => {
+  const camp = composeCampingProps(await geometrySource());
+  const obstacles = [new Box3().setFromObject(camp.getObjectByName('wood-pile'))];
+  for (const position of [CAMP_PIG_POSITION, CAMP_BAICAI_POSITION]) {
+    obstacles.push(new Box3().setFromCenterAndSize(
+      new Vector3(position[0], position[1] + .15, position[2]), new Vector3(.25, .31, .24)));
+  }
+  const flowers = createFlowers('camping');
+  // Check the visited reward throughout its growth, as well as reduced-motion's full size.
+  for (const scale of [.001, .25, .5, .75, 1]) {
+    flowers.scale.setScalar(scale);
+    flowers.updateMatrixWorld(true);
+    flowers.traverse(mesh => {
+      if (!mesh.isMesh) return;
+      const bounds = new Box3().setFromObject(mesh);
+      for (const obstacle of obstacles) assert.equal(bounds.intersectsBox(obstacle), false, `flower clearance at scale ${scale}`);
+    });
+  }
+  disposeMiniature(flowers);
+  disposeCampingProps(camp);
+  const otherFlowers = createFlowers('music');
+  assert.equal(new Box3().setFromObject(otherFlowers).isEmpty(), false, 'other destinations retain their reward flowers');
+  disposeMiniature(otherFlowers);
 });

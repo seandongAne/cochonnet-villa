@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Group, PerspectiveCamera, Scene, Vector3, WebGLRenderTarget } from 'three';
 import { isOutdoorPrewarmMesh, isPocketPrewarmMesh } from '../resort-assets.js';
+import { nearMushroomEntrance, prewarmBudget } from '../region-loading.js';
 import { MUSHROOM_INTERIOR } from '../world.js';
 
 const OUTDOOR_BATCH = 1;
@@ -16,7 +17,7 @@ const POCKET_RESCAN_SECONDS = 2;
 // exclusively owned by its lazy runtime: its roots are excluded, custom-shader
 // meshes are skipped, and the pocket phase pauses on L2/L3 where that runtime
 // runs its own prewarm budget.
-export function OutdoorPrewarm({ excludedRoots, pocketRoots = [] }) {
+export function OutdoorPrewarm({ excludedRoots, pocketRoots = [], entrance, suspended = false }) {
   const get = useThree(s => s.get);
   const state = useRef({ elapsed: 0, pocketElapsed: POCKET_RESCAN_SECONDS, seen: new Set(), textures: new Set(),
     queue: [], pocketQueue: [], busy: false, epoch: 0, prepared: null, target: null, warmScene: null,
@@ -38,6 +39,9 @@ export function OutdoorPrewarm({ excludedRoots, pocketRoots = [] }) {
     const s = state.current;
     const { gl, scene, camera } = get();
     if (document.hidden || gl.getContext().isContextLost()) return;
+    const allowance = prewarmBudget(scene.userData.mapQuality?.tier ?? 'low', delta, suspended);
+    if (!allowance) return;
+    const pocketAllowed = entrance && nearMushroomEntrance(camera.position, entrance);
     const outdoors = camera.position.y > -20;
     const onPocketGroundFloor = !outdoors && camera.position.y < MUSHROOM_INTERIOR.eyeY[1] - 2;
     if (!outdoors && !onPocketGroundFloor) return;
@@ -54,7 +58,7 @@ export function OutdoorPrewarm({ excludedRoots, pocketRoots = [] }) {
     // The pocket is rescanned slowly because its furniture keeps swapping
     // placeholders for streamed models long after the first pass.
     s.pocketElapsed += delta;
-    if (pocketRoots.length && !s.queue.length && !s.busy && !s.prepared && s.pocketElapsed > POCKET_RESCAN_SECONDS) {
+    if (pocketAllowed && pocketRoots.length && !s.queue.length && !s.busy && !s.prepared && s.pocketElapsed > POCKET_RESCAN_SECONDS) {
       s.pocketElapsed = 0;
       // The interior root is excluded from the *outdoor* phase (its cap
       // projects above the meadow) but is exactly what this phase is for.
@@ -121,12 +125,12 @@ export function OutdoorPrewarm({ excludedRoots, pocketRoots = [] }) {
         s.warmScene.remove(group); s.prepared = null; s.busy = false;
         disposeClones(batch);
       }
-    } else if (!s.busy && (s.queue.length || s.pocketQueue.length)) {
+    } else if (!s.busy && (s.queue.length || (pocketAllowed && s.pocketQueue.length))) {
       // Outdoor meshes go one per turn; the pocket (hundreds of small interior
-      // meshes sharing a handful of programs) is prepared a dozen at a time.
+      // meshes sharing a handful of programs) uses the current tier allowance.
       const fromPocket = !s.queue.length;
       const source = fromPocket ? s.pocketQueue : s.queue;
-      const limit = fromPocket ? POCKET_BATCH : OUTDOOR_BATCH;
+      const limit = fromPocket ? Math.min(POCKET_BATCH, allowance) : OUTDOOR_BATCH;
       const group = new Group();
       const clones = [];
       while (clones.length < limit && source.length) {

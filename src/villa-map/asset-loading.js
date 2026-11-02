@@ -2,8 +2,9 @@
 //
 // Every loader (porky-models.js, furniture-models.js, react/ResortAsset.jsx)
 // wraps the promise chain that ends in its model swap with trackAssetLoad().
-// The React island subscribes to the aggregate so the loading veil can stay
-// up until the authored models are actually mounted, instead of vanishing the
+// The React island uses the entry subset; deferred pocket loads still update
+// the aggregate for diagnostics and birthday hats. The entry veil waits for
+// authored outdoor models to mount, instead of vanishing the
 // moment the WebGL context exists while the procedural stand-ins still show.
 //
 // A rejected load (404, decode failure) still counts as settled: the loader
@@ -16,12 +17,17 @@ const state = {
   settled: 0,
   failed: 0,
   listeners: new Set(),
+  entry: { total: 0, settled: 0, failed: 0 },
   snapshot: null
 };
 
 function buildSnapshot() {
   const pending = state.total - state.settled;
   return Object.freeze({
+    entry: Object.freeze({ ...state.entry,
+      pending: state.entry.total - state.entry.settled,
+      ratio: state.entry.total ? state.entry.settled / state.entry.total : 0,
+      complete: state.entry.total > 0 && state.entry.settled === state.entry.total }),
     total: state.total,
     settled: state.settled,
     failed: state.failed,
@@ -52,14 +58,16 @@ export function subscribeAssetProgress(listener) {
 
 // Register one asset load. Returns the same promise so call sites can keep
 // chaining; settlement (either way) is what advances the progress counter.
-export function trackAssetLoad(promise) {
+export function trackAssetLoad(promise, region = "entry") {
   state.total += 1;
+  if (region === "entry") state.entry.total += 1;
   notify();
   let done = false;
   const settle = (ok) => {
     if (done) return;
     done = true;
     state.settled += 1;
+    if (region === "entry") { state.entry.settled++; if (!ok) state.entry.failed++; }
     if (!ok) state.failed += 1;
     notify();
   };
@@ -69,6 +77,7 @@ export function trackAssetLoad(promise) {
 
 // Tests and hot reloads start from a clean counter.
 export function resetAssetProgress() {
+  state.entry = { total: 0, settled: 0, failed: 0 };
   state.total = 0;
   state.settled = 0;
   state.failed = 0;

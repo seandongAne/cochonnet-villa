@@ -80,7 +80,10 @@ export function createGarden(options = {}) {
   return result;
 }
 
-export function createFlowers() {
+export function createFlowers(landmarkId) {
+  // Camping already has authored grass and a visited ring. The generic reward
+  // blooms intersect its campers and firewood, including while scaling in.
+  if (landmarkId === 'camping') return new THREE.Group();
   const s = studio();
   for (let i = 0; i < 12; i++) {
     const a = i * 2.39996; const r = 0.47 + (i % 3) * 0.09;

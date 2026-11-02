@@ -1,0 +1,269 @@
+{
+  "date": "2026-11-01",
+  "baselineCommit": "d114e96",
+  "method": {
+    "build": "production",
+    "server": "node scripts/startup-audit-server.mjs",
+    "cache": "new loopback origin per navigation; no-store; gzip for text",
+    "viewport": [
+      1280,
+      720
+    ],
+    "dpr": 1.25,
+    "gpu": "NVIDIA RTX 3080 (same local preview host)",
+    "samplesPerPage": 3,
+    "observation": "15 seconds after DOMContentLoaded; diagnostics hidden until complete",
+    "limitations": [
+      "No WAN latency or bandwidth emulation",
+      "OS file cache and GPU/driver caches remain warm",
+      "Same browser process; not a fresh OS/browser installation",
+      "Homepage includes the November 1 birthday greeting",
+      "Ready means hero-ready paint opportunity on home, entry assets ready on map, first rendered scene on universe; it does not mean every optional asset is downloaded"
+    ],
+    "discarded": [
+      "First exploratory map sample ended at 11.5 seconds and is excluded from fixed-window statistics"
+    ],
+    "metrics": {
+      "blockingMsBeforeReady": "Sum of max(0, longtask.duration - 50ms) for tasks starting before ready; a custom proxy, not Lighthouse TBT",
+      "sameOriginTransferBytes": "Resource Timing transferSize summed over same-origin subresources in observation window, excluding document; not total filesystem size",
+      "villaSceneFactoryMs": "Inclusive synchronous duration of outdoor Scene factory (baseline also includes pocket)",
+      "universeMeasuredFactoriesMs": "Sum of instrumented non-overlapping miniature/ground factory durations; not all React, decode or GPU work",
+      "firstCanvasFrameMs": "First useFrame callback; not proof of completed GPU presentation"
+    }
+  },
+  "before": [
+    {
+      "page": "/",
+      "port": 4341,
+      "readyMs": 162.1,
+      "firstCanvasFrameMs": null,
+      "fcpMs": 128,
+      "blockingMsBeforeReady": 0,
+      "maxTaskMs": 0,
+      "sameOriginTransferBytes": 392818,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/",
+      "port": 4344,
+      "readyMs": 72.2,
+      "firstCanvasFrameMs": null,
+      "fcpMs": 64,
+      "blockingMsBeforeReady": 0,
+      "maxTaskMs": 0,
+      "sameOriginTransferBytes": 393372,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/",
+      "port": 4347,
+      "readyMs": 73.5,
+      "firstCanvasFrameMs": null,
+      "fcpMs": 60,
+      "blockingMsBeforeReady": 0,
+      "maxTaskMs": 0,
+      "sameOriginTransferBytes": 393372,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/villa-map/",
+      "port": 4345,
+      "readyMs": 1718.6,
+      "firstCanvasFrameMs": 413.9,
+      "fcpMs": 44,
+      "blockingMsBeforeReady": 444,
+      "maxTaskMs": 223,
+      "sameOriginTransferBytes": 18321813,
+      "villaSceneFactoryMs": 154.5,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/villa-map/",
+      "port": 4348,
+      "readyMs": 1702.4,
+      "firstCanvasFrameMs": 404.5,
+      "fcpMs": 44,
+      "blockingMsBeforeReady": 428,
+      "maxTaskMs": 209,
+      "sameOriginTransferBytes": 18321813,
+      "villaSceneFactoryMs": 143.1,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/villa-map/",
+      "port": 4350,
+      "readyMs": 1631,
+      "firstCanvasFrameMs": 402.2,
+      "fcpMs": 44,
+      "blockingMsBeforeReady": 395,
+      "maxTaskMs": 212,
+      "sameOriginTransferBytes": 18321813,
+      "villaSceneFactoryMs": 147.2,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/little-universe/",
+      "port": 4343,
+      "readyMs": 610.4,
+      "firstCanvasFrameMs": 418.1,
+      "fcpMs": 68,
+      "blockingMsBeforeReady": 210,
+      "maxTaskMs": 192,
+      "sameOriginTransferBytes": 3237745,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": 176.2
+    },
+    {
+      "page": "/little-universe/",
+      "port": 4346,
+      "readyMs": 579.1,
+      "firstCanvasFrameMs": 397.8,
+      "fcpMs": 64,
+      "blockingMsBeforeReady": 219,
+      "maxTaskMs": 206,
+      "sameOriginTransferBytes": 3237745,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": 192.3
+    },
+    {
+      "page": "/little-universe/",
+      "port": 4349,
+      "readyMs": 563.4,
+      "firstCanvasFrameMs": 393.4,
+      "fcpMs": 64,
+      "blockingMsBeforeReady": 199,
+      "maxTaskMs": 199,
+      "sameOriginTransferBytes": 3237745,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": 181.0
+    }
+  ],
+  "after": [
+    {
+      "page": "/villa-map/",
+      "port": 4360,
+      "readyMs": 1675,
+      "firstCanvasFrameMs": 448.3,
+      "fcpMs": 84,
+      "blockingMsBeforeReady": 421,
+      "maxTaskMs": 201,
+      "sameOriginTransferBytes": 17037060,
+      "villaSceneFactoryMs": 122.5,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/villa-map/",
+      "port": 4362,
+      "readyMs": 1550.3,
+      "firstCanvasFrameMs": 363.5,
+      "fcpMs": 40,
+      "blockingMsBeforeReady": 359,
+      "maxTaskMs": 181,
+      "sameOriginTransferBytes": 17037060,
+      "villaSceneFactoryMs": 116.2,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/villa-map/",
+      "port": 4364,
+      "readyMs": 1549.5,
+      "firstCanvasFrameMs": 369.7,
+      "fcpMs": 44,
+      "blockingMsBeforeReady": 372,
+      "maxTaskMs": 185,
+      "sameOriginTransferBytes": 17037060,
+      "villaSceneFactoryMs": 120.2,
+      "universeMeasuredFactoriesMs": null
+    },
+    {
+      "page": "/little-universe/",
+      "port": 4361,
+      "readyMs": 529.1,
+      "firstCanvasFrameMs": 367.6,
+      "fcpMs": 68,
+      "blockingMsBeforeReady": 107,
+      "maxTaskMs": 128,
+      "sameOriginTransferBytes": 3237762,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": 112.4
+    },
+    {
+      "page": "/little-universe/",
+      "port": 4363,
+      "readyMs": 470.5,
+      "firstCanvasFrameMs": 320,
+      "fcpMs": 68,
+      "blockingMsBeforeReady": 108,
+      "maxTaskMs": 126,
+      "sameOriginTransferBytes": 3237762,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": 111.3
+    },
+    {
+      "page": "/little-universe/",
+      "port": 4365,
+      "readyMs": 464,
+      "firstCanvasFrameMs": 320.4,
+      "fcpMs": 60,
+      "blockingMsBeforeReady": 100,
+      "maxTaskMs": 126,
+      "sameOriginTransferBytes": 3237762,
+      "villaSceneFactoryMs": null,
+      "universeMeasuredFactoriesMs": 110.2
+    }
+  ],
+  "factoryFindings": {
+    "baselineVillageMs": [
+      56.2,
+      56.0
+    ],
+    "baselineInvisibleFlowersMs": [
+      64.1,
+      82.6,
+      70.9
+    ],
+    "afterInitialFlowerFactoryCount": 0,
+    "afterInitialPocketFactoryCount": 0
+  },
+  "verification": {
+    "tests": 575,
+    "build": "passed",
+    "outdoor": {
+      "entryModels": 37,
+      "pocketCreated": false,
+      "observatoryRuntimePresent": false,
+      "diagnosticPanelWithoutQuery": false
+    },
+    "indoor": {
+      "models": 139,
+      "settled": 139,
+      "failed": 0,
+      "pocketCreated": true
+    },
+    "observatory": {
+      "active": true,
+      "photoSkyTier": "8k",
+      "photoSkyReady": true,
+      "browserErrors": 0
+    },
+    "repeatPocketVisit": {
+      "totalModelLoads": 139,
+      "pending": 0
+    },
+    "visitedEncore": {
+      "flowerFactoryCount": 1,
+      "flowerFactoryStartMs": 11377.6,
+      "flowerFactoryDurationMs": 14.9,
+      "flowersVisuallyChecked": true,
+      "browserErrors": 0
+    },
+    "homeHero": {
+      "naturalWidth": 640,
+      "naturalHeight": 426,
+      "complete": true
+    }
+  }
+}

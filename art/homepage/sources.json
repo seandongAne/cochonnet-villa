@@ -1,10 +1,13 @@
 {
   "artwork": "villa-welcome-approved.png",
   "source": "User-supplied and explicitly selected image in the homepage illustration conversation",
-  "sourceFilename": "codex-clipboard-2dc3b022-d7e1-43c6-8609-f328ba0a7d5b.png",
-  "selectedOn": "2026-10-31",
+  "sourceFilename": "becedd3b-0a9d-406c-905e-a08244be1fcb.png",
+  "selectedOn": "2026-11-01",
   "usage": "Homepage villa-map entrance illustration, including all fifteen residents",
   "processing": "Full composition preserved. WebP derivatives at 768 and 1536 pixels wide, quality 90; no crop or repainting.",
   "rebuild": "node scripts/build-villa-welcome.mjs",
-  "outputs": ["public/assets/villa-welcome-768.webp", "public/assets/villa-welcome.webp"]
+  "outputs": [
+    "public/assets/villa-welcome-768.webp",
+    "public/assets/villa-welcome.webp"
+  ]
 }

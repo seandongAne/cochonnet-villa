@@ -1,3 +1,4 @@
+import { measureStartup, markStartup } from '../startup-metrics.js';
 import BirthdaySky, { useBirthday } from '../components/BirthdaySky.jsx';
 import { CABIN_SIGN_POSITION } from './destination-buildings.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -13,8 +14,8 @@ import RoomInterior from './RoomInterior.jsx';
 import { EXTERIOR_DOORS } from './rooms.js';
 import { CinemaSign } from './MovieNight.jsx';
 
-function Miniature({ factory, ...props }) {
-  const object = useMemo(factory, [factory]);
+function Miniature({ factory, label, ...props }) {
+  const object = useMemo(() => measureStartup(`universe.${label || factory.name}`, factory), [factory, label]);
   useEffect(() => () => disposeMiniature(object), [object]);
   return <primitive object={object} dispose={null} {...props} />;
 }
@@ -34,6 +35,7 @@ function LandmarkDoor({ id, opening, reducedMotion, onEnter, interactive }) {
 function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, candidate, moving, opening, onEnter }) {
   const frame = useMemo(() => surfaceFrame(place.direction), [place]);
   const factory = useMemo(() => () => createLandmark(place.id), [place.id]);
+  const flowerFactory = useMemo(() => () => createFlowers(place.id), [place.id]);
   const flowers = useRef();
   const light = useRef();
   const [hover, setHover] = useState(false);
@@ -53,7 +55,7 @@ function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, ca
   });
   return <group position={frame.position} quaternion={frame.quaternion} userData={{ location: place.id }}>
     <group onClick={(event) => { event.stopPropagation(); if (!interactive || event.delta >= 6) return; if (selected !== place.id) onVisit(place.id); }} onPointerOver={(event) => { event.stopPropagation(); setHover(true); }} onPointerOut={() => setHover(false)}>
-      {place.id === 'camping' ? <CampingVignette active={selected === 'camping'} showCaptions={selected === 'camping' && !moving} reducedMotion={reducedMotion} dialogue={place.dialogue} /> : <Miniature factory={factory} />}
+      {place.id === 'camping' ? <CampingVignette active={selected === 'camping'} showCaptions={selected === 'camping' && !moving} reducedMotion={reducedMotion} dialogue={place.dialogue} /> : <Miniature factory={factory} label={place.id} />}
       {place.id === 'movie-night' && <><CinemaSign position={[-.07, .61, .5]} size={[1, .12]} background="#edd16c" color="#9e4936" /><CinemaSign title="CINEMA" vertical background="#42b5ac" color="#b65337" size={[.19, .55]} position={[-.19, 1.04, .315]} /></>}
       {place.id === 'game-room' && <CinemaSign title="PLAYER TWO" size={[.75, .09]} position={[0, .58, .49]} background="#e1cfad" color="#344850" />}
       {place.id === 'gallery' && <CinemaSign title="LITTLE GALLERY" size={[.86, .09]} position={[0, .62, .46]} background="#eee5d6" color="#5d705c" />}
@@ -64,7 +66,7 @@ function Landmark({ place, visited, onVisit, reducedMotion, labels, selected, ca
         <ringGeometry args={place.id === 'camping' ? [.78, hover || candidate === place.id ? .82 : .79, 48] : [0.65, hover || candidate === place.id ? 0.71 : 0.66, 48]} /><meshBasicMaterial color={visited ? '#ffe3a0' : '#efdfc6'} transparent opacity={hover || visited || candidate === place.id ? 0.9 : 0.3} side={THREE.DoubleSide} />
       </mesh>
     </group>
-    <group ref={flowers} scale={0.001}><Miniature factory={createFlowers} /></group>
+    <group ref={flowers} scale={0.001}>{visited && <Miniature factory={flowerFactory} label="flowers" />}</group>
     <pointLight ref={light} position={[0, 0.55, 0.38]} color="#ffd195" distance={2} decay={2} intensity={0} />
     {labels && selected !== place.id && <Html position={place.label} center occlude zIndexRange={[12, 0]}>
       <button className={`lu-pin ${visited ? 'is-visited' : ''} ${candidate === place.id ? 'is-candidate' : ''}`} disabled={moving || opening} onClick={() => onVisit(place.id)} aria-label={`Visit ${place.name}`}><span>{visited ? '✦' : '✧'}</span>{place.name}</button>
@@ -143,7 +145,7 @@ function WorldFocus({ selected, reducedMotion, children }) {
 function ContextEvents({ onReady, onFailure }) {
   const { gl } = useThree();
   const didRender = useRef(false);
-  useFrame(() => { if (!didRender.current) { didRender.current = true; onReady(); } });
+  useFrame(() => { if (!didRender.current) { didRender.current = true; markStartup('canvas-frame'); requestAnimationFrame(() => markStartup('ready')); onReady(); } });
   useEffect(() => {
     const lost = (event) => { event.preventDefault(); onFailure(); };
     gl.domElement.addEventListener('webglcontextlost', lost);
@@ -179,7 +181,7 @@ export default function UniverseScene({ visited, onVisit, onWish, reducedMotion,
     <group visible={!inside}>
     <WorldFocus selected={selected} reducedMotion={reducedMotion}><group rotation={[0, 0, PLANET_TILT]}>
       <mesh receiveShadow><sphereGeometry args={[2.5, 80, 64]} /><meshStandardMaterial color="#a9c6ae" roughness={0.96} /></mesh>
-      <Miniature factory={createGarden} />
+      <Miniature factory={createGarden} label="garden" />
       {/* A small, inset-looking blue pond on the lower left hemisphere. */}
       <group {...surfaceFrame([-0.62, -0.04, 0.78], 2.475)}>
         <mesh scale={[0.43, 0.075, 0.7]}><sphereGeometry args={[1, 32, 24]} /><meshStandardMaterial color="#91bfc0" roughness={0.3} metalness={0.12} /></mesh>

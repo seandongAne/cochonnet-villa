@@ -84,7 +84,7 @@ export function createFurniturePiece(placement, hooks = {}) {
   group.add(placeholder);
 
   group.userData.assetState = "loading";
-  trackAssetLoad(loadModel(placement.url)
+  const start = () => trackAssetLoad(loadModel(placement.url)
     .then(async (source) => {
       const model = source.clone(true);
       if(placement.room?.startsWith('mushroom-')){
@@ -106,7 +106,7 @@ export function createFurniturePiece(placement, hooks = {}) {
       group.clear();
       group.add(model);
       group.userData.assetState = "ready";
-    }))
+    }), hooks.region)
     // Outside trackAssetLoad so a failed swap counts as failed, not settled-OK.
     .catch((error) => {
       group.userData.modelLoadFailed = true;
@@ -114,6 +114,8 @@ export function createFurniturePiece(placement, hooks = {}) {
       group.userData.assetState = "fallback";
     });
 
+  if (hooks.defer) hooks.defer(start);
+  else start();
   return group;
 }
 

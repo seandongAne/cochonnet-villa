@@ -57,6 +57,7 @@ function LocationFocus({ place, onClose, onSelect, unavailable, roomPhase, roomI
   const back = useRef();
   const inside = roomPhase === 'inside' || roomPhase === 'closing';
   const opening = roomPhase === 'opening';
+  const exteriorRoom = !inside && ROOM_IDS.includes(place.id);
   useEffect(() => { back.current?.focus({ preventScroll: true }); }, [inside]);
   useEffect(() => {
     const key = (event) => { if (event.key === 'Escape' && !event.target?.closest?.('dialog')) onClose(); };
@@ -66,23 +67,22 @@ function LocationFocus({ place, onClose, onSelect, unavailable, roomPhase, roomI
   return <section className={`lu-focus-ui ${inside ? 'is-inside' : ''} ${inside && place.id === 'workshop' ? 'is-atelier' : ''} ${['movie-night', 'one-more-episode', 'gallery', 'game-room'].includes(place.id) ? 'is-cinema' : ''} ${place.id === 'music' ? 'is-music' : ''} ${place.id === 'gallery' ? 'is-gallery' : ''} ${['workshop', 'museum'].includes(place.id) ? 'is-collection' : ''}`} aria-label={inside ? `${place.name} interior` : 'Location focus'}>
     <button ref={back} className="lu-focus-back" onClick={onClose}>← {inside ? 'Step outside' : 'Back to planet'} <span>Esc</span></button>
     <div className="lu-focus-caption" aria-live="polite">
-      <p className="lu-eyebrow">{inside ? 'COME IN. STAY A WHILE.' : 'A LITTLE CLOSER'}</p>
+      {!exteriorRoom && <p className="lu-eyebrow">{inside ? 'COME IN. STAY A WHILE.' : 'A LITTLE CLOSER'}</p>}
       <h2>{place.name}</h2><p>{place.subtitle}</p>
-      {!inside && <div className="lu-camp-view-controls"><small>Drag to explore · Scroll or pinch to zoom out and back in</small><button className="lu-pill" disabled={unavailable} onClick={onResetView}>Reset view ↺</button></div>}
-      {!inside && place.entranceNote && <small className="lu-entrance-note">{place.entranceNote}</small>}
+      {!inside && !exteriorRoom && <div className="lu-camp-view-controls"><small>Drag to explore · Scroll or pinch to zoom out and back in</small><button className="lu-pill" disabled={unavailable} onClick={onResetView}>Reset view ↺</button></div>}
       {unavailable && <p role="status">3D is unavailable. Return to the planet to retry.</p>}
-      {place.id === 'gallery' && <div className="lu-record-controls lu-gallery-controls">
+      {inside && place.id === 'gallery' && <div className="lu-record-controls lu-gallery-controls">
         {galleryWorks.length ? <button className="lu-pill" onClick={() => onPoster(galleryWorks[0].id)}>浏览 {galleryWorks.length} 幅作品 ↗</button> : <small>第一幅作品正在路上。</small>}
         {inside && <small className="lu-gallery-weekly" aria-live="polite">本周随机展出 {Math.min(GALLERY_EXHIBITION_SIZE, galleryWorks.length)} 幅 · 每周一换展<br />{galleryWeek} 起 · 多伦多时间</small>}
 
       </div>}
-      {place.id === 'game-room' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(gameId)}>浏览 {games.length} 款游戏 ↗</button></div>}
+      {inside && place.id === 'game-room' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(gameId)}>浏览 {games.length} 款游戏 ↗</button></div>}
       {inside && place.id === 'game-room' && <div className="lu-record-controls lu-game-controls"><div role="group" aria-label="Choose a console">{GAME_CONSOLES.map(item => <button key={item.id} className="lu-pill" aria-pressed={gameConsole === item.id} onClick={() => onGameConsole(item.id)}>{item.name}</button>)}</div><small>Console shelf: {GAME_CONSOLES.find(item => item.id === gameConsole).name} · Make yourself at home.</small></div>}
       {inside && place.id === 'music' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(musicals[0].id)}>Browse {musicals.length} musicals <span>↗</span></button><button className="lu-pill" onClick={() => onPoster(vinylRecords[0].id)}>Browse {vinylRecords.length} records <span>↗</span></button><button className="lu-pill" aria-pressed={spinning} onClick={onSpin}>{spinning ? 'Stop the vinyl' : 'Spin the vinyl'}</button><small>{reducedMotion ? 'Our vinyl & theatre collection · reduced motion is on' : 'Our vinyl. Our nights at the theatre.'}</small></div>}
       {inside && place.id === 'movie-night' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(movies[0].id)}>Browse {movies.length} movie posters <span>↗</span></button><small>Tap a holographic poster, or explore the whole collection</small></div>}
       {inside && place.id === 'one-more-episode' && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(series[0].id)}>Browse {series.length} series <span>↗</span></button><small>Our favorite worlds, one episode at a time</small></div>}
       {inside && ['workshop', 'museum'].includes(place.id) && <div className="lu-record-controls"><button className="lu-pill" onClick={() => onPoster(place.id === 'workshop' ? 'sean-tornado' : 'ru-winter-su100')}>Explore the collection ↗</button><small>{place.id === 'workshop' ? 'Five creations by Sean · At the heart of the Hangar' : 'Tap a model to turn it around and look closer'}</small></div>}
-      <nav aria-label="Visit another location">{landmarks.map((item) => <button key={item.id} aria-label={`Focus ${item.name}`} aria-pressed={item.id === place.id} onClick={() => onSelect(item.id)}><Icon type={item.id} /></button>)}</nav>
+      {!exteriorRoom && <nav aria-label="Visit another location">{landmarks.map((item) => <button key={item.id} aria-label={`Focus ${item.name}`} aria-pressed={item.id === place.id} onClick={() => onSelect(item.id)}><Icon type={item.id} /></button>)}</nav>}
     </div>
     {inside && <div className="lu-room-navigation">
       <p>Drag to look · Hold arrows to move<br /><span>WASD to walk · Arrow keys to walk & turn</span><br /><span>Scroll to zoom · Esc or click the doorway to step outside</span></p>

@@ -147,9 +147,9 @@ test('disposing a miniature releases each owned geometry and material exactly on
 
 test('the camping memory keeps the two characters and the birthday content is editable', () => {
   assert.deepEqual(landmarks[0].dialogue, [
-    { speaker: 'Little Pig', text: 'This is my second time camping.' },
-    { speaker: 'Bai Baicai', text: 'When was the first time?' },
-    { speaker: 'Little Pig', text: 'Yesterday.' },
+    { speaker: 'Daidai Zhu', text: 'This is my second time camping.' },
+    { speaker: 'Baibai Cai', text: 'When was the first time?' },
+    { speaker: 'Daidai Zhu', text: 'Yesterday.' },
   ]);
   assert.ok(birthday.message);
   for (const place of landmarks) {

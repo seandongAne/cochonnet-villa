@@ -121,7 +121,7 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
   turns its local -Z entrance toward the east courtyard and interaction point.
 - `map-quality.js` + `react/MapRenderBudget.jsx`: the existing persisted Q choice
   now also controls map resolution, sun shadows and steam. Map Auto starts at
-  Medium, ignores startup/background/modal intervals, requires two slow windows
+  Low (or the previously observed Minimum), ignores startup/background/modal intervals, requires two slow windows
   before reducing quality, and twelve fast windows before increasing it. The
   observatory retains its own separate auto-tier and failure handling.
 - The static sun shadow is cached. Async mesh replacement, quality changes,
@@ -139,8 +139,9 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
 - Every streamed GLB (resort shells, pigs, furniture) awaits `react/gpu-prepare.js`
   before replacing its stand-in: one canvas-wide queue uploads textures one per
   animation frame (back-to-back while the page is hidden) and `compileAsync`
-  prepares programs. The loading veil in `VillaMap.jsx` waits on the node-pure
-  `asset-loading.js` registry (`streamedAssets` in the snapshot).
+  prepares programs. The loading veil in `VillaMap.jsx` waits on the entry region of the node-pure
+  `asset-loading.js` registry (`streamedAssets.entry` in the snapshot). Pocket
+  furniture and resident loads start only near the mushroom entrance.
 
 | Map tier | Max DPR | Sun shadow | Steam instances |
 |---|---:|---:|---:|
@@ -197,3 +198,60 @@ Apple M5 Max / ANGLE Metal renderer before and after. On the warm second lap,
 p95 was 8.7 ms before and 8.9 ms after; p99 was 9.3 ms in both. The new version
 recorded zero frames over 50 ms on both laps. This checks this desktop only;
 it is not a claim about performance on integrated or mobile GPUs.
+
+## First-entry performance pass — 2026-11-01
+
+- Auto starts conservatively at Low. A remembered Minimum is reused; higher
+  historical tiers still start at Low. Manual Q choices and query-only QA tier
+  overrides retain precedence. Three consecutive foreground frames above 250 ms
+  trigger Minimum even during warmup. Isolated stalls, background and suspended
+  samples do not trigger that emergency downgrade; recovery retains its long dwell.
+- Low caps the canvas at 1,500,000 pixels; Minimum caps it at 1,000,000, in
+  addition to their existing DPR caps. `MapRenderBudget` owns live DPR using the
+  actual canvas CSS size, including resize and browser zoom. Canvas bootstraps
+  conservatively and does not reapply an uncapped DPR on React updates.
+- `region-loading.js` defers 96 mushroom furniture instances and six buried
+  residents. Nothing in this queue fetches or prepares until the camera comes
+  within seven horizontal metres of the existing door interaction (ground only),
+  enters the pocket, or uses edit mode. Normal spawn is outside the threshold.
+  Two load/prepare/swap chains run concurrently; failures release their slots.
+  Once requested, the region finishes loading and remains available on return.
+- Entry progress now covers the 37 outdoor instances, down from 139 all-map
+  instances. Total progress still includes every started load for diagnostics and
+  birthday-hat refresh. Pocket registration never revokes entry readiness.
+  A non-blocking indoor status explains first-visit furnishing. Collision remains available from startup; procedural room architecture now
+  builds on the seven-metre approach (see the follow-up startup audit); first-entry mode
+  does not remove rooms, residents, or authored detail.
+- Optional prewarm pauses during modals or frames slower than 30 FPS, uses one
+  pocket mesh per batch on Low/Minimum, and only visits pocket roots near the
+  entrance or indoors. Observatory roots retain their existing exclusion and
+  L2/L3 pause. The streamed-model GPU preparer still owns safe texture/shader swaps.
+
+Validation: 571 tests and production build pass. Local RTX 3080 preview at
+`observatory=perf&view=villa-front&lights=on&mapquality=minimum` settles 37/37
+entry assets with pocketRequested=false and 102 deferred jobs; outdoor prewarm
+settles at 250 meshes instead of the previous all-region 1,034. Visiting
+`mushroom-hearth` finishes 139/139 with zero failures, zero remaining placeholders
+and all 24 resident hats fitted to their ready models. These counts verify work
+is deferred; they are not a claimed load-time percentage or low-end FPS benchmark.
+The base scene still has substantial geometry; model LOD belongs to the next pass.
+
+Ordinary `/villa-map/` entry and the Q panel were also exercised. Auto recovered
+upwards on the desktop; a manual Minimum selection took effect without resetting
+player controls. With a requested 5120x1440 viewport, the actual canvas drawing
+buffer was 1229x813 (999,177 pixels), below its one-million-pixel cap. The viewport
+and Q selection were restored afterwards. Both preview tabs reported no console
+errors. The room screenshot was checked after every deferred model settled.
+
+## Demand-created geometry and cold startup follow-up
+
+The pocket architecture, sky/event visuals, Rift visuals and observatory runtime
+now mount once on the same entrance demand as the model queue, and remain mounted
+on subsequent exits/returns. Outdoor and player-control identities stay stable.
+Shared lighting remains installed to avoid changing outdoor shader light counts.
+The Little Universe's eight initially invisible flower groups now create geometry
+only when their destination is visited (or the finale reveals them).
+
+`docs/performance/STARTUP.md` records the three-route cold-cache comparison and
+before/after measurements. All instrumentation is loopback-only and opt-in through
+`startup=measure`; production visits do not collect or display measurements.
