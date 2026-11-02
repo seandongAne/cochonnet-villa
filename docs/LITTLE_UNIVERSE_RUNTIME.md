@@ -143,6 +143,28 @@ geometry limits, not measured FPS.
 - Deploy runs `npm test` before `npm run build`. Tests passing do not establish
   visual acceptance or third-party redistribution permission.
 
+### Camper replacements (November 2)
+
+The existing `little-pig` and `bai-baicai` IDs now use the author-supplied
+`呆呆猪.glb` and the eye-corrected `白白菜-eye-repair/白白菜-eyes-fixed.glb`.
+The cabbage master is pinned by SHA-256 in `sources.json`; its local eye repair
+matches the two eyes' front-projected dimensions before web optimization.
+Positions, fitting boxes, headings, conversation and motion remain unchanged.
+
+Rebuild either asset with `node scripts/import-birthday-models.mjs <GLB-directory>
+<little-pig|bai-baicai>`. The importer uses an OS temporary directory so linked
+Git worktrees work as well as primary checkouts. High-resolution sources stay
+outside the repository. The existing 0.08 target simplification ratio and 0.002
+error bound are retained, with embedded WebP textures up to 1024 pixels.
+Runtime sizes are 1,359,940 bytes (pig) and 1,098,656 bytes (cabbage); tests cap
+each camper at 2.5 MiB and pin the corrected cabbage source.
+
+Validation: 592 tests passed, the production build emitted 44 pages, and
+`git diff --check` passed. The production preview was checked at initial camping
+focus, zoomed close-up, a dragged oblique view, and after leaving/revisiting the
+campsite. Both characters loaded with textures, conversation remained usable,
+and the browser reported no console errors. [Preview screenshot](camper-replacement/campsite.jpg).
+
 ## Open decisions after the October 30 audit
 
 | Priority | Pending work | Evidence boundary |

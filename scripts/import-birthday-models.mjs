@@ -1,6 +1,7 @@
 // Local birthday asset import; source files are never modified.
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -171,8 +172,8 @@ const sources = [
  ['sean-beauty-hunter', 'Meshy_AI_Beauty_Hunter_1030205827_texture.glb', 1],
  ['sean-azure-eagle', 'Meshy_AI_Azure_Eagle_1030205732_texture.glb', 1],
  ['sean-eurofighter', 'Meshy_AI_German_Eurofighter_Ty_1030205727_texture.glb', 1],
- ['little-pig', 'Meshy_AI_Punky_Piglet_1030154555_texture.glb', .08],
- ['bai-baicai', 'Meshy_AI_Cheerful_Cabbage_Masc_1030164219_texture.glb', .08],
+ ['little-pig', '呆呆猪.glb', .08],
+ ['bai-baicai', '白白菜-eye-repair/白白菜-eyes-fixed.glb', .08],
  ['sd-gundam', 'Meshy_AI_SD_Gundam__1030153405_texture.glb', .08],
  ['reborns-gundam', 'Meshy_AI_Reborns_Gundam_Metal__1030163302_texture (1).glb', 1],
  ['zz-gundam-verka', 'Meshy_AI_ZZ_Gundam_VerKa_1030183144_image-to-3d-texture.glb', .15],
@@ -192,14 +193,24 @@ for (const [id, filename, ratio] of sources) {
  if (selectedId && id !== selectedId) continue;
  const input = path.join(sourceDir, filename);
  const output = path.join(outputDir, id + '.glb');
- const temp = path.join(ROOT, '.git', id + '-textures.glb');
+ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'birthday-model-'));
+ const temp = path.join(tempDir, id + '-textures.glb');
+ try {
  const { json, bin } = readGlb(fs.readFileSync(input));
  const converted = await convertTextures(json, bin, id);
  fs.writeFileSync(temp, writeGlb(converted.json, converted.bin));
  execFileSync(process.execPath, [GLTFPACK, '-i', temp, '-o', output, '-cc', '-si', String(ratio), '-se', '0.002', '-kn', '-km'], { stdio: 'inherit' });
- fs.unlinkSync(temp);
+ } finally {
+  fs.rmSync(tempDir, { recursive: true, force: true });
+ }
  const crypto = await import('node:crypto');
  const record = { id, source: filename, sourceBytes: fs.statSync(input).size, runtimeBytes: fs.statSync(output).size, sha256: crypto.createHash('sha256').update(fs.readFileSync(output)).digest('hex'), simplificationRatio: ratio };
+ if (['little-pig', 'bai-baicai'].includes(id)) Object.assign(record, {
+  suppliedAt: '2026-11-02',
+  sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(input)).digest('hex'),
+  conversion: 'Existing camper pipeline: meshopt compression, 0.08 target simplification with 0.002 error bound; embedded WebP base color up to 1024px and PBR maps up to 512px.',
+  ...(id === 'bai-baicai' ? { eyeRepair: 'Viewer-left eye enlarged locally to match right-eye front-projected width and height; original UVs, textures and other geometry retained before web optimization.', originalSource: '白白菜.glb', originalSourceSha256: '599b26c0aa2c7997ea848f6e25180a5ba5ac8af0689b4740c16ee5e868d57ffb' } : {}),
+ });
  if (id.startsWith('sean-')) Object.assign(record, {
   creator: 'Sean', attribution: 'Created by Sean; confirmed by the user on 2026-10-30.',
   sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(input)).digest('hex'),
@@ -218,5 +229,5 @@ for (const [id, filename, ratio] of sources) {
  const existing = records.findIndex(item => item.id === id);
  if (existing < 0) records.push(record); else records[existing] = record;
  console.log(JSON.stringify(record));
- fs.writeFileSync(path.join(outputDir, 'sources.json'), JSON.stringify({ source: 'Files supplied by the author on 2026-10-30; originals remain in Downloads. No third-party upload.', processing: 'Embedded WebP textures; meshopt geometry; bounded-error simplification. No external resource URIs.', models: records }, null, 2) + '\n');
+ fs.writeFileSync(path.join(outputDir, 'sources.json'), JSON.stringify({ source: 'Author-supplied models; per-model records identify original files and replacement dates. High-resolution originals remain outside the website repository.', processing: 'Embedded WebP textures; meshopt geometry; bounded-error simplification. No external resource URIs.', models: records }, null, 2) + '\n');
 }

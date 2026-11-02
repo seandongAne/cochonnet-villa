@@ -1,22 +1,31 @@
 {
-  "source": "Files supplied by the author on 2026-10-30; originals remain in Downloads. No third-party upload.",
+  "source": "Author-supplied models; per-model records identify original files and replacement dates. High-resolution originals remain outside the website repository.",
   "processing": "Embedded WebP textures; meshopt geometry; bounded-error simplification. No external resource URIs.",
   "models": [
     {
       "id": "little-pig",
-      "source": "Meshy_AI_Punky_Piglet_1030154555_texture.glb",
-      "sourceBytes": 60801744,
-      "runtimeBytes": 1119076,
-      "sha256": "8aa1c5fd31cd16a3753af35731262207d06589dafedaec3fd2b632d87f54fffc",
-      "simplificationRatio": 0.08
+      "source": "呆呆猪.glb",
+      "sourceBytes": 89714804,
+      "runtimeBytes": 1359940,
+      "sha256": "3dd018a4f16f283f1ee5d84e729f041f11e620f31af8db0d3cea3c8b811878db",
+      "simplificationRatio": 0.08,
+      "suppliedAt": "2026-11-02",
+      "sourceSha256": "73d240e432b01dbfa58e23937377527a1b1d71601bddbf417c062df04bc4d370",
+      "conversion": "Existing camper pipeline: meshopt compression, 0.08 target simplification with 0.002 error bound; embedded WebP base color up to 1024px and PBR maps up to 512px."
     },
     {
       "id": "bai-baicai",
-      "source": "Meshy_AI_Cheerful_Cabbage_Masc_1030164219_texture.glb",
+      "source": "白白菜-eye-repair/白白菜-eyes-fixed.glb",
       "sourceBytes": 60109416,
-      "runtimeBytes": 1098792,
-      "sha256": "5a95209201aff4a3f989038727fec3d68d70700fef2f57b16b4ae0bc4c66b8ab",
-      "simplificationRatio": 0.08
+      "runtimeBytes": 1098656,
+      "sha256": "282fad1c7734828a4012dda286c2a605c097440e1213bec3dc5e9b1247170941",
+      "simplificationRatio": 0.08,
+      "suppliedAt": "2026-11-02",
+      "sourceSha256": "c7aa5696d7f0f592c5408e57812a7eecaec8f57def69c78bd545ff941224c21e",
+      "conversion": "Existing camper pipeline: meshopt compression, 0.08 target simplification with 0.002 error bound; embedded WebP base color up to 1024px and PBR maps up to 512px.",
+      "eyeRepair": "Viewer-left eye enlarged locally to match right-eye front-projected width and height; original UVs, textures and other geometry retained before web optimization.",
+      "originalSource": "白白菜.glb",
+      "originalSourceSha256": "599b26c0aa2c7997ea848f6e25180a5ba5ac8af0689b4740c16ee5e868d57ffb"
     },
     {
       "id": "sd-gundam",

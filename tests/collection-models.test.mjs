@@ -58,6 +58,21 @@ test('all twenty-one shipped assets have local embedded resources, pinned proven
     assert.equal(createHash('sha256').update(bytes).digest('hex'), record.sha256);
     const length = bytes.readUInt32LE(12); const json = JSON.parse(bytes.subarray(20, 20 + length));
     for (const resource of [...(json.images || []), ...(json.buffers || [])]) assert.equal(resource.uri, undefined);
+    if (['little-pig', 'bai-baicai'].includes(record.id)) {
+      assert.ok(bytes.length < 2.5 * 1024 * 1024, 'campers remain small enough for the initial planet download');
+      assert.match(record.sourceSha256, /^[a-f0-9]{64}$/);
+      assert.equal(record.suppliedAt, '2026-11-02');
+      assert.equal(record.source, record.id === 'little-pig' ? '呆呆猪.glb' : '白白菜-eye-repair/白白菜-eyes-fixed.glb');
+      for (const image of json.images) {
+        const view = json.bufferViews[image.bufferView];
+        const offset = 28 + length + (view.byteOffset || 0);
+        const metadata = await sharp(bytes.subarray(offset, offset + view.byteLength)).metadata();
+        assert.ok(metadata.width <= 1024 && metadata.height <= 1024);
+      }
+      if (record.id === 'bai-baicai') {
+        assert.equal(record.sourceSha256, 'c7aa5696d7f0f592c5408e57812a7eecaec8f57def69c78bd545ff941224c21e', 'web derivative comes from the repaired-eye master');
+      }
+    }
     if (fighterIds.includes(record.id)) {
       assert.equal(record.source, '4th+fighter.blend');
       assert.equal(record.materialSource, '4th-generation.rar');
