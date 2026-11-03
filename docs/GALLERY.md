@@ -72,8 +72,8 @@ large-step collision, sliding, every artwork approach, image fit and geometry
 budgets. `little-universe-rooms.test.mjs` retains the original bounds checks for
 other rooms and adds the larger gallery envelope.
 
-Validation for this redesign: 564/564 tests passed, production build emitted 43
-pages, and `git diff --check` passed. Production preview was inspected at desktop
+Validation for this redesign: `npm test`, `npm run build` and `git diff --check`
+passed. Production preview was inspected at desktop
 and 390 x 844 widths: physical artwork click, all five wall groups, original-image
 next/arrow/last-item selection, Escape isolation, walking, drag-look, entrance
 sculptures and bench/rug alcove were checked. The narrow viewer had a 390 px
@@ -115,7 +115,7 @@ short/empty collections, Toronto midnight in summer/winter, year boundaries,
 open-tab updates, wake checks and cleanup. Geometry tests cover all nine artwork
 approach paths and image aspect ratios.
 
-Weekly-exhibition verification: 568/568 tests and the 43-page production build
+Weekly-exhibition verification: the full test suite and the production build
 passed. The production preview showed the nine-work weekly notice and no wall
 paging controls. Clicking selected work 018 opened its loaded 1536 x 1024 original
 in the complete 35-work viewer; Escape returned to the same exhibition. No browser
@@ -136,7 +136,7 @@ and thumbnail buttons retain accessible names. Existing native-dialog focus hand
 Escape isolation, keyboard arrows, full-collection selection and room pause remain.
 The weekly nine-work wall exhibition is independent of this presentation change.
 
-Viewer validation: 568 tests and the 43-page production build passed. Desktop
+Viewer validation: the full test suite and the production build passed. Desktop
 1440 x 900 and narrow 390 x 844 previews showed landscape and square originals,
 working next/keyboard/last-item selection, correct timestamps and restored focus
 on Escape. Decorative glows are clipped by the full-screen surface; narrow layouts

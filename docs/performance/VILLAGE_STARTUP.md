@@ -48,7 +48,7 @@ show the local direction of improvement, not confidence intervals or low-end FPS
 
 ## Fidelity and regression checks
 
-- 580 tests pass; production build passes.
+- Tests and the production build pass.
 - Buildings' position, normal and colour buffers match baseline SHA-256 exactly.
 - Tests compare every pig instance's world-space vertices, normals and colours
   against the unchanged procedural source; positions differ by less than 0.01 mm.
