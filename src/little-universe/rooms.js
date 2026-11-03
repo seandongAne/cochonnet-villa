@@ -10,7 +10,7 @@ import { createVinylFrames } from './vinyl-records.js';
 import { createEncoreSurround } from './destination-buildings.js';
 import { createSeriesFurniture, createSeriesRoomShell, SERIES_OBSTACLES } from './one-more-episode.js';
 import { createIronRoseRoom } from './iron-rose.js';
-import { createHangarAtelier, HANGAR_OBSTACLES, moveInHangar } from './hangar-atelier.js';
+import { createHangarAtelier, HANGAR_OBSTACLES, hangarRoomFov, moveInHangar } from './hangar-atelier.js';
 
 export const ROOM_IDS = ['gallery', 'music', 'workshop', 'museum', 'movie-night', 'one-more-episode', 'game-room'];
 // Click surfaces sit just inside the existing physical doorway, facing inward.
@@ -20,6 +20,14 @@ export const ROOM_EXITS = Object.fromEntries(ROOM_IDS.map(id => [id, id === 'wor
   : { position: [0, 1.15, 2.4], size: [1.1, 2.3] }]));
 export const ROOM_SPAWN = [0, 1.55, 1.45];
 export const ROOM_BOUNDS = { minX: -2.67, maxX: 2.67, minZ: -2.17, maxZ: 2.17 };
+// Interior cameras share this near plane; wall art must stay at least this far
+// outside every reachable visitor position.
+export const ROOM_CAMERA_NEAR = .04;
+// The Hangar refits its field of view to the viewport; other rooms keep a fixed
+// base. This base is also the wheel-zoom rest value in RoomInterior.jsx.
+export function roomBaseFov(id, aspect = 16 / 9) {
+  return id === 'workshop' ? hangarRoomFov(aspect) : 62;
+}
 export const ROOM_OBSTACLES = {
   'game-room': GAME_OBSTACLES,
   gallery: GALLERY_OBSTACLES,

@@ -1,14 +1,14 @@
 import { GalleryLighting } from './GalleryLighting.jsx';
 import { GALLERY_SPAWN, GALLERY_SPEED } from './gallery-interior.js';
 import HangarAtelier from './HangarAtelier.jsx';
-import { HANGAR_LOOK, HANGAR_SPAWN, HANGAR_SPEED, hangarRoomFov } from './hangar-atelier.js';
+import { HANGAR_LOOK, HANGAR_SPAWN, HANGAR_SPEED } from './hangar-atelier.js';
 import { GameRoomScreen } from './GameRoom.jsx';
 import { GalleryWall } from './Gallery.jsx';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { createRoom, moveInRoom, ROOM_SPAWN, ROOM_EXITS } from './rooms.js';
+import { createRoom, moveInRoom, ROOM_SPAWN, ROOM_EXITS, ROOM_CAMERA_NEAR, roomBaseFov } from './rooms.js';
 import { disposeMiniature } from './miniature.js';
 import { RoomCollection } from './CollectionModels.jsx';
 import { CinemaPosters } from './MovieNight.jsx';
@@ -22,24 +22,31 @@ export default function RoomInterior({ id, reducedMotion, input, spinning, onSpi
   const room = useMemo(() => createRoom(id), [id]);
   const keys = useRef(new Set());
   const look = useRef({ yaw: 0, pitch: -.06 });
-  const zoom = useRef(createRoomZoom(id === 'workshop' ? 58 : 62));
+  const zoom = useRef(createRoomZoom(roomBaseFov(id, size.width / Math.max(1, size.height))));
+  const framing = useRef(null);
   const exit = ROOM_EXITS[id];
   const record = useMemo(() => room.getObjectByName('spinning-record'), [room]);
   useEffect(() => { keys.current.clear(); input.current = null; }, [paused, input]);
   useEffect(() => () => disposeMiniature(room), [room]);
   useLayoutEffect(() => {
     const saved = { position: camera.position.clone(), quaternion: camera.quaternion.clone(), up: camera.up.clone(), fov: camera.fov, near: camera.near };
-    camera.position.set(...(id === 'museum' ? [0, 1.7, 2.1] : id === 'workshop' ? HANGAR_SPAWN : id === 'gallery' ? GALLERY_SPAWN : ROOM_SPAWN)); camera.up.set(0, 1, 0); camera.fov = id === 'workshop' ? 58 : 62; camera.near = .04; camera.updateProjectionMatrix();
+    camera.position.set(...(id === 'museum' ? [0, 1.7, 2.1] : id === 'workshop' ? HANGAR_SPAWN : id === 'gallery' ? GALLERY_SPAWN : ROOM_SPAWN)); camera.up.set(0, 1, 0); camera.near = ROOM_CAMERA_NEAR; camera.updateProjectionMatrix();
     look.current = id === 'workshop' ? { ...HANGAR_LOOK } : { yaw: 0, pitch: id === 'museum' ? -.17 : id === 'gallery' ? .12 : -.06 };
     return () => {
+      framing.current = null;
       camera.position.copy(saved.position); camera.quaternion.copy(saved.quaternion); camera.up.copy(saved.up);
       camera.fov = saved.fov; camera.near = saved.near; camera.updateProjectionMatrix();
     };
   }, [camera, id]);
   useLayoutEffect(() => {
-    if (id !== 'workshop') return;
-    camera.fov = hangarRoomFov(size.width / Math.max(1, size.height));
-    camera.updateProjectionMatrix();
+    // The viewport-fitted base is also the wheel-zoom rest value; otherwise the
+    // per-frame damping below would pull a portrait Hangar back to 58 degrees.
+    // Rooms with a fixed base keep the visitor's wheel zoom across resizes.
+    const fov = roomBaseFov(id, size.width / Math.max(1, size.height));
+    if (framing.current === fov) return;
+    framing.current = fov;
+    zoom.current = createRoomZoom(fov);
+    camera.fov = fov; camera.updateProjectionMatrix();
   }, [camera, id, size.width, size.height]);
   useEffect(() => {
     const canvas = gl.domElement; let drag = null; let suppressClick = true;

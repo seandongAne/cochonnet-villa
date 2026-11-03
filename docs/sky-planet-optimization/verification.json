@@ -7,15 +7,16 @@
   },
   "after": {
     "meshes": 4,
-    "triangles": 27764,
-    "geometryBytes": 2878736
+    "triangles": 28364,
+    "geometryBytes": 2943536
   },
   "reductionPercent": {
     "meshes": 93.9,
-    "triangles": 74.4,
-    "geometryBytes": 62.8
+    "triangles": 73.9,
+    "geometryBytes": 62.0
   },
   "scope": "Villa distant sky planet only; full-detail Little Universe factories retain their defaults.",
+  "note": "before: six-destination sky on 2026-10-30. after: eight destinations (gallery and Player Two retained from main), measured with the mesh/triangle/byte accounting in tests/universe-gateway.test.mjs. The six-destination optimized sky measured 4 / 27,764 / 2,878,736.",
   "validation": {
     "testsPassed": 514,
     "testsFailed": 0,

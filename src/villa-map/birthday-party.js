@@ -87,14 +87,24 @@ export function createBirthdayHat(index = 0) {
   return b.finish('birthday-hat');
 }
 
+const missedFits = new Set();
+function warnMissedFit(variant) {
+  if (missedFits.has(variant)) return;
+  missedFits.add(variant);
+  console.warn(`Birthday crown misses ${variant}; resting it on the model's top edge. Check BIRTHDAY_HAT_FITS against the current GLB.`);
+}
+
+// Never throws: the React caller runs this inside a commit and an animation
+// frame on the birthday itself, so a stale fit table or a replaced GLB must
+// degrade visibly (hat.userData.fit === 'bounds') instead of breaking the map.
 export function fitBirthdayHat(hat, object, placement, state = object.userData.assetState) {
   const variant = PORKY_MODEL_VARIANTS[placement.variant];
   const fit = BIRTHDAY_HAT_FITS[placement.variant];
   const height = variant.height * (placement.modelScale ?? 1);
-  let x, y, z, size;
+  let x, y, z, size, method;
   if (state !== 'ready') {
     const scale = placement.fallbackScale ?? variant.fallbackScale;
-    x = 0; y = 2.01 * scale; z = -.55 * scale; size = scale * 1.45;
+    x = 0; y = 2.01 * scale; z = -.55 * scale; size = scale * 1.45; method = 'fallback';
   } else {
     x = fit.x * height; z = fit.z * height; size = fit.size * height;
     // Work in model-group coordinates, independent of its scene placement.
@@ -104,14 +114,20 @@ export function fitBirthdayHat(hat, object, placement, state = object.userData.a
     const origin = new THREE.Vector3(x, height * 3, z).applyMatrix4(localToWorld);
     const direction = new THREE.Vector3(0, -1, 0).transformDirection(localToWorld);
     const hits = new THREE.Raycaster(origin, direction).intersectObject(model, true);
-    if (!hits.length) throw new Error(`Birthday crown misses ${placement.variant}`);
-    y = object.worldToLocal(hits[0].point.clone()).y - .025 * height;
+    if (hits.length) {
+      y = object.worldToLocal(hits[0].point.clone()).y - .025 * height; method = 'surface';
+    } else {
+      warnMissedFit(placement.variant);
+      const bounds = new THREE.Box3().setFromObject(model, true).applyMatrix4(localToWorld.clone().invert());
+      y = bounds.max.y - .025 * height; method = 'bounds';
+    }
   }
   hat.position.set(x, y, z);
   hat.scale.setScalar(size);
   hat.rotation.set(0, variant.rotationY ?? 0, fit.tilt);
   hat.userData.variant = placement.variant;
   hat.userData.assetState = state;
+  hat.userData.fit = method;
   return hat;
 }
 

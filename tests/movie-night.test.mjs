@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs/promises';
 import sharp from 'sharp';
-import { Texture } from 'three';
-import { createPosterHologram } from '../src/little-universe/poster-hologram.js';
+import { Box3, Group, Texture, Vector3 } from 'three';
+import { createPosterHologram, HOLOGRAM_DEPTH } from '../src/little-universe/poster-hologram.js';
 import { movies, landmarks, visitLandmark } from '../src/little-universe/content.js';
 import { MOVIE_POSTER_SLOTS, MOVIE_POSTER_SIZE, fitPoster } from '../src/little-universe/movie-night.js';
-import { moveInRoom, ROOM_SPAWN } from '../src/little-universe/rooms.js';
+import { moveInRoom, ROOM_BOUNDS, ROOM_CAMERA_NEAR, ROOM_SPAWN } from '../src/little-universe/rooms.js';
 
 test('Movie Night displays all eight selected films with local, decodable poster assets and recorded sources', async () => {
   const ids = ['notting-hill', 'ford-v-ferrari', 'f1', 'tenet', 'knives-out', 'finch', 'top-gun', 'rocketman'];
@@ -43,6 +43,45 @@ test('cinema visitors can walk down the central aisle but cannot cross either se
     const aroundSeat = moveInRoom(stopped, side * 1.35, 0, 'movie-night');
     assert.ok(moveInRoom(aroundSeat, 0, -2.6, 'movie-night')[2] < -1.5, 'side galleries remain reachable');
   }
+});
+
+test('no reachable visitor position puts a hologram plane inside the camera near plane, including the side aisles', () => {
+  // Flood-fill every position the real movement function can reach from spawn.
+  const step = .04, key = ([x, , z]) => `${Math.round(x / step)},${Math.round(z / step)}`;
+  const reached = new Map([[key(ROOM_SPAWN), ROOM_SPAWN]]);
+  const queue = [ROOM_SPAWN];
+  while (queue.length) {
+    const from = queue.pop();
+    for (const [dx, dz] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+      const to = moveInRoom(from, dx, dz, 'movie-night');
+      if (!reached.has(key(to))) { reached.set(key(to), to); queue.push(to); }
+    }
+  }
+  const positions = [...reached.values()];
+  assert.ok(positions.length > 2000, `reachable samples: ${positions.length}`);
+  assert.ok(positions.some(([x]) => x === ROOM_BOUNDS.maxX) && positions.some(([x]) => x === ROOM_BOUNDS.minX), 'both side aisles reach the wall bound');
+  assert.ok(HOLOGRAM_DEPTH < Math.abs(MOVIE_POSTER_SLOTS[3].position[0]) - ROOM_BOUNDS.maxX - ROOM_CAMERA_NEAR);
+
+  const texture = new Texture();
+  const projection = createPosterHologram(texture, MOVIE_POSTER_SIZE);
+  const eye = ROOM_SPAWN[1];
+  for (const slot of MOVIE_POSTER_SLOTS) {
+    const holder = new Group(); holder.position.set(...slot.position); holder.rotation.y = slot.rotation;
+    holder.add(projection.root); holder.updateMatrixWorld(true);
+    let checked = 0;
+    projection.root.traverse((mesh) => {
+      if (!mesh.isMesh) return;
+      const box = new Box3().setFromObject(mesh, true);
+      if (box.min.y > eye + .05 || box.max.y < eye - .05) return; // the beam and emitter stay below the camera
+      checked++;
+      let nearest = Infinity;
+      for (const [x, , z] of positions) nearest = Math.min(nearest, box.distanceToPoint(new Vector3(x, eye, z)));
+      assert.ok(nearest > ROOM_CAMERA_NEAR + .02, `${slot.id} ${mesh.name}: nearest visitor ${nearest.toFixed(3)} m from the plane`);
+    });
+    assert.ok(checked >= 2, `${slot.id} artwork and rim were checked`);
+    holder.remove(projection.root);
+  }
+  projection.dispose(); texture.dispose();
 });
 
 test('holograms preserve artwork, freeze reduced motion, and release only owned resources once', () => {

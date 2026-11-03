@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { entryVisitKey, claimEntryVisit, startEntrySparkles } from '../src/entry-greeting.js';
+import { entryVisitKey, claimEntryVisit, createEntryGreeting, startEntrySparkles } from '../src/entry-greeting.js';
 
 test('visit suppression uses the Toronto day and keeps preview separate from normal visits', () => {
   const before = new Date('2026-11-01T03:59:59Z');
@@ -84,4 +84,52 @@ test('animation pauses in hidden tabs, reacts to motion changes, and stops after
 test('missing canvas support leaves the greeting usable without animation', () => {
   const stop = startEntrySparkles({ getContext: () => null }, {});
   assert.doesNotThrow(stop);
+});
+
+function pageEnvironment({ modal = true } = {}) {
+  const classes = new Set(), appended = [], data = new Map();
+  let shown = 0;
+  const document = {
+    hidden: false, activeElement: null,
+    createElement() {
+      const element = {
+        listeners: {}, innerHTML: '', className: '', lang: '',
+        setAttribute() {}, addEventListener(name, fn) { this.listeners[name] = fn; },
+        close() {}, remove() { appended.splice(appended.indexOf(element), 1); },
+        querySelector: () => ({ getContext: () => null }),
+      };
+      if (modal) element.showModal = () => { shown++; };
+      return element;
+    },
+    body: { append: element => appended.push(element) },
+    documentElement: { classList: { add: name => classes.add(name), remove: name => classes.delete(name) } },
+    addEventListener() {}, removeEventListener() {},
+  };
+  const window = { sessionStorage: { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) } };
+  const greeting = createEntryGreeting({ window, document, location: { hostname: 'example.com', search: '' }, now: () => new Date('2026-11-01T12:00:00Z') });
+  return { greeting, appended, classes, get shown() { return shown; } };
+}
+
+test('the welcome opens as a modal once per day and unlocks the page when closed', () => {
+  const env = pageEnvironment();
+  env.greeting.setActive(true);
+  assert.equal(env.appended.length, 1);
+  assert.equal(env.shown, 1);
+  assert.ok(env.classes.has('entry-greeting-open'));
+  env.greeting.setActive(true);
+  assert.equal(env.appended.length, 1, 'an open welcome is not duplicated');
+  env.appended[0].listeners.close();
+  assert.equal(env.appended.length, 0);
+  assert.equal(env.classes.size, 0);
+  env.greeting.setActive(true);
+  assert.equal(env.appended.length, 0, 'the same Toronto day is welcomed once per session');
+  env.greeting.destroy();
+});
+
+test('browsers without dialog modals skip the welcome instead of leaving a scroll-locked overlay', () => {
+  const env = pageEnvironment({ modal: false });
+  assert.doesNotThrow(() => env.greeting.setActive(true));
+  assert.equal(env.appended.length, 0);
+  assert.equal(env.classes.size, 0);
+  assert.doesNotThrow(() => env.greeting.destroy());
 });

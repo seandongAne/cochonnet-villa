@@ -143,12 +143,12 @@ The map still uses a sun, IBL, hemisphere light and four villa point lights.
   `asset-loading.js` registry (`streamedAssets.entry` in the snapshot). Pocket
   furniture and resident loads start only near the mushroom entrance.
 
-| Map tier | Max DPR | Sun shadow | Steam instances |
-|---|---:|---:|---:|
-| High | 1.8 | 2048² | 12 |
-| Medium | 1.25 | 1024² | 6 |
-| Low | 1.0 | 512² | 3 |
-| Minimum | 0.75 | off | 0 |
+| Map tier | Max DPR | Canvas pixel cap | Sun shadow | Steam instances |
+|---|---:|---:|---:|---:|
+| High | 1.8 | none | 2048² | 12 |
+| Medium | 1.25 | none | 1024² | 6 |
+| Low | 1.0 | 1,500,000 | 512² | 3 |
+| Minimum | 0.75 | 1,000,000 | off | 0 |
 
 ## Verification
 

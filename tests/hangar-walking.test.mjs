@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { HANGAR_SPAWN, HANGAR_BOUNDS, HANGAR_RADIUS, HANGAR_PLINTH_RADIUS, HANGAR_OBSTACLES, hangarRoomFov, HANGAR_DISPLAYS, HANGAR_CABINETS, createHangarAtelier, isHangarWalkable } from '../src/little-universe/hangar-atelier.js';
-import { moveInRoom, ROOM_IDS } from '../src/little-universe/rooms.js';
+import { moveInRoom, roomBaseFov, ROOM_IDS } from '../src/little-universe/rooms.js';
+import { advanceRoomZoom, createRoomZoom } from '../src/little-universe/planet-navigation.js';
 import { collectionModels } from '../src/little-universe/collection-models.js';
 import { seanExhibits } from '../src/little-universe/sean-exhibits.js';
 
@@ -86,6 +87,20 @@ test('portrait room framing retains the full central cabinet without moving the 
   const aspect = 390 / 844, distance = HANGAR_SPAWN[2] - 1.16;
   const visibleWidth = 2 * distance * Math.tan(hangarRoomFov(aspect) * Math.PI / 360) * aspect;
   assert.ok(visibleWidth > 6.5, 'the 6.1m cabinet and heading fit with margin');
+  // The fitted fov is the wheel-zoom rest value, so per-frame damping settles on
+  // it instead of pulling a portrait Hangar back to the landscape 58 degrees.
+  assert.equal(roomBaseFov('workshop', aspect), hangarRoomFov(aspect));
+  assert.ok(roomBaseFov('workshop', aspect) > 75);
+  assert.equal(roomBaseFov('workshop', 16 / 9), 58);
+  assert.equal(roomBaseFov('music', aspect), 62);
+  const portraitZoom = createRoomZoom(roomBaseFov('workshop', aspect));
+  assert.equal(advanceRoomZoom(portraitZoom, 0).fov, hangarRoomFov(aspect), 'the fitted base survives a wheel event');
+  assert.equal(advanceRoomZoom(portraitZoom, 1000).fov, hangarRoomFov(aspect), 'the fitted base is the widest view');
+  assert.ok(advanceRoomZoom(portraitZoom, -120).fov < hangarRoomFov(aspect), 'zooming in still works');
+  assert.equal(advanceRoomZoom(createRoomZoom(58), 1000).fov, 78, 'landscape keeps the ordinary ceiling');
   const ui = readFileSync(new URL('../src/little-universe/RoomInterior.jsx', import.meta.url), 'utf8');
-  assert.match(ui, /camera.fov = hangarRoomFov/);
+  assert.match(ui, /const fov = roomBaseFov\(id, size\.width \/ Math\.max\(1, size\.height\)\)/);
+  assert.match(ui, /zoom\.current = createRoomZoom\(fov\)/);
+  assert.match(ui, /damp\(camera\.fov, zoom\.current\.fov/);
+  assert.doesNotMatch(ui, /camera\.fov = (?:\d|id ===|hangarRoomFov)/, 'no fixed or unsynchronised fov assignment remains');
 });
