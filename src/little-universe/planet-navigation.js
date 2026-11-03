@@ -76,13 +76,16 @@ export function planetCandidate(places, pose) {
   return best;
 }
 
+// A viewport-fitted base above 78 degrees (portrait Hangar) stays the widest
+// rest value instead of snapping narrower on the first wheel gesture.
 export function createRoomZoom(baseFov = 62) {
-  return { fov: baseFov };
+  return { fov: baseFov, max: Math.max(78, baseFov) };
 }
 
 // Zoom never changes rooms, even after repeated outward gestures at the limit.
 export function advanceRoomZoom(state, delta) {
-  return { fov: Math.max(38, Math.min(78, state.fov + delta * .045)) };
+  const max = state.max ?? 78;
+  return { fov: Math.max(38, Math.min(max, state.fov + delta * .045)), max };
 }
 
 export function createRoomPointer(event) {

@@ -41,6 +41,30 @@ test('birthday hat follows the selected head surface, independent of world place
   disposeParty(hat); model.geometry.dispose(); model.material.dispose();
 });
 
+test('a crown whose surface ray misses the model rests on its top edge instead of throwing', (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const root = new THREE.Group();
+  root.position.set(3, -40, -2); root.rotation.y = .7;
+  // The mesh sits far from the authored crown anchor, as a replaced GLB might.
+  const model = new THREE.Mesh(new THREE.BoxGeometry(.4, .2, .4), new THREE.MeshBasicMaterial());
+  model.position.set(4, .8, 0); root.add(model);
+  root.userData.assetState = 'ready';
+  const hat = createBirthdayHat(1);
+  const height = PORKY_MODEL_VARIANTS['cozy-checker-piglet'].height;
+  assert.doesNotThrow(() => fitBirthdayHat(hat, root, { variant: 'cozy-checker-piglet' }));
+  assert.ok(Math.abs(hat.position.y - (.9 - .025 * height)) < 1e-6, 'rests on the model top in group coordinates');
+  assert.ok(hat.position.toArray().every(Number.isFinite) && hat.scale.x > 0);
+  assert.equal(hat.userData.fit, 'bounds');
+  assert.equal(hat.userData.assetState, 'ready');
+  fitBirthdayHat(hat, root, { variant: 'cozy-checker-piglet' });
+  assert.equal(warn.mock.callCount(), 1, 'warns once per variant');
+  model.position.set(0, .8, 0);
+  fitBirthdayHat(hat, root, { variant: 'cozy-checker-piglet' });
+  assert.equal(hat.userData.fit, 'surface', 'a hit returns to surface fitting');
+  assert.equal(fitBirthdayHat(hat, root, { variant: 'cozy-checker-piglet' }, 'loading').userData.fit, 'fallback');
+  disposeParty(hat); model.geometry.dispose(); model.material.dispose();
+});
+
 test('birthday table collision is temporary, ground-only, and leaves the arrival route clear', () => {
   const world = createVillaWorld();
   const baseline = [...world.colliders];

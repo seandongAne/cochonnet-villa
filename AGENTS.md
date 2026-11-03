@@ -98,7 +98,7 @@ do not load every guide for every task.
 | Notes editor, drafts and access | [Editor](src/notes-admin.js), [drafts](src/notes-draft.js), [conflicts](src/notes-staleness.js), [access](src/notes-access.js); `tests/notes*.test.mjs` |
 | Villa Map assets and collision | [Resort assets](docs/RESORT_ASSETS.md), [fence assets](docs/FENCE_ASSETS.md) |
 | Observatory | [Runtime and QA](docs/OBSERVATORY_RUNTIME.md) |
-| Little Universe | [Runtime and QA](docs/LITTLE_UNIVERSE_RUNTIME.md) |
+| Little Universe | [Runtime and QA](docs/LITTLE_UNIVERSE_RUNTIME.md), [galleries](docs/LITTLE_UNIVERSE_GALLERIES.md) |
 | Public gallery | [Gallery](docs/GALLERY.md) |
 | Game room and Hangar | [Game room](docs/GAME_ROOM.md), [Hangar](docs/HANGAR_SHOWCASE.md) |
 | Annual birthday | [Birthday](docs/ANNUAL_BIRTHDAY.md) |

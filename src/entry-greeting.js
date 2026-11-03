@@ -101,6 +101,9 @@ export function createEntryGreeting({ window, document, location, now = () => ne
     seen.add(key);
     lastFocus = document.activeElement;
     dialog = document.createElement('dialog');
+    // Browsers without dialog modals (Safari before 15.4) skip the welcome
+    // rather than leaving a scroll-locked overlay that Escape cannot close.
+    if (typeof dialog.showModal !== 'function') { dialog = null; return; }
     dialog.className = 'entry-greeting';
     dialog.lang = 'zh-Hans';
     dialog.setAttribute('aria-labelledby', 'entry-greeting-title');

@@ -78,9 +78,13 @@ streamed villa interiors. Minimum close-up views also retain full-detail pigs,
 cottages, pens and birthday hats. The close-up is a QA camera outside the player
 bounds; the public exploration boundary remains unchanged.
 
-![Before: fixed overview](figures/village-before.jpg)
-![After: fixed overview](figures/village-after.jpg)
+![Fixed overview at Low after the change](figures/village-after.jpg)
 ![After: village pigs and birthday hats at Minimum](figures/village-pigs-minimum.jpg)
+
+No separate "before" frame is kept. The instanced village is compared per
+vertex, normal, colour and pose against the baked baseline in
+`tests/surroundings.test.mjs`, so a before capture of the same camera is
+expected to be identical to the frame above.
 
 Final live Minimum validation: 37/37 outdoor entry loads complete with zero
 failures; the pocket remains uncreated outdoors. First pocket entry reaches

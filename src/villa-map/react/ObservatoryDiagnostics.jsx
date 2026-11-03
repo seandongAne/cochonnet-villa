@@ -179,7 +179,7 @@ export function ObservatoryDiagnostics({
           root?.traverse(object => {
             if (object.name === 'birthday-hat') hats.push({
               id: object.parent.name, variant: object.userData.variant ?? 'village',
-              state: object.userData.assetState ?? 'procedural',
+              state: object.userData.assetState ?? 'procedural', fit: object.userData.fit ?? 'static',
               position: object.position.toArray(), scale: object.scale.x,
             });
           });

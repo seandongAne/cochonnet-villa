@@ -63,6 +63,27 @@ desktop session.
 Actual browser captures are in docs/birthday-qa/. They use a forced local birthday
 preview, not a change to the operating-system clock.
 
+## Homepage greeting and portrait hats
+
+The landing page follows the same Toronto calendar through `src/birthday.js`.
+
+- `src/portrait-accents.js` is node-pure. `src/render-site.js` inlines one
+  calibrated SVG party hat per resident portrait at build time, bound to the
+  artwork path so reordering residents keeps each fit. CSS hides the hats until
+  `html[data-portrait-decor]` is set, so the markup ships year-round (about
+  25 KB before compression) while no birthday script or image is loaded.
+- `src/portrait-decor.js` toggles that attribute from `watchBirthday`, is wired
+  in `src/pages/index.astro`, and forwards the state to the entry greeting.
+- `src/entry-greeting.js` opens a `<dialog>` welcome once per Toronto day per
+  browser session (`sessionStorage` key `villa-entry:<date>`), with canvas
+  sparkles that honour reduced motion and pause in hidden tabs. Escape and the
+  button close it and restore focus. Browsers without `dialog.showModal`
+  (Safari before 15.4) skip the greeting instead of locking the page.
+- Homepage preview uses `/?decor=on` or `/?decor=off` on loopback hosts only;
+  the landing page does not read `?birthday=`. Preview visits use a separate
+  session key, so they never consume the real once-per-day welcome.
+- Tests: `tests/portrait-accents.test.mjs` and `tests/entry-greeting.test.mjs`.
+
 ## Villa birthday party
 
 The Villa Map shares one `useBirthday()` state between its sky lettering and

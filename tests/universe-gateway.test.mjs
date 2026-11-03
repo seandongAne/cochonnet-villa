@@ -148,7 +148,7 @@ test('villa sky imports geometry without reaching birthday copy or media catalog
     }
   }
   walk(new URL('../src/villa-map/universe-gateway-visuals.js', import.meta.url));
-  for (const file of ['content.js', 'media-details.js', 'collection-models.js', 'vinyl-records.js', 'games.js', 'gallery.js']) {
+  for (const file of ['content.js', 'media-details.js', 'collection-models.js', 'vinyl-records.js', 'games.js', 'game-room.js', 'gallery.js']) {
     assert.ok(!visited.has(new URL(`../src/little-universe/${file}`, import.meta.url).href), `villa imports ${file}`);
   }
 });
