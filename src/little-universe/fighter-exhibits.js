@@ -7,4 +7,3 @@ export const fighterExhibits = [
 ].map(item => ({ ...item, room: 'workshop', aircraft: true, fighter: true,
   size: [.86, .43, 1.24], rotation: [0, -.18, 0], labelPosition: [.48, -.1, .1],
   note: 'Original paint, cockpit and landing gear — a little closer to the sky.' }));
-export const FIGHTER_GALLERY_OBSTACLE = [-2.88, -1.87, -1.43, 1.32];

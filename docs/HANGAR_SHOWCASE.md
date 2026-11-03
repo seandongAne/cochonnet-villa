@@ -26,7 +26,7 @@ The selected bright architecture is retained: ivory curved wall, titanium dado a
 - Static architecture is merged by semantic group/material while retaining UVs for anisotropic metal: 57 draws / 10,860 triangles, excluding GLBs and browser-owned reflection/shadow passes.
 - The 512px floor reflection, 128px finite-frame environment and 1024px key shadow preserve the bright rendering approach. The old Reborns-specific central contact-shadow passes are removed with its relocation. Renderer exposure/tone mapping are restored on exit. The planet starfield is not rendered inside this room.
 - The model adaptation in `hangar-showcase.js` remains a pure shared helper. It clones materials, retains original maps and disposes only its own materials; it never disposes cached source textures or geometry.
-- The old compact `hangar.js` layout is archival and no longer selected by `createRoom('workshop')`.
+- The old compact `hangar.js` layout was removed in favour of `hangar-atelier.js`; `createRoom('workshop')` builds the walkable atelier. The compact version remains in Git history.
 - Gun & Rose / The Iron & Rose geometry, lighting, models and navigation are unchanged.
 
 ## Checkpoints and QA
