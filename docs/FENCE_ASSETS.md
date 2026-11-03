@@ -57,7 +57,7 @@ coverage, deduplicated posts, ground collision and resource ownership.
 
 ### Integration check — 2026-10-06
 
-`npm test`: 465 passing. Production build passes. Preview screenshots in
+`npm test` and the production build pass. Preview screenshots in
 `docs/fence-integration/` cover the welcome gate, northwest corner, full
 perimeter and lights-off loft. The authored fence snapshot reports `ready`,
 14 batches and 189/189 settled streamed assets with zero failures. The forced
@@ -72,5 +72,5 @@ These deterministic screenshots check geometry, loading and visuals; they do
 not establish real-time performance on integrated/mobile GPUs.
 
 Before release, remote main was fast-forwarded to `be99de6` to retain the latest
-notes, generated art and observatory fixes. The combined version passes all
-467 tests and the production build.
+notes, generated art and observatory fixes. The combined version passes the
+full test suite and the production build.

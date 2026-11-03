@@ -10,7 +10,7 @@ Added on 2026-10-31 at the author's request: a game cabin with Switch, PS5 and X
 - Geometry and layout: `src/little-universe/game-room.js`. Browser signs: `GameRoom.jsx`. Entry and selection: `content.js`, `rooms.js`, `planet.js`, `LittleUniverse.jsx`, `UniverseScene.jsx`, `RoomInterior.jsx`.
 - The sky-planet gateway picks up the destination automatically. Simple exterior cuboids and low-segment controller shapes retain the existing 85-draw / 115,000-triangle budget.
 
-Validation: full Node suite (519 tests), production build, desktop and 390 x 844 mobile browser entry, console selection and Escape exit checks; no horizontal overflow. Browser console had no errors (an existing THREE.Clock deprecation warning remains). The room-specific tests verify console separation, supported placement, table collision and a complete walk from the entrance to the console cabinet and back.
+Validation: full Node suite, production build, desktop and 390 x 844 mobile browser entry, console selection and Escape exit checks; no horizontal overflow. Browser console had no errors (an existing THREE.Clock deprecation warning remains). The room-specific tests verify console separation, supported placement, table collision and a complete walk from the entrance to the console cabinet and back.
 
 
 ## Requested game collection

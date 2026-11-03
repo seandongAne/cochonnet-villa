@@ -187,7 +187,7 @@ tests check its real doorway and continuous, bounded roof silhouette.
 
 ### Courtyard finish check — 2026-09-18
 
-`npm test`: 454 passing; `npm run build`: passing. Browser checks covered
+`npm test` and `npm run build` pass. Browser checks covered
 `villa-front`, `villa-hall`, `mushroom-door`, `springs-eye`, and lights-off
 `loft-center`. All 188 streamed assets settled without a failure; no browser
 errors were reported. The grass map was checked at a grazing angle to remove
@@ -227,7 +227,7 @@ it is not a claim about performance on integrated or mobile GPUs.
   entrance or indoors. Observatory roots retain their existing exclusion and
   L2/L3 pause. The streamed-model GPU preparer still owns safe texture/shader swaps.
 
-Validation: 571 tests and production build pass. Local RTX 3080 preview at
+Validation: tests and production build pass. Local RTX 3080 preview at
 `observatory=perf&view=villa-front&lights=on&mapquality=minimum` settles 37/37
 entry assets with pocketRequested=false and 102 deferred jobs; outdoor prewarm
 settles at 250 meshes instead of the previous all-region 1,034. Visiting

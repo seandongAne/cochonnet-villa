@@ -77,7 +77,7 @@ are created. Factory timing helpers are node-pure and preserve errors/return val
 
 ## Functional validation
 
-575 tests pass; production build passes. Ordinary outdoor QA shows 37/37 entry
+Tests and the production build pass. Ordinary outdoor QA shows 37/37 entry
 models, pocketCreated=false, no observatory runtime, and no startup panel without
 the query. First pocket entry finishes 139/139 with zero failures. The observatory
 activates and displays its 8K photo sky; relighting, returning outdoors and entering

@@ -134,7 +134,7 @@ height, so elevated bookmarks settle toward the ground.
 
 Validation for the party implementation:
 
-- `npm test`: 564 tests pass, including explicit model-fit coverage, transformed
+- `npm test` passes, including explicit model-fit coverage, transformed
   surface fitting, fallback placement, temporary ground collision and geometry
   budgets. `npm run build` succeeds.
 - Browser: 139 streamed assets complete with zero failures; all 24 resident

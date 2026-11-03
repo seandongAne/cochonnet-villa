@@ -159,8 +159,7 @@ error bound are retained, with embedded WebP textures up to 1024 pixels.
 Runtime sizes are 1,359,940 bytes (pig) and 1,098,656 bytes (cabbage); tests cap
 each camper at 2.5 MiB and pin the corrected cabbage source.
 
-Validation: 592 tests passed, the production build emitted 44 pages, and
-`git diff --check` passed. The production preview was checked at initial camping
+Validation: `npm test`, `npm run build` and `git diff --check` passed. The production preview was checked at initial camping
 focus, zoomed close-up, a dragged oblique view, and after leaving/revisiting the
 campsite. Both characters loaded with textures, conversation remained usable,
 and the browser reported no console errors. [Preview screenshot](camper-replacement/campsite.jpg).
@@ -188,7 +187,7 @@ does not constitute visual acceptance of the villa.
 
 ### October 30 engineering verification
 
-513/513 tests passed; the production build emitted 42 pages. Both study URLs
+The full test suite and the production build passed. Both study URLs
 returned 404 in preview and 200 in development, with the served GLB matching its
 source hash. The villa's static JS import closure contains no personal birthday
 copy. Public assets fell from 170,886,888 to 159,783,127 bytes; preserved art sources
@@ -207,7 +206,7 @@ identity before delivery.
 
 ### October 30 distant sky optimization
 
-514/514 tests passed and the production build emitted 42 pages from the workspace.
+The full test suite and the production build passed from the workspace.
 The 1280x720 fixed `universe-gateway` camera rendered the optimized planet with
 4 batches, all 139 streamed assets settled without failure, and no console errors.
 Before/after screenshots retain the planet's apparent size, placement, colours
