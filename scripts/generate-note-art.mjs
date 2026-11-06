@@ -92,10 +92,14 @@ export const PORKY_CAST = Object.freeze([
     size: "普通大小",
     visual: "闭着眼睛打盹、身体裹在蓝色星星被子里"
   }),
+  // The forelock wording is tuned (2026-11-05 trials): the colour must sit
+  // inline as an adjective. "头顶…杂毛" or a "（固定为粉色）" aside makes the
+  // model paint a full pink hairdo; "一小撮" shrinks it to a bald sprout; no
+  // colour at all drifts to white/blond.
   Object.freeze({
     name: "呆呆猪",
     size: "普通大小",
-    visual: "头顶蓬松凌乱的杂毛（固定为粉色）、右耳只有一只金色耳环、炭灰色连帽衫"
+    visual: "蓬松凌乱的淡粉色额毛、右耳只有一只金色耳环、炭灰色连帽衫"
   }),
   Object.freeze({
     name: "呱呱猪",
