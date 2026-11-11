@@ -12,6 +12,7 @@ import { syncNoteGallery } from "./sync-note-gallery.mjs";
 import { appendFile, readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
+import { noteMarkdownToPlainText } from "../src/note-markdown.js";
 
 import {
   deriveNoteSlug,
@@ -98,6 +99,7 @@ export const PORKY_CAST = Object.freeze([
   // colour at all drifts to white/blond.
   Object.freeze({
     name: "呆呆猪",
+    aliases: Object.freeze(["胖呆呆"]),
     size: "普通大小",
     visual: "蓬松凌乱的淡粉色额毛、右耳只有一只金色耳环、炭灰色连帽衫"
   }),
@@ -203,24 +205,41 @@ function isExplicitFullCastNote(note) {
     });
 }
 
-function findMentionedCast(note, markerNames) {
-  const story = noteStoryText(note);
+// Match an attendance predicate attached to this name, not a negation elsewhere
+// in the sentence (or a verb such as 不在意 or 没来得及).
+const ABSENCE_PREDICATE = /^\s*(?:(?:今天|那天|当时|这次|早上|晚上|原本|刚好|还|也|都|并|暂时)\s*)*(?:缺席|不在(?:家|场|现场|这里|山庄)|不在(?=[\s，。！？；,!?;]|$)|(?:没(?:有)?|未)(?:能)?(?:到场|出席|参加|露面)|没(?:有)?来(?!得及|由))/u;
+const ALL_NAMES = [...PORKY_CAST, ...GUEST_CAST].flatMap(characterNames).join("|");
+const CO_SUBJECTS = new RegExp(`^(?:(?:、|和|与|跟|及)\\s*\u0002?(?:${ALL_NAMES})\u0003?)+`, "u");
+const RETURN_AFTER_ABSENCE = /^[^，。！？；]*[，。；]\s*(?:但|可|不过|后来|随后|晚上|下午|傍晚|她|他|它|才|又|还是|终于|就|也)+(?:回来了|回家了|赶到了|到场了)/u;
 
-  return PORKY_CAST.filter((porky) =>
-    characterNames(porky).some(
-      (name) => markerNames.has(name) || (name !== "小猪" && story.includes(name))
-    )
-  );
-}
+function characterAttendance(character, body, title) {
+  const names = characterNames(character).join("|");
+  // Delimit real Markdown markers independently of literal brackets in code.
+  // Only a marked 小猪 refers to the named character. Other names also work in prose.
+  const marked = `\u0002(?:${names})\u0003`;
+  const pattern = new RegExp(character.name === "小猪" ? marked : `${marked}|${names}`, "gu");
+  let hasAbsence = false;
+  let hasOtherMention = false;
 
-function findMentionedGuests(note, markerNames) {
-  const story = noteStoryText(note);
+  function scan(text, excerptLimit) {
+    for (const match of text.matchAll(pattern)) {
+      if (match.index >= excerptLimit && !match[0].startsWith("\u0002")) continue;
+      const after = text.slice(match.index + match[0].length).replace(CO_SUBJECTS, "");
+      const before = text.slice(0, match.index);
+      if (ABSENCE_PREDICATE.test(after) && !/(?:如果|假如|要是|万一|以为|担心)\s*$/u.test(before)) {
+        hasAbsence = true;
+        if (RETURN_AFTER_ABSENCE.test(after)) hasOtherMention = true;
+      } else {
+        hasOtherMention = true;
+      }
+    }
+  }
 
-  return GUEST_CAST.filter((guest) =>
-    characterNames(guest).some(
-      (alias) => markerNames.has(alias) || story.includes(alias)
-    )
-  );
+  scan(body, 1200);
+  // A title like “等白菜” should not override the body's explicit absence.
+  if (!hasAbsence && !hasOtherMention) scan(title, Infinity);
+  if (hasAbsence) return hasOtherMention ? "mixed" : "absent";
+  return hasOtherMention ? "mentioned" : "unmentioned";
 }
 
 function findUnknownCharacterMarkers(markerNames) {
@@ -255,16 +274,29 @@ function formatCast(cast) {
 }
 
 export function selectNoteArtCast(note) {
-  const mode = isExplicitFullCastNote(note) ? "full" : "story";
   const characterMarkers = new Set(extractNoteCharacterMarkers(note?.body));
+  const body = noteMarkdownToPlainText(note?.body, {
+    formatCharacterMarker: (name) => `\u0002${name}\u0003`
+  });
+  const attendance = new Map([...PORKY_CAST, ...GUEST_CAST].map((character) => [
+    character.name, characterAttendance(character, body, String(note?.title ?? ""))
+  ]));
+  const mode = isExplicitFullCastNote(note) && !PORKY_CAST.some((p) => attendance.get(p.name) === "absent")
+    ? "full" : "story";
+  const canAppear = (character) => ["mentioned", "mixed"].includes(attendance.get(character.name));
   const fixedCast =
-    mode === "full" ? PORKY_CAST : findMentionedCast(note, characterMarkers);
-  const guestCast = findMentionedGuests(note, characterMarkers);
+    mode === "full" ? PORKY_CAST : PORKY_CAST.filter(canAppear);
+  const guestCast = GUEST_CAST.filter(canAppear);
+  const namesWithAttendance = (state) => Object.freeze(
+    [...attendance].filter(([, value]) => value === state).map(([name]) => name)
+  );
 
   return Object.freeze({
     mode,
     fixedCastNames: Object.freeze(fixedCast.map((porky) => porky.name)),
     guestCastNames: Object.freeze(guestCast.map((guest) => guest.name)),
+    absentCastNames: namesWithAttendance("absent"),
+    mixedCastNames: namesWithAttendance("mixed"),
     characterMarkers: Object.freeze([...characterMarkers]),
     unknownCharacterMarkers: Object.freeze(findUnknownCharacterMarkers(characterMarkers))
   });
@@ -358,9 +390,17 @@ export function buildArtPrompt(note) {
   const guestNameSet = new Set(selection.guestCastNames);
   const guests = GUEST_CAST.filter((guest) => guestNameSet.has(guest.name));
 
-  return selection.mode === "full"
+  const prompt = selection.mode === "full"
     ? buildFullCastPrompt(note, guests)
     : buildStoryCastPrompt(note, selection.fixedCastNames, guests);
+  const instructions = [prompt];
+  if (selection.absentCastNames.length) {
+    instructions.push(`【明确缺席】${selection.absentCastNames.join("、")}：不得在缺席的场景中出镜，包括背景和桌边。只有正文明确写到回场，才可在回场后的场景出镜。`);
+  }
+  if (selection.mixedCastNames.length) {
+    instructions.push(`【分场出镜】${selection.mixedCastNames.join("、")}：只在正文明确写到其在场的片段出镜，不能把其他时刻的角色移到缺席的场景。`);
+  }
+  return instructions.join("\n");
 }
 
 // Raw notes (as stored in notes.json) that still need art: they have real

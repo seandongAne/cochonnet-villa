@@ -135,9 +135,9 @@ export function renderNoteMarkdown(value) {
   return markdown.render(normalizeLineEndings(value)).trim();
 }
 
-function inlineTokenText(token) {
+function inlineTokenText(token, formatCharacterMarker) {
   if (Array.isArray(token.children)) {
-    return token.children.map(inlineTokenText).join("");
+    return token.children.map((child) => inlineTokenText(child, formatCharacterMarker)).join("");
   }
 
   switch (token.type) {
@@ -146,8 +146,9 @@ function inlineTokenText(token) {
     case "code_block":
     case "fence":
     case "image":
-    case "note_character_marker":
       return token.content;
+    case "note_character_marker":
+      return formatCharacterMarker(token.content);
     case "softbreak":
     case "hardbreak":
       return " ";
@@ -175,10 +176,10 @@ export function extractNoteCharacterMarkers(value) {
   return names;
 }
 
-export function noteMarkdownToPlainText(value) {
+export function noteMarkdownToPlainText(value, { formatCharacterMarker = (name) => name } = {}) {
   return markdown
     .parse(normalizeLineEndings(value), {})
-    .map(inlineTokenText)
+    .map((token) => inlineTokenText(token, formatCharacterMarker))
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ")

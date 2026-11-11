@@ -340,6 +340,50 @@ test("a full-cast note can bring 白白菜 along without breaking the 15-pig con
   assert.match(prompt, /不占用15只小猪的名额/);
 });
 
+test("the crab story gives the eater Daidai's identity and keeps the absent guest off screen", () => {
+  const note = {
+    title: "吃螃蟹",
+    body: "[[小猪]]选了一包蓝蟹。幸好白菜不在家，不然要晕过去啦！胖呆呆很快就吃了四只还多！"
+  };
+  const cast = selectNoteArtCast(note);
+  assert.deepEqual(cast.fixedCastNames, ["呆呆猪", "小猪"]);
+  assert.deepEqual(cast.guestCastNames, []);
+  assert.deepEqual(cast.absentCastNames, ["白白菜"]);
+  const prompt = buildArtPrompt(note);
+  assert.match(prompt, /呆呆猪（也叫胖呆呆，普通大小）：蓬松凌乱的淡粉色额毛、右耳只有一只金色耳环、炭灰色连帽衫/);
+  assert.match(prompt, /【明确缺席】白白菜/);
+  assert.ok(!prompt.includes(GUEST_CAST[0].visual));
+});
+
+test("absence belongs to the named participants, including marked and coordinated subjects", () => {
+  const cast = selectNoteArtCast({
+    title: "十五只小猪的聚会",
+    body: "胖呆呆在家。[[小猪]]和白白菜都没来，其他小猪在门口。"
+  });
+  assert.equal(cast.mode, "story");
+  assert.deepEqual(cast.fixedCastNames, ["呆呆猪"]);
+  assert.deepEqual(cast.absentCastNames, ["小猪", "白白菜"]);
+  assert.equal(selectNoteArtCast({ title: "全员到齐", body: "白菜缺席。" }).mode, "full");
+  assert.deepEqual(selectNoteArtCast({ body: "[[胖呆呆]]不在场。" }).absentCastNames, ["呆呆猪"]);
+});
+
+test("a character who returns keeps its identity for the later scene", () => {
+  for (const body of ["白菜早上不在家，后来白白菜回来了。", "白白菜不在家，晚上才回来了。"]) {
+    const cast = selectNoteArtCast({ body });
+    assert.deepEqual(cast.absentCastNames, []);
+    assert.deepEqual(cast.guestCastNames, ["白白菜"]);
+    assert.match(buildArtPrompt({ body }), /【分场出镜】白白菜/);
+  }
+});
+
+test("presence, unrelated negation and a hypothetical absence do not exclude a guest", () => {
+  for (const body of ["白菜在家。", "白菜不在意。", "白菜没来得及拿筷子。", "如果白菜不在家怎么办？"]) {
+    const cast = selectNoteArtCast({ body });
+    assert.deepEqual(cast.guestCastNames, ["白白菜"]);
+    assert.deepEqual(cast.absentCastNames, []);
+  }
+});
+
 test("forced note art selects only the exact derived slug, including notes with art", () => {
   const notes = [
     {
