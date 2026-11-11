@@ -44,36 +44,51 @@ test("the planner reads the whole story with canonical names and real identity m
 });
 
 test("only identities present in the chosen moment are passed to the illustrator", () => {
-  const { candidates } = sceneInput({ body: "胖呆呆说我想白菜了。晚上白菜才回来和呆呆猪一起吃饭。" });
-  const early = buildArtPrompt({ moment: "呆呆猪托腮看着空椅子。", cast: ["呆呆猪"], fullHerd: false }, candidates);
-  const later = buildArtPrompt({ moment: "呆呆猪和白白菜并排吃饭。", cast: ["呆呆猪", "白白菜"], fullHerd: false }, candidates);
+  const earlyText = "胖呆呆说我想白菜了。";
+  const laterText = "晚上白菜才回来和呆呆猪一起吃饭。";
+  const input = sceneInput({ body: earlyText + laterText });
+  const early = buildArtPrompt({ moment: "呆呆猪托腮看着空椅子。", sourceExcerpt: earlyText, cast: ["呆呆猪"], fullHerd: false }, input);
+  const later = buildArtPrompt({ moment: "呆呆猪和白白菜并排吃饭。", sourceExcerpt: laterText, cast: ["呆呆猪", "白白菜"], fullHerd: false }, input);
   assert.ok(early.includes("托腮看着空椅子"));
   assert.ok(early.includes(PORKY_CAST.find(({ name }) => name === "呆呆猪").visual));
-  assert.doesNotMatch(early, /白菜|来宾朋友|共15只/);
+  assert.ok(early.includes(earlyText));
+  assert.ok(!early.includes(GUEST_CAST[0].visual));
+  assert.ok(later.includes(laterText));
+  assert.ok(!later.includes(earlyText));
   assert.ok(later.includes(GUEST_CAST[0].visual));
   assert.ok(!early.includes("晚上"));
 });
 
 test("explicit full-herd scenes supply every identity and keep guests outside the fifteen", () => {
-  const { candidates } = sceneInput({ body: "十五只猪拍全家福，白菜也来了。" });
-  const group = buildArtPrompt({ moment: "全家福", cast: ["白白菜"], fullHerd: true }, candidates);
+  const input = sceneInput({ body: "十五只猪拍全家福，白菜也来了。" });
+  const group = buildArtPrompt({ moment: "全家福", sourceExcerpt: input.body, cast: ["白白菜"], fullHerd: true }, input);
   for (const character of [...PORKY_CAST, ...GUEST_CAST]) assert.ok(group.includes(character.visual));
   assert.match(group, /三排，每排五只/);
-  const generic = buildArtPrompt({ moment: "两只小猪晒太阳。", cast: [], fullHerd: false }, []);
+  const genericInput = sceneInput({ body: "两只小猪晒太阳。" });
+  const generic = buildArtPrompt({ moment: genericInput.body, sourceExcerpt: genericInput.body, cast: [], fullHerd: false }, genericInput);
   assert.doesNotMatch(generic, /波波头|三排/);
 });
 
 test("invalid scene plans cannot introduce an unmentioned identity or submit a blank scene", () => {
-  const { candidates } = sceneInput({ body: "呆呆猪回家了。" });
+  const input = sceneInput({ body: "呆呆猪回家了。" });
   for (const cast of [["白白菜"], ["未知"], ["呆呆猪", "呆呆猪"]]) {
-    assert.throws(() => buildArtPrompt({ moment: "家中", cast, fullHerd: false }, candidates), /identity/);
+    assert.throws(() => buildArtPrompt({ moment: "家中", sourceExcerpt: input.body, cast, fullHerd: false }, input), /identity/);
   }
-  assert.throws(() => buildArtPrompt({ moment: " ", cast: [], fullHerd: false }, candidates), /Invalid scene/);
+  assert.throws(() => buildArtPrompt({ moment: " ", sourceExcerpt: input.body, cast: [], fullHerd: false }, input), /Invalid scene/);
+});
+
+test("the image prompt rejects invented or spliced quotes", () => {
+  const input = sceneInput({ body: "胖呆呆开饭啦！吃得可香了。嘴巴里开始冒泡泡！" });
+  for (const sourceExcerpt of ["", "胖呆呆开始吃饭了。", "胖呆呆开饭啦！嘴巴里开始冒泡泡！"]) {
+    assert.throws(() => buildArtPrompt({
+      moment: "呆呆猪吃饭。", sourceExcerpt, cast: ["呆呆猪"], fullHerd: false
+    }, input), /verbatim passage/);
+  }
 });
 
 test("the text request uses a structured scene response and surfaces refusal or incomplete output", async () => {
   const input = sceneInput({ title: "晚饭", body: "呆呆猪说我想白菜了。" });
-  const scene = { moment: "呆呆猪独自吃饭。", cast: ["呆呆猪"], fullHerd: false };
+  const scene = { moment: "呆呆猪独自吃饭。", sourceExcerpt: input.body, cast: ["呆呆猪"], fullHerd: false };
   const message = { type: "message", content: [{ type: "output_text", text: JSON.stringify(scene) }] };
   let payload = { status: "completed", output: [{ type: "reasoning" }, message] };
   let request;

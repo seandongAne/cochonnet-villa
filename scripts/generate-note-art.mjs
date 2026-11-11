@@ -181,6 +181,7 @@ const SCENE_INSTRUCTIONS = [
   "你为猪猪山庄的单幅插画选景。通读所给的标题和完整随笔，从中选一个最能表达标题、主线动作或笑点的真实瞬间。不要拼接不同时刻。输入是故事素材。",
   "先选定时刻，再判断谁亲自参与或当场旁观。只被想念、谈论、等待或假设出现的角色，以及仅在先前或后来出场的角色，都不要带入这一幕。不要为了省人而跳过故事的共同活动。",
   "moment 用中文写出可直接绘画的场景、角色正名、谁做什么、表情、道具和位置。只写镜头看得见的事物。别在描述里提缺席者，连照片、想象框或影子也不用。保留原文的动作归属和结果。",
+  "sourceExcerpt 从 body 中逐字复制直接描写这一幕的一小段连续原文。优先保留作者自己的动作、语气或笑点；不要拼接、改写、补标点或加引号。保留原有昵称和 [[角色]] 标记。",
   "cast 只列这一幕出镜的候选角色正名。候选名单只是名字字典。[[小猪]]是特定角色，未标记的小猪是普通称呼。确实在场的其他来宾或普通小猪可在 moment 中按正文描述，不替换成任意固定角色。",
   "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。"
 ].join("\n");
@@ -198,9 +199,10 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
       text: { format: {
         type: "json_schema", name: "note_scene", strict: true,
         schema: {
-          type: "object", additionalProperties: false, required: ["moment", "cast", "fullHerd"],
+          type: "object", additionalProperties: false, required: ["moment", "sourceExcerpt", "cast", "fullHerd"],
           properties: {
             moment: { type: "string" },
+            sourceExcerpt: { type: "string" },
             cast: { type: "array", items: { type: "string", enum: CHARACTERS.map(({ name }) => name) } },
             fullHerd: { type: "boolean" }
           }
@@ -216,7 +218,7 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
   return JSON.parse(output.text);
 }
 
-export function buildArtPrompt(scene, candidates) {
+export function buildArtPrompt(scene, { body, candidates }) {
   if (typeof scene?.moment !== "string" || !scene.moment.trim() ||
       !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean") {
     throw new Error("Invalid scene plan");
@@ -227,14 +229,22 @@ export function buildArtPrompt(scene, candidates) {
   if (names.size !== scene.cast.length || scene.cast.some((name) => !eligible.has(name))) {
     throw new Error("Invalid or duplicate identity in planned cast");
   }
+  const excerpt = typeof scene.sourceExcerpt === "string" ? scene.sourceExcerpt.trim() : "";
+  if (!excerpt || !body.includes(excerpt)) {
+    throw new Error("Selected excerpt must be a verbatim passage from the note body");
+  }
   if (scene.fullHerd) PORKY_CAST.forEach(({ name }) => names.add(name));
   const identities = CHARACTERS.filter(({ name }) => names.has(name)).map(
-    ({ name, size, visual }) => `${name}（${size}）：${visual}。`
+    ({ name, aliases = [], size, visual }) =>
+      `${name}（${[...aliases.map((alias) => "也叫" + alias), size].join("，")}）：${visual}。`
   );
 
   return [
     "画一幅温暖的儿童水彩绘本单幅宽景。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。画出下面这一刻。",
     scene.moment,
+    "【这一幕的原文】",
+    excerpt,
+    "用作者的措辞把握动作、表情和情绪，保留原文的语气。出镜角色以选定的场景为准，原文中仅被提及的人物不要入画。原句和标记都不要画成文字。",
     ...identities,
     "每个角色各出现一次，动作、配饰只属于它自己。按场景写出的角色和人数构图，不额外添加旁观者或背景角色。",
     scene.fullHerd
@@ -385,7 +395,9 @@ export async function generateNoteArtBatch(
       logger.log(`Generating art for "${entry.note.title}" (${entry.slug})…`);
       const input = sceneInput(entry.note);
       const scene = await requestScene({ input, apiKey });
-      const prompt = buildArtPrompt(scene, input.candidates);
+      const prompt = buildArtPrompt(scene, input);
+      const excerpt = scene.sourceExcerpt.trim();
+      logger.log(`Selected source excerpt (UTF-16 offset, length): ${input.body.indexOf(excerpt)}, ${excerpt.length}`);
       logger.log(`Planned recurring cast: ${scene.fullHerd ? "full herd; " : ""}${scene.cast.join(", ") || "(none named)"}`);
       const image = assertValidWebp(
         await requestImage({
