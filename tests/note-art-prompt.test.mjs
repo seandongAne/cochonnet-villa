@@ -114,6 +114,7 @@ test("a one-sentence herd backdrop does not turn a two-pig story into a full-cas
 
   assert.ok(prompt.includes(protagonist.visual));
   assert.ok(prompt.includes("不呆不呆猪"));
+  assert.match(prompt, /纯红围脖.*黄色布挎包.*透明塑料空瓶/);
   assert.match(prompt, /固定演员表之外的具名猪角色/);
   assert.doesNotMatch(prompt, /必须恰好有15只/);
   assert.doesNotMatch(prompt, /固定构图：三排/);
@@ -320,7 +321,7 @@ test("the guest cast is frozen and mentioning 白菜 injects the cabbage identit
   assert.match(prompt, /白白菜/);
   assert.match(prompt, /直立的拟人化大白菜/);
   assert.match(prompt, /不加猪鼻子/);
-  assert.match(prompt, /不要把它替换成任何小猪/);
+  assert.match(prompt, /每位来宾只在当场参与或旁观时出现/);
 
   const fullNameSelection = selectNoteArtCast({
     title: "白白菜来做客",
@@ -337,7 +338,7 @@ test("a full-cast note can bring 白白菜 along without breaking the 15-pig con
 
   assert.match(prompt, /必须恰好有15只/);
   assert.match(prompt, /白白菜/);
-  assert.match(prompt, /不占用15只小猪的名额/);
+  assert.match(prompt, /不占用15只常住小猪的名额/);
 });
 
 test("the crab story gives the eater Daidai's identity and keeps the absent guest off screen", () => {

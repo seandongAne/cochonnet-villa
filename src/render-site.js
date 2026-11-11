@@ -520,7 +520,7 @@ export function renderSite(site, notes = []) {
             <div class="section-heading compact">
               <h2 id="guests-title"${i18nAttribute("guests.title")}>Villa guests</h2>
             </div>
-            <div class="porky-grid">${renderPorkyCards(site.guests, { guests: true })}</div>
+            <div class="porky-grid guest-grid">${renderPorkyCards(site.guests, { guests: true })}</div>
           </section>` : ""}
 
         <section class="villa" id="villa">

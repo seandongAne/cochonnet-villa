@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
+import site from "../content/site.json" with { type: "json" };
 import { syncNoteGallery } from "./sync-note-gallery.mjs";
 // Generates a cute piglet comic illustration for every 猪猪小记 post that
 // doesn't have one yet, using the OpenAI Image API (gpt-image-2.5-sunburst), and stamps
@@ -148,18 +149,10 @@ const PORKY_ROWS = Object.freeze([
   Object.freeze(["机灵猪", "瓜呆猪", "呆瓜猪", "臭臭猪", "大呆猪"])
 ]);
 
-// Recurring non-pig friends. The generation request is text-only, so each
-// entry mirrors its reference archive (public/characters/<id>/manifest.json)
-// in prompt-ready text; the reference image itself is never uploaded.
-export const GUEST_CAST = Object.freeze([
-  Object.freeze({
-    name: "白白菜",
-    aliases: Object.freeze(["白菜"]),
-    size: "和普通小猪差不多高",
-    visual:
-      "一棵直立的拟人化大白菜：浅色菜心上长着小圆黑眼、开口微笑和淡桃色脸颊，浅绿外叶分层包裹，顶部叶尖偏向一侧上扬，叶片手臂和小叶脚，不加猪鼻子"
-  })
-]);
+// Use the same guest identities as the homepage without adding them to the resident herd.
+export const GUEST_CAST = Object.freeze(site.guests.map(({ name, aliases = [], artSize, artVisual }) =>
+  Object.freeze({ name, aliases: Object.freeze(aliases), size: artSize, visual: artVisual })
+));
 
 const FULL_CAST_SUBJECT_PATTERN =
   /(?:15|十五)\s*(?:只)?\s*(?:小猪|猪猪|猪)|(?:所有|全体|全员|全部)\s*(?:的)?\s*(?:小猪|猪猪|猪)/u;
@@ -261,8 +254,8 @@ function guestIdentitySection(guests, mode) {
         `${guest.name}（${aliasLabel(guest)}${guest.size}）：${guest.visual}。`
     ),
     mode === "full"
-      ? "来宾朋友不是小猪，不占用15只小猪的名额，也不改变三排构图；只有随笔明确写到它在场时才出现。"
-      : "来宾朋友和小猪遵守同样的出场规则，不要把它替换成任何小猪。"
+      ? "只有随笔写明当场参与的来宾才画在三排之外，来宾不占用15只常住小猪的名额。"
+      : "每位来宾只在当场参与或旁观时出现，按自己的档案绘制。仅计划给它留一份东西，不表示它到场。"
   ];
 }
 
@@ -308,7 +301,7 @@ function buildFullCastPrompt(note, guests) {
   return [
     "【任务】为一篇中文随笔画一幅可爱的单幅小猪漫画插图。",
     "",
-    "【不可协商的数量要求】画面中必须恰好有15只真实、活着的小猪：13只普通大小、1只特别大的大呆猪、1只特别小的小猪。固定演员表里的每个角色必须出现且只能出现一次。不得复制角色，不得把任何角色画成克隆，不得少画，也不得出现第16只小猪。",
+    "【不可协商的数量要求】画面中必须恰好有15只常住小猪：13只普通大小、1只特别大的大呆猪、1只特别小的小猪。固定演员表里的每个角色必须出现且只能出现一次。不得复制角色，不得把任何角色画成克隆。",
     "",
     "【固定演员表：逐只遵守视觉身份】",
     cast,
@@ -328,9 +321,9 @@ function buildFullCastPrompt(note, guests) {
     `随笔内容：${noteExcerpt(note?.body, 1200)}`,
     "在不改变固定人数、排位和角色身份的前提下，根据随笔内容安排表情、小动作和非猪形道具，想象一个最温馨、最有画面感的瞬间。",
     "",
-    "【绝对禁止】演员表的编号和名字仅供理解，绝不能画进画面。不要出现任何文字、汉字、字母、数字、标志或对话框；不要出现香烟、电子烟、烟斗、酒、酒瓶或酒罐；不要出现人类；不得出现第16只活猪。背景可以有照片、画作、猪形玩具或装饰，但必须一眼看出它们不是活猪。",
+    "【绝对禁止】演员表的编号和名字仅供理解，绝不能画进画面。不要出现任何文字、汉字、字母、数字、标志或对话框；不要出现香烟、电子烟、烟斗、酒、酒瓶或酒罐；不要出现人类或未经点名的来宾。背景可以有照片、画作、猪形玩具或装饰，但必须一眼看出它们不是活猪。",
     "",
-    "【完成前自检】逐排数清楚：前排5只 + 中排5只 + 后排5只 = 总计恰好15只活猪；再确认15个角色各出现一次、外观互不相同、没有第16只活猪，然后才完成画面。"
+    "【完成前自检】逐排数清楚：前排5只 + 中排5只 + 后排5只 = 总计恰好15只常住小猪。核对每位住户各出现一次，来宾另计。"
   ].join("\n");
 }
 
