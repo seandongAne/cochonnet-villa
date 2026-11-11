@@ -420,6 +420,26 @@
       "width": 1536,
       "height": 1024,
       "number": 42
+    },
+    {
+      "id": "art-140423a2fb2717646cbd800724dd99f35cfc4d007e3f7266ad79fa0e08245d19",
+      "image": "/little-universe/gallery/art/140423a2fb2717646cbd800724dd99f35cfc4d007e3f7266ad79fa0e08245d19.webp",
+      "thumbnail": "/little-universe/gallery/art/140423a2fb2717646cbd800724dd99f35cfc4d007e3f7266ad79fa0e08245d19-thumb.webp",
+      "timestamp": "2026-11-11T05:59:28.591Z",
+      "timestampKind": "generated",
+      "width": 1536,
+      "height": 1024,
+      "number": 43
+    },
+    {
+      "id": "art-dbc70bcb2925d01a7df807d11217c83bacbbf93e35c061372c621fa15af5b861",
+      "image": "/little-universe/gallery/art/dbc70bcb2925d01a7df807d11217c83bacbbf93e35c061372c621fa15af5b861.webp",
+      "thumbnail": "/little-universe/gallery/art/dbc70bcb2925d01a7df807d11217c83bacbbf93e35c061372c621fa15af5b861-thumb.webp",
+      "timestamp": "2026-11-11T06:09:41.010Z",
+      "timestampKind": "generated",
+      "width": 1536,
+      "height": 1024,
+      "number": 44
     }
   ]
 }
