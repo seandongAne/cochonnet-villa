@@ -1,141 +1,38 @@
 name: Generate note art
-
-# Whenever 猪猪小记 content changes on main, draw a cute piglet comic for any
-# post that doesn't have one yet (scripts/generate-note-art.mjs, gpt-image-2.5-sunburst),
-# commit the art + stamped notes.json, and kick the Pages deploy.
-#
-# Requires the repo Actions secret OPENAI_API_KEY whenever a note still needs
-# art. The art commit is made with GITHUB_TOKEN, which cannot re-trigger this
-# workflow (GitHub's recursion guard), so we dispatch both the deploy and any
-# required continuation batch explicitly.
-
-on:
-  push:
-    branches: ["main"]
-    paths:
-      - "content/notes.json"
-      - "public/notes-art/**"
-      - "scripts/generate-note-art.mjs"
-      - "scripts/note-art-runtime.mjs"
-      - "scripts/sync-note-gallery.mjs"
-      - "src/render-notes.js"
-      - "src/note-markdown.js"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/generate-note-art.yml"
-  workflow_dispatch:
-    inputs:
-      force_slug:
-        description: "Existing note slug to regenerate (blank generates missing art only)"
-        required: false
-        type: string
-
+on: workflow_dispatch
 permissions:
-  contents: write
-  actions: write
-
-concurrency:
-  group: note-art
-  queue: max
-
+  contents: read
 jobs:
-  art:
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 6
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ github.ref == 'refs/heads/main' && 'main' || github.sha }}
-          fetch-depth: 0
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
+          persist-credentials: false
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-
-      - name: Install runtime dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
-
-      - name: Generate missing note art
-        id: generate
-        continue-on-error: true
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify both approved source notes without generating images
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          NOTE_ART_FORCE_SLUG: ${{ github.event_name == 'workflow_dispatch' && inputs.force_slug || '' }}
-        run: node scripts/generate-note-art.mjs
-
-      - name: Collect generated art for recovery
-        id: recovery
-        if: ${{ !cancelled() }}
         run: |
-          recovery_dir="$RUNNER_TEMP/note-art-recovery"
-          generated_files=()
-
-          while IFS= read -r -d '' file; do
-            [[ "$file" == *.webp ]] && generated_files+=("$file")
-          done < <(
-            git diff --name-only --diff-filter=AM -z -- public/notes-art public/little-universe/gallery
-            git ls-files --others --exclude-standard -z -- public/notes-art public/little-universe/gallery
-          )
-
-          if (( ${#generated_files[@]} == 0 )); then
-            echo "has_art=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          mkdir -p "$recovery_dir"
-          for file in "${generated_files[@]}"; do
-            cp --parents -- "$file" "$recovery_dir"
-          done
-          if [[ -f content/gallery.json ]]; then cp --parents -- content/gallery.json "$recovery_dir"; fi
-          echo "has_art=true" >> "$GITHUB_OUTPUT"
-
-      - name: Upload generated art recovery artifact
-        if: ${{ !cancelled() && steps.recovery.outputs.has_art == 'true' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: note-art-recovery-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/note-art-recovery
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 0
-
-      - name: Commit art and redeploy
-        if: ${{ success() && github.ref == 'refs/heads/main' && steps.generate.outputs.has_changes == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          base_sha="$(git rev-parse HEAD)"
-
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git fetch origin main
-            if [[ "$(git rev-parse FETCH_HEAD)" != "$base_sha" ]]; then
-              echo "::error::main changed while art was being generated. Refusing to attach stale art; use the recovery artifact or run the workflow again."
-              exit 1
-            fi
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add content/notes.json public/notes-art content/gallery.json public/little-universe/gallery
-            git commit -m "小记配图: auto-generate note art"
-
-            if ! git push origin HEAD:main; then
-              echo "::error::Push failed; main may have changed after the revision check. The generated WebP remains in the recovery artifact."
-              exit 1
-            fi
-
-            gh workflow run deploy-pages.yml --ref main
-            if [[ "${{ steps.generate.outputs.needs_followup }}" == "true" ]]; then
-              gh workflow run generate-note-art.yml --ref main
-            fi
-          else
-            echo "No new art to commit."
-          fi
-
-      - name: Surface generation failures
-        if: ${{ !cancelled() && steps.generate.outcome == 'failure' }}
-        run: |
-          echo "::error::One or more note-art operations failed. See the job summary and recovery artifact."
-          exit 1
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFile} from 'node:fs/promises';
+          import {sceneInput, requestNoteScene, buildArtPrompt} from './scripts/generate-note-art.mjs';
+          const {notes} = JSON.parse(await readFile('content/notes.json', 'utf8'));
+          for (const slug of ['2026-08-15', '2026-08-28']) {
+            const input = sceneInput(notes.find(n => n.slug === slug));
+            assert.equal(input.roster.residents.length, 15);
+            assert.equal(input.roster.guests.length, 2);
+            assert.ok(input.markers.includes('小猪'));
+            const scene = await requestNoteScene({input, apiKey: process.env.OPENAI_API_KEY});
+            const prompt = buildArtPrompt(scene, input);
+            assert.ok(prompt.includes(scene.sourceExcerpt));
+            assert.ok(['single', 'panels'].includes(scene.layout));
+            console.log('Verified plan', JSON.stringify({slug, layout:scene.layout, cast:scene.cast, start:input.body.indexOf(scene.sourceExcerpt), length:scene.sourceExcerpt.length}));
+          }
+          JS
