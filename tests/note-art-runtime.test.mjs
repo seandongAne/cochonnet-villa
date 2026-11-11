@@ -31,7 +31,7 @@ function validWebp(size = "2x3") {
   return Buffer.from(VALID_WEBP_FIXTURES[size], "base64");
 }
 
-const requestScene = async () => ({ moment: "A piglet at home.", cast: [], fullHerd: false });
+const requestScene = async ({ input }) => ({ moment: "A piglet at home.", sourceExcerpt: input.body, cast: [], fullHerd: false });
 
 function response({ status = 200, body = "", json, headers = {} } = {}) {
   return {

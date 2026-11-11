@@ -405,7 +405,7 @@ test("note pages and cards render the art image with an escaped src", () => {
 });
 
 test("art prompt illustrates the selected moment without lettering", () => {
-  const prompt = buildArtPrompt({ moment: "草地上的小猪看到了流星。", cast: [], fullHerd: false }, []);
+  const prompt = buildArtPrompt({ moment: "草地上的小猪看到了流星。", sourceExcerpt: "流星划过。", cast: [], fullHerd: false }, { body: "流星划过。", candidates: [] });
   assert.ok(prompt.includes("看到了流星"));
   assert.ok(prompt.includes("不要出现任何文字"));
 });
