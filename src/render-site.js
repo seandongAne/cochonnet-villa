@@ -52,6 +52,10 @@ const LANGUAGE_TEXT = {
     "story.card.2.body": "十三只差不多大的，一只特别大的，一只特别小的。每晚数一遍，数对了才熄灯。",
     "porkies.eyebrow": "挨个认识一下",
     "porkies.title": "十五位住户，一只一只介绍。",
+    "guests.title": "山庄来宾",
+    "guest.label": "来宾",
+    "guest.baibaicai.description": "小猪们的好朋友。浅绿色的菜叶层层叠叠，拨开一点，就看见菜心上的笑脸。",
+    "guest.budaibudaizhu.description": "一只戴红围脖的普通粉色小猪。路上捡回来的塑料空瓶，都装在他斜背的黄挎包里。",
     "porkies.text": "名字都不是白叫的：脏脏猪真的脏，懒蛋猪真的懒，至于贪吃猪……看照片就知道了。",
     "size.regular": "标准号",
     "size.giant": "特大号",
@@ -242,13 +246,15 @@ function renderNameParade(porkies) {
     .join("");
 }
 
-function renderPorkyCards(porkies) {
+function renderPorkyCards(porkies, { guests = false } = {}) {
   return porkies
     .map((porky, index) => {
       const size = normalizeSize(porky?.size);
       const accent = escapeHtml(sanitizeColor(porky?.accent));
       const sizeClass = size === "regular" ? "" : ` ${size}`;
-      const sizeLabel = escapeHtml(SIZE_LABELS[size]);
+      const badgeKey = guests ? "guest.label" : `size.${size}`;
+      const badgeLabel = guests ? "Guest" : SIZE_LABELS[size];
+      const descriptionKey = guests ? `guest.${porky.id}.description` : `porky.${index}.description`;
       const name = escapeHtml(porky?.name || "");
       const imageSrc = sanitizeImageSrc(porky?.image || porky?.photo);
       const media = imageSrc
@@ -272,10 +278,10 @@ function renderPorkyCards(porkies) {
 
       return `
         <article class="porky-card${sizeClass}" style="--accent: ${accent};">
-          <span class="size-tag"${i18nAttribute(`size.${size}`)}>${sizeLabel}</span>
+          <span class="size-tag"${i18nAttribute(badgeKey)}>${escapeHtml(badgeLabel)}</span>
           ${media}
           <h3>${name}</h3>
-          <p${i18nAttribute(`porky.${index}.description`)}>${escapeHtml(porky?.description || "")}</p>
+          <p${i18nAttribute(descriptionKey)}>${escapeHtml(porky?.description || "")}</p>
         </article>
       `;
     })
@@ -508,6 +514,14 @@ export function renderSite(site, notes = []) {
             ${renderPorkyCards(porkies)}
           </div>
         </section>
+
+        ${normalizeList(site?.guests).length ? `
+          <section id="guests" aria-labelledby="guests-title">
+            <div class="section-heading compact">
+              <h2 id="guests-title"${i18nAttribute("guests.title")}>Villa guests</h2>
+            </div>
+            <div class="porky-grid">${renderPorkyCards(site.guests, { guests: true })}</div>
+          </section>` : ""}
 
         <section class="villa" id="villa">
           <div class="villa-layout">

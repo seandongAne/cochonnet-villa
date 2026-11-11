@@ -85,6 +85,27 @@
     "title": "Cochonnet Villa | Home of 15 Happy Porkies",
     "description": "Cochonnet Villa is the warm, safe home of 15 happy porkies: thirteen about the same size, one gentle giant and one tiny one, plus hot springs and a mushroom tower."
   },
+  "guests": [
+    {
+      "id": "baibaicai",
+      "name": "白白菜",
+      "aliases": ["白菜"],
+      "accent": "#a6bd79",
+      "image": "/characters/baibaicai/portrait.webp",
+      "description": "A friend of the herd with pale green leaves and a little smile at the heart of the cabbage.",
+      "artSize": "和普通小猪差不多高",
+      "artVisual": "一棵直立的拟人化大白菜：浅色菜心上长着小圆黑眼、开口微笑和淡桃色脸颊，浅绿外叶分层包裹，顶部叶尖偏向一侧上扬，叶片手臂和小叶脚，不加猪鼻子"
+    },
+    {
+      "id": "budaibudaizhu",
+      "name": "不呆不呆猪",
+      "accent": "#e5af56",
+      "image": "/characters/budaibudaizhu/portrait.webp",
+      "description": "An ordinary pink pig in a red scarf. The yellow bag across his shoulder holds the empty plastic bottles he picks up along the way.",
+      "artSize": "普通大小",
+      "artVisual": "普通粉色小猪，软垂耳、琥珀棕眼，戴纯红围脖，斜背黄色布挎包，包口露出捡回来的、略压瘪的透明塑料空瓶"
+    }
+  ],
   "porkies": [
     {
       "name": "脏脏猪",
