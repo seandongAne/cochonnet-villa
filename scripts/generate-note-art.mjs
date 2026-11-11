@@ -17,7 +17,6 @@ import { noteMarkdownToPlainText } from "../src/note-markdown.js";
 import {
   deriveNoteSlug,
   extractNoteCharacterMarkers,
-  noteExcerpt,
   sanitizeNoteImage
 } from "../src/render-notes.js";
 import {
@@ -161,246 +160,88 @@ export const GUEST_CAST = Object.freeze([
   })
 ]);
 
-const FULL_CAST_SUBJECT_PATTERN =
-  /(?:15|十五)\s*(?:只)?\s*(?:小猪|猪猪|猪)|(?:所有|全体|全员|全部)\s*(?:的)?\s*(?:小猪|猪猪|猪)/u;
-const FULL_CAST_SCENE_PATTERN =
-  /(?:一起|共同|到齐|集合|合照|拍照|全家福|大合照|全部登场|全部出镜)/u;
-const FULL_CAST_SHORTHAND_PATTERN =
-  /(?:猪猪|小猪)?\s*(?:全员|全体)\s*(?:到齐|集合|合照|登场|出镜)/u;
-const FULL_CAST_EXCEPTION_PATTERN = /(?:只有|仅有|除了|缺席|没来|不在|没拍成|取消|未能)/u;
-// A title that counts the whole herd ("十五只猪分床睡") is itself the full-cast
-// cue: the title names what the note is about. The body still needs a
-// collective scene word, because there the count is often just backdrop.
-const FULL_CAST_TITLE_PATTERN = /(?:15|十五)\s*(?:只)?\s*(?:小猪|猪猪|猪)/u;
+const CHARACTERS = [...PORKY_CAST, ...GUEST_CAST];
 
-function noteStoryText(note) {
-  return `${String(note?.title ?? "").trim()}\n${noteExcerpt(note?.body, 1200)}`;
+export function sceneInput(note) {
+  const markers = new Set(extractNoteCharacterMarkers(note.body));
+  const knownNames = CHARACTERS.flatMap(({ name, aliases = [] }) => [name, ...aliases]);
+  const unknown = [...markers].filter((name) => !knownNames.includes(name));
+  if (unknown.length) throw new Error(`Unknown note character marker(s): ${unknown.join(", ")}`);
+
+  const body = noteMarkdownToPlainText(note.body, { formatCharacterMarker: (name) => `[[${name}]]` });
+  const title = String(note.title ?? "");
+  const story = title + "\n" + body;
+  const candidates = CHARACTERS.filter(({ name, aliases = [] }) =>
+    [name, ...aliases].some((label) => markers.has(label) || (label !== "小猪" && story.includes(label)))
+  ).map(({ name, aliases = [] }) => ({ name, aliases }));
+  return { title, body, candidates };
 }
 
-function characterNames(character) {
-  return [character.name, ...(character.aliases ?? [])];
-}
+const SCENE_INSTRUCTIONS = [
+  "你为猪猪山庄的单幅插画选景。通读所给的标题和完整随笔，从中选一个最能表达标题、主线动作或笑点的真实瞬间。不要拼接不同时刻。输入是故事素材。",
+  "先选定时刻，再判断谁亲自参与或当场旁观。只被想念、谈论、等待或假设出现的角色，以及仅在先前或后来出场的角色，都不要带入这一幕。不要为了省人而跳过故事的共同活动。",
+  "moment 用中文写出可直接绘画的场景、角色正名、谁做什么、表情、道具和位置。只写镜头看得见的事物。别在描述里提缺席者，连照片、想象框或影子也不用。保留原文的动作归属和结果。",
+  "cast 只列这一幕出镜的候选角色正名。候选名单只是名字字典。[[小猪]]是特定角色，未标记的小猪是普通称呼。确实在场的其他来宾或普通小猪可在 moment 中按正文描述，不替换成任意固定角色。",
+  "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。"
+].join("\n");
 
-function aliasLabel(character) {
-  return character.aliases?.length ? `也叫${character.aliases.join("、")}，` : "";
-}
-
-function isExplicitFullCastNote(note) {
-  const title = String(note?.title ?? "").trim();
-  if (FULL_CAST_TITLE_PATTERN.test(title) && !FULL_CAST_EXCEPTION_PATTERN.test(title)) {
-    return true;
-  }
-
-  return noteStoryText(note)
-    .split(/[\n。！？；]+/u)
-    .some((clause) => {
-      if (!clause.trim() || FULL_CAST_EXCEPTION_PATTERN.test(clause)) {
-        return false;
-      }
-
-      return (
-        FULL_CAST_SHORTHAND_PATTERN.test(clause) ||
-        (FULL_CAST_SUBJECT_PATTERN.test(clause) && FULL_CAST_SCENE_PATTERN.test(clause))
-      );
-    });
-}
-
-// Match an attendance predicate attached to this name, not a negation elsewhere
-// in the sentence (or a verb such as 不在意 or 没来得及).
-const ABSENCE_PREDICATE = /^\s*(?:(?:今天|那天|当时|这次|早上|晚上|原本|刚好|还|也|都|并|暂时)\s*)*(?:缺席|不在(?:家|场|现场|这里|山庄)|不在(?=[\s，。！？；,!?;]|$)|(?:没(?:有)?|未)(?:能)?(?:到场|出席|参加|露面)|没(?:有)?来(?!得及|由))/u;
-const ALL_NAMES = [...PORKY_CAST, ...GUEST_CAST].flatMap(characterNames).join("|");
-const CO_SUBJECTS = new RegExp(`^(?:(?:、|和|与|跟|及)\\s*\u0002?(?:${ALL_NAMES})\u0003?)+`, "u");
-const RETURN_AFTER_ABSENCE = /^[^，。！？；]*[，。；]\s*(?:但|可|不过|后来|随后|晚上|下午|傍晚|她|他|它|才|又|还是|终于|就|也)+(?:回来了|回家了|赶到了|到场了)/u;
-
-function characterAttendance(character, body, title) {
-  const names = characterNames(character).join("|");
-  // Delimit real Markdown markers independently of literal brackets in code.
-  // Only a marked 小猪 refers to the named character. Other names also work in prose.
-  const marked = `\u0002(?:${names})\u0003`;
-  const pattern = new RegExp(character.name === "小猪" ? marked : `${marked}|${names}`, "gu");
-  let hasAbsence = false;
-  let hasOtherMention = false;
-
-  function scan(text, excerptLimit) {
-    for (const match of text.matchAll(pattern)) {
-      if (match.index >= excerptLimit && !match[0].startsWith("\u0002")) continue;
-      const after = text.slice(match.index + match[0].length).replace(CO_SUBJECTS, "");
-      const before = text.slice(0, match.index);
-      if (ABSENCE_PREDICATE.test(after) && !/(?:如果|假如|要是|万一|以为|担心)\s*$/u.test(before)) {
-        hasAbsence = true;
-        if (RETURN_AFTER_ABSENCE.test(after)) hasOtherMention = true;
-      } else {
-        hasOtherMention = true;
-      }
-    }
-  }
-
-  scan(body, 1200);
-  // A title like “等白菜” should not override the body's explicit absence.
-  if (!hasAbsence && !hasOtherMention) scan(title, Infinity);
-  if (hasAbsence) return hasOtherMention ? "mixed" : "absent";
-  return hasOtherMention ? "mentioned" : "unmentioned";
-}
-
-function findUnknownCharacterMarkers(markerNames) {
-  const knownNames = new Set([...PORKY_CAST, ...GUEST_CAST].flatMap(characterNames));
-
-  return [...markerNames].filter((name) => !knownNames.has(name));
-}
-
-function guestIdentitySection(guests, mode) {
-  if (!guests.length) {
-    return [];
-  }
-
-  return [
-    "",
-    "【来宾朋友的身份参考】",
-    ...guests.map(
-      (guest) =>
-        `${guest.name}（${aliasLabel(guest)}${guest.size}）：${guest.visual}。`
-    ),
-    mode === "full"
-      ? "来宾朋友不是小猪，不占用15只小猪的名额，也不改变三排构图；只有随笔明确写到它在场时才出现。"
-      : "来宾朋友和小猪遵守同样的出场规则，不要把它替换成任何小猪。"
-  ];
-}
-
-function formatCast(cast) {
-  return cast.map(
-    (porky, index) =>
-      `${index + 1}. ${porky.name}（${aliasLabel(porky)}${porky.size}）：${porky.visual}。`
-  ).join("\n");
-}
-
-export function selectNoteArtCast(note) {
-  const characterMarkers = new Set(extractNoteCharacterMarkers(note?.body));
-  const body = noteMarkdownToPlainText(note?.body, {
-    formatCharacterMarker: (name) => `\u0002${name}\u0003`
+export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
+  const response = await fetchImpl("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    body: JSON.stringify({
+      model: process.env.OPENAI_SCENE_MODEL || "gpt-5.4-mini",
+      store: false,
+      instructions: SCENE_INSTRUCTIONS,
+      input: JSON.stringify(input),
+      text: { format: {
+        type: "json_schema", name: "note_scene", strict: true,
+        schema: {
+          type: "object", additionalProperties: false, required: ["moment", "cast", "fullHerd"],
+          properties: {
+            moment: { type: "string" },
+            cast: { type: "array", items: { type: "string", enum: CHARACTERS.map(({ name }) => name) } },
+            fullHerd: { type: "boolean" }
+          }
+        }
+      } }
+    })
   });
-  const attendance = new Map([...PORKY_CAST, ...GUEST_CAST].map((character) => [
-    character.name, characterAttendance(character, body, String(note?.title ?? ""))
-  ]));
-  const mode = isExplicitFullCastNote(note) && !PORKY_CAST.some((p) => attendance.get(p.name) === "absent")
-    ? "full" : "story";
-  const canAppear = (character) => ["mentioned", "mixed"].includes(attendance.get(character.name));
-  const fixedCast =
-    mode === "full" ? PORKY_CAST : PORKY_CAST.filter(canAppear);
-  const guestCast = GUEST_CAST.filter(canAppear);
-  const namesWithAttendance = (state) => Object.freeze(
-    [...attendance].filter(([, value]) => value === state).map(([name]) => name)
+  if (!response.ok) throw new Error(`Scene planning failed (HTTP ${response.status})`);
+  const result = await response.json();
+  const message = result.output?.find((item) => item.type === "message");
+  const output = message?.content?.find((part) => part.type === "output_text");
+  if (result.status !== "completed" || !output?.text) throw new Error("Scene planner did not return a completed scene");
+  return JSON.parse(output.text);
+}
+
+export function buildArtPrompt(scene, candidates) {
+  if (typeof scene?.moment !== "string" || !scene.moment.trim() ||
+      !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean") {
+    throw new Error("Invalid scene plan");
+  }
+  const names = new Set(scene.cast);
+  const eligible = new Set(candidates.map(({ name }) => name));
+  if (scene.fullHerd) PORKY_CAST.forEach(({ name }) => eligible.add(name));
+  if (names.size !== scene.cast.length || scene.cast.some((name) => !eligible.has(name))) {
+    throw new Error("Invalid or duplicate identity in planned cast");
+  }
+  if (scene.fullHerd) PORKY_CAST.forEach(({ name }) => names.add(name));
+  const identities = CHARACTERS.filter(({ name }) => names.has(name)).map(
+    ({ name, size, visual }) => `${name}（${size}）：${visual}。`
   );
 
-  return Object.freeze({
-    mode,
-    fixedCastNames: Object.freeze(fixedCast.map((porky) => porky.name)),
-    guestCastNames: Object.freeze(guestCast.map((guest) => guest.name)),
-    absentCastNames: namesWithAttendance("absent"),
-    mixedCastNames: namesWithAttendance("mixed"),
-    characterMarkers: Object.freeze([...characterMarkers]),
-    unknownCharacterMarkers: Object.freeze(findUnknownCharacterMarkers(characterMarkers))
-  });
-}
-
-function buildFullCastPrompt(note, guests) {
-  const cast = formatCast(PORKY_CAST);
-
   return [
-    "【任务】为一篇中文随笔画一幅可爱的单幅小猪漫画插图。",
-    "",
-    "【不可协商的数量要求】画面中必须恰好有15只真实、活着的小猪：13只普通大小、1只特别大的大呆猪、1只特别小的小猪。固定演员表里的每个角色必须出现且只能出现一次。不得复制角色，不得把任何角色画成克隆，不得少画，也不得出现第16只小猪。",
-    "",
-    "【固定演员表：逐只遵守视觉身份】",
-    cast,
-    "",
-    "【固定构图：三排，每排恰好5只】",
-    `前排从左到右：${PORKY_ROWS[0].join("、")}。`,
-    `中排从左到右：${PORKY_ROWS[1].join("、")}。`,
-    `后排从左到右：${PORKY_ROWS[2].join("、")}。`,
-    "采用轻微俯视的宽幅合照式场景。三排之间留出清楚的空隙，不得互相遮挡；15张脸、15个完整猪鼻子和每只猪的身份配饰都必须清楚可见，任何小猪都不能被裁切、藏在另一只身后或只露出局部。",
-    "每只猪要有不同的脸型、眼型、耳朵姿态、身体轮廓、表情和动作；严格保持各自配饰，不能互换、合并或重复配饰。",
-    ...guestIdentitySection(guests, "full"),
-    "",
-    "【风格】温暖的儿童水彩绘本手绘风；奶油色底（#FFF8EF），柔和的粉色（#F8A6BA）与蜜桃色（#F5B57E）为主色；圆润软萌的粉红小猪；细腻纸张纹理、柔和光线与简洁背景。保持温馨、有同理心、不嘲弄角色。",
-    "",
-    "【随笔内容】",
-    `随笔标题：《${String(note?.title ?? "").trim()}》`,
-    `随笔内容：${noteExcerpt(note?.body, 1200)}`,
-    "在不改变固定人数、排位和角色身份的前提下，根据随笔内容安排表情、小动作和非猪形道具，想象一个最温馨、最有画面感的瞬间。",
-    "",
-    "【绝对禁止】演员表的编号和名字仅供理解，绝不能画进画面。不要出现任何文字、汉字、字母、数字、标志或对话框；不要出现香烟、电子烟、烟斗、酒、酒瓶或酒罐；不要出现人类；不得出现第16只活猪。背景可以有照片、画作、猪形玩具或装饰，但必须一眼看出它们不是活猪。",
-    "",
-    "【完成前自检】逐排数清楚：前排5只 + 中排5只 + 后排5只 = 总计恰好15只活猪；再确认15个角色各出现一次、外观互不相同、没有第16只活猪，然后才完成画面。"
+    "画一幅温暖的儿童水彩绘本单幅宽景。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。画出下面这一刻。",
+    scene.moment,
+    ...identities,
+    "每个角色各出现一次，动作、配饰只属于它自己。按场景写出的角色和人数构图，不额外添加旁观者或背景角色。",
+    scene.fullHerd
+      ? `必须恰好有15只活猪（13只普通、1只特别大、1只特别小），三排，每排五只，完整可见。前排：${PORKY_ROWS[0].join("、")}。中排：${PORKY_ROWS[1].join("、")}。后排：${PORKY_ROWS[2].join("、")}。在场的非猪来宾另计。`
+      : "让每个在场角色的身份、动作和表情清楚可见。",
+    "不要出现任何文字、数字、标志、对话框、烟酒或人类。角色名只供辨认。"
   ].join("\n");
-}
-
-function buildStoryCastPrompt(note, fixedCastNames, guests) {
-  const fixedCastNameSet = new Set(fixedCastNames);
-  const mentionedCast = PORKY_CAST.filter((porky) => fixedCastNameSet.has(porky.name));
-  const identityGuide = mentionedCast.length
-    ? [
-        `【本文点名的固定角色身份参考（共${mentionedCast.length}只）】`,
-        formatCast(mentionedCast),
-        "这些档案用于保持角色长相稳定。凡是在所选瞬间在场的点名角色都要画出来，并严格对应各自的外貌；只有随笔写明它当时不在场，才不画。",
-        ...(mentionedCast.length > 1
-          ? [
-              `本文一共点名了${mentionedCast.length}只固定角色。如果它们在所选瞬间同台，就全部画出来，各自保持身份，不要只挑其中一只。`
-            ]
-          : [])
-      ]
-    : [
-        "【角色身份】正文没有明确点名固定演员表成员。按随笔描述画出该瞬间实际在场的小猪，数量忠于文字；不要因此召集山庄全员。"
-      ];
-
-  return [
-    "【任务】为一篇中文随笔画一幅可爱的单幅小猪漫画插图。",
-    "",
-    "【角色范围——最高优先级】先在心里选择随笔中最有画面感的一个具体瞬间，然后忠实于这个瞬间：随笔写明在该瞬间在场的角色都要画出来，不多也不少。出镜人数由瞬间本身决定，不要为了画面简洁而少画，也不要为了热闹而多画。",
-    "【选择瞬间】如果随笔的主线是几只小猪共同做一件事（一起吃饭、露营、出游、玩耍、围观同一件事），优先选择那个共同在场的瞬间，把每一只参与者都画进去；不要为了减少人数而退到只有一只猪的瞬间。只有随笔本身就是单猪独处的故事时，才画单猪画面。",
-    "随笔标题中直接点名、而且在所选瞬间实际在场的小猪是核心角色，必须出镜；若标题或正文明确说明它缺席，则不要实体出镜。正文里出现的其他角色，只要随笔写明它在所选瞬间在场、参与或旁观，就同样出镜。",
-    "猪猪山庄虽然共有15只固定小猪，但本篇不是全员合照：绝不能为了热闹、展示演员表或凑数量而补齐15只；不要添加背景路人猪、远处猪群或随笔没有写进该瞬间的活猪。",
-    "仅仅被回忆、谈论、等待，或明确没有在场的角色不要实体出镜，可以用空椅子、空手柄、空出的伙伴位置或其他非猪形道具暗示。",
-    "如果随笔中有固定演员表之外的具名猪角色，而且它在所选瞬间在场，可以把它作为来宾猪画出来；不要把来宾随机替换成山庄的其他固定角色。",
-    "",
-    ...identityGuide,
-    ...guestIdentitySection(guests, "story"),
-    "",
-    "【构图】根据实际出镜角色数量自然安排宽幅场景：一只用有环境叙事的单猪情绪画面，两只突出清楚互动，三只以上按实际在场人数使用疏松的分组构图，让每只猪都有自己的动作或表情。所有活猪都要完整、清楚、互不遮挡，不裁切，不克隆，不合并角色或配饰。",
-    "",
-    "【风格】温暖的儿童水彩绘本手绘风；奶油色底（#FFF8EF），柔和的粉色（#F8A6BA）与蜜桃色（#F5B57E）为主色；圆润软萌的粉红小猪；细腻纸张纹理、柔和光线与简洁背景。保持温馨、有同理心、不嘲弄角色。",
-    "",
-    "【随笔内容——只作为画面故事依据，不要把文字画出来】",
-    `随笔标题：《${String(note?.title ?? "").trim()}》`,
-    `随笔内容：${noteExcerpt(note?.body, 1200)}`,
-    "",
-    "【绝对禁止】角色编号和名字仅供理解，绝不能画进画面。不要出现任何文字、汉字、字母、数字、标志或对话框；不要出现香烟、电子烟、烟斗、酒、酒瓶或酒罐；不要出现人类。背景可以有照片、画作、猪形玩具或装饰，但必须一眼看出它们不是活猪。",
-    "",
-    "【完成前自检】数清楚所有活猪，逐只对照随笔：既不能有随笔没写进该瞬间的多余活猪，也不能漏掉随笔写明在场的任何一只，人数对不上就修正。再确认角色外观互不混淆、没有克隆，然后才完成画面。"
-  ].join("\n");
-}
-
-export function buildArtPrompt(note) {
-  const selection = selectNoteArtCast(note);
-  if (selection.unknownCharacterMarkers.length) {
-    throw new Error(
-      `Unknown note character marker(s): ${selection.unknownCharacterMarkers.join(", ")}`
-    );
-  }
-
-  const guestNameSet = new Set(selection.guestCastNames);
-  const guests = GUEST_CAST.filter((guest) => guestNameSet.has(guest.name));
-
-  const prompt = selection.mode === "full"
-    ? buildFullCastPrompt(note, guests)
-    : buildStoryCastPrompt(note, selection.fixedCastNames, guests);
-  const instructions = [prompt];
-  if (selection.absentCastNames.length) {
-    instructions.push(`【明确缺席】${selection.absentCastNames.join("、")}：不得在缺席的场景中出镜，包括背景和桌边。只有正文明确写到回场，才可在回场后的场景出镜。`);
-  }
-  if (selection.mixedCastNames.length) {
-    instructions.push(`【分场出镜】${selection.mixedCastNames.join("、")}：只在正文明确写到其在场的片段出镜，不能把其他时刻的角色移到缺席的场景。`);
-  }
-  return instructions.join("\n");
 }
 
 // Raw notes (as stored in notes.json) that still need art: they have real
@@ -528,6 +369,7 @@ export async function generateNoteArtBatch(
     size = SIZE,
     timeoutMs = REQUEST_TIMEOUT_MS,
     maximumAttempts = MAXIMUM_API_ATTEMPTS,
+    requestScene = requestNoteScene,
     requestImage = requestGeneratedWebp,
     writeImage = writeFileAtomically,
     now = () => new Date().toISOString(),
@@ -541,7 +383,10 @@ export async function generateNoteArtBatch(
   for (const entry of batch) {
     try {
       logger.log(`Generating art for "${entry.note.title}" (${entry.slug})…`);
-      const prompt = buildArtPrompt(entry.note);
+      const input = sceneInput(entry.note);
+      const scene = await requestScene({ input, apiKey });
+      const prompt = buildArtPrompt(scene, input.candidates);
+      logger.log(`Planned recurring cast: ${scene.fullHerd ? "full herd; " : ""}${scene.cast.join(", ") || "(none named)"}`);
       const image = assertValidWebp(
         await requestImage({
           apiUrl,
@@ -633,6 +478,7 @@ export async function runNoteArt({
   maxPerRun = MAX_PER_RUN,
   expectedSize = SIZE,
   readImage = readFile,
+  requestScene = requestNoteScene,
   requestImage = requestGeneratedWebp,
   writeImage = writeFileAtomically,
   logger = console,
@@ -686,6 +532,7 @@ export async function runNoteArt({
   const result = await generateNoteArtBatch(batch, apiKey, {
     artDirectory,
     size: expectedSize,
+    requestScene,
     requestImage,
     writeImage,
     logger,
