@@ -31,6 +31,8 @@ function validWebp(size = "2x3") {
   return Buffer.from(VALID_WEBP_FIXTURES[size], "base64");
 }
 
+const requestScene = async () => ({ moment: "A piglet at home.", cast: [], fullHerd: false });
+
 function response({ status = 200, body = "", json, headers = {} } = {}) {
   return {
     ok: status >= 200 && status < 300,
@@ -319,6 +321,7 @@ test("partial batches retain successes and report every failed slug", async () =
     size: "2x3",
     logger: quietLogger,
     warning() {},
+    requestScene,
     requestImage: async () => {
       requestIndex += 1;
       if (requestIndex === 2) throw new Error("simulated outage");
@@ -335,6 +338,20 @@ test("partial batches retain successes and report every failed slug", async () =
   assert.equal(notes[0].imageGeneratedAt, "2026-10-31T12:34:56.000Z");
   assert.equal(notes[0].imageSha256, createHash("sha256").update(writes[0].bytes).digest("hex"));
   assert.equal(notes[1].imageGeneratedAt, undefined);
+});
+
+test("a failed scene plan on a forced redraw preserves the old art and skips the image request", async () => {
+  const original = { slug: "keep", title: "Evening", body: "A quiet evening.", image: "/notes-art/keep.webp", imageSha256: "old" };
+  const note = { ...original };
+  let imageCalls = 0;
+  const result = await generateNoteArtBatch(pickPendingNotes([note], "keep"), "test-key", {
+    requestScene: async () => { throw new Error("Planner unavailable"); },
+    requestImage: async () => { imageCalls++; return validWebp(); },
+    logger: quietLogger, warning() {}
+  });
+  assert.equal(imageCalls, 0);
+  assert.deepEqual(note, original);
+  assert.deepEqual(result.failures, [{ slug: "keep", message: "Planner unavailable" }]);
 });
 
 test("batch status queues progress but stops retry loops when nothing succeeded", () => {
@@ -412,6 +429,7 @@ test("the run state persists partial progress, reports it, and requests a follow
     apiKey: "test-key",
     expectedSize: "2x3",
     readImage: async () => missingImage(),
+    requestScene,
     requestImage: async () => {
       requestIndex += 1;
       if (requestIndex === 2) throw new Error("simulated outage");
@@ -458,6 +476,7 @@ test("the run state caps a five-note backlog at four and queues the remainder", 
     maxPerRun: 4,
     expectedSize: "2x3",
     readImage: async () => missingImage(),
+    requestScene,
     requestImage: async () => {
       requests += 1;
       return validWebp();
@@ -519,6 +538,7 @@ test("missing art is regenerated instead of reusing an unproven same-slug file",
     apiKey: "test-key",
     expectedSize: "2x3",
     readImage: async () => validWebp(),
+    requestScene,
     requestImage: async () => {
       requests += 1;
       return validWebp();

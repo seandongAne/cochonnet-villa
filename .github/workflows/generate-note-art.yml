@@ -46,7 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ github.ref == 'refs/heads/main' && 'main' || github.sha }}
           fetch-depth: 0
 
       - name: Set up Node
@@ -103,7 +103,7 @@ jobs:
           compression-level: 0
 
       - name: Commit art and redeploy
-        if: ${{ success() && steps.generate.outputs.has_changes == 'true' }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && steps.generate.outputs.has_changes == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
