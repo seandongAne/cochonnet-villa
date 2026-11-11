@@ -27,8 +27,10 @@ The hosted editor is intentionally simple so it works on GitHub Pages without re
 Every published note automatically gets a cute piglet comic illustration:
 
 1. When `content/notes.json` changes on `main`, the `Generate note art` workflow runs `scripts/generate-note-art.mjs`.
-2. The script reads each note that has no `image` yet, builds a Chinese prompt from the title + body, and calls the OpenAI Image API (`gpt-image-2.5-sunburst`, 1536×1024 WebP, `xhigh` quality).
+2. For each note that needs art, a text model (`gpt-5.4-mini` by default) reads the full note and chooses one moment, its on-screen cast, and a short passage describing it. The script checks that the passage occurs verbatim in the note body. The image model (`gpt-image-2.5-sunburst`, 1536×1024 WebP, `xhigh` quality) receives the scene, that passage, and only the selected characters' visual identities.
 3. Generated art is committed to `public/notes-art/<slug>.webp`, the note's `image` field is stamped, and the Pages deploy is re-dispatched, so the illustration appears on the site a few minutes after the post does.
+
+To try a redraw, dispatch the workflow on a working branch with a note's `force_slug`. Download the resulting WebP from the run's recovery artifact. Only runs on `main` publish the artwork.
 
 **One-time setup:** create an OpenAI API key (platform.openai.com) and add it as the repository Actions secret `OPENAI_API_KEY` (Settings → Secrets and variables → Actions). If a note needs art and the secret is missing, the workflow fails visibly. The generator defaults to at most 4 images per run; a continuation run handles any remainder.
 

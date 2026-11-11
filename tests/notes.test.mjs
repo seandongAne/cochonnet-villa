@@ -404,11 +404,9 @@ test("note pages and cards render the art image with an escaped src", () => {
   assert.ok(!renderNotePage(plain, {}).includes('<figure class="note-art">'));
 });
 
-test("art prompt carries the note content and the no-text instruction", () => {
-  const prompt = buildArtPrompt({ title: "星空夜", body: "## 今晚\n\n看到了**流星**。" });
-
-  assert.ok(prompt.includes("《星空夜》"));
-  assert.ok(prompt.includes("看到了流星"), "body excerpt is plain text, not markdown");
+test("art prompt illustrates the selected moment without lettering", () => {
+  const prompt = buildArtPrompt({ moment: "草地上的小猪看到了流星。", sourceExcerpt: "流星划过。", cast: [], fullHerd: false }, { body: "流星划过。", candidates: [] });
+  assert.ok(prompt.includes("看到了流星"));
   assert.ok(prompt.includes("不要出现任何文字"));
 });
 
@@ -453,8 +451,8 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
   assert.ok(workflow.includes("secrets.OPENAI_API_KEY"), "uses the Actions secret");
   assert.match(
     workflow,
-    /uses: actions\/checkout@v6[\s\S]*?with:\n\s+ref: main/,
-    "starts from the latest main branch"
+    /ref: \$\{\{ github\.ref == 'refs\/heads\/main' && 'main' \|\| github\.sha \}\}/,
+    "publication reads current main and a preview reads its dispatched revision"
   );
   assert.match(workflow, /concurrency:\n\s+group: note-art\n\s+queue: max/, "queues every run");
   assert.match(
@@ -493,8 +491,8 @@ test("the note-art workflow wires the script to notes.json pushes and the API se
   assert.ok(workflow.includes("deploy-pages.yml"), "re-dispatches the Pages deploy");
   assert.match(
     commitStep,
-    /if: \$\{\{ success\(\) && steps\.generate\.outputs\.has_changes == 'true' \}\}/,
-    "commits recoverable changes even when generation only partially succeeded"
+    /if: \$\{\{ success\(\) && github\.ref == 'refs\/heads\/main' && steps\.generate\.outputs\.has_changes == 'true' \}\}/,
+    "only main publishes recoverable changes"
   );
   assert.match(
     commitStep,

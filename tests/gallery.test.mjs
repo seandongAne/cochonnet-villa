@@ -111,6 +111,7 @@ test('successful generation automatically supplies the timestamp and bytes neede
   const note = { slug: 'fresh', title: 'Private heading', body: 'Private text' };
   const generated = await generateNoteArtBatch([{ slug: 'fresh', note }], 'test-key', {
     artDirectory: join(root, 'public/notes-art'), size: '96x64', now: () => stamp,
+    requestScene: async ({ input }) => ({ moment: 'A piglet at home.', sourceExcerpt: input.body, cast: [], fullHerd: false }),
     requestImage: async () => bytes, logger: { log() {}, error() {} }, warning() {},
   });
   assert.deepEqual(generated.generated, ['fresh']);

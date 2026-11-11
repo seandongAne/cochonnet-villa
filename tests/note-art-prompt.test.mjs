@@ -7,7 +7,8 @@ import {
   PORKY_CAST,
   buildArtPrompt,
   pickPendingNotes,
-  selectNoteArtCast
+  requestNoteScene,
+  sceneInput
 } from "../scripts/generate-note-art.mjs";
 
 test("the note-art cast defines 15 immutable, visually distinct porkies", () => {
@@ -30,359 +31,79 @@ test("every character name and alias resolves to exactly one identity", () => {
   assert.equal(new Set(names).size, names.length);
 });
 
-test("a single-protagonist note only injects that porky's identity", () => {
-  const prompt = buildArtPrompt({
-    title: "呆呆猪心情不好",
-    body: "## 打游戏\n\n想要一个抱抱，也想去攀岩。"
+test("the planner reads the whole story with canonical names and real identity markers", () => {
+  const input = sceneInput({
+    title: "胖呆呆的周末", body: "小猪们去郊游。\n\n" + "路很长。".repeat(350) +
+      "[[小猪]]遇见香瓜猪。胖呆呆回家想白菜了。"
   });
-
-  const protagonist = PORKY_CAST.find((porky) => porky.name === "呆呆猪");
-
-  assert.ok(prompt.includes(protagonist.visual));
-  assert.match(prompt, /随笔写明在该瞬间在场的角色都要画出来，不多也不少/);
-  assert.match(prompt, /也不能漏掉随笔写明在场的任何一只/);
-  assert.doesNotMatch(prompt, /最少角色|最少且必要|不是强制出席名单/);
-  assert.doesNotMatch(prompt, /本文一共点名了/, "a lone protagonist gets no ensemble reminder");
-  assert.match(prompt, /随笔标题中直接点名、而且在所选瞬间实际在场的小猪是核心角色/);
-  assert.match(prompt, /绝不能为了热闹、展示演员表或凑数量而补齐15只/);
-  assert.match(prompt, /本篇不是全员合照/);
-  assert.match(prompt, /不要添加背景路人猪、远处猪群/);
-  assert.doesNotMatch(prompt, /固定构图：三排/);
-  assert.doesNotMatch(prompt, /必须恰好有15只/);
-  assert.match(prompt, /背景可以有照片、画作、猪形玩具或装饰/);
-  assert.match(prompt, /1536x1024|宽幅/);
-  assert.ok(prompt.includes("想要一个抱抱，也想去攀岩"));
-
-  for (const porky of PORKY_CAST.filter((entry) => entry.name !== "呆呆猪")) {
-    assert.ok(!prompt.includes(porky.visual), `${porky.name} is not injected`);
-  }
-
-  for (const guest of GUEST_CAST) {
-    assert.ok(!prompt.includes(guest.name), `${guest.name} is not injected`);
-  }
+  assert.ok(input.body.endsWith("[[小猪]]遇见香瓜猪。胖呆呆回家想白菜了。"));
+  assert.deepEqual(input.candidates.map(({ name }) => name), ["呆呆猪", "小猪", "香香猪", "白白菜"]);
+  assert.ok(input.candidates.find(({ name }) => name === "呆呆猪").aliases.includes("胖呆呆"));
+  assert.deepEqual(sceneInput({ body: "小猪们看着 `[[小猪]]`。" }).candidates, []);
+  assert.throws(() => sceneInput({ body: "[[小豬]]回家。" }), /Unknown note character marker/);
 });
 
-test("a shared-moment note keeps every named porky instead of minimising the cast", () => {
-  const prompt = buildArtPrompt({
-    title: "火锅怎么能跟谁吃都一样呢",
-    body: "呆呆猪、大呆猪和香香猪围在桌边一起吃火锅，每只小猪涮自己最爱的食材。"
-  });
-
-  for (const name of ["呆呆猪", "大呆猪", "香香猪"]) {
-    const porky = PORKY_CAST.find((entry) => entry.name === name);
-    assert.ok(prompt.includes(porky.visual), `${name} keeps its identity`);
-  }
-
-  assert.match(prompt, /本文点名的固定角色身份参考（共3只）/);
-  assert.match(prompt, /本文一共点名了3只固定角色/);
-  assert.match(prompt, /如果它们在所选瞬间同台，就全部画出来/);
-  assert.match(prompt, /优先选择那个共同在场的瞬间/);
-  assert.match(prompt, /不要为了减少人数而退到只有一只猪的瞬间/);
-  assert.match(prompt, /既不能有随笔没写进该瞬间的多余活猪，也不能漏掉随笔写明在场的任何一只/);
-  assert.doesNotMatch(prompt, /最少角色|最少且必要|不是强制出席名单|删除任何无关活猪/);
-
-  // Faithful to the moment, but still never a padded 15-pig portrait.
-  assert.match(prompt, /绝不能为了热闹、展示演员表或凑数量而补齐15只/);
-  assert.match(prompt, /不要添加背景路人猪、远处猪群/);
-  assert.doesNotMatch(prompt, /必须恰好有15只/);
-  assert.doesNotMatch(prompt, /固定构图：三排/);
+test("only identities present in the chosen moment are passed to the illustrator", () => {
+  const earlyText = "胖呆呆说我想白菜了。";
+  const laterText = "晚上白菜才回来和呆呆猪一起吃饭。";
+  const input = sceneInput({ body: earlyText + laterText });
+  const early = buildArtPrompt({ moment: "呆呆猪托腮看着空椅子。", sourceExcerpt: earlyText, cast: ["呆呆猪"], fullHerd: false }, input);
+  const later = buildArtPrompt({ moment: "呆呆猪和白白菜并排吃饭。", sourceExcerpt: laterText, cast: ["呆呆猪", "白白菜"], fullHerd: false }, input);
+  assert.ok(early.includes("托腮看着空椅子"));
+  assert.ok(early.includes(PORKY_CAST.find(({ name }) => name === "呆呆猪").visual));
+  assert.ok(early.includes(earlyText));
+  assert.ok(!early.includes(GUEST_CAST[0].visual));
+  assert.ok(later.includes(laterText));
+  assert.ok(!later.includes(earlyText));
+  assert.ok(later.includes(GUEST_CAST[0].visual));
+  assert.ok(!early.includes("晚上"));
 });
 
-test("only an explicitly full-cast note requests the 15-porky three-row portrait", () => {
-  const prompt = buildArtPrompt({
-    title: "十五只小猪全员合照",
-    body: "山庄的十五只小猪一起到齐，拍一张温暖的全家福。"
-  });
+test("explicit full-herd scenes supply every identity and keep guests outside the fifteen", () => {
+  const input = sceneInput({ body: "十五只猪拍全家福，白菜和不呆不呆猪也来了。" });
+  const group = buildArtPrompt({ moment: "全家福", sourceExcerpt: input.body, cast: ["白白菜", "不呆不呆猪"], fullHerd: true }, input);
+  for (const character of [...PORKY_CAST, ...GUEST_CAST]) assert.ok(group.includes(character.visual));
+  assert.match(group, /三排，每排五只/);
+  const genericInput = sceneInput({ body: "两只小猪晒太阳。" });
+  const generic = buildArtPrompt({ moment: genericInput.body, sourceExcerpt: genericInput.body, cast: [], fullHerd: false }, genericInput);
+  assert.doesNotMatch(generic, /波波头|三排/);
+});
 
-  assert.match(prompt, /必须恰好有15只/);
-  assert.match(prompt, /前排5只 \+ 中排5只 \+ 后排5只 = 总计恰好15只/);
-  assert.match(prompt, /15张脸、15个完整猪鼻子/);
-  assert.match(prompt, /不得把任何角色画成克隆/);
+test("invalid scene plans cannot introduce an unmentioned identity or submit a blank scene", () => {
+  const input = sceneInput({ body: "呆呆猪回家了。" });
+  for (const cast of [["白白菜"], ["未知"], ["呆呆猪", "呆呆猪"]]) {
+    assert.throws(() => buildArtPrompt({ moment: "家中", sourceExcerpt: input.body, cast, fullHerd: false }, input), /identity/);
+  }
+  assert.throws(() => buildArtPrompt({ moment: " ", sourceExcerpt: input.body, cast: [], fullHerd: false }, input), /Invalid scene/);
+});
 
-  for (const porky of PORKY_CAST) {
-    assert.ok(prompt.includes(porky.name), `${porky.name} is listed`);
-    assert.ok(prompt.includes(porky.visual), `${porky.name} keeps its visual identity`);
+test("the image prompt rejects invented or spliced quotes", () => {
+  const input = sceneInput({ body: "胖呆呆开饭啦！吃得可香了。嘴巴里开始冒泡泡！" });
+  for (const sourceExcerpt of ["", "胖呆呆开始吃饭了。", "胖呆呆开饭啦！嘴巴里开始冒泡泡！"]) {
+    assert.throws(() => buildArtPrompt({
+      moment: "呆呆猪吃饭。", sourceExcerpt, cast: ["呆呆猪"], fullHerd: false
+    }, input), /verbatim passage/);
   }
 });
 
-test("a one-sentence herd backdrop does not turn a two-pig story into a full-cast scene", () => {
-  const prompt = buildArtPrompt({
-    title: "卖零食给不呆不呆猪！",
-    body: "十五猪猪昨天去超市进货。呆呆猪把零食卖给不呆不呆猪，两只猪当场完成了交易。"
-  });
-  const protagonist = PORKY_CAST.find((porky) => porky.name === "呆呆猪");
-
-  assert.ok(prompt.includes(protagonist.visual));
-  assert.ok(prompt.includes("不呆不呆猪"));
-  assert.match(prompt, /纯红围脖.*黄色布挎包.*透明塑料空瓶/);
-  assert.match(prompt, /固定演员表之外的具名猪角色/);
-  assert.doesNotMatch(prompt, /必须恰好有15只/);
-  assert.doesNotMatch(prompt, /固定构图：三排/);
-});
-
-test("generic plural piglets do not borrow the named tiny porky's identity", () => {
-  const prompt = buildArtPrompt({
-    title: "小猪们的新鲜事",
-    body: "一群小猪在院子里晒太阳。"
-  });
-  const namedTinyPorky = PORKY_CAST.find((porky) => porky.name === "小猪");
-
-  assert.ok(!prompt.includes(namedTinyPorky.visual));
-  assert.match(prompt, /正文没有明确点名固定演员表成员/);
-  assert.match(prompt, /数量忠于文字/);
-  assert.doesNotMatch(prompt, /最少且必要/);
-  assert.doesNotMatch(prompt, /必须恰好有15只/);
-});
-
-test("exceptions, partial counts and broad herd mentions do not force a full-cast portrait", () => {
-  const focusedStories = [
-    {
-      title: "15只小猪中只有呆呆猪没睡",
-      body: "其他猪都已经睡着，呆呆猪一个人在窗边看星星。"
-    },
-    {
-      title: "所有小猪都睡了，只有呆呆猪醒着",
-      body: "这一刻只有呆呆猪坐在窗前。"
-    },
-    {
-      title: "三只小猪晒太阳",
-      body: "三只普通小猪在草地上晒太阳。"
-    }
-  ];
-  const namedTinyPorky = PORKY_CAST.find((porky) => porky.name === "小猪");
-
-  for (const note of focusedStories) {
-    const prompt = buildArtPrompt(note);
-    assert.doesNotMatch(prompt, /必须恰好有15只/, note.title);
-  }
-
-  assert.ok(!buildArtPrompt(focusedStories[2]).includes(namedTinyPorky.visual));
-});
-
-test("only collective scenes without an exception enable full-cast mode", () => {
-  const fullCastNotes = [
-    { title: "全员到齐", body: "今天拍纪念照。" },
-    { title: "山庄纪念日", body: "十五只小猪的全家福终于拍好啦。" },
-    { title: "一起拍照", body: "所有小猪一起合照。" },
-    { title: "今天去郊游", body: "十五只小猪今天在草地上一起野餐。" }
-  ];
-  const focusedNotes = [
-    { title: "合照没拍成", body: "全员合照没拍成，最后只有呆呆猪来了。" },
-    { title: "有人没睡", body: "所有小猪都睡了，只有呆呆猪醒着。" },
-    { title: "超市进货", body: "十五猪猪昨天去超市进货，后来呆呆猪单独卖零食。" },
-    { title: "大家都知道", body: "所有小猪都知道呆呆猪今天很难过。" }
-  ];
-
-  for (const note of fullCastNotes) {
-    assert.equal(selectNoteArtCast(note).mode, "full", note.title);
-  }
-
-  for (const note of focusedNotes) {
-    assert.equal(selectNoteArtCast(note).mode, "story", note.title);
-  }
-});
-
-test("a title that counts all fifteen porkies requests the full cast without a scene word", () => {
-  for (const title of ["十五只猪分床睡", "15只小猪的周末", "十五猪猪的新床"]) {
-    assert.equal(selectNoteArtCast({ title, body: "每间卧室三张床。" }).mode, "full", title);
-  }
-
-  // The body keeps the stricter rule: a count there is often just backdrop.
-  assert.equal(
-    selectNoteArtCast({ title: "新床", body: "十五只猪名牌都贴在床头。" }).mode,
-    "story"
-  );
-  assert.equal(
-    selectNoteArtCast({ title: "十五只猪里只有懒蛋猪没起床", body: "其他猪都去吃早餐了。" }).mode,
-    "story",
-    "an exception in the title still narrows the cast"
-  );
-});
-
-test("an alias summons the canonical porky's identity, by name or by marker", () => {
-  const note = { title: "三瓜猪一间房", body: "呆瓜猪，香瓜猪和呱瓜猪住在一起。" };
-  const prompt = buildArtPrompt(note);
-
-  assert.deepEqual(selectNoteArtCast(note).fixedCastNames, ["呆瓜猪", "呱呱猪", "香香猪"]);
-  for (const name of ["呆瓜猪", "呱呱猪", "香香猪"]) {
-    const porky = PORKY_CAST.find((entry) => entry.name === name);
-    assert.ok(prompt.includes(porky.visual), `${name} keeps its identity`);
-  }
-  assert.match(prompt, /香香猪（也叫香瓜猪，普通大小）/);
-  assert.match(prompt, /呱呱猪（也叫呱瓜猪，普通大小）/);
-
-  const marked = selectNoteArtCast({ title: "化妆品", body: "[[香瓜猪]]的化妆品不见了。" });
-  assert.deepEqual(marked.fixedCastNames, ["香香猪"]);
-  assert.deepEqual(marked.unknownCharacterMarkers, []);
-});
-
-test("cast selection keeps exact legacy names but never guesses the ambiguous bare 小猪", () => {
-  assert.deepEqual(
-    selectNoteArtCast({
-      title: "一起整理房间",
-      body: "呆呆猪和乖乖猪一起整理房间。"
-    }).fixedCastNames,
-    ["乖乖猪", "呆呆猪"]
-  );
-  assert.deepEqual(
-    selectNoteArtCast({
-      title: "方向盘找到了",
-      body: "最小的那只小猪抱着黄色玩具方向盘。"
-    }).fixedCastNames,
-    []
-  );
-  assert.deepEqual(
-    selectNoteArtCast({
-      title: "一群快乐的小猪",
-      body: "这些小猪都困了。"
-    }).fixedCastNames,
-    []
-  );
-  assert.deepEqual(
-    selectNoteArtCast({ title: "小猪都困了", body: "毯子已经准备好了。" }).fixedCastNames,
-    []
-  );
-  assert.deepEqual(
-    selectNoteArtCast({ title: "小猪纷纷回家", body: "天快黑了。" }).fixedCastNames,
-    []
-  );
-});
-
-test("the hidden marker deterministically summons 小猪 without leaking into the prompt", () => {
-  const note = {
-    title: "属于自己的时间",
-    body: "## [[小猪]]躺尸\n\n可怜的小猪吃了药，只想躺着休息。"
-  };
-  const selection = selectNoteArtCast(note);
-  const namedTinyPorky = PORKY_CAST.find((porky) => porky.name === "小猪");
-  const prompt = buildArtPrompt(note);
-
-  assert.deepEqual(selection.fixedCastNames, ["小猪"]);
-  assert.deepEqual(selection.characterMarkers, ["小猪"]);
-  assert.deepEqual(selection.unknownCharacterMarkers, []);
-  assert.ok(prompt.includes(namedTinyPorky.visual));
-  assert.ok(prompt.includes("小猪躺尸"));
-  assert.doesNotMatch(prompt, /\[\[小猪\]\]/);
-
-  assert.deepEqual(
-    selectNoteArtCast({ title: "周末兜风", body: "小猪开车带大家去看海。" })
-      .fixedCastNames,
-    [],
-    "driving prose no longer doubles as an identity heuristic"
-  );
-
-  assert.throws(
-    () => buildArtPrompt({ title: "拼错名字", body: "[[小豬]]今天来玩。" }),
-    /Unknown note character marker\(s\): 小豬/
-  );
-});
-
-test("the published 2026-08-28 note explicitly invokes the named 小猪", async () => {
-  const data = JSON.parse(
-    await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
-  );
-  const note = data.notes.find(({ slug }) => slug === "2026-08-28");
-  const selection = selectNoteArtCast(note);
-
-  assert.ok(note, "the published note exists");
-  assert.deepEqual(selection.fixedCastNames, ["小猪"]);
-  assert.deepEqual(selection.characterMarkers, ["小猪"]);
-  assert.ok(buildArtPrompt(note).includes("棕色齐肩波波头带整齐平刘海"));
-});
-
-test("the published 2026-10-21 room-assignment note gets the whole cast", async () => {
-  const data = JSON.parse(
-    await readFile(new URL("../content/notes.json", import.meta.url), "utf8")
-  );
-  const note = data.notes.find(({ slug }) => slug === "2026-10-21");
-  const prompt = buildArtPrompt(note);
-
-  assert.ok(note, "the published note exists");
-  assert.equal(selectNoteArtCast(note).mode, "full");
-  assert.match(prompt, /必须恰好有15只/);
-  for (const porky of PORKY_CAST) {
-    assert.ok(prompt.includes(porky.visual), `${porky.name} keeps its visual identity`);
-  }
-  assert.match(prompt, /香香猪（也叫香瓜猪/);
-  assert.match(prompt, /呱呱猪（也叫呱瓜猪/);
-});
-
-test("the guest cast is frozen and mentioning 白菜 injects the cabbage identity", () => {
-  assert.ok(Object.isFrozen(GUEST_CAST));
-  assert.ok(GUEST_CAST.every(Object.isFrozen));
-
-  const note = { title: "看流星雨", body: "呆呆猪和白菜一起看流星雨。" };
-  const selection = selectNoteArtCast(note);
-
-  assert.deepEqual(selection.guestCastNames, ["白白菜"]);
-  assert.deepEqual(selection.fixedCastNames, ["呆呆猪"]);
-
-  const prompt = buildArtPrompt(note);
-  assert.match(prompt, /白白菜/);
-  assert.match(prompt, /直立的拟人化大白菜/);
-  assert.match(prompt, /不加猪鼻子/);
-  assert.match(prompt, /每位来宾只在当场参与或旁观时出现/);
-
-  const fullNameSelection = selectNoteArtCast({
-    title: "白白菜来做客",
-    body: "白白菜今天来山庄玩。"
-  });
-  assert.deepEqual(fullNameSelection.guestCastNames, ["白白菜"]);
-});
-
-test("a full-cast note can bring 白白菜 along without breaking the 15-pig contract", () => {
-  const prompt = buildArtPrompt({
-    title: "全员到齐",
-    body: "十五只小猪一起拍全家福，白白菜也来了。"
-  });
-
-  assert.match(prompt, /必须恰好有15只/);
-  assert.match(prompt, /白白菜/);
-  assert.match(prompt, /不占用15只常住小猪的名额/);
-});
-
-test("the crab story gives the eater Daidai's identity and keeps the absent guest off screen", () => {
-  const note = {
-    title: "吃螃蟹",
-    body: "[[小猪]]选了一包蓝蟹。幸好白菜不在家，不然要晕过去啦！胖呆呆很快就吃了四只还多！"
-  };
-  const cast = selectNoteArtCast(note);
-  assert.deepEqual(cast.fixedCastNames, ["呆呆猪", "小猪"]);
-  assert.deepEqual(cast.guestCastNames, []);
-  assert.deepEqual(cast.absentCastNames, ["白白菜"]);
-  const prompt = buildArtPrompt(note);
-  assert.match(prompt, /呆呆猪（也叫胖呆呆，普通大小）：蓬松凌乱的淡粉色额毛、右耳只有一只金色耳环、炭灰色连帽衫/);
-  assert.match(prompt, /【明确缺席】白白菜/);
-  assert.ok(!prompt.includes(GUEST_CAST[0].visual));
-});
-
-test("absence belongs to the named participants, including marked and coordinated subjects", () => {
-  const cast = selectNoteArtCast({
-    title: "十五只小猪的聚会",
-    body: "胖呆呆在家。[[小猪]]和白白菜都没来，其他小猪在门口。"
-  });
-  assert.equal(cast.mode, "story");
-  assert.deepEqual(cast.fixedCastNames, ["呆呆猪"]);
-  assert.deepEqual(cast.absentCastNames, ["小猪", "白白菜"]);
-  assert.equal(selectNoteArtCast({ title: "全员到齐", body: "白菜缺席。" }).mode, "full");
-  assert.deepEqual(selectNoteArtCast({ body: "[[胖呆呆]]不在场。" }).absentCastNames, ["呆呆猪"]);
-});
-
-test("a character who returns keeps its identity for the later scene", () => {
-  for (const body of ["白菜早上不在家，后来白白菜回来了。", "白白菜不在家，晚上才回来了。"]) {
-    const cast = selectNoteArtCast({ body });
-    assert.deepEqual(cast.absentCastNames, []);
-    assert.deepEqual(cast.guestCastNames, ["白白菜"]);
-    assert.match(buildArtPrompt({ body }), /【分场出镜】白白菜/);
-  }
-});
-
-test("presence, unrelated negation and a hypothetical absence do not exclude a guest", () => {
-  for (const body of ["白菜在家。", "白菜不在意。", "白菜没来得及拿筷子。", "如果白菜不在家怎么办？"]) {
-    const cast = selectNoteArtCast({ body });
-    assert.deepEqual(cast.guestCastNames, ["白白菜"]);
-    assert.deepEqual(cast.absentCastNames, []);
-  }
+test("the text request uses a structured scene response and surfaces refusal or incomplete output", async () => {
+  const input = sceneInput({ title: "晚饭", body: "呆呆猪说我想白菜了。" });
+  const scene = { moment: "呆呆猪独自吃饭。", sourceExcerpt: input.body, cast: ["呆呆猪"], fullHerd: false };
+  const message = { type: "message", content: [{ type: "output_text", text: JSON.stringify(scene) }] };
+  let payload = { status: "completed", output: [{ type: "reasoning" }, message] };
+  let request;
+  const options = { input, apiKey: "test-key", fetchImpl: async (_url, options) => {
+    request = JSON.parse(options.body);
+    return Response.json(payload);
+  } };
+  assert.deepEqual(await requestNoteScene(options), scene);
+  assert.deepEqual(JSON.parse(request.input), input);
+  assert.equal(request.store, false);
+  assert.equal(request.text.format.strict, true);
+  payload = { status: "incomplete", output: [message] };
+  await assert.rejects(requestNoteScene(options), /completed scene/);
+  payload = { status: "completed", output: [{ type: "message", content: [{ type: "refusal" }] }] };
+  await assert.rejects(requestNoteScene(options), /completed scene/);
 });
 
 test("forced note art selects only the exact derived slug, including notes with art", () => {
