@@ -60,8 +60,8 @@ test("only identities present in the chosen moment are passed to the illustrator
 });
 
 test("explicit full-herd scenes supply every identity and keep guests outside the fifteen", () => {
-  const input = sceneInput({ body: "十五只猪拍全家福，白菜也来了。" });
-  const group = buildArtPrompt({ moment: "全家福", sourceExcerpt: input.body, cast: ["白白菜"], fullHerd: true }, input);
+  const input = sceneInput({ body: "十五只猪拍全家福，白菜和不呆不呆猪也来了。" });
+  const group = buildArtPrompt({ moment: "全家福", sourceExcerpt: input.body, cast: ["白白菜", "不呆不呆猪"], fullHerd: true }, input);
   for (const character of [...PORKY_CAST, ...GUEST_CAST]) assert.ok(group.includes(character.visual));
   assert.match(group, /三排，每排五只/);
   const genericInput = sceneInput({ body: "两只小猪晒太阳。" });

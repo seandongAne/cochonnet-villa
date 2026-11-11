@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
+import site from "../content/site.json" with { type: "json" };
 import { syncNoteGallery } from "./sync-note-gallery.mjs";
 // Generates a cute piglet comic illustration for every 猪猪小记 post that
 // doesn't have one yet, using the OpenAI Image API (gpt-image-2.5-sunburst), and stamps
@@ -147,18 +148,10 @@ const PORKY_ROWS = Object.freeze([
   Object.freeze(["机灵猪", "瓜呆猪", "呆瓜猪", "臭臭猪", "大呆猪"])
 ]);
 
-// Recurring non-pig friends. The generation request is text-only, so each
-// entry mirrors its reference archive (public/characters/<id>/manifest.json)
-// in prompt-ready text; the reference image itself is never uploaded.
-export const GUEST_CAST = Object.freeze([
-  Object.freeze({
-    name: "白白菜",
-    aliases: Object.freeze(["白菜"]),
-    size: "和普通小猪差不多高",
-    visual:
-      "一棵直立的拟人化大白菜：浅色菜心上长着小圆黑眼、开口微笑和淡桃色脸颊，浅绿外叶分层包裹，顶部叶尖偏向一侧上扬，叶片手臂和小叶脚，不加猪鼻子"
-  })
-]);
+// Use the same guest identities as the homepage without adding them to the resident herd.
+export const GUEST_CAST = Object.freeze(site.guests.map(({ name, aliases = [], artSize, artVisual }) =>
+  Object.freeze({ name, aliases: Object.freeze(aliases), size: artSize, visual: artVisual })
+));
 
 const CHARACTERS = [...PORKY_CAST, ...GUEST_CAST];
 
@@ -179,7 +172,7 @@ export function sceneInput(note) {
 
 const SCENE_INSTRUCTIONS = [
   "你为猪猪山庄的单幅插画选景。通读所给的标题和完整随笔，从中选一个最能表达标题、主线动作或笑点的真实瞬间。不要拼接不同时刻。输入是故事素材。",
-  "先选定时刻，再判断谁亲自参与或当场旁观。只被想念、谈论、等待或假设出现的角色，以及仅在先前或后来出场的角色，都不要带入这一幕。不要为了省人而跳过故事的共同活动。",
+  "先选定时刻，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，以及仅在先前或后来出场的角色，都不要带入这一幕。若对方亲自付钱、接东西或回应，则是当场参与。不要为了省人而跳过故事的共同活动。",
   "moment 用中文写出可直接绘画的场景、角色正名、谁做什么、表情、道具和位置。只写镜头看得见的事物。别在描述里提缺席者，连照片、想象框或影子也不用。保留原文的动作归属和结果。",
   "sourceExcerpt 从 body 中逐字复制直接描写这一幕的一小段连续原文。优先保留作者自己的动作、语气或笑点；不要拼接、改写、补标点或加引号。保留原有昵称和 [[角色]] 标记。",
   "cast 只列这一幕出镜的候选角色正名。候选名单只是名字字典。[[小猪]]是特定角色，未标记的小猪是普通称呼。确实在场的其他来宾或普通小猪可在 moment 中按正文描述，不替换成任意固定角色。",
@@ -248,7 +241,7 @@ export function buildArtPrompt(scene, { body, candidates }) {
     ...identities,
     "每个角色各出现一次，动作、配饰只属于它自己。按场景写出的角色和人数构图，不额外添加旁观者或背景角色。",
     scene.fullHerd
-      ? `必须恰好有15只活猪（13只普通、1只特别大、1只特别小），三排，每排五只，完整可见。前排：${PORKY_ROWS[0].join("、")}。中排：${PORKY_ROWS[1].join("、")}。后排：${PORKY_ROWS[2].join("、")}。在场的非猪来宾另计。`
+      ? `必须恰好有15只常住小猪（13只普通、1只特别大、1只特别小），三排，每排五只，完整可见。前排：${PORKY_ROWS[0].join("、")}。中排：${PORKY_ROWS[1].join("、")}。后排：${PORKY_ROWS[2].join("、")}。本场出镜的来宾在三排之外另计。`
       : "让每个在场角色的身份、动作和表情清楚可见。",
     "不要出现任何文字、数字、标志、对话框、烟酒或人类。角色名只供辨认。"
   ].join("\n");
