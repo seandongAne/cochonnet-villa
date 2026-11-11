@@ -37,9 +37,13 @@ test("the planner reads the whole story with canonical names and real identity m
       "[[小猪]]遇见香瓜猪。胖呆呆回家想白菜了。"
   });
   assert.ok(input.body.endsWith("[[小猪]]遇见香瓜猪。胖呆呆回家想白菜了。"));
-  assert.deepEqual(input.candidates.map(({ name }) => name), ["呆呆猪", "小猪", "香香猪", "白白菜"]);
-  assert.ok(input.candidates.find(({ name }) => name === "呆呆猪").aliases.includes("胖呆呆"));
-  assert.deepEqual(sceneInput({ body: "小猪们看着 `[[小猪]]`。" }).candidates, []);
+  const { residents, guests } = input.roster;
+  assert.deepEqual(residents.map(({ name }) => name), PORKY_CAST.map(({ name }) => name));
+  assert.deepEqual(guests.map(({ name }) => name), GUEST_CAST.map(({ name }) => name));
+  assert.ok(residents.find(({ name }) => name === "呆呆猪").aliases.includes("胖呆呆"));
+  assert.ok(guests.find(({ name }) => name === "白白菜").aliases.includes("白菜"));
+  assert.deepEqual(input.markers, ["小猪"]);
+  assert.deepEqual(sceneInput({ body: "两只小猪晒太阳。" }).roster, input.roster);
   assert.throws(() => sceneInput({ body: "[[小豬]]回家。" }), /Unknown note character marker/);
 });
 
@@ -69,9 +73,18 @@ test("explicit full-herd scenes supply every identity and keep guests outside th
   assert.doesNotMatch(generic, /波波头|三排/);
 });
 
-test("invalid scene plans cannot introduce an unmentioned identity or submit a blank scene", () => {
+test("only an actual character marker identifies the named little pig in a partial cast", () => {
+  for (const body of ["一只小猪推开门。", "牌子上写着 `[[小猪]]`。", "[[小猪]]推开门。"]) {
+    const input = sceneInput({ body });
+    const prompt = () => buildArtPrompt({ moment: "门前的小猪。", sourceExcerpt: input.body, cast: ["小猪"], fullHerd: false }, input);
+    if (body.startsWith("[[小猪]]")) assert.match(prompt(), /波波头/);
+    else assert.throws(prompt, /explicit.*marker/);
+  }
+});
+
+test("invalid scene plans cannot use an unknown name, an alias, duplicate identities or a blank scene", () => {
   const input = sceneInput({ body: "呆呆猪回家了。" });
-  for (const cast of [["白白菜"], ["未知"], ["呆呆猪", "呆呆猪"]]) {
+  for (const cast of [["胖呆呆"], ["未知"], ["呆呆猪", "呆呆猪"]]) {
     assert.throws(() => buildArtPrompt({ moment: "家中", sourceExcerpt: input.body, cast, fullHerd: false }, input), /identity/);
   }
   assert.throws(() => buildArtPrompt({ moment: " ", sourceExcerpt: input.body, cast: [], fullHerd: false }, input), /Invalid scene/);

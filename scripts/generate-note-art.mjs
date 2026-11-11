@@ -17,7 +17,6 @@ import { noteMarkdownToPlainText } from "../src/note-markdown.js";
 
 import {
   deriveNoteSlug,
-  extractNoteCharacterMarkers,
   sanitizeNoteImage
 } from "../src/render-notes.js";
 import {
@@ -154,20 +153,23 @@ export const GUEST_CAST = Object.freeze(site.guests.map(({ name, aliases = [], a
 ));
 
 const CHARACTERS = [...PORKY_CAST, ...GUEST_CAST];
+const CAST_NAMES = CHARACTERS.map(({ name }) => name);
+const KNOWN_LABELS = new Set(CHARACTERS.flatMap(({ name, aliases = [] }) => [name, ...aliases]));
+const namesAndAliases = ({ name, aliases = [] }) => ({ name, aliases });
+const ROSTER = { residents: PORKY_CAST.map(namesAndAliases), guests: GUEST_CAST.map(namesAndAliases) };
 
 export function sceneInput(note) {
-  const markers = new Set(extractNoteCharacterMarkers(note.body));
-  const knownNames = CHARACTERS.flatMap(({ name, aliases = [] }) => [name, ...aliases]);
-  const unknown = [...markers].filter((name) => !knownNames.includes(name));
+  const markers = new Set();
+  const body = noteMarkdownToPlainText(note.body, {
+    formatCharacterMarker(name) {
+      markers.add(name);
+      return `[[${name}]]`;
+    }
+  });
+  const unknown = [...markers].filter((name) => !KNOWN_LABELS.has(name));
   if (unknown.length) throw new Error(`Unknown note character marker(s): ${unknown.join(", ")}`);
 
-  const body = noteMarkdownToPlainText(note.body, { formatCharacterMarker: (name) => `[[${name}]]` });
-  const title = String(note.title ?? "");
-  const story = title + "\n" + body;
-  const candidates = CHARACTERS.filter(({ name, aliases = [] }) =>
-    [name, ...aliases].some((label) => markers.has(label) || (label !== "小猪" && story.includes(label)))
-  ).map(({ name, aliases = [] }) => ({ name, aliases }));
-  return { title, body, candidates };
+  return { title: String(note.title ?? ""), body, markers: [...markers], roster: ROSTER };
 }
 
 const SCENE_INSTRUCTIONS = [
@@ -175,7 +177,8 @@ const SCENE_INSTRUCTIONS = [
   "先选定时刻，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，以及仅在先前或后来出场的角色，都不要带入这一幕。若对方亲自付钱、接东西或回应，则是当场参与。不要为了省人而跳过故事的共同活动。",
   "moment 用中文写出可直接绘画的场景、角色正名、谁做什么、表情、道具和位置。只写镜头看得见的事物。别在描述里提缺席者，连照片、想象框或影子也不用。保留原文的动作归属和结果。",
   "sourceExcerpt 从 body 中逐字复制直接描写这一幕的一小段连续原文。优先保留作者自己的动作、语气或笑点；不要拼接、改写、补标点或加引号。保留原有昵称和 [[角色]] 标记。",
-  "cast 只列这一幕出镜的候选角色正名。候选名单只是名字字典。[[小猪]]是特定角色，未标记的小猪是普通称呼。确实在场的其他来宾或普通小猪可在 moment 中按正文描述，不替换成任意固定角色。",
+  "roster 是完整的住户和来宾名册，供核对正名和别名。根据小记的称呼、指代和动作判断谁在场，cast 只填这一幕能辨认出的名册角色正名。没有身份线索的普通小猪或其他来宾按原文写进 moment，不猜成名册角色。",
+  "markers 列出作者在正文中实际标记的角色。[[小猪]]指特定住户，裸写的小猪是普通称呼。",
   "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。"
 ].join("\n");
 
@@ -196,7 +199,7 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
           properties: {
             moment: { type: "string" },
             sourceExcerpt: { type: "string" },
-            cast: { type: "array", items: { type: "string", enum: CHARACTERS.map(({ name }) => name) } },
+            cast: { type: "array", items: { type: "string", enum: CAST_NAMES } },
             fullHerd: { type: "boolean" }
           }
         }
@@ -211,16 +214,17 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
   return JSON.parse(output.text);
 }
 
-export function buildArtPrompt(scene, { body, candidates }) {
+export function buildArtPrompt(scene, { body, markers = [] }) {
   if (typeof scene?.moment !== "string" || !scene.moment.trim() ||
       !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean") {
     throw new Error("Invalid scene plan");
   }
   const names = new Set(scene.cast);
-  const eligible = new Set(candidates.map(({ name }) => name));
-  if (scene.fullHerd) PORKY_CAST.forEach(({ name }) => eligible.add(name));
-  if (names.size !== scene.cast.length || scene.cast.some((name) => !eligible.has(name))) {
+  if (names.size !== scene.cast.length || scene.cast.some((name) => !CAST_NAMES.includes(name))) {
     throw new Error("Invalid or duplicate identity in planned cast");
+  }
+  if (!scene.fullHerd && names.has("小猪") && !markers.includes("小猪")) {
+    throw new Error("The named 小猪 requires an explicit [[小猪]] marker outside full-herd scenes");
   }
   const excerpt = typeof scene.sourceExcerpt === "string" ? scene.sourceExcerpt.trim() : "";
   if (!excerpt || !body.includes(excerpt)) {
