@@ -37,9 +37,13 @@ test("the planner reads the whole story with canonical names and real identity m
       "[[小猪]]遇见香瓜猪。胖呆呆回家想白菜了。"
   });
   assert.ok(input.body.endsWith("[[小猪]]遇见香瓜猪。胖呆呆回家想白菜了。"));
-  assert.deepEqual(input.candidates.map(({ name }) => name), ["呆呆猪", "小猪", "香香猪", "白白菜"]);
-  assert.ok(input.candidates.find(({ name }) => name === "呆呆猪").aliases.includes("胖呆呆"));
-  assert.deepEqual(sceneInput({ body: "小猪们看着 `[[小猪]]`。" }).candidates, []);
+  const { residents, guests } = input.roster;
+  assert.deepEqual(residents.map(({ name }) => name), PORKY_CAST.map(({ name }) => name));
+  assert.deepEqual(guests.map(({ name }) => name), GUEST_CAST.map(({ name }) => name));
+  assert.ok(residents.find(({ name }) => name === "呆呆猪").aliases.includes("胖呆呆"));
+  assert.ok(guests.find(({ name }) => name === "白白菜").aliases.includes("白菜"));
+  assert.deepEqual(input.markers, ["小猪"]);
+  assert.deepEqual(sceneInput({ body: "两只小猪晒太阳。" }).roster, input.roster);
   assert.throws(() => sceneInput({ body: "[[小豬]]回家。" }), /Unknown note character marker/);
 });
 
@@ -69,9 +73,18 @@ test("explicit full-herd scenes supply every identity and keep guests outside th
   assert.doesNotMatch(generic, /波波头|三排/);
 });
 
-test("invalid scene plans cannot introduce an unmentioned identity or submit a blank scene", () => {
+test("only an actual character marker identifies the named little pig in a partial cast", () => {
+  for (const body of ["一只小猪推开门。", "牌子上写着 `[[小猪]]`。", "[[小猪]]推开门。"]) {
+    const input = sceneInput({ body });
+    const prompt = () => buildArtPrompt({ moment: "门前的小猪。", sourceExcerpt: input.body, cast: ["小猪"], fullHerd: false }, input);
+    if (body.startsWith("[[小猪]]")) assert.match(prompt(), /波波头/);
+    else assert.throws(prompt, /explicit.*marker/);
+  }
+});
+
+test("invalid scene plans cannot use an unknown name, an alias, duplicate identities or a blank scene", () => {
   const input = sceneInput({ body: "呆呆猪回家了。" });
-  for (const cast of [["白白菜"], ["未知"], ["呆呆猪", "呆呆猪"]]) {
+  for (const cast of [["胖呆呆"], ["未知"], ["呆呆猪", "呆呆猪"]]) {
     assert.throws(() => buildArtPrompt({ moment: "家中", sourceExcerpt: input.body, cast, fullHerd: false }, input), /identity/);
   }
   assert.throws(() => buildArtPrompt({ moment: " ", sourceExcerpt: input.body, cast: [], fullHerd: false }, input), /Invalid scene/);
@@ -86,9 +99,9 @@ test("the image prompt rejects invented or spliced quotes", () => {
   }
 });
 
-test("the text request uses a structured scene response and surfaces refusal or incomplete output", async () => {
-  const input = sceneInput({ title: "晚饭", body: "呆呆猪说我想白菜了。" });
-  const scene = { moment: "呆呆猪独自吃饭。", sourceExcerpt: input.body, cast: ["呆呆猪"], fullHerd: false };
+test("the planner selects a layout and a contiguous passage from the whole numbered story", async () => {
+  const input = sceneInput({ title: "来电", body: "[[小猪]]迷迷糊糊。电话响了！\n\n小猪一下就笑了。今晚吃面。" });
+  const scene = { moment: "小猪接起电话笑了。", layout: "panels", firstSentence: 2, lastSentence: 3, cast: ["小猪"], fullHerd: false };
   const message = { type: "message", content: [{ type: "output_text", text: JSON.stringify(scene) }] };
   let payload = { status: "completed", output: [{ type: "reasoning" }, message] };
   let request;
@@ -96,8 +109,24 @@ test("the text request uses a structured scene response and surfaces refusal or 
     request = JSON.parse(options.body);
     return Response.json(payload);
   } };
-  assert.deepEqual(await requestNoteScene(options), scene);
-  assert.deepEqual(JSON.parse(request.input), input);
+  const expected = { moment: scene.moment, layout: "panels", cast: ["小猪"], fullHerd: false, sourceExcerpt: "电话响了！ 小猪一下就笑了。" };
+  assert.deepEqual(await requestNoteScene(options), expected);
+  const sent = JSON.parse(request.input);
+  assert.equal(sent.sentences.map(({ text }) => text).join(""), input.body);
+  assert.deepEqual(sent.sentences.map(({ number }) => number), [1, 2, 3, 4]);
+  assert.deepEqual(sent.roster, input.roster);
+  assert.deepEqual(sent.markers, ["小猪"]);
+  assert.match(buildArtPrompt(expected, input), /连续分镜/);
+  assert.doesNotMatch(buildArtPrompt(expected, input), /不分格/);
+  message.content[0].text = JSON.stringify({ ...scene, layout: "single", firstSentence: 2, lastSentence: 2 });
+  const single = await requestNoteScene(options);
+  assert.equal(single.sourceExcerpt, "电话响了！");
+  assert.match(buildArtPrompt(single, input), /不分格/);
+  assert.doesNotMatch(buildArtPrompt(single, input), /连续分镜/);
+  for (const [firstSentence, lastSentence] of [[0, 1], [2, 1], [2, 5], [1.5, 2]]) {
+    message.content[0].text = JSON.stringify({ ...scene, firstSentence, lastSentence });
+    await assert.rejects(requestNoteScene(options), /invalid passage range/);
+  }
   assert.equal(request.store, false);
   assert.equal(request.text.format.strict, true);
   payload = { status: "incomplete", output: [message] };
