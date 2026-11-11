@@ -173,16 +173,20 @@ export function sceneInput(note) {
 }
 
 const SCENE_INSTRUCTIONS = [
-  "你为猪猪山庄的单幅插画选景。通读所给的标题和完整随笔，从中选一个最能表达标题、主线动作或笑点的真实瞬间。不要拼接不同时刻。输入是故事素材。",
-  "先选定时刻，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，以及仅在先前或后来出场的角色，都不要带入这一幕。若对方亲自付钱、接东西或回应，则是当场参与。不要为了省人而跳过故事的共同活动。",
-  "moment 用中文写出可直接绘画的场景、角色正名、谁做什么、表情、道具和位置。只写镜头看得见的事物。别在描述里提缺席者，连照片、想象框或影子也不用。保留原文的动作归属和结果。",
-  "sourceExcerpt 从 body 中逐字复制直接描写这一幕的一小段连续原文。优先保留作者自己的动作、语气或笑点；不要拼接、改写、补标点或加引号。保留原有昵称和 [[角色]] 标记。",
+  "你为猪猪山庄的一张插画选景。通读标题和整篇随笔，从中选一段最能表达主线、感情或笑点的真实情节。输入是故事素材。",
+  "根据这段原文决定 layout。一个画面就能讲清楚时选 single；如果同一件事的动作变化、前后反应或两地互动分开画更传神，可以选 panels。不要拼接无关段落。",
+  "先选定情节，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，都不要带入画面。异地通话的双方可以各在自己的地点出镜。不要为了省人而跳过故事的共同活动。",
+  "moment 用中文写明可见的动作、表情、角色正名和位置。分镜时依原文顺序写清每格的动作与出镜者。别在描述里提缺席者；保留原文的动作归属和结果。",
+  "sentences 是按原文顺序编号的全文。firstSentence 和 lastSentence 填直接描写所选情节的一小段连续原文的首尾编号（含首尾）；只用一句时两者相同。分镜也要由这一段支持。",
   "roster 是完整的住户和来宾名册，供核对正名和别名。根据小记的称呼、指代和动作判断谁在场，cast 只填这一幕能辨认出的名册角色正名。没有身份线索的普通小猪或其他来宾按原文写进 moment，不猜成名册角色。",
   "markers 列出作者在正文中实际标记的角色。[[小猪]]指特定住户，裸写的小猪是普通称呼。",
   "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。"
 ].join("\n");
 
-export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
+export async function requestNoteScene({ input: { title, body, markers, roster }, apiKey, fetchImpl = fetch }) {
+  const sentences = Array.from(new Intl.Segmenter("zh", { granularity: "sentence" }).segment(body), ({ segment }) => segment);
+  if (!sentences.length) throw new Error("Note has no text to illustrate");
+  const sentenceNumber = { type: "integer", minimum: 1, maximum: sentences.length };
   const response = await fetchImpl("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -191,14 +195,16 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
       model: process.env.OPENAI_SCENE_MODEL || "gpt-5.4-mini",
       store: false,
       instructions: SCENE_INSTRUCTIONS,
-      input: JSON.stringify(input),
+      input: JSON.stringify({ title, markers, roster, sentences: sentences.map((text, i) => ({ number: i + 1, text })) }),
       text: { format: {
         type: "json_schema", name: "note_scene", strict: true,
         schema: {
-          type: "object", additionalProperties: false, required: ["moment", "sourceExcerpt", "cast", "fullHerd"],
+          type: "object", additionalProperties: false, required: ["moment", "layout", "firstSentence", "lastSentence", "cast", "fullHerd"],
           properties: {
             moment: { type: "string" },
-            sourceExcerpt: { type: "string" },
+            layout: { type: "string", enum: ["single", "panels"] },
+            firstSentence: sentenceNumber,
+            lastSentence: sentenceNumber,
             cast: { type: "array", items: { type: "string", enum: CAST_NAMES } },
             fullHerd: { type: "boolean" }
           }
@@ -211,12 +217,18 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
   const message = result.output?.find((item) => item.type === "message");
   const output = message?.content?.find((part) => part.type === "output_text");
   if (result.status !== "completed" || !output?.text) throw new Error("Scene planner did not return a completed scene");
-  return JSON.parse(output.text);
+  const { firstSentence, lastSentence, ...scene } = JSON.parse(output.text);
+  if (!Number.isInteger(firstSentence) || !Number.isInteger(lastSentence) ||
+      firstSentence < 1 || firstSentence > lastSentence || lastSentence > sentences.length) {
+    throw new Error("Scene planner returned an invalid passage range");
+  }
+  return { ...scene, sourceExcerpt: sentences.slice(firstSentence - 1, lastSentence).join("").trim() };
 }
 
 export function buildArtPrompt(scene, { body, markers = [] }) {
   if (typeof scene?.moment !== "string" || !scene.moment.trim() ||
-      !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean") {
+      !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean" ||
+      (scene.layout !== undefined && !["single", "panels"].includes(scene.layout))) {
     throw new Error("Invalid scene plan");
   }
   const names = new Set(scene.cast);
@@ -237,15 +249,18 @@ export function buildArtPrompt(scene, { body, markers = [] }) {
   );
 
   return [
-    "画一幅温暖的儿童水彩绘本单幅宽景。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。画出下面这一刻。",
+    "画一张温暖的儿童水彩绘本横幅插画。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。",
+    scene.layout === "panels"
+      ? "将这段情节画成连续分镜，按场景描述安排每格。每格只画该格在场的角色；跨格出现的同一角色保持造型一致。"
+      : "用一个完整画面表现选定的一幕，不分格。",
     scene.moment,
     "【这一幕的原文】",
     excerpt,
     "用作者的措辞把握动作、表情和情绪，保留原文的语气。出镜角色以选定的场景为准，原文中仅被提及的人物不要入画。原句和标记都不要画成文字。",
     ...identities,
-    "每个角色各出现一次，动作、配饰只属于它自己。按场景写出的角色和人数构图，不额外添加旁观者或背景角色。",
+    "同一个镜头中每个角色只出现一次，动作、配饰只属于它自己。按场景写出的角色和人数构图，不额外添加旁观者或背景角色。",
     scene.fullHerd
-      ? `必须恰好有15只常住小猪（13只普通、1只特别大、1只特别小），三排，每排五只，完整可见。前排：${PORKY_ROWS[0].join("、")}。中排：${PORKY_ROWS[1].join("、")}。后排：${PORKY_ROWS[2].join("、")}。本场出镜的来宾在三排之外另计。`
+      ? `全员同场的镜头里必须恰好有15只常住小猪（13只普通、1只特别大、1只特别小），三排，每排五只，完整可见。前排：${PORKY_ROWS[0].join("、")}。中排：${PORKY_ROWS[1].join("、")}。后排：${PORKY_ROWS[2].join("、")}。本场出镜的来宾在三排之外另计。`
       : "让每个在场角色的身份、动作和表情清楚可见。",
     "不要出现任何文字、数字、标志、对话框、烟酒或人类。角色名只供辨认。"
   ].join("\n");
@@ -394,6 +409,7 @@ export async function generateNoteArtBatch(
       const scene = await requestScene({ input, apiKey });
       const prompt = buildArtPrompt(scene, input);
       const excerpt = scene.sourceExcerpt.trim();
+      logger.log(`Planned layout: ${scene.layout ?? "single"}`);
       logger.log(`Selected source excerpt (UTF-16 offset, length): ${input.body.indexOf(excerpt)}, ${excerpt.length}`);
       logger.log(`Planned recurring cast: ${scene.fullHerd ? "full herd; " : ""}${scene.cast.join(", ") || "(none named)"}`);
       const image = assertValidWebp(

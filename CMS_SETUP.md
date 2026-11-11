@@ -27,7 +27,7 @@ The hosted editor is intentionally simple so it works on GitHub Pages without re
 Every published note automatically gets a cute piglet comic illustration:
 
 1. When `content/notes.json` changes on `main`, the `Generate note art` workflow runs `scripts/generate-note-art.mjs`.
-2. For each note that needs art, a text model (`gpt-5.4-mini` by default) reads the full note alongside the names and aliases of every resident and guest. In one request it chooses a moment, its on-screen cast, and a short passage describing it. The script checks that the passage occurs verbatim in the note body. The image model (`gpt-image-2.5-sunburst`, 1536×1024 WebP, `xhigh` quality) receives the scene, that passage, and only the selected characters' visual identities.
+2. For each note that needs art, a text model (`gpt-5.4-mini` by default) reads the full note alongside the names and aliases of every resident and guest. In one request it selects a short episode, its cast, and either a single scene or consecutive panels as the story warrants. It identifies the supporting sentences by number so the script can copy the exact passage. The image model (`gpt-image-2.5-sunburst`, 1536×1024 WebP, `xhigh` quality) receives the chosen layout, scene, passage, and only the selected characters' visual identities.
 3. Generated art is committed to `public/notes-art/<slug>.webp`, the note's `image` field is stamped, and the Pages deploy is re-dispatched, so the illustration appears on the site a few minutes after the post does.
 
 To try a redraw, dispatch the workflow on a working branch with a note's `force_slug`. Download the resulting WebP from the run's recovery artifact. Only runs on `main` publish the artwork.
