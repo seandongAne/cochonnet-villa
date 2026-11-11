@@ -208,7 +208,38 @@ export async function requestNoteScene({ input, apiKey, fetchImpl = fetch }) {
   const message = result.output?.find((item) => item.type === "message");
   const output = message?.content?.find((part) => part.type === "output_text");
   if (result.status !== "completed" || !output?.text) throw new Error("Scene planner did not return a completed scene");
-  return JSON.parse(output.text);
+  const scene = JSON.parse(output.text);
+  if (typeof scene.sourceExcerpt !== "string" || input.body.includes(scene.sourceExcerpt.trim())) return scene;
+
+  // Keep the original scene and cast. Resolve a misquoted passage back to a
+  // sentence from the actual article for this isolated preview.
+  const sentences = [...new Intl.Segmenter("zh", { granularity: "sentence" }).segment(input.body)]
+    .map(({ segment }) => segment.trim()).filter(Boolean);
+  const evidence = await fetchImpl("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    body: JSON.stringify({
+      model: process.env.OPENAI_SCENE_MODEL || "gpt-5.4-mini",
+      store: false,
+      instructions: "已选好的画面和角色必须保持原样。找出最直接描写这一幕的一句原文，返回它的编号。如果没有一句支持这一幕，返回 -1。",
+      input: JSON.stringify({ moment: scene.moment, cast: scene.cast, proposedExcerpt: scene.sourceExcerpt,
+        sentences: sentences.map((sentence, index) => ({ index, sentence })) }),
+      text: { format: { type: "json_schema", name: "note_evidence", strict: true, schema: {
+        type: "object", additionalProperties: false, required: ["index"],
+        properties: { index: { type: "integer", enum: [-1, ...sentences.keys()] } }
+      } } }
+    })
+  });
+  if (!evidence.ok) throw new Error(`Passage lookup failed (HTTP ${evidence.status})`);
+  const responseBody = await evidence.json();
+  const answer = responseBody.output?.find((item) => item.type === "message")
+    ?.content?.find((part) => part.type === "output_text");
+  if (responseBody.status !== "completed" || !answer?.text) throw new Error("Passage lookup incomplete");
+  const { index } = JSON.parse(answer.text);
+  if (!Number.isInteger(index) || !sentences[index]) throw new Error("No source sentence supports the planned scene");
+  console.log("Recovered source sentence for the original scene and cast.");
+  return { ...scene, sourceExcerpt: sentences[index] };
 }
 
 export function buildArtPrompt(scene, { body, candidates }) {
