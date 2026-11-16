@@ -111,6 +111,8 @@ test("the planner selects a layout and a contiguous passage from the whole numbe
   } };
   const expected = { moment: scene.moment, layout: "panels", cast: ["小猪"], fullHerd: false, sourceExcerpt: "电话响了！ 小猪一下就笑了。" };
   assert.deepEqual(await requestNoteScene(options), expected);
+  assert.equal(request.model, process.env.OPENAI_SCENE_MODEL || "gpt-6.1-sol");
+  assert.deepEqual(request.reasoning, { effort: "high" });
   const sent = JSON.parse(request.input);
   assert.equal(sent.sentences.map(({ text }) => text).join(""), input.body);
   assert.deepEqual(sent.sentences.map(({ number }) => number), [1, 2, 3, 4]);

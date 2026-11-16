@@ -515,16 +515,31 @@ test("the run state fails visibly when pending art has no API key", async () => 
 test("the run state is a clean no-op when every configured image is healthy", async () => {
   const data = pendingDocument(1);
   data.notes[0].image = "/notes-art/2026-09-01.webp";
+  data.notes[0].imageGeneratedAt = "2026-09-01T12:00:00.000Z";
+  data.notes[0].imageSha256 = createHash("sha256").update(validWebp()).digest("hex");
+  const original = structuredClone(data);
+  let unexpectedCalls = 0;
+  const unexpectedGeneration = async () => {
+    unexpectedCalls += 1;
+    throw new Error("Existing healthy art must not be regenerated");
+  };
   const result = await runNoteArt({
     data,
+    apiKey: "test-key",
     expectedSize: "2x3",
     readImage: async () => validWebp(),
+    requestScene: unexpectedGeneration,
+    requestImage: unexpectedGeneration,
+    writeImage: unexpectedGeneration,
     logger: quietLogger,
     warning() {}
   });
 
   assert.equal(result.selectedCount, 0);
   assert.equal(result.attemptedCount, 0);
+  assert.equal(result.generatedCount, 0);
+  assert.equal(unexpectedCalls, 0);
+  assert.deepEqual(data, original);
   assert.equal(result.hasChanges, false);
   assert.equal(result.remainingCount, 0);
   assert.equal(result.fatalError, null);

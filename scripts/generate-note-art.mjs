@@ -178,9 +178,11 @@ const SCENE_INSTRUCTIONS = [
   "先选定情节，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，都不要带入画面。异地通话的双方可以各在自己的地点出镜。不要为了省人而跳过故事的共同活动。",
   "moment 用中文写明可见的动作、表情、角色正名和位置。分镜时依原文顺序写清每格的动作与出镜者。别在描述里提缺席者；保留原文的动作归属和结果。",
   "sentences 是按原文顺序编号的全文。firstSentence 和 lastSentence 填直接描写所选情节的一小段连续原文的首尾编号（含首尾）；只用一句时两者相同。分镜也要由这一段支持。",
-  "roster 是完整的住户和来宾名册，供核对正名和别名。根据小记的称呼、指代和动作判断谁在场，cast 只填这一幕能辨认出的名册角色正名。没有身份线索的普通小猪或其他来宾按原文写进 moment，不猜成名册角色。",
+  "roster 是完整的住户和来宾名册，供核对正名和别名。根据小记的称呼、指代和动作判断谁在场，cast 只填这一幕能辨认出的名册角色正名。没有身份线索的普通小猪或其他来宾不猜成名册角色，也不额外安排入画。",
   "markers 列出作者在正文中实际标记的角色。[[小猪]]指特定住户，裸写的小猪是普通称呼。",
-  "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。"
+  "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。",
+  "画面保持无字，不安排任何需要实际画出来的配字、标题、字幕、对白文字、对话框、标签、数字或字母。这条限制只针对画面中的文字，不限制选景说明的语义：moment 应保留对理解故事和笑点必要的对白含义、提问内容、答非所问、误会及因果关系，必要时可以引用原句，供画师理解。引用或概述对白不表示把它写在画面上。结合原文把这些含义落实为角色的动作、表情、反应和分镜，不为实现无字而删掉关键笑点，也不添加原文没有的情节。",
+  "普通场景只画所选情节中实际在场、且可从原文称呼、别名或指代确定姓名的角色；cast 和 moment 的出镜者必须一致。角色总数、分配数量或‘大家’‘其他小猪’等泛称，不构成增加角色的依据；不要因此额外画无名旁观者、把 cast 补齐十五只、把背景指定为其余十四只，或将 fullHerd 设为 true。只被提到、回忆、计划留一份或明确缺席的角色都不入画。只有所选情节明确以十五只固定住户全员同场为主体（例如全家福、全员分床），才启用 fullHerd；普通共同活动保留真实参与的具名角色，不为凑齐总数添加角色。"
 ].join("\n");
 
 export async function requestNoteScene({ input: { title, body, markers, roster }, apiKey, fetchImpl = fetch }) {
@@ -192,7 +194,8 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     body: JSON.stringify({
-      model: process.env.OPENAI_SCENE_MODEL || "gpt-5.4-mini",
+      model: process.env.OPENAI_SCENE_MODEL || "gpt-6.1-sol",
+      reasoning: { effort: "high" },
       store: false,
       instructions: SCENE_INSTRUCTIONS,
       input: JSON.stringify({ title, markers, roster, sentences: sentences.map((text, i) => ({ number: i + 1, text })) }),
