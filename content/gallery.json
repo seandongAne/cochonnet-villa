@@ -470,6 +470,16 @@
       "width": 1536,
       "height": 1024,
       "number": 47
+    },
+    {
+      "id": "art-7b35a71f1c3fddc640bccb64723497d4421e42922d0162c3fae5a17e8e680f53",
+      "image": "/little-universe/gallery/art/7b35a71f1c3fddc640bccb64723497d4421e42922d0162c3fae5a17e8e680f53.webp",
+      "thumbnail": "/little-universe/gallery/art/7b35a71f1c3fddc640bccb64723497d4421e42922d0162c3fae5a17e8e680f53-thumb.webp",
+      "timestamp": "2026-11-20T03:50:14.017Z",
+      "timestampKind": "generated",
+      "width": 1536,
+      "height": 1024,
+      "number": 48
     }
   ]
 }
