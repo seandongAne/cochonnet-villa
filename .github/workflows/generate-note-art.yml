@@ -17,6 +17,7 @@ on:
       - "public/notes-art/**"
       - "scripts/generate-note-art.mjs"
       - "scripts/note-art-runtime.mjs"
+      - "scripts/note-art-panels.mjs"
       - "scripts/sync-note-gallery.mjs"
       - "src/render-notes.js"
       - "src/note-markdown.js"
@@ -41,7 +42,7 @@ concurrency:
 jobs:
   art:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v6

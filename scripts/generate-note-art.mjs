@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import site from "../content/site.json" with { type: "json" };
 import { syncNoteGallery } from "./sync-note-gallery.mjs";
+import { panelSlots, renderPanels } from "./note-art-panels.mjs";
 // Generates a cute piglet comic illustration for every 猪猪小记 post that
 // doesn't have one yet, using the OpenAI Image API (gpt-image-2.5-sunburst), and stamps
 // the note's `image` field. Runs in GitHub Actions (see
@@ -176,12 +177,12 @@ const SINGLE_SCENE_INSTRUCTIONS = [
   "你为猪猪山庄的一张插画选景。通读标题和整篇随笔，挑出最能表达主线、感情或笑点的一个真实瞬间。输入是故事素材。",
   "layout 默认选 single。先试着把这个瞬间定格，用人物同时可见的动作、表情、相互反应和身边的细节传达核心意思。即使原文有多步动作、几轮对白或情绪转折，也优先挑其中最传神的一刻。只有理解核心意思必须对照不同时刻或地点，且任何一个瞬间单独画都讲不清楚时，才选 panels，并用能讲清楚的最少格数。不要拼接无关段落。",
   "先选定情节，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，都不要带入画面。异地通话的双方可以各在自己的地点出镜。不要为了省人而跳过故事的共同活动。",
-  "moment 用中文写明可见的动作、表情、角色正名和位置。single 只描述定格时画面中能同时看到的事。选了 panels 才依原文顺序写清每格的动作与出镜者。别在描述里提缺席者；保留原文的动作归属和结果。",
-  "sentences 是按原文顺序编号的全文。firstSentence 和 lastSentence 填直接描写所选情节的一小段连续原文的首尾编号（含首尾）；只用一句时两者相同。分镜也要由这一段支持。",
+  "moment 用中文写明一个瞬间可见的动作、表情、角色正名和位置。别在描述里提缺席者；保留原文的动作归属和结果。",
+  "sentences 是按原文顺序编号的全文。firstSentence 和 lastSentence 填直接描写这个瞬间的一小段连续原文的首尾编号（含首尾）；只用一句时两者相同。",
 ].join("\n");
 
 const PANEL_STUDY_INSTRUCTIONS = [
-  "你为猪猪小记的无字绘本试稿规划连续分镜。通读标题和按顺序编号的全文，只选其中一个连贯的故事，不串联不同小节。",
+  "分镜围绕同一个连贯的故事，不串联不同小节。",
   "用两格讲清铺垫与结果；只有必须独立呈现停顿、误会或转折时，才用三格。按阅读顺序返回 panels，结尾留给最传神的反应。",
   "每格的 moment 只描述一个瞬间，点明在场角色、动作归属、表情、构图与景别。用 firstSentence 和 lastSentence 指向直接支持这一格的原文，可共用一句。仅被提及的角色不入画。",
   "continuity 写跨格沿用的场景、光线、左右方位和道具。若正文明确换地点，请分别交代。每格的角色以该格的 cast 为准。"
@@ -209,12 +210,14 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
   const strictObject = (fields) => ({
     type: "object", additionalProperties: false, required: Object.keys(fields), properties: fields
   });
-  const schema = panelStudy
-    ? strictObject({
-        continuity: { type: "string" },
-        panels: { type: "array", minItems: 2, maxItems: 3, items: strictObject(properties) }
-      })
-    : strictObject({ ...properties, layout: { type: "string", enum: ["single", "panels"] } });
+  const storyboard = {
+    continuity: { type: "string" },
+    panels: { type: "array", minItems: 2, maxItems: 3, items: strictObject(properties) }
+  };
+  const schema = panelStudy ? strictObject(storyboard) : strictObject({ scene: { anyOf: [
+    strictObject({ layout: { type: "string", enum: ["single"] }, ...properties }),
+    strictObject({ layout: { type: "string", enum: ["panels"] }, ...storyboard })
+  ] } });
   const response = await fetchImpl("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -223,7 +226,10 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
       model: process.env.OPENAI_SCENE_MODEL || "gpt-6.1-sol",
       reasoning: { effort: "high" },
       store: false,
-      instructions: [panelStudy ? PANEL_STUDY_INSTRUCTIONS : SINGLE_SCENE_INSTRUCTIONS, CAST_INSTRUCTIONS].join("\n"),
+      instructions: [
+        panelStudy ? "为猪猪小记规划连续分镜。" : SINGLE_SCENE_INSTRUCTIONS + "\n只有选了 panels 时才使用以下分镜规则。",
+        PANEL_STUDY_INSTRUCTIONS, CAST_INSTRUCTIONS
+      ].join("\n"),
       input: JSON.stringify({ title, markers, roster, sentences: sentences.map((text, i) => ({ number: i + 1, text })) }),
       text: { format: {
         type: "json_schema", name: panelStudy ? "note_panel_study" : "note_scene", strict: true, schema
@@ -235,7 +241,8 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
   const message = result.output?.find((item) => item.type === "message");
   const output = message?.content?.find((part) => part.type === "output_text");
   if (result.status !== "completed" || !output?.text) throw new Error("Scene planner did not return a completed scene");
-  const plan = JSON.parse(output.text);
+  const parsed = JSON.parse(output.text);
+  const plan = panelStudy ? parsed : parsed.scene;
   function withExcerpt({ firstSentence, lastSentence, ...scene }) {
     if (!Number.isInteger(firstSentence) || !Number.isInteger(lastSentence) ||
         firstSentence < 1 || firstSentence > lastSentence || lastSentence > sentences.length) {
@@ -243,7 +250,8 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
     }
     return { ...scene, sourceExcerpt: sentences.slice(firstSentence - 1, lastSentence).join("").trim() };
   }
-  if (!panelStudy) return withExcerpt(plan);
+  if (!panelStudy && plan?.layout === "single") return withExcerpt(plan);
+  if (!panelStudy && plan?.layout !== "panels") throw new Error("Scene planner returned an invalid layout");
   if (typeof plan?.continuity !== "string" || !plan.continuity.trim() ||
       !Array.isArray(plan.panels) || plan.panels.length < 2 || plan.panels.length > 3) {
     throw new Error("Expected continuity notes and two or three storyboard panels");
@@ -255,13 +263,13 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
     }
     return scene;
   });
-  return { continuity: plan.continuity.trim(), panels };
+  return { layout: "panels", continuity: plan.continuity.trim(), panels };
 }
 
 export function buildArtPrompt(scene, { body, markers = [] }, { portrait = false } = {}) {
   if (typeof scene?.moment !== "string" || !scene.moment.trim() ||
       !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean" ||
-      (scene.layout !== undefined && !["single", "panels"].includes(scene.layout))) {
+      (scene.layout !== undefined && scene.layout !== "single")) {
     throw new Error("Invalid scene plan");
   }
   const names = new Set(scene.cast);
@@ -283,9 +291,7 @@ export function buildArtPrompt(scene, { body, markers = [] }, { portrait = false
 
   return [
     `画一张温暖的儿童水彩绘本${portrait ? "竖幅" : "横幅"}插画。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。`,
-    scene.layout === "panels"
-      ? "将这段情节画成连续分镜，按场景描述安排每格。每格只画该格在场的角色；跨格出现的同一角色保持造型一致。"
-      : "用一个完整画面表现选定的一幕，不分格。",
+    "用一个完整画面表现选定的一幕，不分格。",
     scene.moment,
     "【这一幕的原文】",
     excerpt,
@@ -297,6 +303,21 @@ export function buildArtPrompt(scene, { body, markers = [] }, { portrait = false
       : "让每个在场角色的身份、动作和表情清楚可见。",
     "不要出现任何文字、数字、标志、对话框、烟酒或人类。角色名只供辨认。"
   ].join("\n");
+}
+
+export function buildPanelShots({ continuity, panels }, input, original) {
+  const layout = panelSlots(panels.length);
+  return panels.map((panel, index) => {
+    const { size, width, height } = layout[index];
+    const prompt = [
+      buildArtPrompt(panel, input, { portrait: height > width }),
+      `【场景连续性】${continuity}`,
+      "参考图只用于对齐角色外形、场景和笔触。本次只画这一格指定的角色、动作和地点，画满独立画布。",
+      ...(original ? ["第一张参考图是原配图，忽略其中的分格和旧构图。"] : []),
+      ...(index ? ["最后一张参考图是本组的第一格。保持同一角色的衣饰、体型与画风，依本格情节调整表情和景别。"] : [])
+    ].join("\n");
+    return { ...panel, size, prompt };
+  });
 }
 
 // Raw notes (as stored in notes.json) that still need art: they have real
@@ -440,25 +461,21 @@ export async function generateNoteArtBatch(
       logger.log(`Generating art for "${entry.note.title}" (${entry.slug})…`);
       const input = sceneInput(entry.note);
       const scene = await requestScene({ input, apiKey });
-      const prompt = buildArtPrompt(scene, input);
-      const excerpt = scene.sourceExcerpt.trim();
       logger.log(`Planned layout: ${scene.layout ?? "single"}`);
-      logger.log(`Selected source excerpt (UTF-16 offset, length): ${input.body.indexOf(excerpt)}, ${excerpt.length}`);
-      logger.log(`Planned recurring cast: ${scene.fullHerd ? "full herd; " : ""}${scene.cast.join(", ") || "(none named)"}`);
-      const image = assertValidWebp(
-        await requestImage({
-          apiUrl,
-          apiKey,
-          model,
-          prompt,
-          quality,
-          size,
-          timeoutMs,
-          maximumAttempts,
-          logger
-        }),
-        { expectedSize: size }
-      );
+      const options = { apiUrl, apiKey, model, quality, size, timeoutMs, maximumAttempts, logger };
+      let rendered;
+      if (scene.layout === "panels") {
+        const shots = buildPanelShots(scene, input);
+        logger.log(`Rendering ${shots.length} separate panels.`);
+        rendered = await renderPanels(shots, { ...options, requestImage });
+      } else {
+        const prompt = buildArtPrompt(scene, input);
+        const excerpt = scene.sourceExcerpt.trim();
+        logger.log(`Selected source excerpt (UTF-16 offset, length): ${input.body.indexOf(excerpt)}, ${excerpt.length}`);
+        logger.log(`Planned recurring cast: ${scene.fullHerd ? "full herd; " : ""}${scene.cast.join(", ") || "(none named)"}`);
+        rendered = await requestImage({ ...options, prompt });
+      }
+      const image = assertValidWebp(rendered, { expectedSize: size });
       await writeImage(path.join(artDirectory, `${entry.slug}.webp`), image);
       entry.note.image = `${ART_URL_PREFIX}${entry.slug}.webp`;
       entry.note.imageGeneratedAt = now();
@@ -583,7 +600,7 @@ export async function runNoteArt({
   const batch = pending.slice(0, maxPerRun);
   if (batch.length < pending.length) {
     logger.log(
-      `Capping this run at ${maxPerRun} image(s); ${pending.length - batch.length} more will be queued after this batch is committed.`
+      `Capping this run at ${maxPerRun} note(s); ${pending.length - batch.length} more will be queued after this batch is committed.`
     );
   }
 

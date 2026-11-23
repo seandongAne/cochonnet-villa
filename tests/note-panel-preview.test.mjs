@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import sharp from "sharp";
+import { generateNoteArtBatch, requestNoteScene } from "../scripts/generate-note-art.mjs";
 import { generatePanelPreview } from "../scripts/preview-note-panels.mjs";
 
 const note = { title: "回家", body: "呆呆猪回家。白白菜开门。两人笑起来。" };
@@ -104,4 +105,53 @@ test("an interrupted study preserves its plan and first panel without emitting a
   await assert.rejects(generatePanelPreview({ note, slug: "sample", drafts, apiKey: "fixture", fetchImpl }), /400/);
   const [run] = await readdir(drafts);
   assert.deepEqual((await readdir(path.join(drafts, run))).sort(), ["panel-1.webp", "storyboard.json"]);
+});
+
+test("production plans once, draws each panel, and publishes only a finished composite", async () => {
+  for (const interrupt of [false, true]) {
+    const entry = { slug: "sample", note: { ...note } };
+    const writes = [];
+    const images = [];
+    let plans = 0;
+    const result = await generateNoteArtBatch([entry], "fixture", {
+      requestScene: (options) => requestNoteScene({
+        ...options, fetchImpl: async (_url, request) => {
+          plans++;
+          const format = JSON.parse(request.body).text.format;
+          assert.equal(format.name, "note_scene");
+          assert.deepEqual(format.schema.properties.scene.anyOf.map(s => s.properties.layout.enum[0]), ["single", "panels"]);
+          const scene = { layout: "panels", continuity: "门边暖光。", panels: panels.slice(0, 2) };
+          const text = JSON.stringify({ scene });
+          return Response.json({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text }] }] });
+        }
+      }),
+      requestImage: async ({ apiUrl, referenceImages, size, prompt }) => {
+        const index = images.length;
+        assert.ok(apiUrl.endsWith(index ? "/edits" : "/generations"));
+        assert.deepEqual(referenceImages, images.slice(0, 1));
+        assert.match(prompt, /不分格/);
+        assert.ok(prompt.includes(panels[index].moment));
+        if (index && interrupt) throw new Error("second panel failed");
+        const bytes = await solid(size, index ? "green" : "red");
+        images.push(bytes);
+        return bytes;
+      },
+      writeImage: async (name, data) => writes.push({ name, data }),
+      logger: { log() {}, error() {} }, warning() {}
+    });
+    assert.equal(plans, 1);
+    if (interrupt) {
+      assert.deepEqual(result.failures, [{ slug: "sample", message: "second panel failed" }]);
+      assert.equal(writes.length, 0);
+      assert.deepEqual(entry.note, note);
+    } else {
+      assert.deepEqual(result.generated, ["sample"]);
+      assert.equal(images.length, 2);
+      assert.equal(writes.length, 1);
+      assert.equal(path.basename(writes[0].name), "sample.webp");
+      const { width, height } = await sharp(writes[0].data).metadata();
+      assert.deepEqual([width, height], [1536, 1024]);
+      assert.equal(entry.note.image, "/notes-art/sample.webp");
+    }
+  }
 });

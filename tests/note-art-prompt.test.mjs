@@ -101,15 +101,15 @@ test("the image prompt rejects invented or spliced quotes", () => {
 
 test("the planner selects a layout and a contiguous passage from the whole numbered story", async () => {
   const input = sceneInput({ title: "来电", body: "[[小猪]]迷迷糊糊。电话响了！\n\n小猪一下就笑了。今晚吃面。" });
-  const scene = { moment: "小猪接起电话笑了。", layout: "panels", firstSentence: 2, lastSentence: 3, cast: ["小猪"], fullHerd: false };
-  const message = { type: "message", content: [{ type: "output_text", text: JSON.stringify(scene) }] };
+  const scene = { moment: "小猪接起电话笑了。", layout: "single", firstSentence: 2, lastSentence: 3, cast: ["小猪"], fullHerd: false };
+  const message = { type: "message", content: [{ type: "output_text", text: JSON.stringify({ scene }) }] };
   let payload = { status: "completed", output: [{ type: "reasoning" }, message] };
   let request;
   const options = { input, apiKey: "test-key", fetchImpl: async (_url, options) => {
     request = JSON.parse(options.body);
     return Response.json(payload);
   } };
-  const expected = { moment: scene.moment, layout: "panels", cast: ["小猪"], fullHerd: false, sourceExcerpt: "电话响了！ 小猪一下就笑了。" };
+  const expected = { moment: scene.moment, layout: "single", cast: ["小猪"], fullHerd: false, sourceExcerpt: "电话响了！ 小猪一下就笑了。" };
   assert.deepEqual(await requestNoteScene(options), expected);
   assert.equal(request.model, process.env.OPENAI_SCENE_MODEL || "gpt-6.1-sol");
   assert.deepEqual(request.reasoning, { effort: "high" });
@@ -120,15 +120,10 @@ test("the planner selects a layout and a contiguous passage from the whole numbe
   assert.deepEqual(sent.sentences.map(({ number }) => number), [1, 2, 3, 4]);
   assert.deepEqual(sent.roster, input.roster);
   assert.deepEqual(sent.markers, ["小猪"]);
-  assert.match(buildArtPrompt(expected, input), /连续分镜/);
-  assert.doesNotMatch(buildArtPrompt(expected, input), /不分格/);
-  message.content[0].text = JSON.stringify({ ...scene, layout: "single", firstSentence: 2, lastSentence: 2 });
-  const single = await requestNoteScene(options);
-  assert.equal(single.sourceExcerpt, "电话响了！");
-  assert.match(buildArtPrompt(single, input), /不分格/);
-  assert.doesNotMatch(buildArtPrompt(single, input), /连续分镜/);
+  assert.match(buildArtPrompt(expected, input), /不分格/);
+  assert.doesNotMatch(buildArtPrompt(expected, input), /连续分镜/);
   for (const [firstSentence, lastSentence] of [[0, 1], [2, 1], [2, 5], [1.5, 2]]) {
-    message.content[0].text = JSON.stringify({ ...scene, firstSentence, lastSentence });
+    message.content[0].text = JSON.stringify({ scene: { ...scene, firstSentence, lastSentence } });
     await assert.rejects(requestNoteScene(options), /invalid passage range/);
   }
   assert.equal(request.store, false);
