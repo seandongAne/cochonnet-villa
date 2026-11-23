@@ -36,6 +36,25 @@ To try a redraw, dispatch the workflow on a working branch with a note's `force_
 
 ## Local editing
 
+### Local panel art previews
+
+Run `npm run note-art:preview -- <note-slug>` with `OPENAI_API_KEY` set to create a private art study.
+For an unpublished Markdown draft, use `npm run note-art:preview -- --file draft.md`.
+The planner selects a connected episode from the note and orders two or three shots. Each shot uses
+its own source passage and cast. The image requests use the existing local note illustration when
+available, and later shots also use the first finished shot as a visual reference.
+
+Each run creates a fresh folder under `.private-notes/panel-previews/`. It contains the storyboard,
+the individual WebP panels, a 1536 × 1024 composition, and an original-left/preview-right comparison
+when a local original exists. Two shots read left to right. Three shots read down the left column
+and finish in the larger right column. Completed panels are saved as they arrive.
+This local command only writes draft files. Running it again starts a new study and can incur API charges.
+
+To assemble existing artwork offline, run
+`npm run note-art:preview -- --compose first.png second.png [third.png]` with the files in reading order.
+
+### Run the editor
+
 1. Run `npm run dev`
 2. Open `http://localhost:5173` for the site
 3. Open `http://localhost:5173/admin/` for the content studio

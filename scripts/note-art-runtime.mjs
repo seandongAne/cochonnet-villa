@@ -182,12 +182,26 @@ export async function requestGeneratedWebp({
   prompt,
   quality,
   size,
+  referenceImages = [],
   fetchImpl = globalThis.fetch,
   sleepImpl = sleep,
   timeoutMs = 300_000,
   maximumAttempts = 2,
   logger = console
 }) {
+  const fields = { model, prompt, size, quality, output_format: "webp", output_compression: 85, n: 1 };
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  let body;
+  if (referenceImages.length) {
+    body = new FormData();
+    for (const [name, value] of Object.entries(fields)) body.append(name, String(value));
+    for (const [index, bytes] of referenceImages.entries()) {
+      body.append("image[]", new Blob([bytes], { type: "image/webp" }), `reference-${index + 1}.webp`);
+    }
+  } else {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(fields);
+  }
   for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -198,20 +212,8 @@ export async function requestGeneratedWebp({
       try {
         response = await fetchImpl(apiUrl, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "X-Client-Request-Id": clientRequestId
-          },
-          body: JSON.stringify({
-            model,
-            prompt,
-            size,
-            quality,
-            output_format: "webp",
-            output_compression: 85,
-            n: 1
-          }),
+          headers: { ...headers, "X-Client-Request-Id": clientRequestId },
+          body,
           signal: controller.signal
         });
       } catch (error) {

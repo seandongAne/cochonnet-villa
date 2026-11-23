@@ -172,12 +172,22 @@ export function sceneInput(note) {
   return { title: String(note.title ?? ""), body, markers: [...markers], roster: ROSTER };
 }
 
-const SCENE_INSTRUCTIONS = [
+const SINGLE_SCENE_INSTRUCTIONS = [
   "你为猪猪山庄的一张插画选景。通读标题和整篇随笔，挑出最能表达主线、感情或笑点的一个真实瞬间。输入是故事素材。",
   "layout 默认选 single。先试着把这个瞬间定格，用人物同时可见的动作、表情、相互反应和身边的细节传达核心意思。即使原文有多步动作、几轮对白或情绪转折，也优先挑其中最传神的一刻。只有理解核心意思必须对照不同时刻或地点，且任何一个瞬间单独画都讲不清楚时，才选 panels，并用能讲清楚的最少格数。不要拼接无关段落。",
   "先选定情节，再判断谁亲自参与或当场旁观。只被想念、谈论、等待、计划留一份东西或假设出现的角色，都不要带入画面。异地通话的双方可以各在自己的地点出镜。不要为了省人而跳过故事的共同活动。",
   "moment 用中文写明可见的动作、表情、角色正名和位置。single 只描述定格时画面中能同时看到的事。选了 panels 才依原文顺序写清每格的动作与出镜者。别在描述里提缺席者；保留原文的动作归属和结果。",
   "sentences 是按原文顺序编号的全文。firstSentence 和 lastSentence 填直接描写所选情节的一小段连续原文的首尾编号（含首尾）；只用一句时两者相同。分镜也要由这一段支持。",
+].join("\n");
+
+const PANEL_STUDY_INSTRUCTIONS = [
+  "你为猪猪小记的无字绘本试稿规划连续分镜。通读标题和按顺序编号的全文，只选其中一个连贯的故事，不串联不同小节。",
+  "用两格讲清铺垫与结果；只有必须独立呈现停顿、误会或转折时，才用三格。按阅读顺序返回 panels，结尾留给最传神的反应。",
+  "每格的 moment 只描述一个瞬间，点明在场角色、动作归属、表情、构图与景别。用 firstSentence 和 lastSentence 指向直接支持这一格的原文，可共用一句。仅被提及的角色不入画。",
+  "continuity 写跨格沿用的场景、光线、左右方位和道具。若正文明确换地点，请分别交代。每格的角色以该格的 cast 为准。"
+].join("\n");
+
+const CAST_INSTRUCTIONS = [
   "roster 是完整的住户和来宾名册，供核对正名和别名。根据小记的称呼、指代和动作判断谁在场，cast 只填这一幕能辨认出的名册角色正名。没有身份线索的普通小猪或其他来宾不猜成名册角色，也不额外安排入画。",
   "markers 列出作者在正文中实际标记的角色。[[小猪]]指特定住户，裸写的小猪是普通称呼。",
   "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。",
@@ -185,10 +195,26 @@ const SCENE_INSTRUCTIONS = [
   "普通场景只画所选情节中实际在场、且可从原文称呼、别名或指代确定姓名的角色；cast 和 moment 的出镜者必须一致。角色总数、分配数量或‘大家’‘其他小猪’等泛称，不构成增加角色的依据；不要因此额外画无名旁观者、把 cast 补齐十五只、把背景指定为其余十四只，或将 fullHerd 设为 true。只被提到、回忆、计划留一份或明确缺席的角色都不入画。只有所选情节明确以十五只固定住户全员同场为主体（例如全家福、全员分床），才启用 fullHerd；普通共同活动保留真实参与的具名角色，不为凑齐总数添加角色。"
 ].join("\n");
 
-export async function requestNoteScene({ input: { title, body, markers, roster }, apiKey, fetchImpl = fetch }) {
+export async function requestNoteScene({ input: { title, body, markers, roster }, apiKey, fetchImpl = fetch, panelStudy = false }) {
   const sentences = Array.from(new Intl.Segmenter("zh", { granularity: "sentence" }).segment(body), ({ segment }) => segment);
   if (!sentences.length) throw new Error("Note has no text to illustrate");
   const sentenceNumber = { type: "integer", minimum: 1, maximum: sentences.length };
+  const properties = {
+    moment: { type: "string" },
+    firstSentence: sentenceNumber,
+    lastSentence: sentenceNumber,
+    cast: { type: "array", items: { type: "string", enum: CAST_NAMES } },
+    fullHerd: { type: "boolean" }
+  };
+  const strictObject = (fields) => ({
+    type: "object", additionalProperties: false, required: Object.keys(fields), properties: fields
+  });
+  const schema = panelStudy
+    ? strictObject({
+        continuity: { type: "string" },
+        panels: { type: "array", minItems: 2, maxItems: 3, items: strictObject(properties) }
+      })
+    : strictObject({ ...properties, layout: { type: "string", enum: ["single", "panels"] } });
   const response = await fetchImpl("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -197,21 +223,10 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
       model: process.env.OPENAI_SCENE_MODEL || "gpt-6.1-sol",
       reasoning: { effort: "high" },
       store: false,
-      instructions: SCENE_INSTRUCTIONS,
+      instructions: [panelStudy ? PANEL_STUDY_INSTRUCTIONS : SINGLE_SCENE_INSTRUCTIONS, CAST_INSTRUCTIONS].join("\n"),
       input: JSON.stringify({ title, markers, roster, sentences: sentences.map((text, i) => ({ number: i + 1, text })) }),
       text: { format: {
-        type: "json_schema", name: "note_scene", strict: true,
-        schema: {
-          type: "object", additionalProperties: false, required: ["moment", "layout", "firstSentence", "lastSentence", "cast", "fullHerd"],
-          properties: {
-            moment: { type: "string" },
-            layout: { type: "string", enum: ["single", "panels"] },
-            firstSentence: sentenceNumber,
-            lastSentence: sentenceNumber,
-            cast: { type: "array", items: { type: "string", enum: CAST_NAMES } },
-            fullHerd: { type: "boolean" }
-          }
-        }
+        type: "json_schema", name: panelStudy ? "note_panel_study" : "note_scene", strict: true, schema
       } }
     })
   });
@@ -220,15 +235,30 @@ export async function requestNoteScene({ input: { title, body, markers, roster }
   const message = result.output?.find((item) => item.type === "message");
   const output = message?.content?.find((part) => part.type === "output_text");
   if (result.status !== "completed" || !output?.text) throw new Error("Scene planner did not return a completed scene");
-  const { firstSentence, lastSentence, ...scene } = JSON.parse(output.text);
-  if (!Number.isInteger(firstSentence) || !Number.isInteger(lastSentence) ||
-      firstSentence < 1 || firstSentence > lastSentence || lastSentence > sentences.length) {
-    throw new Error("Scene planner returned an invalid passage range");
+  const plan = JSON.parse(output.text);
+  function withExcerpt({ firstSentence, lastSentence, ...scene }) {
+    if (!Number.isInteger(firstSentence) || !Number.isInteger(lastSentence) ||
+        firstSentence < 1 || firstSentence > lastSentence || lastSentence > sentences.length) {
+      throw new Error("Scene planner returned an invalid passage range");
+    }
+    return { ...scene, sourceExcerpt: sentences.slice(firstSentence - 1, lastSentence).join("").trim() };
   }
-  return { ...scene, sourceExcerpt: sentences.slice(firstSentence - 1, lastSentence).join("").trim() };
+  if (!panelStudy) return withExcerpt(plan);
+  if (typeof plan?.continuity !== "string" || !plan.continuity.trim() ||
+      !Array.isArray(plan.panels) || plan.panels.length < 2 || plan.panels.length > 3) {
+    throw new Error("Expected continuity notes and two or three storyboard panels");
+  }
+  const panels = plan.panels.map((panel, index) => {
+    const scene = withExcerpt(panel);
+    if (index && panel.firstSentence < plan.panels[index - 1].firstSentence) {
+      throw new Error("Storyboard panels must follow source order");
+    }
+    return scene;
+  });
+  return { continuity: plan.continuity.trim(), panels };
 }
 
-export function buildArtPrompt(scene, { body, markers = [] }) {
+export function buildArtPrompt(scene, { body, markers = [] }, { portrait = false } = {}) {
   if (typeof scene?.moment !== "string" || !scene.moment.trim() ||
       !Array.isArray(scene.cast) || typeof scene.fullHerd !== "boolean" ||
       (scene.layout !== undefined && !["single", "panels"].includes(scene.layout))) {
@@ -252,7 +282,7 @@ export function buildArtPrompt(scene, { body, markers = [] }) {
   );
 
   return [
-    "画一张温暖的儿童水彩绘本横幅插画。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。",
+    `画一张温暖的儿童水彩绘本${portrait ? "竖幅" : "横幅"}插画。奶油色纸张（#FFF8EF），柔和的粉色和蜜桃色、细腻纸纹、圆润软萌的小猪。`,
     scene.layout === "panels"
       ? "将这段情节画成连续分镜，按场景描述安排每格。每格只画该格在场的角色；跨格出现的同一角色保持造型一致。"
       : "用一个完整画面表现选定的一幕，不分格。",
@@ -329,7 +359,7 @@ function warn(message) {
   console.warn(`::warning::${actionMessage(message)}`);
 }
 
-function localArtFilename(image) {
+export function localArtFilename(image) {
   if (!image.startsWith(ART_URL_PREFIX)) {
     return null;
   }

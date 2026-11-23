@@ -7,7 +7,8 @@
     "dev:site": "astro dev",
     "test": "node --test tests/*.test.mjs",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "note-art:preview": "node scripts/preview-note-panels.mjs"
   },
   "devDependencies": {
     "astro": "^6.2.2",
