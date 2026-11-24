@@ -76,12 +76,14 @@ export const PORKY_CAST = Object.freeze([
   Object.freeze({
     name: "呆瓜猪",
     size: "普通大小",
-    visual: "黑蓝色游戏耳机与短麦克风、双蹄拿黑色游戏手柄"
+    visual: "黑蓝色游戏耳机，耳罩上连着短麦克风",
+    sceneCue: "玩游戏时可用黑色游戏手柄"
   }),
   Object.freeze({
     name: "乖乖猪",
     size: "普通大小",
-    visual: "红白格子小围巾、两只前蹄温柔地合拢"
+    visual: "红白格子小围巾、柔软下垂的耳尖",
+    sceneCue: "开饭前有双蹄合十的习惯，其他时候前蹄随当下动作自然摆放"
   }),
   Object.freeze({
     name: "大呆猪",
@@ -107,7 +109,8 @@ export const PORKY_CAST = Object.freeze([
     name: "呱呱猪",
     aliases: Object.freeze(["呱瓜猪"]),
     size: "普通大小",
-    visual: "右耳黄色蝴蝶结、颈前橙色蝴蝶结、手持小麦克风"
+    visual: "右耳黄色蝴蝶结、颈前橙色蝴蝶结",
+    sceneCue: "唱歌或主持时可用小麦克风"
   }),
   Object.freeze({
     name: "小色猪",
@@ -117,7 +120,8 @@ export const PORKY_CAST = Object.freeze([
   Object.freeze({
     name: "贪吃猪",
     size: "普通大小但体态圆实",
-    visual: "绿色围兜、抱着一根玉米、脸颊有一点棕色酱汁"
+    visual: "绿色围兜、脸颊有一点棕色酱汁",
+    sceneCue: "吃玉米时可双蹄捧着玉米"
   }),
   Object.freeze({
     name: "小猪",
@@ -133,12 +137,14 @@ export const PORKY_CAST = Object.freeze([
     name: "香香猪",
     aliases: Object.freeze(["香瓜猪"]),
     size: "普通大小",
-    visual: "粉色白波点浴巾头带与大蝴蝶结、拿着蓬松化妆刷"
+    visual: "粉色白波点浴巾头带与大蝴蝶结",
+    sceneCue: "化妆时可用蓬松化妆刷"
   }),
   Object.freeze({
     name: "勤劳猪",
     size: "普通大小",
-    visual: "蓝白格子头巾、黄色围裙、手拿鸡毛掸子"
+    visual: "蓝白格子头巾、黄色围裙",
+    sceneCue: "掸灰时可用鸡毛掸子"
   })
 ]);
 
@@ -156,8 +162,8 @@ export const GUEST_CAST = Object.freeze(site.guests.map(({ name, aliases = [], a
 const CHARACTERS = [...PORKY_CAST, ...GUEST_CAST];
 const CAST_NAMES = CHARACTERS.map(({ name }) => name);
 const KNOWN_LABELS = new Set(CHARACTERS.flatMap(({ name, aliases = [] }) => [name, ...aliases]));
-const namesAndAliases = ({ name, aliases = [] }) => ({ name, aliases });
-const ROSTER = { residents: PORKY_CAST.map(namesAndAliases), guests: GUEST_CAST.map(namesAndAliases) };
+const rosterEntry = ({ name, aliases = [], sceneCue }) => sceneCue ? { name, aliases, sceneCue } : { name, aliases };
+const ROSTER = { residents: PORKY_CAST.map(rosterEntry), guests: GUEST_CAST.map(rosterEntry) };
 
 export function sceneInput(note) {
   const markers = new Set();
@@ -185,11 +191,15 @@ const PANEL_STUDY_INSTRUCTIONS = [
   "分镜围绕同一个连贯的故事，不串联不同小节。",
   "用两格讲清铺垫与结果；只有必须独立呈现停顿、误会或转折时，才用三格。按阅读顺序返回 panels，结尾留给最传神的反应。",
   "每格的 moment 只描述一个瞬间，点明在场角色、动作归属、表情、构图与景别。用 firstSentence 和 lastSentence 指向直接支持这一格的原文，可共用一句。仅被提及的角色不入画。",
-  "continuity 写跨格沿用的场景、光线、左右方位和道具。若正文明确换地点，请分别交代。每格的角色以该格的 cast 为准。"
+  "continuity 写跨格沿用的场景、光线和左右方位。手势和手持物写在各格的 moment 里，随动作变化。若正文明确换地点，请分别交代。每格的角色以该格的 cast 为准。"
 ].join("\n");
+
+const HOOF_DIRECTION = "按这一刻的原文动作安排每只猪的前蹄。躺在床上、窝在被子里或入睡时，前蹄放松或按原文牵手、拉被角，不拿用于辨认角色的标志性道具。";
 
 const CAST_INSTRUCTIONS = [
   "roster 是完整的住户和来宾名册，供核对正名和别名。根据小记的称呼、指代和动作判断谁在场，cast 只填这一幕能辨认出的名册角色正名。没有身份线索的普通小猪或其他来宾不猜成名册角色，也不额外安排入画。",
+  "名册中的 sceneCue 是特定活动下的习惯。只有原文中的角色正在做相应的事，且与当下的动作相容时，才把这个细节写进 moment。",
+  HOOF_DIRECTION,
   "markers 列出作者在正文中实际标记的角色。[[小猪]]指特定住户，裸写的小猪是普通称呼。",
   "fullHerd 只用于明确以十五只固定小猪全员同场为主体的画面（例如全家福或全员分床）。只是计数、分东西或提到山庄全体，不要求全员合照。全员场景会自动配上十五只的身份。",
   "画面保持无字，不安排任何需要实际画出来的配字、标题、字幕、对白文字、对话框、标签、数字或字母。这条限制只针对画面中的文字，不限制选景说明的语义：moment 应保留对理解故事和笑点必要的对白含义、提问内容、答非所问、误会及因果关系，必要时可以引用原句，供画师理解。引用或概述对白不表示把它写在画面上。结合原文把这些含义落实为角色的动作、表情和反应，不为实现无字而删掉关键笑点，也不添加原文没有的情节。",
@@ -297,6 +307,7 @@ export function buildArtPrompt(scene, { body, markers = [] }, { portrait = false
     excerpt,
     "用作者的措辞把握动作、表情和情绪，保留原文的语气。出镜角色以选定的场景为准，原文中仅被提及的人物不要入画。原句和标记都不要画成文字。",
     ...identities,
+    HOOF_DIRECTION,
     "同一个镜头中每个角色只出现一次，动作、配饰只属于它自己。按场景写出的角色和人数构图，不额外添加旁观者或背景角色。",
     scene.fullHerd
       ? `全员同场的镜头里必须恰好有15只常住小猪（13只普通、1只特别大、1只特别小），三排，每排五只，完整可见。前排：${PORKY_ROWS[0].join("、")}。中排：${PORKY_ROWS[1].join("、")}。后排：${PORKY_ROWS[2].join("、")}。本场出镜的来宾在三排之外另计。`
@@ -312,7 +323,7 @@ export function buildPanelShots({ continuity, panels }, input, original) {
     const prompt = [
       buildArtPrompt(panel, input, { portrait: height > width }),
       `【场景连续性】${continuity}`,
-      "参考图只用于对齐角色外形、场景和笔触。本次只画这一格指定的角色、动作和地点，画满独立画布。",
+      "参考图只用于对齐角色外形、场景和笔触。本次只画这一格指定的角色、动作和地点，画满独立画布。前蹄姿势和手持物以本格原文为准，不照搬参考图。",
       ...(original ? ["第一张参考图是原配图，忽略其中的分格和旧构图。"] : []),
       ...(index ? ["最后一张参考图是本组的第一格。保持同一角色的衣饰、体型与画风，依本格情节调整表情和景别。"] : [])
     ].join("\n");

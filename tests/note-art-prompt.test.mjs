@@ -6,6 +6,7 @@ import {
   GUEST_CAST,
   PORKY_CAST,
   buildArtPrompt,
+  buildPanelShots,
   pickPendingNotes,
   requestNoteScene,
   sceneInput
@@ -71,6 +72,32 @@ test("explicit full-herd scenes supply every identity and keep guests outside th
   const genericInput = sceneInput({ body: "两只小猪晒太阳。" });
   const generic = buildArtPrompt({ moment: genericInput.body, sourceExcerpt: genericInput.body, cast: [], fullHerd: false }, genericInput);
   assert.doesNotMatch(generic, /波波头|三排/);
+});
+
+test("a herd in bed keeps its identifying features and its hooves free to hold hands", () => {
+  const input = sceneInput({ body: "十五只小猪躺在床上，手拉着手看雪。" });
+  const prompt = buildArtPrompt({ moment: input.body, sourceExcerpt: input.body, cast: [], fullHerd: true }, input);
+  assert.match(prompt, /手拉着手看雪/);
+  assert.match(prompt, /红白格子小围巾/);
+  assert.match(prompt, /不拿用于辨认角色的标志性道具/);
+  assert.doesNotMatch(prompt, /游戏手柄|小麦克风|玉米|化妆刷|鸡毛掸子|合十|合拢/);
+});
+
+test("props and gestures belong to the panel where the characters perform the action", () => {
+  const playing = "开饭前乖乖猪双蹄合十，呆瓜猪放下黑色游戏手柄。";
+  const resting = "后来两只猪并排躺下，前蹄牵在一起。";
+  const input = sceneInput({ body: playing + resting });
+  const cues = Object.fromEntries(input.roster.residents.map(({ name, sceneCue }) => [name, sceneCue]));
+  assert.match(cues["呆瓜猪"], /玩游戏.*黑色游戏手柄/);
+  assert.match(cues["乖乖猪"], /开饭前.*合十/);
+  const panels = [playing, resting].map(text => ({
+    moment: text, sourceExcerpt: text, cast: ["乖乖猪", "呆瓜猪"], fullHerd: false
+  }));
+  const [before, after] = buildPanelShots({ continuity: "屋内暖光。", panels }, input, true);
+  assert.match(before.prompt, /双蹄合十.*黑色游戏手柄/);
+  assert.match(after.prompt, /前蹄牵在一起/);
+  assert.match(after.prompt, /手持物以本格原文为准/);
+  assert.doesNotMatch(after.prompt, /游戏手柄|合十|合拢/);
 });
 
 test("only an actual character marker identifies the named little pig in a partial cast", () => {
